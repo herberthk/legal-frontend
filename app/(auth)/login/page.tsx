@@ -1,53 +1,55 @@
 "use client";
 import React, { useState } from "react";
-import { Scale, Mail, Lock, ArrowRight } from "lucide-react";
+import { Scale, Mail, Lock, ArrowRight, Shield, UserIcon } from "lucide-react";
 import Link from "next/link";
+import { createSession } from "@/lib";
+import { redirect, useRouter } from "next/navigation";
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role>("USER");
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const router = useRouter();
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate API call & Generate Mock User based on selection
-    setTimeout(() => {
-      const mockUser: User =
-        selectedRole === "ADMIN"
-          ? {
-              id: "admin-01",
-              name: "System Administrator",
-              email: "admin@legaladviser.ug",
-              avatar:
-                "https://ui-avatars.com/api/?name=Admin+User&background=0f172a&color=fff",
-              role: "ADMIN",
-              balance: 0,
-              totalSpent: 0,
-              status: "active",
-              freeTextTokens: 1000,
-              welcomeTextTokens: 0, // Admin doesn't need welcome bonus
-              freeVoiceSeconds: 300,
-              lastDailyReset: new Date().toISOString(),
-            }
-          : {
-              id: "user-01",
-              name: "Kampala Resident",
-              email: "citizen@uganda.com",
-              avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-              role: "USER",
-              balance: 0.0, // Reset to 0 for new user logic
-              totalSpent: 0.0,
-              status: "active",
-              // Specific Welcome Bonus: 4000 Tokens + 5 Mins Voice
-              welcomeTextTokens: 4000,
-              freeTextTokens: 1000, // Daily limit available after welcome is used (or parallel depending on logic, but logic enforces priority)
-              freeVoiceSeconds: 300,
-              lastDailyReset: new Date().toISOString(),
-            };
-
-      //   onLogin(mockUser);
-    }, 1500);
+    const mockUser: User =
+      selectedRole === "ADMIN"
+        ? {
+            id: "admin-01",
+            name: "System Administrator",
+            email: "admin@legaladviser.ug",
+            avatar:
+              "https://ui-avatars.com/api/?name=Admin+User&background=0f172a&color=fff",
+            role: "ADMIN",
+            balance: 0,
+            totalSpent: 0,
+            status: "active",
+            freeTextTokens: 1000,
+            welcomeTextTokens: 0, // Admin doesn't need welcome bonus
+            freeVoiceSeconds: 300,
+            lastDailyReset: new Date().toISOString(),
+          }
+        : {
+            id: "user-01",
+            name: "Kampala Resident",
+            email: "citizen@uganda.com",
+            avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
+            role: "USER",
+            balance: 0.0, // Reset to 0 for new user logic
+            totalSpent: 0.0,
+            status: "active",
+            // Specific Welcome Bonus: 4000 Tokens + 5 Mins Voice
+            welcomeTextTokens: 4000,
+            freeTextTokens: 1000, // Daily limit available after welcome is used (or parallel depending on logic, but logic enforces priority)
+            freeVoiceSeconds: 300,
+            lastDailyReset: new Date().toISOString(),
+          };
+    await createSession(mockUser);
+    setLoading(false);
+    const path =
+      selectedRole === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
+    router.push(path);
   };
 
   return (
@@ -63,7 +65,7 @@ const LoginPage = () => {
         </h2>
 
         {/* Role Toggles */}
-        {/* <div className="mt-6 flex justify-center space-x-4">
+        <div className="mt-6 flex justify-center space-x-4">
           <button
             onClick={() => setSelectedRole("USER")}
             className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
@@ -86,7 +88,7 @@ const LoginPage = () => {
             <Shield size={16} />
             <span>Admin</span>
           </button>
-        </div> */}
+        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">

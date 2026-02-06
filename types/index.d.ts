@@ -1,44 +1,33 @@
 declare global {
-  interface User {
-    name: string;
-    email: string;
-    id: string;
-  }
+  // type User = {
+  //   name: string;
+  //   email: string;
+  //   id: string;
+  // };
 
-  interface SignInParams {
+  type SignInParams = {
     email: string;
     idToken: string;
-  }
+  };
 
-  interface SignUpParams {
+  type SignUpParams = {
     uid: string;
     name: string;
     email: string;
     password: string;
-  }
+  };
 
-  export enum View {
-    LANDING = "LANDING",
-    AUTH = "AUTH",
-    DASHBOARD = "DASHBOARD",
-    CHAT = "CHAT",
-    VOICE = "VOICE",
-    BILLING = "BILLING",
-    SUPPORT = "SUPPORT", // User view
-    USERS = "USERS", // Admin only
-    CONFIGURATION = "CONFIGURATION", // Admin only
-    ADMIN_COMPLAINTS = "ADMIN_COMPLAINTS", // Admin only
-    NOTIFICATIONS = "NOTIFICATIONS",
-    // Legal Pages
-    TERMS = "TERMS",
-    PRIVACY = "PRIVACY",
-    DISCLAIMER = "DISCLAIMER",
-    COOKIE_POLICY = "COOKIE_POLICY",
-  }
+  type Notifications = {
+    id: number;
+    text: string;
+    time: string;
+    unread: boolean;
+    type?: "info" | "alert" | "success";
+  };
 
   type Role = "ADMIN" | "USER";
 
-  interface User {
+  type User = {
     id: string;
     name: string;
     email: string;
@@ -53,18 +42,18 @@ declare global {
     welcomeTextTokens: number; // One-time Sign up bonus (4000)
     freeVoiceSeconds: number; // One-time welcome bonus (300s = 5mins)
     lastDailyReset: string; // ISO Date string
-  }
+  };
 
-  interface PaymentMethod {
+  type PaymentMethod = {
     id: string;
     type: "visa" | "mastercard" | "mobile_money";
     last4: string; // or phone number for mobile money
     expiry?: string;
     isDefault: boolean;
     holderName: string;
-  }
+  };
 
-  interface Message {
+  type Message = {
     id: string;
     role: "user" | "model";
     text: string;
@@ -75,23 +64,23 @@ declare global {
       type: string;
       data: string;
     };
-  }
+  };
 
-  interface ChartData {
+  type ChartData = {
     name: string;
     value: number;
     revenue?: number;
     cost?: number;
-  }
+  };
 
-  interface Transaction {
+  type Transaction = {
     id: string;
     type: "TEXT_CHAT" | "VOICE_SESSION" | "DEPOSIT";
     description: string;
     amount: number; // Cost (negative) or Deposit (positive)
     date: string;
     details: string; // e.g., "1.5k tokens" or "4m 20s"
-  }
+  };
 
   type ConnectionState = "disconnected" | "connecting" | "connected" | "error";
 
@@ -104,7 +93,7 @@ declare global {
     | "TECHNICAL"
     | "OTHER";
 
-  interface Complaint {
+  type Complaint = {
     id: string;
     userId: string;
     userName: string;
@@ -118,39 +107,41 @@ declare global {
     createdAt: string;
     updatedAt: string;
     resolutionNote?: string;
-  }
+  };
 
-  interface Notification {
+  type Notification = {
     id: number;
     text: string;
     time: string;
     unread: boolean;
     type?: "info" | "alert" | "success";
-  }
+  };
 
-  interface TokenUsageRecord {
+  type TokenUsageRecord = {
     id: string;
     timestamp: number; // Unix timestamp
     amount: number; // Quantity (Tokens or Seconds)
     unit: "TOKENS" | "SECONDS";
     type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION";
-  }
+  };
 
-  interface VoiceSession {
+  type VoiceSession = {
     id: string;
     userId: string;
+    // unit: "SECONDS" | "MINUTES";
+    // amount: number;
     date: string; // ISO string
     duration: number; // seconds
     audioUrl?: string; // Blob URL
     previewText: string; // Summary or first user message
-  }
+  };
 
   type Theme = "light" | "dark";
 
-  interface ThemeState {
+  type ThemeState = {
     theme: Theme;
     toggleTheme: () => void;
     setTheme: (theme: Theme) => void;
-  }
+  };
 }
 export {};
