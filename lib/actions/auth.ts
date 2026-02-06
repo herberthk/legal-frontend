@@ -151,3 +151,25 @@ export async function isAuthenticated() {
   const user = await getCurrentUser();
   return !!user;
 }
+
+export const createSession = async (user: User) => {
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  //   const session = await encrypt({ userId, expires });
+  const cookieStore = await cookies();
+  await cookieStore.set("session", JSON.stringify(user), {
+    expires,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  });
+};
+
+export const getUserSession = async () => {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("session")?.value;
+  if (!session) {
+    return null;
+  }
+  return JSON.parse(session) as User;
+};
