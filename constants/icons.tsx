@@ -1,3 +1,12 @@
+import {
+  CreditCard,
+  FileWarning,
+  LayoutDashboard,
+  LifeBuoy,
+  Settings,
+  Users,
+} from "lucide-react";
+
 export const MicIcon = ({ size }: { size: number }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -46,3 +55,58 @@ export const FileTextIcon = ({ size }: { size: number }) => (
     <polyline points="14 2 14 8 20 8" />
   </svg>
 );
+
+export const sideBarItems = (role: Role) =>
+  role === "ADMIN"
+    ? [
+        {
+          id: "dashboard",
+          label: "Dashboard",
+          icon: <LayoutDashboard size={20} />,
+          href: "/dashboard/admin",
+        },
+        {
+          id: "admin-users",
+          label: "User Management",
+          icon: <Users size={20} />,
+          href: "/dashboard/admin/users",
+        },
+        {
+          id: "admin-complaints",
+          label: "User Complaints",
+          icon: <FileWarning size={20} />,
+          href: "/dashboard/admin/complaints",
+        },
+        {
+          id: "admin-configuration",
+          label: "Configuration",
+          icon: <Settings size={20} />,
+          href: "/dashboard/admin/configuration",
+        },
+      ]
+    : [
+        {
+          id: "dashboard",
+          label: "Dashboard",
+          icon: <LayoutDashboard size={20} />,
+          href: "/dashboard/user",
+        },
+        {
+          id: "user-chat",
+          label: "Chat with AI",
+          icon: <MessageSquareIcon size={20} />,
+          href: "/dashboard/user/chat",
+        },
+        {
+          id: "user-billing",
+          label: "Billing & Usage",
+          icon: <CreditCard size={20} />,
+          href: "/dashboard/user/billing",
+        },
+        {
+          id: "user-help",
+          label: "Help & Support",
+          icon: <LifeBuoy size={20} />,
+          href: "/dashboard/user/help",
+        },
+      ];

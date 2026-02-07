@@ -7,8 +7,10 @@ type AppStore = {
   setShowDemo: (showDemo: boolean) => void;
   showNotifications: boolean;
   toggleNotifications: () => void;
-  voicePreference: string;
-  setVoicePreference: (voicePreference: string) => void;
+  preferredVoice: string;
+  setPreferredVoice: (preferredVoice: string) => void;
+  activeTab: string;
+  setActiveTab: (activeTab: string) => void;
 };
 // Implement persist middleware to persist the state in local storage
 export const useAppStore = create<AppStore>()(
@@ -19,8 +21,10 @@ export const useAppStore = create<AppStore>()(
       showNotifications: false,
       toggleNotifications: () =>
         set((state) => ({ showNotifications: !state.showNotifications })),
-      voicePreference: "Kore",
-      setVoicePreference: (voicePreference: string) => set({ voicePreference }),
+      preferredVoice: "Kore",
+      setPreferredVoice: (preferredVoice: string) => set({ preferredVoice }),
+      activeTab: "dashboard",
+      setActiveTab: (activeTab: string) => set({ activeTab }),
     }),
     {
       name: "app-storage",

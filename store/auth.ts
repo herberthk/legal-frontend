@@ -4,7 +4,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 type AuthStore = {
   user: User | null;
   setUser: (user: User | null) => void;
-  logout: () => void;
+  clearUser: () => void;
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
   showProfile: boolean;
@@ -16,7 +16,7 @@ export const useAuthStore = create<AuthStore>()(
     (set) => ({
       user: null,
       setUser: (user: User | null) => set({ user }),
-      logout: () => set({ user: null }),
+      clearUser: () => set({ user: null }),
       isSidebarOpen: false,
       toggleSidebar: () =>
         set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
