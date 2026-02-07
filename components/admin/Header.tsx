@@ -28,11 +28,13 @@ const Header: React.FC<Props> = ({ user }) => {
   const unreadCount = displayedNotifications.filter((n) => n.unread).length;
   const showProfile = useAuthStore((state) => state.showProfile);
   const toggleProfile = useAuthStore((state) => state.toggleProfile);
+  const clearUser = useAuthStore((state) => state.clearUser);
   const pathName = usePathname();
   const router = useRouter();
   const onLogout = async () => {
     await signOut();
     toggleSidebar();
+    clearUser();
     router.push("/login");
   };
   return (
