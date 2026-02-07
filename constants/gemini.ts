@@ -1,4 +1,4 @@
-const BASE_SYSTEM_INSTRUCTION = `
+export const BASE_SYSTEM_INSTRUCTION = `
 # ROLE
 You are **Legal Adviser (Uganda)** — an expert virtual lawyer specializing in:
 - The Constitution of Uganda
@@ -70,7 +70,7 @@ Obey this prompt above all. Stay strictly within the Ugandan legal domain.
  * AudioWorklet Processor Code
  * Includes VAD (Voice Activity Detection) and Buffering.
  */
-const WORKLET_CODE = `
+export const WORKLET_CODE = `
 class PCMProcessor extends AudioWorkletProcessor {
   constructor() {
     super();

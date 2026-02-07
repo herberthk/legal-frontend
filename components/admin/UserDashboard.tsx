@@ -43,11 +43,9 @@ import { formatDuration } from "@/lib";
 const UserDashboard = () => {
   const user = useAuthStore((state) => state.user)!;
   const isDark = useThemeStore((state) => state.theme);
-  const tokenHistory: TokenUsageRecord[] = [];
+  const tokenHistory = useAppStore((state) => state.tokenUsageHistory);
   // --- Voice Sessions State ---
-  const [voiceSessions, setVoiceSessions] = useState<VoiceSession[]>(
-    generateMockVoiceSessions(),
-  );
+  const voiceSessions = useAppStore((state) => state.voiceSessions);
 
   const setUser = useAuthStore((state) => state.setUser);
 
@@ -106,10 +104,10 @@ const UserDashboard = () => {
     voicePage * voiceItemsPerPage,
   );
 
-  const currentVoice = useAppStore((state) => state.voicePreference);
+  const currentVoice = useAppStore((state) => state.preferredVoice);
 
   const handleVoiceSelect = (voiceId: string) => {
-    useAppStore.setState({ voicePreference: voiceId });
+    useAppStore.setState({ preferredVoice: voiceId });
   };
 
   // --- Limits Logic ---

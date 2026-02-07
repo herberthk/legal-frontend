@@ -1,7 +1,11 @@
+import ChatInterface from "@/components/admin/ChatInterface";
+// import { useAuthStore } from "@/store";
+
 const ChatPage = () => {
+  // const user = useAuthStore((state) => state.user);
   return (
     <div>
-      <h1>Chat</h1>
+      <ChatInterface />
     </div>
   );
 };

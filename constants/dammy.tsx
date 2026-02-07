@@ -49,6 +49,11 @@ export const notifications = (): Notifications[] => {
   return baseNotifications;
 };
 
+// Helper for deterministic date formatting (YYYY-MM-DD) to prevent locale-based hydration errors
+const formatDate = (date: Date) => {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+};
+
 export const generateUserTransactions = (count = 15): Transaction[] => {
   const types: ("TEXT_CHAT" | "VOICE_SESSION" | "DEPOSIT")[] = [
     "TEXT_CHAT",
@@ -63,7 +68,7 @@ export const generateUserTransactions = (count = 15): Transaction[] => {
     type: types[i % types.length],
     description: `Transaction #${i + 100}`,
     amount: (i % 2 === 0 ? 1 : -1) * (((i * 1.5) % 5) + 1),
-    date: new Date(referenceTimestamp - i * 86400000).toLocaleDateString(),
+    date: formatDate(new Date(referenceTimestamp - i * 86400000)),
     details: i % 2 === 0 ? "Success" : "Completed",
   }));
 };
@@ -90,6 +95,7 @@ export const voices = [
   },
   { id: "Fenrir", name: "Fenrir", gender: "Male", desc: "Strong & Direct" },
 ];
+
 // Mock Data Generator for Voice Sessions
 export const generateMockVoiceSessions = (count = 8): VoiceSession[] => {
   // Use a fixed reference timestamp for deterministic dates during SSR
@@ -115,3 +121,124 @@ export const generateMockVoiceSessions = (count = 8): VoiceSession[] => {
     ][i % 8],
   }));
 };
+
+// --- Mock Data Generators ---
+export const generateMockTransactions = (count = 20): Transaction[] => {
+  const descs = [
+    "Funds Added (Visa ...4242)",
+    "Legal Consultation: Land Title",
+    "Doc Analysis: Employment Contract",
+    "Quick Query: VAT Rates",
+    "Funds Added (Mobile Money)",
+    "Consultation: Family Law",
+  ];
+  // Use a fixed reference timestamp for deterministic dates during SSR
+  const referenceTimestamp = new Date("2024-01-01T00:00:00Z").getTime();
+
+  return Array.from({ length: count }).map((_, i) => ({
+    id: `t${i}`,
+    type: i % 5 === 0 ? "DEPOSIT" : i % 3 === 0 ? "VOICE_SESSION" : "TEXT_CHAT",
+    description: descs[i % descs.length],
+    amount:
+      i % 5 === 0
+        ? 50.0
+        : -parseFloat(((i % 5) + 1 + (i % 3) * 0.5).toFixed(2)),
+    date: formatDate(new Date(referenceTimestamp - i * 86400000)),
+    details: i % 5 === 0 ? "Success" : i % 3 === 0 ? "12m 45s" : "1.2k tokens",
+  }));
+};
+
+export const generateMockCards = (): PaymentMethod[] => [
+  {
+    id: "c1",
+    type: "visa",
+    last4: "4242",
+    expiry: "12/25",
+    isDefault: true,
+    holderName: "John Doe",
+  },
+  {
+    id: "c2",
+    type: "mobile_money",
+    last4: "077****89",
+    isDefault: false,
+    holderName: "John Doe",
+  },
+];
+
+export const generateUsageData = () => [
+  { name: "Mon", cost: 1.2 },
+  { name: "Tue", cost: 3.5 },
+  { name: "Wed", cost: 0.8 },
+  { name: "Thu", cost: 2.1 },
+  { name: "Fri", cost: 4.0 },
+  { name: "Sat", cost: 0.5 },
+  { name: "Sun", cost: 1.2 },
+];
+
+// export const generateMockComplaints = (count = 5): Complaint[] => {
+//   const categories: ComplaintCategory[] = [
+//     "DOUBLE_CHARGE",
+//     "OTHER",
+//     "OVERCHARGE",
+//     "REFUND",
+//     "TECHNICAL",
+//   ];
+//   const statuses: ComplaintStatus[] = [
+//     "OPEN",
+//     "IN_PROGRESS",
+//     "RESOLVED",
+//     "REJECTED",
+//   ];
+//   const referenceTimestamp = new Date("2024-01-01T00:00:00Z").getTime();
+
+//   return Array.from({ length: count }).map((_, i) => ({
+//     id: `c${i}`,
+//     userId: "user-01",
+//     category: categories[i % categories.length],
+//     subject: `Complaint #${i + 100}`,
+//     description:
+//       i % 2 === 0
+//         ? "There was an issue with my last transaction. The amount deducted was incorrect."
+//         : "The AI response quality was not up to standard for this query.",
+//     status: statuses[i % statuses.length],
+//     createdAt: new Date(
+//       referenceTimestamp - i * 86400000,
+//     ).toISOString(),
+//     updatedAt: new Date(
+//       referenceTimestamp - i * 86400000,
+//     ).toISOString(),
+//   }));
+// };
+
+export const complaints: Complaint[] = [
+  {
+    id: "cmp_mock1",
+    userId: "user_mock_01", // Some other user
+    userName: "Sarah Jenk",
+    email: "sarah.j@example.com",
+    subject: "Voice session disconnected but charged",
+    description:
+      "I was on a call for 2 minutes but it dropped. I was charged for 10 minutes.",
+    category: "OVERCHARGE",
+    priority: "HIGH",
+    status: "OPEN",
+    createdAt: "2023-12-30T10:00:00.000Z",
+    updatedAt: "2023-12-30T10:00:00.000Z",
+  },
+  {
+    id: "cmp_mock2",
+    userId: "user_mock_02",
+    userName: "David K",
+    email: "david.k@example.com",
+    subject: "Request for refund on Deposit",
+    description:
+      "Accidentally deposited twice. Please refund transaction TX-9988.",
+    category: "REFUND",
+    priority: "MEDIUM",
+    status: "RESOLVED",
+    resolutionNote: "Refund processed to original payment method.",
+    createdAt: "2023-12-25T14:30:00.000Z",
+    updatedAt: "2023-12-31T09:15:00.000Z",
+  },
+];

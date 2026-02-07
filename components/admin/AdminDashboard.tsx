@@ -1,8 +1,14 @@
 "use client";
+import React, { useState, useEffect } from "react";
+import { useAppStore } from "@/store";
 import { Users, TrendingUp, Mic, Server } from "lucide-react";
 
 const AdminDashboard = () => {
-  const tokenUsageHistory: TokenUsageRecord[] = [];
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
+
+  const tokenUsageHistory = useAppStore((state) => state.tokenUsageHistory);
   // Calculate stats from tokenHistory or use mocks
   const textTokens = tokenUsageHistory
     .filter((r) => r.unit === "TOKENS")
@@ -109,7 +115,9 @@ const AdminDashboard = () => {
                     </p>
                   </div>
                   <span className="text-xs text-slate-400 font-mono">
-                    {new Date(rec.timestamp).toLocaleTimeString()}
+                    {mounted
+                      ? new Date(rec.timestamp).toLocaleTimeString()
+                      : "--:--"}
                   </span>
                 </div>
               ))
