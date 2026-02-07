@@ -6,6 +6,7 @@ import {
   Session,
 } from "@google/genai";
 import { ContextCompressor } from "./compressor";
+import { BASE_SYSTEM_INSTRUCTION, WORKLET_CODE } from "@/constants";
 
 export const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY as string;
 /**

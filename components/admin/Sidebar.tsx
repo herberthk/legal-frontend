@@ -32,6 +32,8 @@ const Sidebar = ({ user }: Props) => {
     setUser(user);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  console.log("activeTab", activeTab);
   return (
     <aside
       className={`fixed inset-y-0 left-0 z-40 w-64 text-white flex flex-col shadow-xl transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${

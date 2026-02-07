@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useRef, useEffect } from "react";
 import {
   Send,
@@ -23,10 +24,21 @@ import { createChatSession } from "@/services";
 import { Chat, PartListUnion } from "@google/genai";
 import { VoiceInterface } from "./VoiceChat";
 import { PRICE_PER_TOKEN, PRICE_PER_VOICE_SECOND } from "@/constants";
+import { useAppStore, useAuthStore } from "@/store";
 
 type ConnectionStatus = "connected" | "reconnecting" | "offline";
 
-export const ChatInterface = () => {
+const ChatInterface = () => {
+  const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
+  const tokenUsageHistory = useAppStore((state) => state.tokenUsageHistory);
+  const setTokenUsageHistory = useAppStore(
+    (state) => state.setTokenUsageHistory,
+  );
+
+  // --- Voice Sessions State ---
+  const voiceSessions = useAppStore((state) => state.voiceSessions);
+  const setVoiceSessions = useAppStore((state) => state.setVoiceSessions);
   // --- CORE BILLING LOGIC ---
 
   /**
@@ -64,63 +76,62 @@ export const ChatInterface = () => {
 
     let success = true;
 
-    setUser((prevUser) => {
-      if (!prevUser) return null;
+    if (!user) return false;
 
-      let newBalance = prevUser.balance;
-      let newFreeTokens = prevUser.freeTextTokens;
-      let newWelcomeTokens = prevUser.welcomeTextTokens || 0;
-      let newFreeVoice = prevUser.freeVoiceSeconds;
+    let newBalance = user.balance;
+    let newFreeTokens = user.freeTextTokens;
+    let newWelcomeTokens = user.welcomeTextTokens || 0;
+    let newFreeVoice = user.freeVoiceSeconds;
 
-      let amountRemaining = amount;
+    let amountRemaining = amount;
 
-      if (unit === "TOKENS") {
-        // 1. Deduct from Welcome Bonus FIRST
-        if (newWelcomeTokens > 0) {
-          const deduction = Math.min(newWelcomeTokens, amountRemaining);
-          newWelcomeTokens -= deduction;
-          amountRemaining -= deduction;
-        }
-
-        // 2. Deduct from Daily Free SECOND (if Welcome is exhausted)
-        if (amountRemaining > 0 && newFreeTokens > 0) {
-          const deduction = Math.min(newFreeTokens, amountRemaining);
-          newFreeTokens -= deduction;
-          amountRemaining -= deduction;
-        }
-
-        // 3. Deduct from Balance LAST
-        if (amountRemaining > 0) {
-          const cost = amountRemaining * PRICE_PER_TOKEN;
-          newBalance -= cost;
-        }
-      } else if (unit === "SECONDS") {
-        // 1. Deduct from Welcome Voice FIRST
-        if (newFreeVoice >= amount) {
-          newFreeVoice -= amount;
-        } else {
-          const remainder = amount - newFreeVoice;
-          newFreeVoice = 0;
-          const cost = remainder * PRICE_PER_VOICE_SECOND;
-          newBalance -= cost;
-        }
+    if (unit === "TOKENS") {
+      // 1. Deduct from Welcome Bonus FIRST
+      if (newWelcomeTokens > 0) {
+        const deduction = Math.min(newWelcomeTokens, amountRemaining);
+        newWelcomeTokens -= deduction;
+        amountRemaining -= deduction;
       }
 
-      // Check for Bankruptcy (Graceful termination trigger)
-      if (newBalance < 0) {
-        success = false;
-        newBalance = Math.max(0, newBalance);
+      // 2. Deduct from Daily Free SECOND (if Welcome is exhausted)
+      if (amountRemaining > 0 && newFreeTokens > 0) {
+        const deduction = Math.min(newFreeTokens, amountRemaining);
+        newFreeTokens -= deduction;
+        amountRemaining -= deduction;
       }
 
-      return {
-        ...prevUser,
-        balance: newBalance,
-        freeTextTokens: newFreeTokens,
-        welcomeTextTokens: newWelcomeTokens,
-        freeVoiceSeconds: newFreeVoice,
-        totalSpent: prevUser.totalSpent + (prevUser.balance - newBalance),
-      };
-    });
+      // 3. Deduct from Balance LAST
+      if (amountRemaining > 0) {
+        const cost = amountRemaining * PRICE_PER_TOKEN;
+        newBalance -= cost;
+      }
+    } else if (unit === "SECONDS") {
+      // 1. Deduct from Welcome Voice FIRST
+      if (newFreeVoice >= amount) {
+        newFreeVoice -= amount;
+      } else {
+        const remainder = amount - newFreeVoice;
+        newFreeVoice = 0;
+        const cost = remainder * PRICE_PER_VOICE_SECOND;
+        newBalance -= cost;
+      }
+    }
+
+    // Check for Bankruptcy (Graceful termination trigger)
+    if (newBalance < 0) {
+      success = false;
+      newBalance = Math.max(0, newBalance);
+    }
+
+    const updatedUser = {
+      ...user,
+      balance: newBalance,
+      freeTextTokens: newFreeTokens,
+      welcomeTextTokens: newWelcomeTokens,
+      freeVoiceSeconds: newFreeVoice,
+      totalSpent: user.totalSpent + (user.balance - newBalance),
+    };
+    setUser(updatedUser);
 
     // Log Usage Record
     const record: TokenUsageRecord = {
@@ -130,8 +141,7 @@ export const ChatInterface = () => {
       unit,
       type,
     };
-    setTokenUsageHistory((prev) => [...prev, record]);
-
+    setTokenUsageHistory([...tokenUsageHistory, record]);
     return success;
   };
 
@@ -141,18 +151,19 @@ export const ChatInterface = () => {
     if (!user) return;
     const newSession: VoiceSession = {
       id: `sess_${Date.now()}`,
-      userId: user.id,
+      //   userId: user.id,
       date: new Date().toISOString(),
       ...sessionData,
     };
-    setVoiceSessions((prev) => [newSession, ...prev]);
+    // setVoiceSessions((prev) => [newSession, ...prev]);
+    setVoiceSessions([...voiceSessions, newSession]);
   };
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "0",
       role: "model",
       text: "Greetings. I am your Legal Adviser specializing in Ugandan Law. How may I assist you with the Constitution, Tax Administration, or Rule of Law today?",
-      timestamp: new Date(),
+      timestamp: new Date("2024-01-01T00:00:00Z"),
     },
   ]);
   const [input, setInput] = useState("");
@@ -165,9 +176,8 @@ export const ChatInterface = () => {
   const [isInputFocused, setIsInputFocused] = useState(false);
 
   // Connectivity State
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(
-    navigator.onLine ? "connected" : "offline",
-  );
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("connected");
   const [showOnlineBadge, setShowOnlineBadge] = useState(false);
 
   // Voice Modal State
@@ -198,6 +208,9 @@ export const ChatInterface = () => {
 
   // Connectivity Listener
   useEffect(() => {
+    // Set initial status correctly on mount
+    setConnectionStatus(navigator.onLine ? "connected" : "offline");
+
     const handleOnline = () => {
       setConnectionStatus("reconnecting");
       // Simulate reconnection logic/verification
@@ -554,7 +567,7 @@ export const ChatInterface = () => {
                   transcripts.find((t) => t.sender === "user")?.text ||
                   "Voice Consultation";
                 handleSaveSession({
-                  userId: "current-user",
+                  userId: user?.id || "",
                   duration: duration,
                   audioUrl: URL.createObjectURL(recordingBlob),
                   previewText:
@@ -1104,3 +1117,5 @@ export const ChatInterface = () => {
     </div>
   );
 };
+
+export default ChatInterface;

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { API_KEY } from "./geminiVoiceService";
+import { BASE_SYSTEM_INSTRUCTION } from "@/constants";
 
 /**
  * TEXT CHAT SERVICE

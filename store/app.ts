@@ -1,3 +1,4 @@
+import { generateMockVoiceSessions } from "@/constants";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
@@ -11,6 +12,10 @@ type AppStore = {
   setPreferredVoice: (preferredVoice: string) => void;
   activeTab: string;
   setActiveTab: (activeTab: string) => void;
+  tokenUsageHistory: TokenUsageRecord[];
+  setTokenUsageHistory: (tokenUsageHistory: TokenUsageRecord[]) => void;
+  voiceSessions: VoiceSession[];
+  setVoiceSessions: (voiceSessions: VoiceSession[]) => void;
 };
 // Implement persist middleware to persist the state in local storage
 export const useAppStore = create<AppStore>()(
@@ -25,12 +30,18 @@ export const useAppStore = create<AppStore>()(
       setPreferredVoice: (preferredVoice: string) => set({ preferredVoice }),
       activeTab: "dashboard",
       setActiveTab: (activeTab: string) => set({ activeTab }),
+      tokenUsageHistory: [],
+      setTokenUsageHistory: (tokenUsageHistory: TokenUsageRecord[]) =>
+        set({ tokenUsageHistory }),
+      voiceSessions: generateMockVoiceSessions(),
+      setVoiceSessions: (voiceSessions: VoiceSession[]) =>
+        set({ voiceSessions }),
     }),
     {
       name: "app-storage",
       storage: createJSONStorage(() => localStorage),
       // Skip hydration on server
-      skipHydration: true,
+      // skipHydration: true,
     },
   ),
 );
