@@ -206,7 +206,7 @@ const UserDashboard = () => {
         <div
           className={`bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border transition-all duration-300 group relative overflow-hidden ${!isWelcomeActive && isDailyTextEmpty ? "border-red-200 dark:border-red-900/50" : "border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-900"}`}
         >
-          <div className="flex items-center justify-between mb-4 relative z-10">
+          <div className="flex items-center justify-between mb-4 relative">
             <div
               className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${!isWelcomeActive && isDailyTextEmpty ? "bg-red-50 dark:bg-red-900/20 text-red-500" : "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"}`}
             >
@@ -223,7 +223,7 @@ const UserDashboard = () => {
             </span>
           </div>
 
-          <div className="relative z-10">
+          <div className="relative">
             {isWelcomeActive ? (
               // WELCOME MODE
               <>
@@ -291,7 +291,7 @@ const UserDashboard = () => {
         <div
           className={`bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border transition-all duration-300 group relative overflow-hidden ${isVoiceEmpty ? "border-red-200 dark:border-red-900/50" : "border-slate-100 dark:border-slate-700 hover:border-purple-200 dark:hover:border-purple-900"}`}
         >
-          <div className="flex items-center justify-between mb-4 relative z-10">
+          <div className="flex items-center justify-between mb-4 relative">
             <div
               className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${isVoiceEmpty ? "bg-red-50 dark:bg-red-900/20 text-red-500" : "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"}`}
             >
@@ -304,7 +304,7 @@ const UserDashboard = () => {
             </span>
           </div>
 
-          <div className="relative z-10">
+          <div className="relative">
             {isVoiceEmpty ? (
               <>
                 <h3 className="text-2xl font-bold text-red-600 dark:text-red-400 flex items-baseline gap-1">

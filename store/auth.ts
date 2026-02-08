@@ -5,10 +5,6 @@ type AuthStore = {
   user: User | null;
   setUser: (user: User | null) => void;
   clearUser: () => void;
-  isSidebarOpen: boolean;
-  toggleSidebar: () => void;
-  showProfile: boolean;
-  toggleProfile: () => void;
 };
 //implement persist middleware to persist the state in local storage
 export const useAuthStore = create<AuthStore>()(
@@ -17,12 +13,6 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       setUser: (user: User | null) => set({ user }),
       clearUser: () => set({ user: null }),
-      isSidebarOpen: false,
-      toggleSidebar: () =>
-        set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-      showProfile: false,
-      toggleProfile: () =>
-        set((state) => ({ showProfile: !state.showProfile })),
     }),
     {
       name: "auth-storage",

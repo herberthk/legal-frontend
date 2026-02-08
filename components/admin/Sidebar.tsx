@@ -1,5 +1,5 @@
 "use client";
-import { useAppStore, useAuthStore } from "@/store";
+import { useAppStore, useAuthStore, usePopStore } from "@/store";
 import { cn, signOut } from "@/lib";
 
 import { LogOut, Scale, Shield, X } from "lucide-react";
@@ -11,10 +11,8 @@ type Props = {
   user: User;
 };
 const Sidebar = ({ user }: Props) => {
-  // const role = user.role
-  // const logout = useAuthStore((state) => state.logout);
-  const isSidebarOpen = useAuthStore((state) => state.isSidebarOpen);
-  const toggleSidebar = useAuthStore((state) => state.toggleSidebar);
+  const isSidebarOpen = usePopStore((state) => state.isSidebarOpen);
+  const toggleSidebar = usePopStore((state) => state.toggleSidebar);
   const clearUser = useAuthStore((state) => state.clearUser);
   const isAdmin = user?.role === "ADMIN";
   const router = useRouter();

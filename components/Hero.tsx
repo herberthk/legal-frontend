@@ -2,10 +2,10 @@
 import { fadeInUp, mockChatVariants, staggerContainer } from "@/constants";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, PlayCircle, Scale } from "lucide-react";
-import { useAppStore } from "@/store";
+import { usePopStore } from "@/store";
 
 const Hero = () => {
-  const setShowDemo = useAppStore((state) => state.setShowDemo);
+  const setShowDemo = usePopStore((state) => state.setShowDemo);
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-4 overflow-hidden z-10">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
