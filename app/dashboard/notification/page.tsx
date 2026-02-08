@@ -1,9 +1,7 @@
+import Notifications from "@/components/admin/Notification";
+
 const NotificationPage = () => {
-  return (
-    <div>
-      <h1>Notification</h1>
-    </div>
-  );
+  return <Notifications />;
 };
 
 export default NotificationPage;

@@ -9,11 +9,11 @@ import {
   Mic,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAppStore } from "@/store";
+import { usePopStore } from "@/store";
 
 // --- Demo Video Component ---
 const DemoModal = () => {
-  const setShowDemo = useAppStore((state) => state.setShowDemo);
+  const setShowDemo = usePopStore((state) => state.setShowDemo);
   const [messages, setMessages] = useState<
     { role: "user" | "ai"; content: React.ReactNode }[]
   >([]);

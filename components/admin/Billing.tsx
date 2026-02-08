@@ -269,7 +269,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user }) => {
             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity duration-500 transform group-hover:rotate-12 group-hover:scale-110">
               <Wallet size={200} className="text-slate-900 dark:text-white" />
             </div>
-            <div className="relative z-10 flex justify-between items-start">
+            <div className="relative flex justify-between items-start">
               <div>
                 <p className="text-slate-500 dark:text-slate-400 font-medium mb-2">
                   Available Balance

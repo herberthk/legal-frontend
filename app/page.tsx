@@ -5,7 +5,7 @@ import DemoModal from "@/components/demo";
 import { cardEntrance, fadeInUp, staggerContainer } from "@/constants";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAppStore, useThemeStore } from "@/store";
+import { usePopStore, useThemeStore } from "@/store";
 import Faq from "@/components/Faq";
 import Footer from "@/components/Footer";
 import Pricing from "@/components/Pricing";
@@ -13,7 +13,7 @@ import Features from "@/components/Features";
 import Hero from "@/components/Hero";
 
 const LandingPage = () => {
-  const showDemo = useAppStore((state) => state.showDemo);
+  const showDemo = usePopStore((state) => state.showDemo);
   const { scrollYProgress } = useScroll();
   const router = useRouter();
   const theme = useThemeStore((state) => state.theme);
