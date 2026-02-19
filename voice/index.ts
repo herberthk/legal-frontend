@@ -1,5 +1,5 @@
 import fs from "fs";
-const text = `
+export const text = `
 Carol,
 
 You walk into a room
@@ -45,4 +45,5 @@ async function main() {
   console.log("Audio saved to output.mp3");
 }
 
-main();
+// main();
+// $env: NODE_TLS_REJECT_UNAUTHORIZED = 0;

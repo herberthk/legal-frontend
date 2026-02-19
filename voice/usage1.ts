@@ -6,7 +6,7 @@ import { stdin as input, stdout as output } from "node:process";
 import { performance } from "node:perf_hooks";
 
 import Inworld from "./inworld3";
-import { COMMON_INSTRUCTIONS } from "./prompts";
+import { LEGAL_SYSTEM_INSTRUCTION } from "./prompts";
 
 type Metrics = {
   startTime: number;
@@ -25,8 +25,8 @@ const DEBUG = true;
 const inworld = new Inworld({
   apiKey: process.env.INWORLD_API_KEY!,
   modelId: "inworld-tts-1.5-max",
-  voiceId: "Luna",
-  audioEncoding: "OGG_OPUS",
+  voiceId: "Blake",
+  audioEncoding: "PCM",
 });
 
 // ------------------------------------------------------------
@@ -39,9 +39,9 @@ async function* geminiStream(prompt: string, metrics: Metrics) {
   const startLLM = performance.now();
 
   const result = await streamText({
-    model: google("gemini-2.5-flash-lite-preview-09-2025"),
+    model: google("gemini-2.0-flash"),
     prompt,
-    system: COMMON_INSTRUCTIONS,
+    system: LEGAL_SYSTEM_INSTRUCTION({ user: "Herbert", instructor: "Kelly" }),
   });
 
   console.log("✅ Gemini request created. Waiting for tokens...");
