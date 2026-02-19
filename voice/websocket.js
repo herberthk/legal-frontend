@@ -9,13 +9,15 @@
  * only from text submission to first audio chunk arrival.
  */
 
-import WebSocket from "ws";
+// import WebSocket from "ws";
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
  * @returns {string|null} API key or null if not set
  */
-import { INWORLD_API_KEY } from "./stream";
+import WebSocket from "ws";
+import { spawn } from "bun";
+import { INWORLD_API_KEY, text } from "./stream";
 function checkApiKey() {
   const apiKey = INWORLD_API_KEY;
   if (!apiKey) {
@@ -74,6 +76,14 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
     let totalAudioBytes = 0;
     let resolved = false;
 
+    const player = spawn(
+      ["ffplay", "-autoexit", "-nodisp", "-loglevel", "quiet", "-"],
+      {
+        stdin: "pipe",
+        stdout: "ignore",
+        stderr: "ignore",
+      },
+    );
     function finish(result) {
       if (!resolved) {
         resolved = true;
@@ -167,13 +177,17 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
         if (result.audioChunk) {
           const b64Content = result.audioChunk.audioContent;
           if (b64Content) {
+            // console.log("🟢 Audio chunk received", b64Content.length);
+
             if (ttfb === null) {
               ttfb = (Date.now() - startTime) / 1000;
             }
             const audioBytes = Buffer.from(b64Content, "base64");
             totalAudioBytes += audioBytes.length;
+            player.stdin?.write(audioBytes);
           }
         }
+        // player.stdin?.end();
       } catch {
         // JSON parse error, continue
       }
@@ -199,12 +213,12 @@ async function main() {
   }
 
   // Configuration
-  const text =
-    "Life moves pretty fast. Look around once in a while, or you might miss it.";
-  const voiceId = "Dennis";
-  const modelId = "inworld-tts-1.5-mini";
+  // const text =
+  //   "Life moves pretty fast. Look around once in a while, or you might miss it.";
+  const voiceId = "Blake"; // Luna, "Dennis", "Blake", "Sarah", "Luna", "Hana", "Mark", "Hades"
+  const modelId = "inworld-tts-1.5-mini"; // inworld-tts-1.5-max, inworld-tts-1.5-mini
 
-  console.log(`   Text: "${text}"`);
+  // console.log(`   Text: "${text}"`);
   console.log(`  Voice: ${voiceId}`);
   console.log(`  Model: ${modelId}`);
   console.log("\nConnecting and creating context, then generating audio...\n");
@@ -215,7 +229,7 @@ async function main() {
     if (result) {
       console.log(`TTFB:         ${(result.ttfb * 1000).toFixed(1)} ms`);
       console.log(`Total time:   ${(result.totalTime * 1000).toFixed(1)} ms`);
-      console.log(`Audio bytes:  ${result.audioBytes}`);
+      // console.log(`Audio bytes:  ${result.audioBytes}`);
     } else {
       console.log("Synthesis failed.");
       return 1;
