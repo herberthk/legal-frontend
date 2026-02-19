@@ -231,6 +231,131 @@ export class InworldConnection extends EventEmitter {
   }
 
   /**
+   * Streams audio for an async iterable of text chunks.
+   * Each chunk is sent to the TTS as soon as it becomes available.
+   * @param chunks - Async iterable that yields text strings
+   * @yields AudioChunk as soon as they are produced by the TTS
+   */
+  async *synthesizeStreaming(
+    chunks: AsyncIterable<string>,
+  ): AsyncGenerator<AudioChunk> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket not connected. Call connect() first.");
+    }
+    if (this.activeSynthesis) {
+      throw new Error(
+        "Another synthesis is already in progress on this connection",
+      );
+    }
+
+    const contextId = randomUUID();
+    const queue: AudioChunk[] = [];
+    let queueResolve: (() => void) | null = null;
+    let synthesisDone = false;
+    let synthesisError: Error | null = null;
+
+    // Set active synthesis so handleMessage processes incoming messages
+    this.activeSynthesis = { contextId };
+
+    // Event listeners to capture audio, done, and error
+    const onAudio = (data: Buffer) => {
+      queue.push({ data });
+      if (queueResolve) {
+        queueResolve();
+        queueResolve = null;
+      }
+    };
+
+    const onDone = () => {
+      synthesisDone = true;
+      if (queueResolve) {
+        queueResolve();
+        queueResolve = null;
+      }
+      // Clean up listeners
+      this.off("audio", onAudio);
+      this.off("done", onDone);
+      this.off("error", onError);
+    };
+
+    const onError = (err: Error) => {
+      synthesisError = err;
+      if (queueResolve) {
+        queueResolve();
+        queueResolve = null;
+      }
+      this.off("audio", onAudio);
+      this.off("done", onDone);
+      this.off("error", onError);
+    };
+
+    this.on("audio", onAudio);
+    this.once("done", onDone);
+    this.once("error", onError);
+
+    // Send create context message
+    const createMsg: CreateMessage = {
+      context_id: contextId,
+      create: {
+        voice_id: this.voiceId,
+        model_id: this.modelId,
+        audio_config: {
+          audio_encoding: this.audioEncoding,
+          sample_rate_hertz: this.sampleRate,
+          bit_rate: this.bitRate,
+        },
+      },
+    };
+    this.ws.send(JSON.stringify(createMsg));
+
+    // Background task: send text chunks as they arrive
+    (async () => {
+      try {
+        for await (const chunk of chunks) {
+          if (!chunk.trim()) continue;
+          const sendMsg: SendTextMessage = {
+            context_id: contextId,
+            send_text: { text: chunk, flush_context: {} },
+          };
+          this.ws!.send(JSON.stringify(sendMsg));
+        }
+      } catch (err) {
+        onError(err as Error);
+        return;
+      }
+
+      // All chunks sent – close the context
+      const closeMsg: CloseContextMessage = {
+        context_id: contextId,
+        close_context: {},
+      };
+      this.ws!.send(JSON.stringify(closeMsg));
+    })();
+
+    // Stream audio chunks as they arrive
+    try {
+      while (!synthesisDone && !synthesisError) {
+        if (queue.length === 0) {
+          await new Promise<void>((resolve) => {
+            queueResolve = resolve;
+          });
+        }
+        while (queue.length > 0) {
+          yield queue.shift()!;
+        }
+      }
+      if (synthesisError) throw synthesisError;
+    } finally {
+      // Ensure listeners are removed and active synthesis is cleared
+      this.off("audio", onAudio);
+      this.off("done", onDone);
+      this.off("error", onError);
+      if (this.activeSynthesis?.contextId === contextId) {
+        this.activeSynthesis = null;
+      }
+    }
+  }
+  /**
    * Gracefully closes the WebSocket connection.
    */
   async close(): Promise<void> {
