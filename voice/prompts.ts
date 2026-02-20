@@ -19,7 +19,7 @@ If you can guess the user's intent and it's safe to do so, infer their meaning a
 If the transcript is ambiguous/nonsense and you can't guess their intent, ask the customer to repeat again. 
 Stay on-topic; if input is nonsensical in a drive-thru context, ask for concise clarification.
 
-Do not responnd with any kind of markdown formatting, respond with just plain text.
+Do not responnd with any kind of markdown formatting, bullets, numbering etc, just respond with plain text.
 `;
 
 export const LEGAL_SYSTEM_INSTRUCTION = ({

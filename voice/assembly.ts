@@ -1,155 +1,79 @@
-// // Start by making sure the `assemblyai` and `node-record-lpcm16` packages are installed.
-// // If not, you can install it by running the following command:
-// // npm install assemblyai node-record-lpcm16
+import { AssemblyAI } from "assemblyai";
+import { spawn } from "child_process";
 
-import { spawn } from "bun";
+import { Readable } from "stream";
 
-// import { AssemblyAI } from "assemblyai";
-// import { Readable } from "stream";
-// import recorder from "node-record-lpcm16";
+const run = async () => {
+  const client = new AssemblyAI({
+    apiKey: process.env.ASSEMBLYAI_API_KEY!,
+  });
 
-// const run = async () => {
-//   const client = new AssemblyAI({
-//     // Replace with your chosen API key, this is the "default" account api key
-//     apiKey: "5b2c6c9d1749406898dfd3b074a9cd28",
-//   });
+  const CONNECTION_PARAMS = {
+    sampleRate: 16000,
+  };
 
-//   const CONNECTION_PARAMS = {
-//     sampleRate: 16000,
-//   };
+  const transcriber = client.streaming.transcriber(CONNECTION_PARAMS);
 
-//   const transcriber = client.streaming.transcriber(CONNECTION_PARAMS);
+  transcriber.on("open", ({ id }) => {
+    console.log(`Session opened with ID: ${id}`);
+  });
 
-//   transcriber.on("open", ({ id }) => {
-//     console.log(`Session opened with ID: ${id}`);
-//   });
+  transcriber.on("error", (error) => {
+    console.error("AssemblyAI Error:", error);
+  });
 
-//   transcriber.on("error", (error) => {
-//     console.error("Error:", error);
-//   });
+  transcriber.on("close", (code, reason) =>
+    console.log("Session closed:", code, reason),
+  );
 
-//   transcriber.on("close", (code, reason) =>
-//     console.log("Session closed:", code, reason),
-//   );
+  transcriber.on("turn", (turn) => {
+    if (!turn.transcript) return;
+    console.log("Turn:", turn.transcript);
+  });
 
-//   transcriber.on("turn", (turn) => {
-//     if (!turn.transcript) {
-//       return;
-//     }
+  try {
+    console.log("Connecting to streaming transcript service...");
+    await transcriber.connect();
+    console.log("Starting recording via FFmpeg...");
 
-//     console.log("Turn:", turn.transcript);
-//   });
-
-//   try {
-//     console.log("Connecting to streaming transcript service");
-
-//     await transcriber.connect();
-
-//     console.log("Starting recording");
-
-//     const recording = recorder.record({
-//       channels: 1,
-//       sampleRate: CONNECTION_PARAMS.sampleRate,
-//       audioType: "wav", // Linear PCM
-//     });
-
-//     Readable.toWeb(recording.stream()).pipeTo(transcriber.stream());
-
-//     // Stop recording and close connection using Ctrl-C.
-//     process.on("SIGINT", async function () {
-//       console.log();
-//       console.log("Stopping recording");
-//       recording.stop();
-
-//       console.log("Closing streaming transcript connection");
-//       await transcriber.close();
-
-//       process.exit();
-//     });
-//   } catch (error) {
-//     console.error(error);
-//   }
-// };
-
-// run();
-
-const ASSEMBLY_API_KEY = process.env.ASSEMBLYAI_API_KEY!;
-const SAMPLE_RATE = 16000;
-
-/**
- * Persistent AssemblyAI STT connection
- */
-class AssemblySTT {
-  private ws?: WebSocket;
-
-  constructor(private onTranscript: (text: string) => void) {}
-
-  connect() {
-    this.ws = new WebSocket(
-      "wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000",
-      {
-        //@ts-ignore
-        headers: {
-          Authorization: process.env.ASSEMBLYAI_API_KEY!,
-        },
-      },
-    );
-
-    this.ws.onopen = () => {
-      console.log("🎤 AssemblyAI connected");
-      this.startMic();
-    };
-
-    this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.message_type === "FinalTranscript" && data.text) {
-        console.log("🗣 You:", data.text);
-        this.onTranscript(data.text);
-      }
-    };
-
-    this.ws.onclose = () => {
-      console.log("⚠️ STT disconnected. Reconnecting...");
-      setTimeout(() => this.connect(), 1000);
-    };
-  }
-
-  async startMic() {
-    const mic = spawn([
-      "ffmpeg",
+    // Spawn FFmpeg using the exact device name you found earlier
+    const ffmpeg = spawn("ffmpeg", [
       "-f",
-      "dshow", // Windows
+      "dshow",
+      // Remove the literal quotes around the audio device name
       "-i",
-      'audio="Microphone (Realtek High Definition Audio)"', // CHANGE THIS
+      "audio=Microphone (Realtek High Definition Audio)",
       "-ac",
       "1",
       "-ar",
       "16000",
+      "-acodec",
+      "pcm_s16le",
       "-f",
       "s16le",
-      "-",
+      "pipe:1",
     ]);
 
-    const reader = mic.stdout.getReader();
+    // Pipe FFmpeg's standard output straight into AssemblyAI's stream
+    Readable.toWeb(ffmpeg.stdout).pipeTo(transcriber.stream());
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      this.ws?.send(value);
-    }
-    // mic.stdout.pipeTo(
-    //   new WritableStream({
-    //     write: (chunk) => this.ws?.send(chunk),
-    //   }),
-    // );
+    // Stop recording and close connection using Ctrl-C
+    process.on("SIGINT", async function () {
+      console.log("\nStopping recording...");
+      ffmpeg.kill("SIGINT"); // Kill the FFmpeg process
+      console.log("Closing streaming transcript connection...");
+      await transcriber.close();
+      process.exit();
+    });
+
+    ffmpeg.stderr.on("data", (data) => {
+      // Optional: FFmpeg outputs its logs to stderr.
+      // Uncomment the line below if you want to see FFmpeg's internal logging for debugging.
+      // console.log(`FFmpeg log: ${data}`);
+    });
+  } catch (error) {
+    console.error(error);
   }
-}
+};
 
-export default AssemblySTT;
-
-const stt = new AssemblySTT(async (text) => {
-  console.log("🗣 You:", text);
-});
-
-stt.connect();
+run();
