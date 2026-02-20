@@ -47,3 +47,7 @@ async function main() {
 
 // main();
 // $env: NODE_TLS_REJECT_UNAUTHORIZED = 0;
+
+// ffmpeg -f dshow -i audio=Microphone (Realtek(R) Audio) -ac 1 -ar 16000 -f s16le out.pcm
+// ffmpeg -f dshow -i audio="Microphone (Realtek(R) Audio)" -ac 1 -ar 16000 -f s16le out.pcm
+// MIC_DEVICE="Microphone (Realtek High Definition Audio)" bun voice/assembly.ts
