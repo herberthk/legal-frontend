@@ -19,6 +19,12 @@ import { google } from "@ai-sdk/google";
 import { Inworld } from "./inworld";
 import { LEGAL_SYSTEM_INSTRUCTION } from "./prompts";
 
+/** Basic message structure for conversation history */
+type CoreMessage =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string };
+
 const PORT = Number(process.env.PORT ?? 3001);
 
 /* ------------------------------------------------------------------ */
@@ -29,6 +35,8 @@ interface ClientState {
   inworld: Inworld;
   /** True while a Gemini → TTS pipeline is running */
   busy: boolean;
+  messages: CoreMessage[];
+  abortController: AbortController | null;
 }
 
 const clients = new Map<string, ClientState>();
@@ -52,7 +60,7 @@ async function buildClient(): Promise<ClientState> {
 
   await inworld.connect();
 
-  return { inworld, busy: false };
+  return { inworld, busy: false, messages: [], abortController: null };
 }
 
 /* ------------------------------------------------------------------ */
@@ -98,25 +106,37 @@ async function runPipeline(
   prompt: string,
 ) {
   if (state.busy) {
-    ws.send("ERROR: previous request still running, please wait.");
-    return;
+    console.log(`[${clientId(ws)}] 🛑 Interrupting active request`);
+    state.abortController?.abort();
+    ws.send("INTERRUPT");
   }
 
   state.busy = true;
+  state.abortController = new AbortController();
 
   try {
     console.log(`[${clientId(ws)}] ➡️  Prompt: "${prompt}"`);
 
+    // Add user message to history
+    state.messages.push({ role: "user", content: prompt });
+
     const result = await streamText({
       model: google("gemini-2.0-flash"),
-      prompt,
+      messages: state.messages,
+      abortSignal: state.abortController.signal,
+      temperature: 0.2,
       system: LEGAL_SYSTEM_INSTRUCTION({
         user: "User",
         instructor: "Kelly",
       }),
+      onAbort(event) {
+        console.log(`[${clientId(ws)}] ❌ LLM aborted:`, event);
+      },
     });
 
     let firstToken = true;
+    let fullResponse = "";
+    let isInsideCue = false;
     const startLLM = performance.now();
 
     for await (const delta of result.textStream) {
@@ -126,8 +146,33 @@ async function runPipeline(
         );
         firstToken = false;
       }
+
+      fullResponse += delta;
       state.inworld.push(delta);
+
+      // Filter cues (e.g., [sigh]) from client transcription
+      let filteredDelta = "";
+      for (const char of delta) {
+        if (char === "[") {
+          isInsideCue = true;
+          continue;
+        }
+        if (char === "]") {
+          isInsideCue = false;
+          continue;
+        }
+        if (!isInsideCue) {
+          filteredDelta += char;
+        }
+      }
+
+      if (filteredDelta) {
+        ws.send(`TEXT:${filteredDelta}`);
+      }
     }
+
+    // Add assistant response to history
+    state.messages.push({ role: "assistant", content: fullResponse });
 
     console.log(
       `[${clientId(ws)}] ✅ LLM done in ${(performance.now() - startLLM).toFixed(1)}ms`,

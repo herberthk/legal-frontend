@@ -179,6 +179,25 @@
         background: #fbbf24;
       }
 
+      .transcription-area {
+        margin-top: 24px;
+        min-height: 60px;
+        max-height: 150px;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 12px;
+        padding: 16px;
+        border-left: 2px solid var(--accent-color);
+        line-height: 1.6;
+        font-size: 15px;
+        color: var(--text-primary);
+        display: none; /* Hidden until content arrives */
+      }
+
+      .transcription-area.active {
+        display: block;
+      }
+
       /* Animation for loading/waiting */
       @keyframes pulse {
         0% {
@@ -204,6 +223,8 @@
           Voice-enabled intelligence for your legal inquiries.
         </p>
       </header>
+
+      <div id="transcription" class="transcription-area"></div>
 
       <div class="input-group">
         <textarea
@@ -246,6 +267,7 @@
         const statusDot = document.getElementById("status-dot");
         const latencyEl = document.getElementById("latency");
         const promptEl = document.getElementById("prompt");
+        const txEl = document.getElementById("transcription");
 
         let sampleRate = 24000;
         let audioCtx = null;
@@ -272,7 +294,7 @@
         };
 
         socket.onmessage = (event) => {
-          console.log("data", event.data);
+          // console.log("data", event.data);
 
           if (event.data instanceof ArrayBuffer) {
             if (waitingForFirstByte) {
@@ -286,6 +308,27 @@
           }
 
           if (typeof event.data === "string") {
+            if (event.data === "INTERRUPT") {
+              console.log("Interruption signal received from server");
+              if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+              }
+              nextStartTime = 0;
+              txEl.innerText = "";
+              txEl.classList.remove("active");
+              statusText.innerText = "Interrupted...";
+              return;
+            }
+
+            if (event.data.startsWith("TEXT:")) {
+              const delta = event.data.substring(5);
+              txEl.classList.add("active");
+              txEl.innerText += delta;
+              txEl.scrollTop = txEl.scrollHeight;
+              return;
+            }
+
             if (event.data.startsWith("READY")) {
               const rate = parseInt(event.data.split(":")[1], 10);
               if (!isNaN(rate)) sampleRate = rate;
@@ -354,6 +397,9 @@
             statusText.innerText = "Processing...";
             statusDot.classList.add("busy");
             btn.disabled = true;
+
+            txEl.innerText = "";
+            txEl.classList.remove("active");
 
             socket.send(text);
             promptEl.value = "";
