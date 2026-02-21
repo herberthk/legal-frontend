@@ -15,7 +15,13 @@ export type VoiceId =
 
 export type ModelId = "inworld-tts-1.5-mini" | "inworld-tts-1.5-max";
 
-export type AudioEncoding = "OGG_OPUS" | "MP3" | "LINEAR16";
+export type AudioEncoding =
+  | "OGG_OPUS"
+  | "MP3"
+  | "LINEAR16"
+  | "ALAW"
+  | "MULAW"
+  | "FLAC";
 
 /* -------------------------------------------------- */
 /*                     TYPES                          */
@@ -71,9 +77,9 @@ export class Inworld {
 
     this.config = {
       modelId: config.modelId ?? "inworld-tts-1.5-mini",
-      encoding: config.encoding ?? "OGG_OPUS",
-      sampleRate: config.sampleRate ?? 24000,
-      bitRate: config.bitRate ?? 24000,
+      encoding: config.encoding ?? "LINEAR16",
+      sampleRate: config.sampleRate ?? 48000,
+      bitRate: config.bitRate ?? 128000,
       autoReconnect: config.autoReconnect ?? true,
       debug: config.debug ?? false,
       ...config,

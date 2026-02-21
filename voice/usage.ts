@@ -7,12 +7,28 @@ import { Inworld } from "./inworld";
 import { LEGAL_SYSTEM_INSTRUCTION } from "./prompts";
 import { spawn } from "bun";
 
+import { config } from "dotenv";
+
+config(); // load .env
+
+if (!process.env.INWORLD_API_KEY) {
+  console.error("❌ INWORLD_API_KEY is not defined");
+  process.exit(1);
+}
+
+if (!process.env.ASSEMBLYAI_API_KEY) {
+  console.error("❌ ASSEMBLYAI_API_KEY is not defined");
+  process.exit(1);
+}
+
 async function main() {
   // 1️⃣ Inworld TTS
   const inworld = new Inworld({
     apiKey: process.env.INWORLD_API_KEY!,
     voiceId: "Blake",
     modelId: "inworld-tts-1.5-mini",
+    encoding: "LINEAR16",
+    sampleRate: 24000,
   });
 
   const player = spawn(
