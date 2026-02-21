@@ -23,8 +23,7 @@ const Sidebar = ({ user }: Props) => {
     router.push("/login");
   };
   const navlinks = sideBarItems(user?.role);
-  // const activeTab = useAppStore((state) => state.activeTab);
-  // const setActiveTab = useAppStore((state) => state.setActiveTab);
+
   const setUser = useAuthStore((state) => state.setUser);
   useEffect(() => {
     setUser(user);
@@ -35,9 +34,9 @@ const Sidebar = ({ user }: Props) => {
   const pathname = usePathname();
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 w-64 text-white flex flex-col shadow-xl transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
+      className={`fixed inset-y-0 bg-white left-0 z-40 w-64 text-white flex flex-col shadow-xl transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-      } ${isAdmin ? "bg-slate-900 dark:bg-black" : "bg-slate-900 dark:bg-slate-950"}`}
+      } ${isAdmin ? "dark:bg-slate-900" : "dark:bg-slate-950"}`}
     >
       <div className="p-6 flex items-center justify-between border-b border-slate-800 dark:border-slate-800 group">
         <div className="flex items-center space-x-2 cursor-pointer">
@@ -51,7 +50,10 @@ const Sidebar = ({ user }: Props) => {
             )}
           </div>
           <span className="text-xl font-bold tracking-tight group-hover:text-white transition-colors">
-            {isAdmin ? "Admin" : "Legal"}
+            <span className="dark:text-white text-slate-900">
+              {isAdmin ? "Admin" : "Legal"}
+            </span>
+
             <span
               className={`text-transparent bg-clip-text ${isAdmin ? "bg-linear-to-r from-indigo-400 to-purple-500" : "bg-linear-to-r from-amber-400 to-orange-500"}`}
             >
@@ -88,8 +90,8 @@ const Sidebar = ({ user }: Props) => {
                   ? "bg-indigo-600 shadow-indigo-500/20"
                   : "bg-orange-600 shadow-orange-500/20"
                 : isAdmin
-                  ? "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1"
-                  : "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1",
+                  ? "hover:bg-slate-800 text-slate-400 dark:hover:text-white hover:translate-x-1"
+                  : "hover:bg-slate-800 text-slate-400 dark:hover:text-white hover:translate-x-1",
             )}
           >
             {link.icon}

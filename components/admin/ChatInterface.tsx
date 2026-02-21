@@ -20,13 +20,49 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { createChatSession } from "@/services";
-import { Chat, PartListUnion } from "@google/genai";
-import { VoiceInterface } from "./VoiceChat";
 import { PRICE_PER_TOKEN, PRICE_PER_VOICE_SECOND } from "@/constants";
 import { useAppStore, useAuthStore } from "@/store";
+import { useChat } from "@ai-sdk/react";
+import type { UIMessage } from "ai";
+import { VoiceInterface } from "./VoiceChat";
 
 type ConnectionStatus = "connected" | "reconnecting" | "offline";
+
+// --- Helpers to extract content from UIMessage parts ---
+const getMessageText = (msg: UIMessage): string => {
+  return (
+    msg.parts
+      ?.filter(
+        (
+          p,
+        ): p is { type: "text"; text: string; state?: "streaming" | "done" } =>
+          p.type === "text",
+      )
+      .map((p) => p.text)
+      .join("") || ""
+  );
+};
+
+const getMessageFile = (
+  msg: UIMessage,
+): { name: string; type: string; url: string } | undefined => {
+  const filePart = msg.parts?.find((p) => p.type === "file");
+  if (!filePart || filePart.type !== "file") return undefined;
+  return {
+    name: filePart.filename || "Attached Document",
+    type: filePart.mediaType,
+    url: filePart.url,
+  };
+};
+
+const isMessageStreaming = (msg: UIMessage): boolean => {
+  return (
+    msg.parts?.some(
+      (p) =>
+        p.type === "text" && (p as { state?: string }).state === "streaming",
+    ) ?? false
+  );
+};
 
 const ChatInterface = () => {
   const user = useAuthStore((state) => state.user);
@@ -39,6 +75,44 @@ const ChatInterface = () => {
   // --- Voice Sessions State ---
   const voiceSessions = useAppStore((state) => state.voiceSessions);
   const setVoiceSessions = useAppStore((state) => state.setVoiceSessions);
+
+  // --- Connectivity State ---
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("connected");
+  const [showOnlineBadge, setShowOnlineBadge] = useState(false);
+
+  // --- Voice Modal State ---
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  // --- Upload State ---
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [tempFileName, setTempFileName] = useState("");
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    name: string;
+    type: string;
+    data: string;
+  } | null>(null);
+
+  // --- Token Stats State (Session) ---
+  const [sessionStats, setSessionStats] = useState({
+    textTokens: 0,
+    voiceSeconds: 0,
+  });
+
+  // --- Error Banner State ---
+  const [billingError, setBillingError] = useState<string | null>(null);
+
+  // --- Input Focus State ---
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
+  // --- Refs ---
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileReaderRef = useRef<FileReader | null>(null);
+  const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // --- CORE BILLING LOGIC ---
 
   /**
@@ -46,10 +120,9 @@ const ChatInterface = () => {
    * Returns true if allowed, false if blocked.
    */
   const checkBalance = (type: "TEXT" | "VOICE"): boolean => {
-    if (!user || user.role === "ADMIN") return true; // Admins bypass billing
+    if (!user || user.role === "ADMIN") return true;
 
     if (type === "TEXT") {
-      // Check Welcome OR Daily OR Balance
       return (
         user.welcomeTextTokens > 0 ||
         user.freeTextTokens > 0 ||
@@ -75,8 +148,6 @@ const ChatInterface = () => {
     if (user.role === "ADMIN") return true;
 
     let success = true;
-
-    if (!user) return false;
 
     let newBalance = user.balance;
     let newFreeTokens = user.freeTextTokens;
@@ -145,121 +216,6 @@ const ChatInterface = () => {
     return success;
   };
 
-  const handleSaveSession = (
-    sessionData: Omit<VoiceSession, "id" | "date">,
-  ) => {
-    if (!user) return;
-    const newSession: VoiceSession = {
-      id: `sess_${Date.now()}`,
-      //   userId: user.id,
-      date: new Date().toISOString(),
-      ...sessionData,
-    };
-    // setVoiceSessions((prev) => [newSession, ...prev]);
-    setVoiceSessions([...voiceSessions, newSession]);
-  };
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "0",
-      role: "model",
-      text: "Greetings. I am your Legal Adviser specializing in Ugandan Law. How may I assist you with the Constitution, Tax Administration, or Rule of Law today?",
-      timestamp: new Date("2024-01-01T00:00:00Z"),
-    },
-  ]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [attachment, setAttachment] = useState<{
-    name: string;
-    type: string;
-    data: string;
-  } | null>(null);
-  const [isInputFocused, setIsInputFocused] = useState(false);
-
-  // Connectivity State
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>("connected");
-  const [showOnlineBadge, setShowOnlineBadge] = useState(false);
-
-  // Voice Modal State
-  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-
-  // Upload State
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [tempFileName, setTempFileName] = useState("");
-
-  // Token Stats State (Session)
-  const [sessionStats, setSessionStats] = useState({
-    textTokens: 0,
-    voiceSeconds: 0,
-  });
-
-  // Error Banner State
-  const [billingError, setBillingError] = useState<string | null>(null);
-
-  const chatSessionRef = useRef<Chat | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Refs for cancelling upload
-  const fileReaderRef = useRef<FileReader | null>(null);
-  const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Connectivity Listener
-  useEffect(() => {
-    // Set initial status correctly on mount
-    setConnectionStatus(navigator.onLine ? "connected" : "offline");
-
-    const handleOnline = () => {
-      setConnectionStatus("reconnecting");
-      // Simulate reconnection logic/verification
-      setTimeout(() => {
-        setConnectionStatus("connected");
-        setShowOnlineBadge(true);
-        setTimeout(() => setShowOnlineBadge(false), 3000);
-      }, 1500);
-    };
-
-    const handleOffline = () => {
-      setConnectionStatus("offline");
-      setShowOnlineBadge(false);
-    };
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    // Periodic check when offline
-    if (connectionStatus === "offline") {
-      retryIntervalRef.current = setInterval(() => {
-        if (navigator.onLine) {
-          handleOnline(); // Force trigger if browser state recovered without event
-        }
-      }, 5000);
-    }
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-      if (retryIntervalRef.current) clearInterval(retryIntervalRef.current);
-    };
-  }, [connectionStatus]);
-
-  useEffect(() => {
-    // Initialize chat session on mount
-    chatSessionRef.current = createChatSession();
-
-    return () => {
-      if (uploadTimeoutRef.current) {
-        clearTimeout(uploadTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, attachment, isUploading, isLoading, isInputFocused]);
-
   const trackUsage = (
     amount: number,
     unit: "TOKENS" | "SECONDS",
@@ -275,18 +231,114 @@ const ChatInterface = () => {
     return success;
   };
 
-  const handleStartVoice = () => {
-    setBillingError(null);
-    if (checkBalance("VOICE")) {
-      setIsVoiceModalOpen(true);
-    } else {
-      setBillingError(
-        "Insufficient funds for voice call. Please top up or wait for daily free credits.",
-      );
-      setTimeout(() => setBillingError(null), 5000);
-    }
+  const handleSaveSession = (
+    sessionData: Omit<VoiceSession, "id" | "date">,
+  ) => {
+    if (!user) return;
+    const newSession: VoiceSession = {
+      id: `sess_${Date.now()}`,
+      date: new Date().toISOString(),
+      ...sessionData,
+    };
+    setVoiceSessions([...voiceSessions, newSession]);
   };
 
+  // Manual input state (useChat v6 does not provide input/setInput)
+  const [input, setInput] = useState("");
+
+  // --- Vercel AI SDK useChat ---
+  const {
+    messages,
+    sendMessage,
+    status,
+    regenerate,
+    error: chatError,
+    setMessages,
+  } = useChat({
+    messages: [
+      {
+        id: "0",
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: "Greetings. I am your Legal Adviser specializing in Ugandan Law. How may I assist you with the Constitution, Tax Administration, or Rule of Law today?",
+          },
+        ],
+      },
+    ] as UIMessage[],
+    onFinish: ({ message }) => {
+      // Billing: estimate response tokens from text length
+      const text = getMessageText(message);
+      const responseTokens = Math.ceil(text.length / 4);
+      trackUsage(responseTokens, "TOKENS", "TEXT_RESPONSE");
+    },
+    onError: (error) => {
+      const msg = error.message?.toLowerCase() || "";
+      if (
+        msg.includes("fetch failed") ||
+        msg.includes("network") ||
+        msg.includes("failed to fetch")
+      ) {
+        setConnectionStatus("offline");
+      }
+    },
+  });
+
+  const isLoading = status === "submitted" || status === "streaming";
+
+  // --- Connectivity Listener ---
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setConnectionStatus(navigator.onLine ? "connected" : "offline");
+
+    const handleOnline = () => {
+      setConnectionStatus("reconnecting");
+      setTimeout(() => {
+        setConnectionStatus("connected");
+        setShowOnlineBadge(true);
+        setTimeout(() => setShowOnlineBadge(false), 3000);
+      }, 1500);
+    };
+
+    const handleOffline = () => {
+      setConnectionStatus("offline");
+      setShowOnlineBadge(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    if (connectionStatus === "offline") {
+      retryIntervalRef.current = setInterval(() => {
+        if (navigator.onLine) {
+          handleOnline();
+        }
+      }, 5000);
+    }
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      if (retryIntervalRef.current) clearInterval(retryIntervalRef.current);
+    };
+  }, [connectionStatus]);
+
+  // Cleanup upload timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (uploadTimeoutRef.current) {
+        clearTimeout(uploadTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, pendingAttachment, isUploading, isLoading, isInputFocused]);
+
+  // --- Send Message ---
   const handleSend = async (
     manualInput?: string,
     manualAttachment?: { name: string; type: string; data: string },
@@ -304,157 +356,66 @@ const ChatInterface = () => {
     }
 
     const textToSend = manualInput ?? input;
-    const attachmentToSend = manualAttachment ?? attachment;
+    const attachmentToSend = manualAttachment ?? pendingAttachment;
 
     // Guard clauses
-    if (!chatSessionRef.current || isLoading) return;
+    if (isLoading) return;
     if (!manualInput && !manualAttachment && isUploading) return;
     if (!textToSend.trim() && !attachmentToSend) return;
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      text: textToSend,
-      timestamp: new Date(),
-      attachment: attachmentToSend ? { ...attachmentToSend } : undefined,
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    if (!manualInput) setInput("");
-    if (!manualAttachment) setAttachment(null);
-
-    setIsLoading(true);
-
-    try {
-      let messagePayload: PartListUnion;
-      if (attachmentToSend) {
-        messagePayload = [
-          { text: textToSend || "Please analyze this document." },
-          {
-            inlineData: {
-              mimeType: attachmentToSend.type,
-              data: attachmentToSend.data,
-            },
-          },
-        ];
-      } else {
-        messagePayload = textToSend;
-      }
-
-      const result = await chatSessionRef.current.sendMessageStream({
-        message: messagePayload,
-      });
-
-      const botMsgId = (Date.now() + 1).toString();
-      let fullText = "";
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: botMsgId,
-          role: "model",
-          text: "",
-          timestamp: new Date(),
-          isStreaming: true,
-        },
-      ]);
-
-      let reportedPrompt = false;
-
-      for await (const chunk of result) {
-        if (chunk.usageMetadata) {
-          if (!reportedPrompt && chunk.usageMetadata.promptTokenCount) {
-            // Deduct system prompt tokens (526) to avoid charging user for system overhead
-            const SYSTEM_PROMPT_TOKENS = 526;
-            const billableTokens = Math.max(
-              0,
-              chunk.usageMetadata.promptTokenCount - SYSTEM_PROMPT_TOKENS,
-            );
-
-            trackUsage(billableTokens, "TOKENS", "TEXT_PROMPT");
-            reportedPrompt = true;
-          }
-        }
-
-        const textChunk = chunk.text;
-        if (textChunk) {
-          fullText += textChunk;
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === botMsgId ? { ...msg, text: fullText } : msg,
-            ),
-          );
-        }
-      }
-
-      // Final billing for response
-      const responseTokens = Math.ceil(fullText.length / 4);
-      trackUsage(responseTokens, "TOKENS", "TEXT_RESPONSE");
-
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === botMsgId ? { ...msg, isStreaming: false } : msg,
-        ),
-      );
-    } catch (error: unknown) {
-      console.error("Chat Error:", error);
-      let errorMessage =
-        "I apologize, but I encountered an unexpected error. Please try again.";
-
-      if (
-        error instanceof Error ||
-        (typeof error === "object" && error !== null && "message" in error)
-      ) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const msg = (error as any).message?.toLowerCase() || "";
-        if (
-          msg.includes("fetch failed") ||
-          msg.includes("network") ||
-          msg.includes("failed to fetch")
-        ) {
-          errorMessage =
-            "A network connection error occurred. I will retry automatically when connection is restored.";
-          setConnectionStatus("offline");
-        }
-      }
-
-      setMessages((prev) => {
-        const stopped = prev.map((msg) =>
-          msg.isStreaming ? { ...msg, isStreaming: false } : msg,
-        );
-        return [
-          ...stopped,
-          {
-            id: Date.now().toString(),
-            role: "model",
-            text: errorMessage,
-            timestamp: new Date(),
-          },
-        ];
-      });
-    } finally {
-      setIsLoading(false);
+    // Estimate and bill prompt tokens from input text
+    const promptTokens = Math.ceil(textToSend.length / 4);
+    if (promptTokens > 0) {
+      trackUsage(promptTokens, "TOKENS", "TEXT_PROMPT");
     }
+
+    // Send via Vercel AI SDK
+    if (attachmentToSend) {
+      const dataUrl = `data:${attachmentToSend.type};base64,${attachmentToSend.data}`;
+      sendMessage({
+        text: textToSend || "Please summarize this document.",
+        files: [
+          {
+            type: "file" as const,
+            mediaType: attachmentToSend.type,
+            filename: attachmentToSend.name,
+            url: dataUrl,
+          },
+        ],
+      });
+    } else {
+      sendMessage({ text: textToSend });
+    }
+
+    if (!manualInput) setInput("");
+    if (!manualAttachment) setPendingAttachment(null);
   };
 
+  // --- Retry ---
   const handleRetry = () => {
     if (connectionStatus === "offline") return;
-    const lastUserMessageIndex = [...messages]
-      .reverse()
-      .findIndex((m) => m.role === "user");
-    if (lastUserMessageIndex !== -1) {
-      const realIndex = messages.length - 1 - lastUserMessageIndex;
-      const messageToRetry = messages[realIndex];
-      setMessages((prev) => prev.slice(0, realIndex));
-      handleSend(messageToRetry.text, messageToRetry.attachment);
+    regenerate();
+  };
+
+  // --- Voice ---
+  const handleStartVoice = () => {
+    setBillingError(null);
+    if (checkBalance("VOICE")) {
+      setIsVoiceModalOpen(true);
+    } else {
+      setBillingError(
+        "Insufficient funds for voice call. Please top up or wait for daily free credits.",
+      );
+      setTimeout(() => setBillingError(null), 5000);
     }
   };
 
+  // --- File Upload ---
   const cancelUpload = () => {
     if (fileReaderRef.current) fileReaderRef.current.abort();
     if (uploadTimeoutRef.current) clearTimeout(uploadTimeoutRef.current);
     setIsUploading(false);
-    setAttachment(null);
+    setPendingAttachment(null);
     setTempFileName("");
     setUploadProgress(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -464,14 +425,13 @@ const ChatInterface = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check balance before allowing upload processing (simulated cost)
     if (!checkBalance("TEXT")) {
       setBillingError("Insufficient funds for document analysis.");
       setTimeout(() => setBillingError(null), 5000);
       return;
     }
 
-    setAttachment(null);
+    setPendingAttachment(null);
     setIsUploading(true);
     setUploadProgress(0);
     setTempFileName(file.name);
@@ -511,9 +471,9 @@ const ChatInterface = () => {
     e.target.value = "";
   };
 
-  const clearAttachment = () => setAttachment(null);
-  const activeFileName = attachment?.name || tempFileName;
-  const isImage = attachment?.type.includes("image") || false;
+  const clearAttachment = () => setPendingAttachment(null);
+  const activeFileName = pendingAttachment?.name || tempFileName;
+  const isImage = pendingAttachment?.type.includes("image") || false;
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 transition-colors duration-200 relative">
@@ -544,6 +504,15 @@ const ChatInterface = () => {
             <span>{billingError}</span>
           </div>
         )}
+        {/* Chat Error Toast */}
+        {chatError && !billingError && (
+          <div className="bg-red-600 text-white text-sm font-bold py-2 px-4 text-center flex justify-center items-center gap-2 shadow-lg animate-in slide-in-from-top-0">
+            <AlertTriangle size={16} />
+            <span>
+              {chatError.message || "An error occurred. Please try again."}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Voice Modal Overlay */}
@@ -553,13 +522,12 @@ const ChatInterface = () => {
           onClose={(transcripts, recordingBlob, duration) => {
             setIsVoiceModalOpen(false);
             if (transcripts && transcripts.length > 0) {
-              const newMessages = transcripts.map((t, i) => ({
+              const newMessages: UIMessage[] = transcripts.map((t, i) => ({
                 id: `voice-${Date.now()}-${i}`,
-                role: t.sender,
-                text: t.text,
-                timestamp: new Date(),
+                role: t.sender as "user" | "assistant",
+                parts: [{ type: "text" as const, text: t.text }],
               }));
-              setMessages((prev) => [...prev, ...newMessages]);
+              setMessages([...messages, ...newMessages] as UIMessage[]);
 
               // Trigger session save
               if (recordingBlob && duration) {
@@ -609,11 +577,15 @@ const ChatInterface = () => {
 
         <div className="max-w-4xl mx-auto space-y-6">
           {messages.map((msg, index) => {
+            const msgText = getMessageText(msg);
+            const msgFile = getMessageFile(msg);
+            const msgIsStreaming = isMessageStreaming(msg);
+            const isAssistant = msg.role === "assistant";
             const isError =
-              msg.role === "model" &&
-              (msg.text.includes("apologize") ||
-                msg.text.includes("error") ||
-                msg.text.includes("offline"));
+              isAssistant &&
+              (msgText.includes("apologize") ||
+                msgText.includes("error") ||
+                msgText.includes("offline"));
 
             return (
               <div
@@ -658,7 +630,8 @@ const ChatInterface = () => {
                           : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none"
                     }`}
                   >
-                    {msg.attachment && (
+                    {/* File attachment display */}
+                    {msgFile && (
                       <div
                         className={`mb-3 p-3 rounded-lg flex items-center space-x-3 ${
                           msg.role === "user"
@@ -669,7 +642,7 @@ const ChatInterface = () => {
                         <div
                           className={`p-2 rounded flex items-center justify-center ${msg.role === "user" ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800"}`}
                         >
-                          {msg.attachment.type.includes("image") ? (
+                          {msgFile.type.includes("image") ? (
                             <ImageIcon
                               size={18}
                               className={
@@ -691,7 +664,7 @@ const ChatInterface = () => {
                         </div>
                         <div className="flex flex-col overflow-hidden">
                           <span className="font-medium truncate text-xs opacity-90 max-w-[200px]">
-                            {msg.attachment.name}
+                            {msgFile.name}
                           </span>
                           <span className="text-[10px] opacity-70">
                             Attached Document
@@ -887,9 +860,9 @@ const ChatInterface = () => {
                           ),
                         }}
                       >
-                        {msg.text}
+                        {msgText}
                       </ReactMarkdown>
-                      {msg.isStreaming && (
+                      {msgIsStreaming && (
                         <span
                           className={`inline-block w-1.5 h-4 ml-1 animate-pulse align-middle rounded-sm ${
                             msg.role === "user"
@@ -917,10 +890,16 @@ const ChatInterface = () => {
                     )}
                   </div>
                   <span className="text-xs text-slate-400 dark:text-slate-500 mt-2 mx-1">
-                    {msg.timestamp.toLocaleTimeString([], {
+                    {(
+                      msg.metadata as { createdAt?: Date } | undefined
+                    )?.createdAt?.toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
-                    })}
+                    }) ??
+                      new Date().toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                   </span>
                 </div>
               </div>
@@ -950,7 +929,7 @@ const ChatInterface = () => {
       {/* Input Area */}
       <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors">
         <div className="max-w-4xl mx-auto">
-          {(attachment || isUploading) && (
+          {(pendingAttachment || isUploading) && (
             <div
               className={`transform transition-all duration-300 ease-in-out origin-bottom ${
                 isInputFocused
@@ -1046,7 +1025,7 @@ const ChatInterface = () => {
             <button
               onClick={() => fileInputRef.current?.click()}
               className={`p-3 mb-1 ml-1 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 ${
-                attachment || isUploading
+                pendingAttachment || isUploading
                   ? "text-orange-500 bg-orange-50 dark:bg-orange-900/20"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 hover:rotate-12"
               }`}
@@ -1097,7 +1076,7 @@ const ChatInterface = () => {
                 isLoading ||
                 isUploading ||
                 connectionStatus === "offline" ||
-                (!input.trim() && !attachment)
+                (!input.trim() && !pendingAttachment)
               }
               className="p-2.5 mb-2 mr-2 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 hover:rotate-3 disabled:hover:scale-100 disabled:hover:rotate-0"
             >
