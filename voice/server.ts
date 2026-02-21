@@ -54,8 +54,6 @@ async function buildClient(): Promise<ClientState> {
     apiKey: process.env.INWORLD_API_KEY!,
     voiceId: "Blake",
     modelId: "inworld-tts-1.5-mini",
-    encoding: "LINEAR16",
-    sampleRate: 24000,
   });
 
   await inworld.connect();
@@ -124,9 +122,9 @@ async function runPipeline(
       model: google("gemini-2.0-flash"),
       messages: state.messages,
       abortSignal: state.abortController.signal,
-      temperature: 0.2,
+      temperature: 0.4,
       system: LEGAL_SYSTEM_INSTRUCTION({
-        user: "User",
+        user: "Herbert",
         instructor: "Kelly",
       }),
       onAbort(event) {
@@ -202,7 +200,7 @@ const server = Bun.serve<{ id: string }>({
   fetch(req, server) {
     const id = crypto.randomUUID();
     const upgraded = server.upgrade(req, { data: { id } });
-    console.log("Ip", req.headers.get("cf-connecting-ip"));
+    // console.log("Ip", req.headers.get("cf-connecting-ip"));
     if (upgraded) return;
     return new Response("WebSocket endpoint. Connect via ws://", {
       status: 426,
@@ -256,7 +254,7 @@ const server = Bun.serve<{ id: string }>({
     },
   },
 });
-console.log(server.hostname);
+
 console.log(
   `🚀 Voice WebSocket server listening on ws://${server.hostname}:${PORT}`,
 );
