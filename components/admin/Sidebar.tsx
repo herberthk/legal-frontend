@@ -3,7 +3,7 @@ import { useAppStore, useAuthStore, usePopStore } from "@/store";
 import { cn, signOut } from "@/lib";
 
 import { LogOut, Scale, Shield, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { sideBarItems } from "@/constants";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -23,15 +23,16 @@ const Sidebar = ({ user }: Props) => {
     router.push("/login");
   };
   const navlinks = sideBarItems(user?.role);
-  const activeTab = useAppStore((state) => state.activeTab);
-  const setActiveTab = useAppStore((state) => state.setActiveTab);
+  // const activeTab = useAppStore((state) => state.activeTab);
+  // const setActiveTab = useAppStore((state) => state.setActiveTab);
   const setUser = useAuthStore((state) => state.setUser);
   useEffect(() => {
     setUser(user);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  console.log("activeTab", activeTab);
+  // console.log("activeTab", activeTab);
+  const pathname = usePathname();
   return (
     <aside
       className={`fixed inset-y-0 left-0 z-40 w-64 text-white flex flex-col shadow-xl transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
@@ -73,7 +74,7 @@ const Sidebar = ({ user }: Props) => {
             key={link.id}
             href={link.href}
             onClick={() => {
-              setActiveTab(link.id);
+              // setActiveTab(link.id);
               toggleSidebar();
             }}
             // className={cn(
@@ -82,7 +83,7 @@ const Sidebar = ({ user }: Props) => {
             // )}
             className={cn(
               "w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300",
-              activeTab === link.id
+              pathname === link.id
                 ? isAdmin
                   ? "bg-indigo-600 shadow-indigo-500/20"
                   : "bg-orange-600 shadow-orange-500/20"

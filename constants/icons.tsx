@@ -60,25 +60,25 @@ export const sideBarItems = (role: Role) =>
   role === "ADMIN"
     ? [
         {
-          id: "dashboard",
+          id: "/dashboard/admin",
           label: "Dashboard",
           icon: <LayoutDashboard size={20} />,
           href: "/dashboard/admin",
         },
         {
-          id: "admin-users",
+          id: "/dashboard/admin/users",
           label: "User Management",
           icon: <Users size={20} />,
           href: "/dashboard/admin/users",
         },
         {
-          id: "admin-complaints",
+          id: "/dashboard/admin/complaints",
           label: "User Complaints",
           icon: <FileWarning size={20} />,
           href: "/dashboard/admin/complaints",
         },
         {
-          id: "admin-configuration",
+          id: "/dashboard/admin/configuration",
           label: "Configuration",
           icon: <Settings size={20} />,
           href: "/dashboard/admin/configuration",
@@ -86,25 +86,25 @@ export const sideBarItems = (role: Role) =>
       ]
     : [
         {
-          id: "dashboard",
+          id: "/dashboard/user",
           label: "Dashboard",
           icon: <LayoutDashboard size={20} />,
           href: "/dashboard/user",
         },
         {
-          id: "user-chat",
+          id: "/dashboard/user/chat",
           label: "Chat with AI",
           icon: <MessageSquareIcon size={20} />,
           href: "/dashboard/user/chat",
         },
         {
-          id: "user-billing",
+          id: "/dashboard/user/billing",
           label: "Billing & Usage",
           icon: <CreditCard size={20} />,
           href: "/dashboard/user/billing",
         },
         {
-          id: "user-help",
+          id: "/dashboard/user/help",
           label: "Help & Support",
           icon: <LifeBuoy size={20} />,
           href: "/dashboard/user/help",
