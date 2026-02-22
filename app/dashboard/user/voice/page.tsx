@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Mic,
   MicOff,
@@ -73,8 +73,6 @@ const VoicePage = () => {
     },
   ]);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-
   // Format duration SS to MM:SS
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60)
@@ -89,13 +87,6 @@ const VoicePage = () => {
     const timer = setInterval(() => setDuration((d) => d + 1), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  // Auto-scroll transcripts
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [transcripts]);
 
   // Simulation orchestrator
   useEffect(() => {
@@ -267,74 +258,71 @@ const VoicePage = () => {
         </div>
       </div>
 
-      {/* Transcripts Panel */}
+      {/* Live Speaker Focus Panel */}
       <div className="absolute bottom-28 left-0 w-full px-4 sm:px-8 flex justify-center z-10 pointer-events-none">
-        <div className="w-full max-w-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl border border-white/50 dark:border-slate-700/50 rounded-3xl shadow-xl overflow-hidden flex flex-col h-56 sm:h-64 transition-all pointer-events-auto">
-          <div className="bg-white/50 dark:bg-slate-800/50 px-5 py-3 border-b border-slate-200/50 dark:border-slate-700/50 flex justify-between items-center">
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-              Live Transcript
-            </h3>
-            {currentSpeaker && (
-              <span
-                className={`text-[10px] font-bold px-2 py-1 rounded-full ${currentSpeaker.speaker === "ai" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300" : "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300"}`}
-              >
-                LAST: {currentSpeaker.speaker === "ai" ? "ADVISER" : "YOU"}
-              </span>
-            )}
-          </div>
-
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth"
-          >
-            {transcripts.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex items-start gap-3 w-full animate-in fade-in slide-in-from-bottom-2 ${msg.speaker === "user" ? "flex-row-reverse" : ""}`}
-              >
-                {msg.speaker === "system" ? (
-                  <div className="w-full text-center text-xs font-medium text-slate-400 dark:text-slate-500 my-2 italic">
-                    {msg.text}
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${msg.speaker === "ai" ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400" : "bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400"}`}
-                    >
-                      {msg.speaker === "ai" ? (
-                        <BrainCircuit size={16} />
-                      ) : (
-                        <UserIcon size={16} />
-                      )}
-                    </div>
-                    <div
-                      className={`flex flex-col ${msg.speaker === "user" ? "items-end text-right" : "items-start text-left"} max-w-[85%]`}
-                    >
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1 ml-1">
-                        {msg.speaker === "ai"
-                          ? "Legal Adviser"
-                          : user?.name || "You"}
-                      </span>
-                      <div
-                        className={`px-4 py-2.5 rounded-2xl text-sm shadow-sm ${msg.speaker === "user" ? "bg-linear-to-br from-amber-500 to-orange-600 text-white rounded-tr-none" : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-none leading-relaxed"}`}
-                      >
-                        {msg.text}
-                      </div>
-                    </div>
-                  </>
-                )}
+        <div className="w-full max-w-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/50 dark:border-slate-700/50 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col min-h-[16rem] transition-all pointer-events-auto">
+          <div className="flex-1 p-6 sm:p-10 flex items-center justify-center relative">
+            {status === "processing" ? (
+              <div className="flex flex-col items-center justify-center animate-in zoom-in-95 duration-500">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-inner mb-6">
+                  <BrainCircuit size={32} strokeWidth={1.5} />
+                </div>
+                <div className="flex items-center space-x-2.5 h-8">
+                  <span
+                    className="w-3 h-3 bg-indigo-500 rounded-full animate-pulse opacity-80"
+                    style={{ animationDuration: "1s" }}
+                  ></span>
+                  <span
+                    className="w-3 h-3 bg-indigo-500 rounded-full animate-pulse opacity-80"
+                    style={{ animationDelay: "200ms", animationDuration: "1s" }}
+                  ></span>
+                  <span
+                    className="w-3 h-3 bg-indigo-500 rounded-full animate-pulse opacity-80"
+                    style={{ animationDelay: "400ms", animationDuration: "1s" }}
+                  ></span>
+                </div>
+                <span className="mt-4 text-sm font-semibold text-slate-500 uppercase tracking-widest">
+                  Analyzing...
+                </span>
               </div>
-            ))}
-            {status === "processing" && (
-              <div className="flex items-start gap-3 w-full animate-in fade-in">
-                <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400">
-                  <BrainCircuit size={16} />
+            ) : currentSpeaker ? (
+              <div className="flex flex-col items-center text-center max-w-2xl w-full animate-in slide-in-from-bottom-4 duration-500">
+                <div
+                  className={`shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-lg mb-4 transition-all duration-300 ${
+                    currentSpeaker.speaker === "ai"
+                      ? "bg-linear-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-500/30"
+                      : "bg-linear-to-br from-amber-500 to-orange-600 text-white shadow-orange-500/30"
+                  }`}
+                >
+                  {currentSpeaker.speaker === "ai" ? (
+                    <BrainCircuit size={24} className="sm:w-7 sm:h-7" />
+                  ) : (
+                    <UserIcon size={24} className="sm:w-7 sm:h-7" />
+                  )}
                 </div>
-                <div className="px-4 py-3 rounded-2xl rounded-tl-none bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center space-x-1.5 h-10 shadow-sm">
-                  <span className="w-1.5 h-1.5 bg-indigo-400/60 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                  <span className="w-1.5 h-1.5 bg-indigo-400/60 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                  <span className="w-1.5 h-1.5 bg-indigo-400/60 rounded-full animate-bounce"></span>
+                <h4 className="text-[10px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-3 sm:mb-4">
+                  {currentSpeaker.speaker === "ai"
+                    ? "Legal Adviser"
+                    : user?.name || "You"}
+                </h4>
+                <p
+                  className={`text-lg sm:text-2xl font-medium leading-relaxed sm:leading-loose ${
+                    currentSpeaker.speaker === "ai"
+                      ? "text-slate-800 dark:text-slate-100"
+                      : "text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  &quot;{currentSpeaker.text}&quot;
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-center opacity-40">
+                <div className="w-14 h-14 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center mb-4">
+                  <Mic size={28} className="text-slate-500" />
                 </div>
+                <p className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                  Awaiting Speech...
+                </p>
               </div>
             )}
           </div>
