@@ -1,4 +1,4 @@
-import Notifications from "@/components/admin/Notification";
+import Notifications from "@/components/global/Notification";
 
 const NotificationPage = () => {
   return <Notifications />;

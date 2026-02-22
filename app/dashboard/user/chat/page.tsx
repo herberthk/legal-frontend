@@ -1,4 +1,4 @@
-import ChatInterface from "@/components/admin/ChatInterface";
+import ChatInterface from "@/components/global/ChatInterface";
 // import { useAuthStore } from "@/store";
 
 const ChatPage = () => {

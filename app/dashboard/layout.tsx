@@ -1,5 +1,5 @@
-import Header from "@/components/admin/Header";
-import Sidebar from "@/components/admin/Sidebar";
+import Header from "@/components/global/Header";
+import Sidebar from "@/components/global/Sidebar";
 import { getUserSession } from "@/lib";
 import { redirect } from "next/navigation";
 
