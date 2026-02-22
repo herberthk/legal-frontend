@@ -1,16 +1,16 @@
 "use client";
 import { Scale, Sun, Moon, Star } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import DemoModal from "@/components/demo";
+import DemoModal from "@/components/landing/demo";
 import { cardEntrance, fadeInUp, staggerContainer } from "@/constants";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePopStore, useThemeStore } from "@/store";
-import Faq from "@/components/Faq";
-import Footer from "@/components/Footer";
-import Pricing from "@/components/Pricing";
-import Features from "@/components/Features";
-import Hero from "@/components/Hero";
+import Faq from "@/components/landing/Faq";
+import Footer from "@/components/landing/Footer";
+import Pricing from "@/components/landing/Pricing";
+import Features from "@/components/landing/Features";
+import Hero from "@/components/landing/Hero";
 
 const LandingPage = () => {
   const showDemo = usePopStore((state) => state.showDemo);

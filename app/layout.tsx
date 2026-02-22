@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
-import ThemeInitializer from "@/components/ThemeInitializer";
+import ThemeInitializer from "@/components/global/ThemeInitializer";
 
 const inter = Inter({
   subsets: ["latin"],
