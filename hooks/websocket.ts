@@ -11,15 +11,24 @@ export type WebSocketStatus =
   | "closed"
   | "error";
 
-export interface UseWebSocketOptions<TInbound> {
-  /** Called whenever a message is received from the server */
-  onMessage: (data: TInbound) => void;
-  /** Called on connection error */
+/**
+ * Inbound messages are always either:
+ *   - string  — UTF-8 text frames from the server
+ *   - ArrayBuffer — raw binary frames (e.g. PCM audio)
+ *
+ * The hook never attempts JSON.parse — callers handle the protocol themselves.
+ */
+export type WsInbound = string | ArrayBuffer;
+
+export interface UseWebSocketOptions {
+  /** Called for every message received from the server */
+  onMessage: (data: WsInbound) => void;
+  /** Called on socket error */
   onError?: (event: Event) => void;
   /** Called when the socket closes */
   onClose?: (event: CloseEvent) => void;
   /**
-   * If true, automatically attempt to reconnect on unexpected close.
+   * Automatically reconnect on unexpected close.
    * Default: false
    */
   reconnect?: boolean;
@@ -27,21 +36,22 @@ export interface UseWebSocketOptions<TInbound> {
   reconnectDelay?: number;
 }
 
-export interface UseWebSocketReturn<TOutbound> {
+export interface UseWebSocketReturn {
   status: WebSocketStatus;
-  /** Send a message to the WebSocket server. Throws if the socket is not open. */
-  send: (data: TOutbound) => void;
-  /** Manually open the connection */
+  /**
+   * Send a plain UTF-8 string to the server.
+   * (The Bun server expects raw text, not JSON-wrapped objects.)
+   */
+  send: (text: string) => void;
+  /** Open (or re-open) the connection to the given URL */
   connect: (url: string) => void;
-  /** Close the connection */
+  /** Intentionally close the connection */
   disconnect: () => void;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useWebSocket<TInbound = unknown, TOutbound = unknown>(
-  options: UseWebSocketOptions<TInbound>,
-): UseWebSocketReturn<TOutbound> {
+export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   const [status, setStatus] = useState<WebSocketStatus>("idle");
 
   const socketRef = useRef<WebSocket | null>(null);
@@ -49,108 +59,103 @@ export function useWebSocket<TInbound = unknown, TOutbound = unknown>(
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intentionalCloseRef = useRef<boolean>(false);
   const optionsRef = useRef(options);
-  // Stores the connect function itself so ws.onclose can call it without
-  // closing over the const declaration (which would be a use-before-declare error)
+  // Ref to connect() so ws.onclose can call it without use-before-declare errors
   const connectRef = useRef<(url: string) => void>(() => {});
 
-  // Keep options ref current so callbacks always see the latest values
-  // without causing connect/disconnect to re-create
+  // Keep option callbacks current without re-creating the socket
   useEffect(() => {
     optionsRef.current = options;
   }, [options]);
 
-  const clearReconnectTimer = useCallback(() => {
+  const clearReconnectTimer = () => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
-  }, []);
+  };
 
-  const connect = useCallback(
-    (url: string) => {
-      // Close any existing socket first
-      intentionalCloseRef.current = true;
-      socketRef.current?.close();
-      clearReconnectTimer();
+  const connect = (url: string) => {
+    intentionalCloseRef.current = true;
+    socketRef.current?.close();
+    clearReconnectTimer();
 
-      urlRef.current = url;
-      intentionalCloseRef.current = false;
+    urlRef.current = url;
+    intentionalCloseRef.current = false;
 
-      const ws = new WebSocket(url);
-      socketRef.current = ws;
-      setStatus("connecting");
+    const ws = new WebSocket(url);
 
-      ws.onopen = () => setStatus("open");
+    // Critical: receive binary frames as ArrayBuffer, not Blob.
+    // Blobs require an extra async read step and add latency to audio playback.
+    ws.binaryType = "arraybuffer";
 
-      ws.onmessage = (event: MessageEvent) => {
-        try {
-          const parsed: TInbound =
-            typeof event.data === "string"
-              ? JSON.parse(event.data)
-              : event.data;
-          optionsRef.current.onMessage(parsed);
-        } catch (err) {
-          console.error("[useWebSocket] Failed to parse message:", err);
-        }
-      };
+    socketRef.current = ws;
+    setStatus("connecting");
 
-      ws.onerror = (event: Event) => {
-        setStatus("error");
-        optionsRef.current.onError?.(event);
-      };
+    ws.onopen = () => {
+      console.log("ws opened");
+      setStatus("open");
+    };
 
-      ws.onclose = (event: CloseEvent) => {
-        setStatus("closed");
-        optionsRef.current.onClose?.(event);
-        socketRef.current = null;
+    ws.onmessage = (event: MessageEvent<string | ArrayBuffer>) => {
+      // Pass messages through as-is — no JSON parsing.
+      // Strings are protocol signals (READY:, TEXT:, DONE, ERROR:)
+      // ArrayBuffers are raw PCM audio frames.
+      console.log("ws message", event.data);
+      optionsRef.current.onMessage(event.data);
+    };
 
-        if (
-          !intentionalCloseRef.current &&
-          optionsRef.current.reconnect &&
-          urlRef.current
-        ) {
-          const delay = optionsRef.current.reconnectDelay ?? 2000;
-          // Use connectRef instead of connect directly to avoid
-          // the "variable accessed before declaration" ESLint error
-          reconnectTimerRef.current = setTimeout(() => {
-            connectRef.current(urlRef.current!);
-          }, delay);
-        }
-      };
-    },
-    [clearReconnectTimer],
-  );
+    ws.onerror = (event: Event) => {
+      setStatus("error");
+      optionsRef.current.onError?.(event);
+    };
 
-  // Keep connectRef in sync with the latest connect function
+    ws.onclose = (event: CloseEvent) => {
+      setStatus("closed");
+      optionsRef.current.onClose?.(event);
+      socketRef.current = null;
+
+      if (
+        !intentionalCloseRef.current &&
+        optionsRef.current.reconnect &&
+        urlRef.current
+      ) {
+        const delay = optionsRef.current.reconnectDelay ?? 2000;
+        reconnectTimerRef.current = setTimeout(() => {
+          connectRef.current(urlRef.current!);
+        }, delay);
+      }
+    };
+  };
+
   useEffect(() => {
     connectRef.current = connect;
-  }, [connect]);
+  }, []);
 
-  const disconnect = useCallback(() => {
+  const disconnect = () => {
     intentionalCloseRef.current = true;
     clearReconnectTimer();
     socketRef.current?.close();
     socketRef.current = null;
     urlRef.current = null;
     setStatus("idle");
-  }, [clearReconnectTimer]);
+  };
 
-  const send = useCallback((data: TOutbound) => {
+  const send = (text: string) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       throw new Error("[useWebSocket] Cannot send — socket is not open");
     }
-    const payload = typeof data === "string" ? data : JSON.stringify(data);
-    socketRef.current.send(payload);
-  }, []);
+    console.log("ws message to send", text);
+    socketRef.current.send(text);
+  };
 
-  // Clean up on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       intentionalCloseRef.current = true;
       clearReconnectTimer();
       socketRef.current?.close();
     };
-  }, [clearReconnectTimer]);
+  }, []);
 
   return { status, send, connect, disconnect };
 }

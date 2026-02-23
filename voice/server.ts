@@ -58,7 +58,12 @@ async function buildClient(): Promise<ClientState> {
 
   await inworld.connect();
 
-  return { inworld, busy: false, messages: [], abortController: null };
+  return {
+    inworld,
+    busy: false,
+    messages: [],
+    abortController: null,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -113,7 +118,7 @@ async function runPipeline(
   state.abortController = new AbortController();
 
   try {
-    console.log(`[${clientId(ws)}] ➡️  Prompt: "${prompt}"`);
+    // console.log(`[${clientId(ws)}] ➡️  Prompt: "${prompt}"`);
 
     // Add user message to history
     state.messages.push({ role: "user", content: prompt });
@@ -215,7 +220,9 @@ const server = Bun.serve<{ id: string }>({
         const state = await buildClient();
         clients.set(ws.data.id, state);
         console.log(`[${ws.data.id}] ✅ Inworld TTS ready`);
-        ws.send("READY:24000"); // include sample rate for client
+        ws.send("READY:48000"); // include sample rate for client
+        // Trigger greeting: LLM → TTS → audio back to client
+        await runPipeline(ws, state, "Hello, how are you?");
       } catch (err) {
         console.error(`[${ws.data.id}] ❌ Failed to connect Inworld:`, err);
         ws.send(`ERROR: ${err instanceof Error ? err.message : String(err)}`);
