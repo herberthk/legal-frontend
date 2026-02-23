@@ -149,6 +149,7 @@ export function useTranscription(
           if (turn.end_of_turn) {
             committedRef.current = updated;
             config.onTurnEnd(turn.transcript);
+            // setTranscript(turn.transcript);
           }
         },
       );
