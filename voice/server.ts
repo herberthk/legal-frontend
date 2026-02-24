@@ -27,6 +27,10 @@ type CoreMessage =
 
 const PORT = Number(process.env.PORT ?? 3001);
 
+/** Maximum messages retained per connection (5 user + 5 assistant turns).
+ *  Old context is dropped to bound memory and Gemini token cost. */
+const MAX_HISTORY_MESSAGES = 10;
+
 /* ------------------------------------------------------------------ */
 /*  Per-connection state                                                */
 /* ------------------------------------------------------------------ */
@@ -111,6 +115,9 @@ async function runPipeline(
   if (state.busy) {
     console.log(`[${clientId(ws)}] 🛑 Interrupting active request`);
     state.abortController?.abort();
+    // Mute Inworld audio handler immediately — any TTS audio still queued in
+    // Inworld's pipeline for the old utterance gets swallowed here, not forwarded.
+    state.inworld.onAudio(() => {});
     ws.send("INTERRUPT");
   }
 
@@ -174,8 +181,11 @@ async function runPipeline(
       }
     }
 
-    // Add assistant response to history
+    // Add assistant response to history, then trim to cap memory + token cost
     state.messages.push({ role: "assistant", content: fullResponse });
+    if (state.messages.length > MAX_HISTORY_MESSAGES) {
+      state.messages = state.messages.slice(-MAX_HISTORY_MESSAGES);
+    }
 
     console.log(
       `[${clientId(ws)}] ✅ LLM done in ${(performance.now() - startLLM).toFixed(1)}ms`,
@@ -222,7 +232,7 @@ const server = Bun.serve<{ id: string }>({
         console.log(`[${ws.data.id}] ✅ Inworld TTS ready`);
         ws.send("READY:48000"); // include sample rate for client
         // Trigger greeting: LLM → TTS → audio back to client
-        await runPipeline(ws, state, "Hello, how are you?");
+        await runPipeline(ws, state, "Hello!");
       } catch (err) {
         console.error(`[${ws.data.id}] ❌ Failed to connect Inworld:`, err);
         ws.send(`ERROR: ${err instanceof Error ? err.message : String(err)}`);
