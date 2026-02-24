@@ -8,23 +8,24 @@
  *
  * Architecture:
  *   - Maintains a Float32 ring buffer (circular buffer) in the worklet thread
- *   - Main thread pushes decoded Float32 chunks via port.postMessage
+ *   - Main thread pushes decoded Float32 chunks via port.postMessage (zero-copy transfer)
  *   - process() drains the ring buffer each quantum (128 samples)
- *   - On underrun: outputs silence instead of repeating/glitching
- *   - Reports buffer fill level back to main thread every ~200ms
+ *   - On underrun mid-playback: outputs silence and fires 'underrun'
+ *   - On clean drain after playing: fires 'drained' (utterance complete)
+ *   - Reports buffer fill level back to main thread every ~100 quanta
  *
  * Messages received (main → worklet):
- *   { type: 'chunk',   samples: Float32Array }  — audio data to enqueue
- *   { type: 'flush' }                           — clear buffer immediately (new utterance)
- *   { type: 'config',  bufferSize?: number }    — optional config (before first chunk)
+ *   { type: 'chunk',  samples: Float32Array }  — audio data to enqueue (transferred)
+ *   { type: 'flush' }                           — clear buffer (interrupt / new utterance)
+ *   { type: 'config', bufferSize?: number }     — optional config before first chunk
  *
  * Messages sent (worklet → main):
  *   { type: 'bufferHealth', filled: number, capacity: number }
- *   { type: 'underrun' }   — fired when buffer runs dry mid-playback
- *   { type: 'drained' }    — fired when buffer empties after having data (utterance done)
+ *   { type: 'underrun' }   — buffer ran dry while actively playing
+ *   { type: 'drained' }    — buffer emptied cleanly (end of utterance)
  */
 
-const DEFAULT_BUFFER_SAMPLES = 48000; // 1s at 48kHz
+const DEFAULT_BUFFER_SAMPLES = 96000; // 2s at 48kHz — good balance of latency vs jitter resilience
 
 class AudioStreamProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -33,110 +34,115 @@ class AudioStreamProcessor extends AudioWorkletProcessor {
     const capacity =
       options?.processorOptions?.bufferSize ?? DEFAULT_BUFFER_SAMPLES;
 
-    // Ring buffer — a single pre-allocated Float32Array
-    this._buffer = new Float32Array(capacity);
-    this._capacity = capacity;
+    // Ring buffer — single pre-allocated Float32Array
+    this._buf = new Float32Array(capacity);
+    this._cap = capacity;
     this._writePos = 0;
     this._readPos = 0;
-    this._filled = 0; // number of samples currently in the buffer
+    this._filled = 0;
 
-    this._hadData = false; // track whether we've ever received a chunk this utterance
-    this._reportInterval = 0; // counter for throttling bufferHealth reports
-    this._reportEvery = 200; // report every ~200 quanta (≈ 200 * 128 / sampleRate seconds)
+    // Playback state — gates event reporting so cold-start silence never fires events
+    this._isPlaying = false; // true once first chunk is received for an utterance
+    this._reportTick = 0;
+    this._reportEvery = 100; // ~100 * 128 / 48000 ≈ every 266ms
 
-    this.port.onmessage = (event) => {
-      const { type } = event.data;
-
-      if (type === "chunk") {
-        this._enqueue(event.data.samples);
-      } else if (type === "flush") {
-        this._flush();
-      } else if (type === "config" && event.data.bufferSize) {
-        // Re-allocate if a custom size is requested before first chunk
-        if (this._filled === 0) {
-          this._buffer = new Float32Array(event.data.bufferSize);
-          this._capacity = event.data.bufferSize;
-        }
+    this.port.onmessage = ({ data }) => {
+      switch (data.type) {
+        case "chunk":
+          this._enqueue(data.samples);
+          break;
+        case "flush":
+          this._flush();
+          break;
+        case "config":
+          if (data.bufferSize && this._filled === 0) {
+            this._buf = new Float32Array(data.bufferSize);
+            this._cap = data.bufferSize;
+          }
+          break;
       }
     };
   }
 
-  /** Write samples into the ring buffer, dropping oldest data on overflow */
+  // ── Ring buffer ops ────────────────────────────────────────────────────────
+
   _enqueue(samples) {
     const len = samples.length;
-
-    // If incoming chunk is larger than capacity, only keep the tail
-    const srcOffset = len > this._capacity ? len - this._capacity : 0;
+    // If incoming chunk is larger than capacity, keep only the tail
+    const srcOffset = len > this._cap ? len - this._cap : 0;
     const count = len - srcOffset;
 
     for (let i = 0; i < count; i++) {
-      this._buffer[this._writePos] = samples[srcOffset + i];
-      this._writePos = (this._writePos + 1) % this._capacity;
+      this._buf[this._writePos] = samples[srcOffset + i];
+      this._writePos = (this._writePos + 1) % this._cap;
 
-      if (this._filled < this._capacity) {
+      if (this._filled < this._cap) {
         this._filled++;
       } else {
-        // Overflow — advance read pointer to discard oldest sample
-        this._readPos = (this._readPos + 1) % this._capacity;
+        // Overflow — advance read pointer, drop oldest sample
+        this._readPos = (this._readPos + 1) % this._cap;
       }
     }
 
-    this._hadData = true;
+    this._isPlaying = true; // receiving data = we are now in an active utterance
   }
 
-  /** Clear all buffered audio (call at start of a new utterance) */
   _flush() {
-    this._readPos = 0;
     this._writePos = 0;
+    this._readPos = 0;
     this._filled = 0;
-    this._hadData = false;
+    this._isPlaying = false;
   }
 
-  /** Read one sample from the ring buffer (returns 0 on underrun) */
   _readSample() {
     if (this._filled === 0) return 0;
-
-    const sample = this._buffer[this._readPos];
-    this._readPos = (this._readPos + 1) % this._capacity;
+    const s = this._buf[this._readPos];
+    this._readPos = (this._readPos + 1) % this._cap;
     this._filled--;
-    return sample;
+    return s;
   }
 
-  process(_inputs, outputs) {
-    const output = outputs[0];
-    const channel = output[0];
+  // ── Audio process callback (runs every 128 samples) ───────────────────────
 
+  process(_inputs, outputs) {
+    const channel = outputs[0]?.[0];
     if (!channel) return true;
 
     const quantum = channel.length; // always 128
-    const wasNonEmpty = this._filled > 0;
+    const filledBefore = this._filled;
 
     for (let i = 0; i < quantum; i++) {
       channel[i] = this._readSample();
     }
 
-    // Detect underrun: had data, now empty
-    if (wasNonEmpty && this._filled === 0) {
-      if (this._hadData) {
+    // Event reporting — only while actively playing, prevents spurious events
+    // during idle silence between utterances.
+    if (this._isPlaying) {
+      if (filledBefore > 0 && this._filled === 0) {
+        // Buffer just went empty — clean drain (utterance finished)
+        this._isPlaying = false;
         this.port.postMessage({ type: "drained" });
-        this._hadData = false;
-      } else {
+      } else if (filledBefore === 0 && this._filled === 0) {
+        // Was already empty but still "playing" — true underrun mid-stream
+        this._isPlaying = false;
         this.port.postMessage({ type: "underrun" });
       }
     }
 
-    // Throttled buffer health report
-    this._reportInterval++;
-    if (this._reportInterval >= this._reportEvery) {
-      this._reportInterval = 0;
-      this.port.postMessage({
-        type: "bufferHealth",
-        filled: this._filled,
-        capacity: this._capacity,
-      });
+    // Throttled health report — skip when buffer is empty (no UI value in reporting zeros)
+    if (this._filled > 0) {
+      this._reportTick++;
+      if (this._reportTick >= this._reportEvery) {
+        this._reportTick = 0;
+        this.port.postMessage({
+          type: "bufferHealth",
+          filled: this._filled,
+          capacity: this._cap,
+        });
+      }
     }
 
-    return true; // keep processor alive
+    return true; // keep processor alive indefinitely
   }
 }
 

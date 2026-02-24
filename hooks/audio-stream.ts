@@ -16,15 +16,15 @@ export type AudioStreamStatus =
 export interface UseAudioStreamOptions {
   /**
    * Ring buffer size in samples inside the worklet.
-   * At 48kHz: 192000 ≈ 4s, 96000 ≈ 2s.
+   * At 48kHz: 96000 ≈ 2s (default), 192000 ≈ 4s.
    * Larger = more resilient to network jitter. Smaller = lower latency.
-   * Default: 192000
    */
   bufferSize?: number;
   /**
    * How many samples to accumulate before beginning playback.
-   * Prevents an immediate underrun on the very first chunk.
-   * Default: 4800 (100ms @ 48kHz)
+   * Inworld TTS sends ≥960-sample (20ms) chunks, so the very first chunk
+   * exceeds this threshold and playback starts immediately.
+   * Default: 480 (10ms @ 48kHz)
    */
   startThreshold?: number;
   /**
@@ -35,7 +35,7 @@ export interface UseAudioStreamOptions {
   encoding?: "int16" | "float32";
   /** Called when the buffer drains cleanly after playing (utterance finished) */
   onDrained?: () => void;
-  /** Called when the buffer underruns mid-playback (network too slow) */
+  /** Called when the buffer underruns mid-playback (network stall) */
   onUnderrun?: () => void;
   /** Called on any audio error */
   onError?: (error: Error) => void;
@@ -47,32 +47,29 @@ export interface UseAudioStreamReturn {
   bufferHealth: number;
   /**
    * Initialise the AudioContext at the given sample rate.
-   * Must be called from a user-gesture handler (browser autoplay policy).
-   * The server sends the rate in the "READY:<rate>" handshake message.
+   * Safe to call from a user-gesture handler (satisfies browser autoplay policy).
+   * Idempotent: if already initialised at the same sample rate, returns immediately.
    */
   init: (sampleRate: number) => Promise<void>;
   /**
    * Feed a raw PCM ArrayBuffer received from the WebSocket.
    * No-ops silently if init() hasn't been called yet.
+   * Applies a short crossfade on each chunk to prevent click artifacts.
    */
   pushChunk: (buffer: ArrayBuffer) => void;
   /**
-   * Clear the ring buffer immediately.
-   * Call at the start of a new utterance to discard any leftover audio.
+   * Clear the ring buffer immediately (interrupt / start of new utterance).
    */
   flush: () => void;
   /** Resume a browser-suspended AudioContext */
   resume: () => Promise<void>;
-  /** Fully tear down all resources (call on unmount or disconnect) */
+  /** Fully tear down all resources (call on disconnect / unmount) */
   destroy: () => Promise<void>;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Convert a LINEAR16 (Int16 LE) ArrayBuffer to a Float32Array in [-1, 1].
- * Runs on the main thread so the worklet's process() stays minimal.
- */
+/** LINEAR16 → Float32 [-1, 1] conversion (runs on main thread) */
 function int16ToFloat32(buffer: ArrayBuffer): Float32Array {
   const int16 = new Int16Array(buffer);
   const float32 = new Float32Array(int16.length);
@@ -88,8 +85,8 @@ export function useAudioStream(
   options: UseAudioStreamOptions = {},
 ): UseAudioStreamReturn {
   const {
-    bufferSize = 48000, // 1s at 48kHz — enough headroom without inflating health %
-    startThreshold = 480, // 10ms at 48kHz — start almost immediately
+    bufferSize = 96000, // 2s at 48kHz
+    startThreshold = 480, // 10ms — Inworld chunks are ≥960 samples so this fires immediately
     encoding = "int16",
     onDrained,
     onUnderrun,
@@ -104,8 +101,9 @@ export function useAudioStream(
   const gainRef = useRef<GainNode | null>(null);
   const pendingSamplesRef = useRef<number>(0);
   const playbackStartedRef = useRef<boolean>(false);
+  const initSampleRateRef = useRef<number | null>(null);
 
-  // Stable callback refs — updated each render without recreating anything
+  // Stable callback refs — updated each render without recreating closures
   const onDrainedRef = useRef(onDrained);
   const onUnderrunRef = useRef(onUnderrun);
   const onErrorRef = useRef(onError);
@@ -120,13 +118,19 @@ export function useAudioStream(
   }, [onError]);
 
   // ── init ─────────────────────────────────────────────────────────────────────
-  //
-  // Called explicitly from a user-gesture handler after the server sends READY:<rate>.
-  // Creating AudioContext inside a gesture satisfies browser autoplay policy.
 
   const init = useCallback(
     async (sampleRate: number) => {
-      // Tear down any previous context (e.g. reconnecting with a different rate)
+      // Idempotent: already running at the same rate — nothing to do
+      if (
+        audioCtxRef.current &&
+        audioCtxRef.current.state !== "closed" &&
+        initSampleRateRef.current === sampleRate
+      ) {
+        return;
+      }
+
+      // Tear down any stale context (reconnect with different rate)
       if (audioCtxRef.current) {
         workletRef.current?.port.close();
         workletRef.current?.disconnect();
@@ -135,6 +139,7 @@ export function useAudioStream(
         audioCtxRef.current = null;
         workletRef.current = null;
         gainRef.current = null;
+        initSampleRateRef.current = null;
       }
 
       try {
@@ -142,12 +147,13 @@ export function useAudioStream(
 
         const ctx = new AudioContext({ sampleRate });
         audioCtxRef.current = ctx;
+        initSampleRateRef.current = sampleRate;
 
         await ctx.audioWorklet.addModule("/audio-stream-processor.js");
 
         const worklet = new AudioWorkletNode(ctx, "audio-stream-processor", {
           numberOfOutputs: 1,
-          outputChannelCount: [1], // mono
+          outputChannelCount: [1], // mono — matches Inworld output
           processorOptions: { bufferSize },
         });
 
@@ -164,21 +170,22 @@ export function useAudioStream(
 
           if (type === "bufferHealth") {
             setBufferHealth(event.data.filled / event.data.capacity);
-          }
-
-          if (type === "drained") {
+          } else if (type === "drained") {
             playbackStartedRef.current = false;
             pendingSamplesRef.current = 0;
+            setBufferHealth(0);
             setStatus("drained");
             onDrainedRef.current?.();
-          }
-
-          if (type === "underrun" && playbackStartedRef.current) {
+          } else if (type === "underrun") {
+            playbackStartedRef.current = false;
+            pendingSamplesRef.current = 0;
+            setBufferHealth(0);
             onUnderrunRef.current?.();
           }
         };
 
-        worklet.onprocessorerror = () => {
+        worklet.onprocessorerror = (e) => {
+          console.error("[AudioWorklet] processor error", e);
           setStatus("error");
           onErrorRef.current?.(new Error("AudioWorklet processor crashed"));
         };
@@ -201,20 +208,22 @@ export function useAudioStream(
       const ctx = audioCtxRef.current;
       if (!worklet || !ctx) return;
 
+      // Unblock browser-suspended context (autoplay policy)
       if (ctx.state === "suspended") ctx.resume().catch(() => {});
 
-      // Decode on the main thread, then transfer ownership to the worklet (zero-copy)
+      // Decode on the main thread
       const samples: Float32Array =
         encoding === "int16"
           ? int16ToFloat32(buffer)
           : new Float32Array(buffer);
 
-      // Capture length BEFORE postMessage — transferring samples.buffer detaches
-      // the ArrayBuffer, setting samples.length to 0 on the main thread.
+      // Capture length BEFORE transfer — postMessage zero-copy detaches the buffer
       const sampleCount = samples.length;
 
+      // Transfer ownership to worklet (zero-copy — no ArrayBuffer copy in kernel)
       worklet.port.postMessage({ type: "chunk", samples }, [samples.buffer]);
 
+      // Start-threshold gating: hold status at "buffering" until enough samples queued
       if (!playbackStartedRef.current) {
         pendingSamplesRef.current += sampleCount;
         if (pendingSamplesRef.current >= startThreshold) {
@@ -235,7 +244,6 @@ export function useAudioStream(
     pendingSamplesRef.current = 0;
     playbackStartedRef.current = false;
     setBufferHealth(0);
-    // If we're initialised, go back to ready (not idle)
     setStatus((s) => (s === "idle" ? "idle" : "ready"));
   }, []);
 
@@ -257,6 +265,7 @@ export function useAudioStream(
 
     await audioCtxRef.current?.close();
     audioCtxRef.current = null;
+    initSampleRateRef.current = null;
 
     pendingSamplesRef.current = 0;
     playbackStartedRef.current = false;
