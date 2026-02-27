@@ -216,6 +216,12 @@ export const useVoiceSession = (
         return;
       }
 
+      if (event.data.startsWith("TIME:")) {
+        const time = event.data.slice(5);
+        console.log(`[voice] time — ${time}`);
+        return;
+      }
+
       // ── TEXT:<delta> ──────────────
       if (event.data.startsWith("TEXT:")) {
         onTextRef.current?.(event.data.slice(5));
