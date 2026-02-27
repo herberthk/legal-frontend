@@ -56,11 +56,13 @@ function NativeVoicePage() {
   const [llmText, setLlmText] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
   const [isResponding, setIsResponding] = useState(false);
-
+  const [usertranscript, setUsertranscript] = useState("");
+  const voice: Voice = "Blake";
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
+    url: `ws://localhost:8000?voice=${voice}`,
     onText: (delta) => setLlmText((prev) => prev + delta),
     onInterrupt: () => {
-      setLlmText("");
+      // setLlmText("");
       setIsResponding(false);
     },
     onAudioDone: () => setIsResponding(false),
@@ -94,6 +96,7 @@ function NativeVoicePage() {
       setLlmText("");
       setIsResponding(true);
       send(finalTranscript);
+      setUsertranscript(finalTranscript);
       // Reset so the next utterance is detected as a fresh change
       resetTranscript();
       lastSentRef.current = "";
@@ -189,7 +192,9 @@ function NativeVoicePage() {
       <div>
         <p className="text-xs font-medium mb-1 text-gray-100">You</p>
         <div className="min-h-20 p-4 border rounded bg-gray-50 text-sm leading-relaxed text-black">
-          {transcript || <span className="text-gray-400">Start speaking…</span>}
+          {transcript || usertranscript || (
+            <span className="text-gray-400">Start speaking…</span>
+          )}
         </div>
       </div>
 
@@ -215,6 +220,7 @@ function AssemblyAIVoicePage() {
   const [isResponding, setIsResponding] = useState(false);
 
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
+    url: "ws://localhost:8000",
     onText: (delta) => setLlmText((prev) => prev + delta),
     onInterrupt: () => {
       setLlmText("");
