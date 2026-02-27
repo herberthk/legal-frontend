@@ -47,9 +47,9 @@ export interface UseVoiceSessionReturn {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useVoiceSession(
+export const useVoiceSession = (
   options: UseVoiceSessionOptions = {},
-): UseVoiceSessionReturn {
+): UseVoiceSessionReturn => {
   const {
     url = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001",
     onText,
@@ -109,7 +109,10 @@ export function useVoiceSession(
         return audioCtxRef.current;
       }
       audioCtxRef.current?.close().catch(() => {});
-      const ctx = new AudioContext({ sampleRate });
+      const ctx = new AudioContext({
+        sampleRate,
+        latencyHint: "interactive", // Prioritize low latency
+      });
       audioCtxRef.current = ctx;
       nextStartTimeRef.current = ctx.currentTime;
       return ctx;
@@ -125,13 +128,19 @@ export function useVoiceSession(
     // Decode LINEAR16 → Float32
     const int16 = new Int16Array(arrayBuffer);
     const float32 = new Float32Array(int16.length);
-    for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 0x8000;
+    const SCALING_FACTOR = 1 / 0x8000; // Pre-calculate to avoid division in loop
+
+    for (let i = 0; i < int16.length; i++) {
+      float32[i] = int16[i] * SCALING_FACTOR;
+    }
 
     // 5ms fade-in/out to remove click artifacts at chunk seams
-    const fade = Math.min(240, Math.floor(float32.length / 2));
+    // At 48kHz, 240 samples is 5ms
+    const fade = Math.min(240, Math.floor(float32.length * 0.1));
     for (let i = 0; i < fade; i++) {
-      float32[i] *= i / fade;
-      float32[float32.length - 1 - i] *= i / fade;
+      const g = i / fade;
+      float32[i] *= g;
+      float32[float32.length - 1 - i] *= g;
     }
 
     const buffer = ctx.createBuffer(1, float32.length, ctx.sampleRate);
@@ -154,6 +163,10 @@ export function useVoiceSession(
     // Fire onAudioDone only when the last queued chunk finishes
     source.onended = () => {
       activeSourcesRef.current.delete(source);
+
+      // If we are currently interrupting, ignore the 'ended' event of stale nodes
+      if (interruptingRef.current) return;
+
       const now = audioCtxRef.current?.currentTime ?? 0;
       if (nextStartTimeRef.current <= now + 0.05) {
         setAudioStatus("done");
@@ -167,6 +180,7 @@ export function useVoiceSession(
     for (const src of activeSourcesRef.current) {
       try {
         src.stop(0);
+        src.disconnect(); // Explicitly detach from audio graph
       } catch {
         /* already stopped */
       }
@@ -182,6 +196,7 @@ export function useVoiceSession(
 
   const handleMessage = useCallback(
     (event: MessageEvent<string | ArrayBuffer>) => {
+      console.log("[voice] Message received:", event.data);
       // ── Binary: PCM audio chunk ─────────────────────────────────────────────
       if (event.data instanceof ArrayBuffer) {
         if (interruptingRef.current) return; // drop stale in-flight frames
@@ -207,10 +222,16 @@ export function useVoiceSession(
         return;
       }
 
-      // ── TEXT:<delta> — new LLM response; clear interrupt guard ──────────────
+      // ── TEXT:<delta> ──────────────
       if (event.data.startsWith("TEXT:")) {
-        interruptingRef.current = false;
         onTextRef.current?.(event.data.slice(5));
+        return;
+      }
+
+      // ── START_TURN ────────────────
+      if (event.data === "START_TURN") {
+        console.log("[voice] START_TURN — audio guard cleared");
+        interruptingRef.current = false;
         return;
       }
 
@@ -277,13 +298,26 @@ export function useVoiceSession(
     setWsStatus("idle");
   }, [stopAudio]);
 
-  const send = useCallback((text: string) => {
-    const ws = socketRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    promptSentTimeRef.current = performance.now();
-    waitingForFirstByteRef.current = true;
-    ws.send(text);
-  }, []);
+  const send = useCallback(
+    (text: string) => {
+      const ws = socketRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      // ── Local Interruption ───────────────────────────────────────────────────
+      // Stop any currently playing audio and guard against stale frames immediately.
+      // This eliminates the round-trip latency to the server for interruptions.
+      interruptingRef.current = true;
+      stopAudio();
+      // Pre-create a fresh AudioContext so we're ready for the new response audio.
+      getOrCreateAudioCtx(sampleRateRef.current);
+      // ─────────────────────────────────────────────────────────────────────────
+
+      promptSentTimeRef.current = performance.now();
+      waitingForFirstByteRef.current = true;
+      ws.send(text);
+    },
+    [stopAudio, getOrCreateAudioCtx],
+  );
 
   // Cleanup on unmount
   useEffect(() => {
@@ -294,4 +328,4 @@ export function useVoiceSession(
   }, []);
 
   return { wsStatus, audioStatus, connect, disconnect, send };
-}
+};

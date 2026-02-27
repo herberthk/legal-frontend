@@ -72,9 +72,9 @@ const DEFAULT_OPTIONS: Required<UseTranscriptionOptions> = {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useTranscription(
+export const useAssemblyAITranscription = (
   options: UseTranscriptionOptions = {},
-): UseTranscriptionReturn {
+): UseTranscriptionReturn => {
   const config: Required<UseTranscriptionOptions> = {
     ...DEFAULT_OPTIONS,
     ...options,
@@ -251,4 +251,4 @@ export function useTranscription(
     stop,
     reset,
   };
-}
+};
