@@ -190,21 +190,25 @@ export function createAssemblyAISpeechRecognition(
           token,
           sampleRate,
           encoding: "pcm_s16le",
-          formatTurns: false, // keep off — formatted text adds latency and can
-          // drop events if the formatted version is delayed.
-          // Plain text is perfectly readable for a polyfill.
+          formatTurns: true,
         };
-
+        // console.log("token", token);
         this._transcriber = new StreamingTranscriber(opts);
 
         this._transcriber.on("open", () => {
           this.onstart?.();
           this.onspeechstart?.();
+          console.log("transcriber open");
         });
 
         this._transcriber.on(
           "turn",
-          (turn: { transcript: string; end_of_turn: boolean }) => {
+          (turn: {
+            transcript: string;
+            end_of_turn: boolean;
+            turn_is_formatted: boolean;
+          }) => {
+            console.log("turn transcript", turn.transcript);
             if (!turn.transcript) return;
 
             if (!turn.end_of_turn) {
@@ -226,7 +230,7 @@ export function createAssemblyAISpeechRecognition(
               // contains the complete, final text for this turn.
               const finalResult = makeResult(turn.transcript, true);
               this._finalResults.push(finalResult);
-
+              console.log("final result", turn.transcript);
               const combinedList = makeResultList([...this._finalResults]);
               const resultIndex = this._finalResults.length - 1;
 
@@ -264,14 +268,27 @@ export function createAssemblyAISpeechRecognition(
         this.onaudiostart?.();
 
         // 4. Build AudioContext + AudioWorklet pipeline
-        this._audioCtx = new AudioContext({ sampleRate });
+        // Use the DEFAULT hardware sample rate (e.g. 48000) — NOT the target
+        // rate. Firefox doesn't reliably resample MediaStreamSource input when
+        // AudioContext uses a non-native sampleRate, causing silence.
+        // The pcm-processor worklet handles downsampling to `sampleRate`.
+        this._audioCtx = new AudioContext();
+
+        // Firefox (and some other browsers) start AudioContext in 'suspended'
+        // state even when created inside a user gesture, if the gesture has
+        // passed through several async awaits. Explicitly resuming here
+        // guarantees the context is running before any audio graph is built.
+        if (this._audioCtx.state === "suspended") {
+          await this._audioCtx.resume();
+        }
+
         await this._audioCtx.audioWorklet.addModule("/pcm-processor.js");
 
         this._workletNode = new AudioWorkletNode(
           this._audioCtx,
           "pcm-processor",
           {
-            processorOptions: { chunkSize },
+            processorOptions: { chunkSize, targetRate: sampleRate },
           },
         );
 
@@ -290,11 +307,10 @@ export function createAssemblyAISpeechRecognition(
           if (!this._isConnected || !this._transcriber) return;
           if (event.data.length === 0) return;
           try {
-            // Pass the Int16Array directly — do NOT use event.data.buffer.
-            // The underlying ArrayBuffer may be larger than the valid data range
-            // if the typed array is a view into a pooled buffer, which would
-            // send trailing zeros and corrupt the PCM stream.
-            this._transcriber.sendAudio(event.data);
+            // Send as ArrayBuffer — the Int16Array from pcm-processor is always
+            // a standalone allocation (new Int16Array(array)), so .buffer spans
+            // exactly the valid data range with no extra padding.
+            this._transcriber.sendAudio(event.data.buffer);
           } catch {
             // Socket closed between check and send — safe to ignore
           }
@@ -320,24 +336,37 @@ export function createAssemblyAISpeechRecognition(
     }
 
     // ── stop() ───────────────────────────────────────────────────────────────
+    // MUST be synchronous — react-speech-recognition calls stop() without
+    // awaiting and expects `onend` to fire within the same tick / microtask.
+    // The native browser SpeechRecognition behaves the same way: it fires the
+    // lifecycle events synchronously and performs internal cleanup afterwards.
 
-    async stop(): Promise<void> {
+    stop(): void {
       if (!this._isRunning) return;
       this._isRunning = false;
 
+      // 1. Tear down the audio graph synchronously so the mic light goes off
       this._teardownAudio();
+
+      // 2. Fire W3C lifecycle events synchronously — this is what
+      //    react-speech-recognition's RecognitionManager listens for.
       this.onspeechend?.();
       this.onaudioend?.();
+      this.onend?.();
 
-      await this._transcriber?.close();
+      // 3. Close the WebSocket in the background — we don't block on this
+      const transcriber = this._transcriber;
       this._transcriber = null;
       this._isConnected = false;
-
-      this.onend?.();
+      if (transcriber) {
+        transcriber.close().catch(() => {
+          // WebSocket already closed — safe to ignore
+        });
+      }
     }
 
     // ── abort() ──────────────────────────────────────────────────────────────
-    // Same as stop() — react-speech-recognition calls this to cancel mid-session
+    // Must also be synchronous — the library calls this to cancel mid-session.
 
     abort(): void {
       this.stop();

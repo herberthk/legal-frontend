@@ -1,99 +1,6 @@
-// inworld.ts
+// Import types from the types directory
 
-/* -------------------------------------------------- */
-/*                     ENUMS                          */
-/* -------------------------------------------------- */
-
-export type VoiceId =
-  | "Blake"
-  | "Luna"
-  | "Dennis"
-  | "Sarah"
-  | "Hana"
-  | "Mark"
-  | "Hades"
-  | "Theodore"
-  | "Abby"
-  | "Alex"
-  | "Amina"
-  | "Ashley"
-  | "Brian"
-  | "Callum"
-  | "Carter"
-  | "Celeste"
-  | "Chloe"
-  | "Claire"
-  | "Craig"
-  | "Darlene"
-  | "Deborah"
-  | "Derek"
-  | "Edward"
-  | "Elliot"
-  | "Ethan"
-  | "Evan"
-  | "Evelyn"
-  | "Gareth"
-  | "Graham"
-  | "Grant"
-  | "Hamish"
-  | "Hank"
-  | "Jake"
-  | "James"
-  | "Jason"
-  | "Jessica"
-  | "Kayla"
-  | "Kelsey"
-  | "Lauren"
-  | "Liam"
-  | "Loretta"
-  | "Malcolm"
-  | "Marlene"
-  | "Miranda"
-  | "Mortimer"
-  | "Nate"
-  | "Oliver"
-  | "Pippa"
-  | "Pixie"
-  | "Ronald"
-  | "Rupert"
-  | "Serena"
-  | "Simon"
-  | "Snik"
-  | "Tessa"
-  | "Timothy"
-  | "Tyler"
-  | "Veronica"
-  | "Victor"
-  | "Victoria"
-  | "Vinny"
-  | "Wendy";
-
-export type ModelId = "inworld-tts-1.5-mini" | "inworld-tts-1.5-max";
-
-export type AudioEncoding =
-  | "OGG_OPUS"
-  | "MP3"
-  | "LINEAR16"
-  | "ALAW"
-  | "MULAW"
-  | "FLAC";
-
-/* -------------------------------------------------- */
-/*                     TYPES                          */
-/* -------------------------------------------------- */
-
-export interface InworldConfig {
-  apiKey: string;
-  voiceId: VoiceId;
-  modelId?: ModelId;
-  encoding?: AudioEncoding;
-  sampleRate?: number;
-  bitRate?: number;
-  autoReconnect?: boolean;
-  debug?: boolean;
-}
-
-type AudioCallback = (audioChunk: Buffer) => void;
+import type { InworldConfig, AudioCallback } from "./types";
 
 /* -------------------------------------------------- */
 /*                INWORLD CLASS                       */
@@ -124,6 +31,7 @@ export class Inworld {
   private reconnectAttempts = 0;
   private buffer = "";
   private audioHandler?: AudioCallback;
+  private connecting: Promise<void> | null = null;
 
   constructor(config: InworldConfig) {
     if (!config.apiKey) {
@@ -141,6 +49,38 @@ export class Inworld {
     };
   }
 
+  get debug() {
+    return this.config.debug;
+  }
+
+  /**
+   * Clears internal buffers and resets the context ID.
+   * Call this before starting a new turn to ensure no "leaked" audio from previous turns.
+   */
+  async resetContext(): Promise<void> {
+    if (this.config.debug) console.log("[Inworld] 🔄 Resetting context...");
+
+    // 1. Explicitly close previous context if open
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      if (this.config.debug)
+        console.log(`[Inworld] 🔌 Closing old context: ${this.contextId}`);
+      this.ws.send(
+        JSON.stringify({
+          context_id: this.contextId,
+          close_context: {},
+        }),
+      );
+    }
+
+    this.buffer = "";
+    this.contextId = crypto.randomUUID();
+    this.contextReady = false;
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      await this.createContext();
+    }
+  }
+
   /* -------------------------------------------------- */
   /*                PUBLIC API                          */
   /* -------------------------------------------------- */
@@ -151,8 +91,35 @@ export class Inworld {
    */
   async connect(): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
+    if (this.connecting) return this.connecting;
 
-    await this.createConnection();
+    this.connecting = this.createConnectionWithRetry();
+    try {
+      await this.connecting;
+    } finally {
+      this.connecting = null;
+    }
+  }
+
+  private async createConnectionWithRetry(attempts = 3): Promise<void> {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        await this.createConnection();
+        this.reconnectAttempts = 0; // Reset on success
+        return;
+      } catch (err) {
+        const isLast = i === attempts - 1;
+        const delay = Math.min(1000 * 2 ** i, 5000);
+
+        console.error(
+          `[Inworld] Connection attempt ${i + 1}/${attempts} failed:`,
+          err instanceof Error ? err.message : String(err),
+        );
+
+        if (isLast) throw err;
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
   }
 
   /**
@@ -231,8 +198,18 @@ export class Inworld {
     });
 
     await new Promise<void>((resolve, reject) => {
-      this.ws!.onopen = () => resolve();
-      this.ws!.onerror = (err) => reject(err);
+      this.ws!.onopen = () => {
+        if (this.config.debug) console.log("[Inworld] WebSocket opened");
+        resolve();
+      };
+      this.ws!.onerror = (event) => {
+        const msg =
+          "message" in event ? event.message : "Unknown WebSocket error";
+        reject(new Error(`Inworld connection failed: ${msg}`));
+      };
+
+      // Safety timeout for the handshake itself
+      setTimeout(() => reject(new Error("Inworld connection timeout")), 10000);
     });
 
     this.attachListeners();
@@ -244,9 +221,20 @@ export class Inworld {
 
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      const resContextId = this.extractContextId(data);
 
       if (data.error) {
-        if (this.config.debug) console.error(data.error);
+        if (this.config.debug) console.error("[Inworld] Error:", data.error);
+        return;
+      }
+
+      // Drop messages from stale/aborted contexts to prevent race conditions
+      if (!resContextId || resContextId !== this.contextId) {
+        if (this.config.debug) {
+          console.log(
+            `[Inworld] Dropping message. Detected ID: '${resContextId || "unknown"}' | Expected ID: '${this.contextId}'`,
+          );
+        }
         return;
       }
 
@@ -254,6 +242,8 @@ export class Inworld {
       if (!result) return;
 
       if (result.contextCreated !== undefined) {
+        if (this.config.debug)
+          console.log(`[Inworld] Context ready: ${resContextId}`);
         this.contextReady = true;
         this.reconnectAttempts = 0;
         return;
@@ -261,11 +251,12 @@ export class Inworld {
 
       if (result.audioChunk?.audioContent) {
         const buffer = Buffer.from(result.audioChunk.audioContent, "base64");
-
         this.audioHandler?.(buffer);
       }
 
       if (result.contextClosed !== undefined) {
+        if (this.config.debug)
+          console.log(`[Inworld] Context closed: ${resContextId}`);
         this.contextReady = false;
       }
     };
@@ -318,8 +309,15 @@ export class Inworld {
 
   private waitForContext(): Promise<void> {
     return new Promise((resolve) => {
+      // 2s timeout failsafe to prevent server-side hangs
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+        resolve();
+      }, 2000);
+
       const interval = setInterval(() => {
         if (this.contextReady) {
+          clearTimeout(timeout);
           clearInterval(interval);
           resolve();
         }
@@ -341,5 +339,11 @@ export class Inworld {
   private extractSentences(text: string): string[] {
     const matches = text.match(/[^.!?]+[.!?]+/g);
     return matches?.map((s) => s.trim()) ?? [];
+  }
+
+  private extractContextId(data: Record<string, unknown>): string | undefined {
+    // Inworld can return context ID at various levels depending on the message type
+    //@ts-ignore
+    return data.result?.contextId as string;
   }
 }
