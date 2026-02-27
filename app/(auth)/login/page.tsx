@@ -17,7 +17,7 @@ const LoginPage = () => {
       selectedRole === "ADMIN"
         ? {
             id: "admin-01",
-            name: "System Administrator",
+            name: "James Anderson",
             email: "admin@legaladviser.ug",
             avatar:
               "https://ui-avatars.com/api/?name=Admin+User&background=0f172a&color=fff",
@@ -32,7 +32,7 @@ const LoginPage = () => {
           }
         : {
             id: "user-01",
-            name: "Kampala Resident",
+            name: "Herbert Kavuma",
             email: "citizen@uganda.com",
             avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
             role: "USER",

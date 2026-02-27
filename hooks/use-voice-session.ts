@@ -15,7 +15,7 @@ export type VoiceAudioStatus = "idle" | "playing" | "done";
 
 export interface UseVoiceSessionOptions {
   /** WebSocket server URL. Defaults to NEXT_PUBLIC_WS_URL or ws://localhost:3001 */
-  url?: string;
+  url: string;
   /** Called when the server streams LLM text deltas */
   onText?: (delta: string) => void;
   /** Called when the server sends an error message */
@@ -48,15 +48,9 @@ export interface UseVoiceSessionReturn {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useVoiceSession = (
-  options: UseVoiceSessionOptions = {},
+  options: UseVoiceSessionOptions,
 ): UseVoiceSessionReturn => {
-  const {
-    url = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001",
-    onText,
-    onError,
-    onInterrupt,
-    onAudioDone,
-  } = options;
+  const { url, onText, onError, onInterrupt, onAudioDone } = options;
 
   const [wsStatus, setWsStatus] = useState<VoiceSessionStatus>("idle");
   const [audioStatus, setAudioStatus] = useState<VoiceAudioStatus>("idle");
@@ -196,7 +190,7 @@ export const useVoiceSession = (
 
   const handleMessage = useCallback(
     (event: MessageEvent<string | ArrayBuffer>) => {
-      console.log("[voice] Message received:", event.data);
+      // console.log("[voice] Message received:", event.data);
       // ── Binary: PCM audio chunk ─────────────────────────────────────────────
       if (event.data instanceof ArrayBuffer) {
         if (interruptingRef.current) return; // drop stale in-flight frames
@@ -281,8 +275,8 @@ export const useVoiceSession = (
       setWsStatus("open");
     };
     ws.onmessage = handleMessage;
-    ws.onerror = () => {
-      console.error("[voice] ws error");
+    ws.onerror = (err) => {
+      console.error("[voice] ws error", err);
       setWsStatus("error");
     };
     ws.onclose = (ev) => {
