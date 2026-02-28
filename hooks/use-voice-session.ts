@@ -24,6 +24,8 @@ export interface UseVoiceSessionOptions {
   onInterrupt?: () => void;
   /** Called when audio playback finishes for a turn */
   onAudioDone?: () => void;
+  /** Called when the server sends the duration of the session in seconds */
+  onDuration?: (duration: number) => void;
 }
 
 export interface UseVoiceSessionReturn {
@@ -50,7 +52,8 @@ export interface UseVoiceSessionReturn {
 export const useVoiceSession = (
   options: UseVoiceSessionOptions,
 ): UseVoiceSessionReturn => {
-  const { url, onText, onError, onInterrupt, onAudioDone } = options;
+  const { url, onText, onError, onInterrupt, onAudioDone, onDuration } =
+    options;
 
   const [wsStatus, setWsStatus] = useState<VoiceSessionStatus>("idle");
   const [audioStatus, setAudioStatus] = useState<VoiceAudioStatus>("idle");
@@ -60,6 +63,7 @@ export const useVoiceSession = (
   const onErrorRef = useRef(onError);
   const onInterruptRef = useRef(onInterrupt);
   const onAudioDoneRef = useRef(onAudioDone);
+  const onDurationRef = useRef(onDuration);
   useEffect(() => {
     onTextRef.current = onText;
   }, [onText]);
@@ -218,7 +222,8 @@ export const useVoiceSession = (
 
       if (event.data.startsWith("TIME:")) {
         const time = event.data.slice(5);
-        console.log(`[voice] time — ${time}`);
+        // console.log(`[voice] time — ${time}`);
+        onDurationRef.current?.(+time);
         return;
       }
 

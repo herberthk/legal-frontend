@@ -26,6 +26,7 @@ interface StatusBarProps {
   sessionLabel: string;
   wsColor: string;
   audioColor: string;
+  duration?: number;
 }
 
 function StatusBar({
@@ -34,6 +35,7 @@ function StatusBar({
   sessionLabel,
   wsColor,
   audioColor,
+  duration,
 }: StatusBarProps) {
   return (
     <span className="ml-auto text-xs flex gap-3 text-gray-300">
@@ -46,6 +48,12 @@ function StatusBar({
       {isResponding && (
         <span className="text-blue-400 animate-pulse">responding…</span>
       )}
+      {/*format duration 00:00:00*/}
+      {duration && (
+        <span className="text-green-500">
+          Duration: {new Date(duration * 1000).toISOString().substr(11, 8)}
+        </span>
+      )}
     </span>
   );
 }
@@ -57,6 +65,7 @@ function NativeVoicePage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [isResponding, setIsResponding] = useState(false);
   const [usertranscript, setUsertranscript] = useState("");
+  const [duration, setDuration] = useState<number>(0);
   const voice: Voice = "Blake";
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
     url: `ws://localhost:8000?voice=${voice}`,
@@ -69,6 +78,10 @@ function NativeVoicePage() {
     onError: (msg) => {
       setServerError(msg);
       setIsResponding(false);
+    },
+    onDuration: (duration) => {
+      setDuration(duration);
+      // console.log(`[voice] duration — ${duration}`);
     },
   });
 
@@ -182,6 +195,7 @@ function NativeVoicePage() {
           sessionLabel={sessionLabel}
           wsColor={wsColor}
           audioColor={audioColor}
+          duration={duration}
         />
       </div>
 
