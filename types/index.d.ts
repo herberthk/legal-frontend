@@ -145,5 +145,6 @@ declare global {
     toggleTheme: () => void;
     setTheme: (theme: Theme) => void;
   };
+  type ConnectionStatus = "connected" | "reconnecting" | "offline";
 }
 export {};

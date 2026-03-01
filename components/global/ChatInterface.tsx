@@ -26,8 +26,6 @@ import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import { VoiceInterface } from "./VoiceChat";
 
-type ConnectionStatus = "connected" | "reconnecting" | "offline";
-
 // --- Helpers to extract content from UIMessage parts ---
 const getMessageText = (msg: UIMessage): string => {
   return (
