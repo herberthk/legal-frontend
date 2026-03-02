@@ -7,6 +7,10 @@ description: Master complex GSAP animations within a React and TypeScript enviro
 
 This skill provides a comprehensive guide to implementing professional animations using **GSAP** (GreenSock Animation Platform) in a **React** and **TypeScript** project.
 
+## Resources
+
+- **[Quick Cheat Sheet](./resources/CHEATSHEET.md)**: A concise reference for common GSAP methods and properties.
+
 ## Setup and Installation
 
 Install GSAP and the official React wrapper:
