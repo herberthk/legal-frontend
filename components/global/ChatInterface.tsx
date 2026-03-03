@@ -24,7 +24,7 @@ import { PRICE_PER_TOKEN, PRICE_PER_VOICE_SECOND } from "@/constants";
 import { useAppStore, useAuthStore } from "@/store";
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
-import { VoiceInterface } from "./VoiceChat";
+import { useRouter } from "nextjs-toploader/app";
 
 // --- Helpers to extract content from UIMessage parts ---
 const getMessageText = (msg: UIMessage): string => {
@@ -65,22 +65,16 @@ const isMessageStreaming = (msg: UIMessage): boolean => {
 const ChatInterface = () => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
+  const router = useRouter();
   const tokenUsageHistory = useAppStore((state) => state.tokenUsageHistory);
   const setTokenUsageHistory = useAppStore(
     (state) => state.setTokenUsageHistory,
   );
 
-  // --- Voice Sessions State ---
-  const voiceSessions = useAppStore((state) => state.voiceSessions);
-  const setVoiceSessions = useAppStore((state) => state.setVoiceSessions);
-
   // --- Connectivity State ---
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connected");
   const [showOnlineBadge, setShowOnlineBadge] = useState(false);
-
-  // --- Voice Modal State ---
-  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   // --- Upload State ---
   const [isUploading, setIsUploading] = useState(false);
@@ -227,18 +221,6 @@ const ChatInterface = () => {
       }));
     }
     return success;
-  };
-
-  const handleSaveSession = (
-    sessionData: Omit<VoiceSession, "id" | "date">,
-  ) => {
-    if (!user) return;
-    const newSession: VoiceSession = {
-      id: `sess_${Date.now()}`,
-      date: new Date().toISOString(),
-      ...sessionData,
-    };
-    setVoiceSessions([...voiceSessions, newSession]);
   };
 
   // Manual input state (useChat v6 does not provide input/setInput)
@@ -396,17 +378,7 @@ const ChatInterface = () => {
   };
 
   // --- Voice ---
-  const handleStartVoice = () => {
-    setBillingError(null);
-    if (checkBalance("VOICE")) {
-      setIsVoiceModalOpen(true);
-    } else {
-      setBillingError(
-        "Insufficient funds for voice call. Please top up or wait for daily free credits.",
-      );
-      setTimeout(() => setBillingError(null), 5000);
-    }
-  };
+  const handleStartVoice = () => router.push("/dashboard/user/voice");
 
   // --- File Upload ---
   const cancelUpload = () => {
@@ -512,40 +484,6 @@ const ChatInterface = () => {
           </div>
         )}
       </div>
-
-      {/* Voice Modal Overlay */}
-      {isVoiceModalOpen && (
-        <VoiceInterface
-          onTokenUsage={trackUsage}
-          onClose={(transcripts, recordingBlob, duration) => {
-            setIsVoiceModalOpen(false);
-            if (transcripts && transcripts.length > 0) {
-              const newMessages: UIMessage[] = transcripts.map((t, i) => ({
-                id: `voice-${Date.now()}-${i}`,
-                role: t.sender as "user" | "assistant",
-                parts: [{ type: "text" as const, text: t.text }],
-              }));
-              setMessages([...messages, ...newMessages] as UIMessage[]);
-
-              // Trigger session save
-              if (recordingBlob && duration) {
-                const firstUserMsg =
-                  transcripts.find((t) => t.sender === "user")?.text ||
-                  "Voice Consultation";
-                handleSaveSession({
-                  userId: user?.id || "",
-                  duration: duration,
-                  audioUrl: URL.createObjectURL(recordingBlob),
-                  previewText:
-                    firstUserMsg.length > 50
-                      ? firstUserMsg.substring(0, 50) + "..."
-                      : firstUserMsg,
-                });
-              }
-            }
-          }}
-        />
-      )}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-6 relative pt-8">
@@ -1065,7 +1003,8 @@ const ChatInterface = () => {
                 isLoading || isUploading || connectionStatus === "offline"
               }
               rows={1}
-              className="w-full py-4 px-2 bg-transparent border-none focus:ring-0 resize-none max-h-32 text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors"
+              name="chat"
+              className="w-full py-4 px-2 bg-transparent border-none focus:ring-0 focus:outline-none resize-none max-h-32 text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors"
               style={{ minHeight: "56px" }}
             />
             <button
