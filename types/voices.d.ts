@@ -71,7 +71,13 @@ declare global {
     | "error"; // connection error
 
   type VoiceAudioStatus = "idle" | "playing" | "done";
-  type CallStatus = "idle" | "listening" | "processing" | "speaking" | "muted";
+  type CallStatus =
+    | "idle"
+    | "listening"
+    | "processing"
+    | "speaking"
+    | "muted"
+    | "closed";
   type Speaker = "user" | "ai" | "system";
 
   interface Transcript {
