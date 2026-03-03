@@ -62,6 +62,15 @@ declare global {
     | "Victoria"
     | "Vinny"
     | "Wendy";
+
+  type VoiceSessionStatus =
+    | "idle" // not connected
+    | "connecting" // WebSocket opening
+    | "open" // connected and active
+    | "closed" // cleanly disconnected
+    | "error"; // connection error
+
+  type VoiceAudioStatus = "idle" | "playing" | "done";
 }
 
 export {};
