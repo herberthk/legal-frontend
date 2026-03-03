@@ -10,29 +10,9 @@ import {
   Radio,
   Loader2,
   BrainCircuit,
-  User as UserIcon,
   AlertCircle,
   RefreshCcw,
 } from "lucide-react";
-import { CallStatus, Transcript } from "./types";
-
-interface VoiceInterfaceProps {
-  wsStatus: VoiceSessionStatus;
-  audioStatus: VoiceAudioStatus;
-  duration: number;
-  isResponding: boolean;
-  activeTranscript: Transcript | null;
-  currentTranscript: string; // Live transcript from STT
-
-  onStart: () => void;
-  onEnd: () => void;
-  isMuted: boolean;
-  setIsMuted: (val: boolean) => void;
-  isAudioMuted: boolean;
-  setIsAudioMuted: (val: boolean) => void;
-  userName?: string;
-  listening: boolean; // Engine specific listening state
-}
 
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   wsStatus,
@@ -332,38 +312,38 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       </div>
 
       {/* Floating Call Controls */}
-      {/* {wsStatus === "open" && ( */}
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20">
-        <div className="flex items-center gap-4 sm:gap-6 bg-transparent backdrop-blur-xl px-6 py-2 rounded-full shadow-2xl">
-          {/* Toggle Mic */}
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 shadow-md ${isMuted ? "bg-slate-200 dark:bg-slate-800 text-slate-500" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:scale-110"}`}
-            title={isMuted ? "Unmute Microphone" : "Mute Microphone"}
-          >
-            {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-          </button>
+      {wsStatus === "open" && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20">
+          <div className="flex items-center gap-4 sm:gap-6 bg-transparent backdrop-blur-xl px-6 py-2 rounded-full shadow-2xl">
+            {/* Toggle Mic */}
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 shadow-md ${isMuted ? "bg-slate-200 dark:bg-slate-800 text-slate-500" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:scale-110"}`}
+              title={isMuted ? "Unmute Microphone" : "Mute Microphone"}
+            >
+              {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+            </button>
 
-          {/* End Call */}
-          <button
-            onClick={onEnd}
-            className={`w-14 h-14 flex items-center justify-center rounded-full transition-all duration-300 hover:scale-110 shadow-lg ${status === "idle" ? "bg-slate-200 dark:bg-slate-800 text-slate-400" : "bg-red-500 hover:bg-red-600 text-white shadow-red-500/30 hover:rotate-135"}`}
-            title="End Call"
-          >
-            <PhoneOff size={24} />
-          </button>
+            {/* End Call */}
+            <button
+              onClick={onEnd}
+              className={`w-14 h-14 flex items-center justify-center rounded-full transition-all duration-300 hover:scale-110 shadow-lg ${status === "idle" ? "bg-slate-200 dark:bg-slate-800 text-slate-400" : "bg-red-500 hover:bg-red-600 text-white shadow-red-500/30 hover:rotate-135"}`}
+              title="End Call"
+            >
+              <PhoneOff size={24} />
+            </button>
 
-          {/* Toggle Audio */}
-          <button
-            onClick={() => setIsAudioMuted(!isAudioMuted)}
-            className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 shadow-md ${isAudioMuted ? "bg-slate-200 dark:bg-slate-800 text-slate-500" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:scale-110"}`}
-            title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
-          >
-            {isAudioMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          </button>
+            {/* Toggle Audio */}
+            <button
+              onClick={() => setIsAudioMuted(!isAudioMuted)}
+              className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 shadow-md ${isAudioMuted ? "bg-slate-200 dark:bg-slate-800 text-slate-500" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:scale-110"}`}
+              title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
+            >
+              {isAudioMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            </button>
+          </div>
         </div>
-      </div>
-      {/* )} */}
+      )}
     </div>
   );
 };

@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Scale, Mail, Lock, ArrowRight, Shield, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { createSession } from "@/lib";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);

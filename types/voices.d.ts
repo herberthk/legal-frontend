@@ -71,6 +71,31 @@ declare global {
     | "error"; // connection error
 
   type VoiceAudioStatus = "idle" | "playing" | "done";
+  type CallStatus = "idle" | "listening" | "processing" | "speaking";
+  type Speaker = "user" | "ai" | "system";
+
+  interface Transcript {
+    speaker: Speaker;
+    text: string;
+  }
+
+  interface VoiceInterfaceProps {
+    wsStatus: VoiceSessionStatus;
+    audioStatus: VoiceAudioStatus;
+    duration: number;
+    isResponding: boolean;
+    activeTranscript: Transcript | null;
+    currentTranscript: string; // Live transcript from STT
+
+    onStart: () => void;
+    onEnd: () => void;
+    isMuted: boolean;
+    setIsMuted: (val: boolean) => void;
+    isAudioMuted: boolean;
+    setIsAudioMuted: (val: boolean) => void;
+    userName?: string;
+    listening: boolean; // Engine specific listening state
+  }
 }
 
 export {};
