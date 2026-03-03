@@ -4,15 +4,6 @@ import { useRef, useState, useCallback, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type VoiceSessionStatus =
-  | "idle" // not connected
-  | "connecting" // WebSocket opening
-  | "open" // connected and active
-  | "closed" // cleanly disconnected
-  | "error"; // connection error
-
-export type VoiceAudioStatus = "idle" | "playing" | "done";
-
 export interface UseVoiceSessionOptions {
   /** WebSocket server URL. Defaults to NEXT_PUBLIC_WS_URL or ws://localhost:3001 */
   url: string;

@@ -164,7 +164,7 @@ function NativeVoicePage() {
   if (!isMicrophoneAvailable) {
     return <span>Microphone not available.</span>;
   }
-
+  console.log("wsStatus", wsStatus);
   return (
     <div className="p-6 max-w-xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
@@ -384,5 +384,4 @@ export default function TranscriberDemo() {
   if (hasNative === null) return null;
 
   return hasNative ? <NativeVoicePage /> : <AssemblyAIVoicePage />;
-  // return <AssemblyAIVoicePage />;
 }
