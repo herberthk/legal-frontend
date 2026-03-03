@@ -5,10 +5,11 @@ import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 import { useVoiceSession } from "@/hooks";
+import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 
 const NativeVoiceConnection = () => {
-  // const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((state) => state.user);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -126,8 +127,9 @@ const NativeVoiceConnection = () => {
       setIsMuted={setIsMuted}
       isAudioMuted={isAudioMuted}
       setIsAudioMuted={setIsAudioMuted}
-      // userName={user?.name}
+      userName={user?.name}
       listening={listening}
+      voiceName={voice}
     />
   );
 };

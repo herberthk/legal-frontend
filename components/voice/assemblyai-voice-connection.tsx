@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useVoiceSession, useAssemblyAITranscription } from "@/hooks";
+import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 
 const AssemblyAIVoiceConnection = () => {
-  // const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((state) => state.user);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -111,8 +112,9 @@ const AssemblyAIVoiceConnection = () => {
       setIsMuted={setIsMuted}
       isAudioMuted={isAudioMuted}
       setIsAudioMuted={setIsAudioMuted}
-      // userName={user?.name}
+      userName={user?.name}
       listening={aiIsRecording}
+      voiceName={voice}
     />
   );
 };

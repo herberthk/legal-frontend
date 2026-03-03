@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { getStatusText, OrbRing, statusPalette, WaveBar } from "./utils";
 
-// ─── Main Component ──────────────────────────────────────────────────────────
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   wsStatus,
   audioStatus,
@@ -31,6 +30,8 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   isAudioMuted,
   setIsAudioMuted,
   listening,
+  voiceName,
+  userName,
 }) => {
   // ─── Connection Status Mapping ───────────────────────────────────────────
   const statusConfig = {
@@ -155,7 +156,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
             />
           </div>
           <span className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2">
-            <Radio size={12} className="sm:w-3.5 sm:h-3.5" />{" "}
+            <Radio size={12} className="sm:w-3.5 sm:h-3.5" />
             {currentConfig.label}
           </span>
         </div>
@@ -185,7 +186,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
               <h2
                 className={`text-xl sm:text-2xl font-bold ${palette.text} transition-colors duration-300`}
               >
-                {getStatusText(status, wsStatus)}
+                {getStatusText(status, wsStatus, voiceName)}
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 h-5 italic">
                 {status === "speaking"
@@ -296,16 +297,9 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                   transition={{ duration: 0.35 }}
                 >
                   <motion.div
-                    animate={{
-                      scale: [1, 1.1, 1],
-                      filter: [
-                        "drop-shadow(0 0 0px #fff)",
-                        "drop-shadow(0 0 8px #fff)",
-                        "drop-shadow(0 0 0px #fff)",
-                      ],
-                    }}
+                    animate={{ scale: [1, 1.1, 1] }}
                     transition={{
-                      duration: 2,
+                      duration: 1.5,
                       repeat: Infinity,
                       ease: "easeInOut",
                     }}
@@ -399,15 +393,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                       {effectiveStatus === "error" ? (
                         <AlertCircle className="w-10 h-10 sm:w-14 sm:h-14" />
                       ) : wsStatus === "connecting" ? (
-                        <motion.div
-                          animate={{
-                            scale: [1, 1.2, 1],
-                            opacity: [0.5, 1, 0.5],
-                          }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                        >
-                          <Radio className="w-10 h-10 sm:w-14 sm:h-14" />
-                        </motion.div>
+                        <Radio className="w-10 h-10 sm:w-14 sm:h-14 opacity-50" />
                       ) : (
                         <Mic className="w-10 h-10 sm:w-14 sm:h-14" />
                       )}
@@ -429,10 +415,10 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                 exit={{ opacity: 0, y: -10 }}
                 className="flex flex-col items-center gap-1"
               >
-                <p className="text-xs sm:text-sm font-bold text-slate-500/80 dark:text-slate-400/80 uppercase tracking-[0.2em]">
+                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                   {wsStatus === "idle" && "Click Mic to Start"}
                   {wsStatus === "connecting" && "Establishing Secure Line..."}
-                  {wsStatus === "closed" && "Session Ended"}
+                  {wsStatus === "closed" && "Session Securely Ended"}
                   {wsStatus === "error" && "Connection Interrupted"}
                 </p>
                 {wsStatus === "error" && (
@@ -513,8 +499,8 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                     >
                       {status === "speaking" ||
                       (activeTranscript?.speaker === "ai" && status === "idle")
-                        ? "Legal Adviser"
-                        : "You"}
+                        ? voiceName || "Legal Adviser"
+                        : userName || "You"}
                     </span>
                     <p className="text-xs italic font-light text-slate-800 dark:text-slate-100 leading-relaxed">
                       {getDisplayText()}

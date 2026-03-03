@@ -164,6 +164,7 @@ export const OrbRing: React.FC<{
 export const getStatusText = (
   status: CallStatus,
   wsStatus: VoiceSessionStatus,
+  voiceName?: string,
 ) => {
   switch (status) {
     case "listening":
@@ -171,7 +172,7 @@ export const getStatusText = (
     case "processing":
       return "Analyzing...";
     case "speaking":
-      return "Legal Adviser";
+      return voiceName || "Legal Adviser";
     case "muted":
       return "Microphone Muted";
     case "closed":
