@@ -101,6 +101,7 @@ declare global {
     setIsAudioMuted: (val: boolean) => void;
     userName?: string;
     listening: boolean; // Engine specific listening state
+    voiceName?: string;
   }
 }
 
