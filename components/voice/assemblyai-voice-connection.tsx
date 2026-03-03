@@ -151,7 +151,6 @@ const AssemblyAIVoiceConnection = () => {
       userName={user?.name}
       listening={aiIsRecording}
       voiceName={voice}
-      isAssemblyAIRecording={aiIsRecording}
     />
   );
 };

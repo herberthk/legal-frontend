@@ -3,12 +3,14 @@ import React, { useState } from "react";
 import { Scale, Mail, Lock, ArrowRight, Shield, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { createSession } from "@/lib";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role>("USER");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -47,9 +49,9 @@ const LoginPage = () => {
           };
     await createSession(mockUser);
     setLoading(false);
-    const path =
+    const defaultPath =
       selectedRole === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
-    router.push(path);
+    router.push(returnTo || defaultPath);
   };
 
   return (
