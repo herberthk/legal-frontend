@@ -32,6 +32,8 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   listening,
   voiceName,
   userName,
+  isAssemblyAIRecording,
+  isAssemblyAI = false,
 }) => {
   // ─── Connection Status Mapping ───────────────────────────────────────────
   const statusConfig = {
@@ -456,13 +458,13 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-inner mb-4 sm:mb-6">
+                    {/* <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-inner mb-4 sm:mb-6">
                       <BrainCircuit
                         size={28}
                         className="sm:w-8 sm:h-8"
                         strokeWidth={1.5}
                       />
-                    </div>
+                    </div> */}
                     <div className="flex items-end gap-1.5">
                       {[0, 0.15, 0.3].map((delay, i) => (
                         <motion.span
