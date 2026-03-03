@@ -1,13 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useVoiceSession, useAssemblyAITranscription } from "@/hooks";
-import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
-import { Transcript } from "./types";
 
 const AssemblyAIVoiceConnection = () => {
-  const user = useAuthStore((state) => state.user);
+  // const user = useAuthStore((state) => state.user);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -32,14 +30,26 @@ const AssemblyAIVoiceConnection = () => {
       });
     },
     onDuration: (d) => setDuration(d),
+    isAudioMuted,
   });
+
+  // Handle Microphone Mute (AssemblyAI)
+  useEffect(() => {
+    if (wsStatus === "open") {
+      if (isMuted) {
+        stopAiStt();
+      } else {
+        startAiStt();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMuted, wsStatus]);
 
   useEffect(() => {
     if (wsStatus === "open") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTranscript({
         speaker: "system",
-        text: "Connected. AssemblyAI STT ready.",
+        text: "Getting things ready...",
       });
     }
   }, [wsStatus]);
@@ -65,7 +75,6 @@ const AssemblyAIVoiceConnection = () => {
 
   useEffect(() => {
     if (llmText) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTranscript({
         speaker: "ai",
         text: llmText,
@@ -96,14 +105,13 @@ const AssemblyAIVoiceConnection = () => {
       isResponding={isResponding}
       activeTranscript={activeTranscript}
       currentTranscript={aiTranscript}
-      llmText={llmText}
       onStart={handleStartCall}
       onEnd={handleEndCall}
       isMuted={isMuted}
       setIsMuted={setIsMuted}
       isAudioMuted={isAudioMuted}
       setIsAudioMuted={setIsAudioMuted}
-      userName={user?.name}
+      // userName={user?.name}
       listening={aiIsRecording}
     />
   );

@@ -6,7 +6,6 @@ import SpeechRecognition, {
 } from "react-speech-recognition";
 import { useVoiceSession } from "@/hooks";
 import VoiceInterface from "./voice-interface";
-import { Transcript } from "./types";
 
 const NativeVoiceConnection = () => {
   // const user = useAuthStore((state) => state.user);
@@ -34,14 +33,29 @@ const NativeVoiceConnection = () => {
       });
     },
     onDuration: (d) => setDuration(d),
+    isAudioMuted,
   });
+
+  // Handle Microphone Mute (STT)
+  useEffect(() => {
+    if (wsStatus === "open") {
+      if (isMuted) {
+        SpeechRecognition.stopListening();
+      } else {
+        SpeechRecognition.startListening({
+          continuous: true,
+          language: "en-US",
+        });
+      }
+    }
+  }, [isMuted, wsStatus]);
 
   useEffect(() => {
     if (wsStatus === "open") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTranscript({
         speaker: "system",
-        text: "Connected. Native Speech Recognition ready.",
+        text: "Getting things ready...",
       });
     }
   }, [wsStatus]);

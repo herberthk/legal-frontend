@@ -17,6 +17,8 @@ export interface UseVoiceSessionOptions {
   onAudioDone?: () => void;
   /** Called when the server sends the duration of the session in seconds */
   onDuration?: (duration: number) => void;
+  /** Whether the audio output should be muted */
+  isAudioMuted?: boolean;
 }
 
 export interface UseVoiceSessionReturn {
@@ -43,8 +45,15 @@ export interface UseVoiceSessionReturn {
 export const useVoiceSession = (
   options: UseVoiceSessionOptions,
 ): UseVoiceSessionReturn => {
-  const { url, onText, onError, onInterrupt, onAudioDone, onDuration } =
-    options;
+  const {
+    url,
+    onText,
+    onError,
+    onInterrupt,
+    onAudioDone,
+    onDuration,
+    isAudioMuted,
+  } = options;
 
   const [wsStatus, setWsStatus] = useState<VoiceSessionStatus>("idle");
   const [audioStatus, setAudioStatus] = useState<VoiceAudioStatus>("idle");
@@ -79,6 +88,7 @@ export const useVoiceSession = (
   // All live AudioBufferSourceNodes — used to stop them instantly on interrupt.
   // AudioContext.close() alone does NOT immediately halt already-started nodes.
   const activeSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const masterGainRef = useRef<GainNode | null>(null);
 
   // ── Interrupt / TTFB tracking ─────────────────────────────────────────────────
   const sampleRateRef = useRef<number>(48000);
@@ -100,14 +110,32 @@ export const useVoiceSession = (
       audioCtxRef.current?.close().catch(() => {});
       const ctx = new AudioContext({
         sampleRate,
-        latencyHint: "interactive", // Prioritize low latency
+        latencyHint: "interactive",
       });
       audioCtxRef.current = ctx;
+
+      // Create master gain for muting
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = isAudioMuted ? 0 : 1;
+      gainNode.connect(ctx.destination);
+      masterGainRef.current = gainNode;
+
       nextStartTimeRef.current = ctx.currentTime;
       return ctx;
     },
-    [],
+    [isAudioMuted],
   );
+
+  // Sync mute state to gain node
+  useEffect(() => {
+    if (masterGainRef.current) {
+      masterGainRef.current.gain.setTargetAtTime(
+        isAudioMuted ? 0 : 1,
+        audioCtxRef.current?.currentTime || 0,
+        0.01,
+      );
+    }
+  }, [isAudioMuted]);
 
   const scheduleChunk = useCallback((arrayBuffer: ArrayBuffer) => {
     const ctx = audioCtxRef.current;
@@ -137,7 +165,12 @@ export const useVoiceSession = (
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.connect(ctx.destination);
+
+    if (masterGainRef.current) {
+      source.connect(masterGainRef.current);
+    } else {
+      source.connect(ctx.destination);
+    }
 
     if (nextStartTimeRef.current < ctx.currentTime) {
       nextStartTimeRef.current = ctx.currentTime;
