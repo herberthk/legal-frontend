@@ -21,10 +21,17 @@ const AssemblyAIVoiceConnection = () => {
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
     url: `ws://localhost:8000?voice=${voice}`,
     onText: (delta) => setLlmText((prev) => prev + delta),
-    onInterrupt: () => setIsResponding(false),
-    onAudioDone: () => setIsResponding(false),
+    onInterrupt: () => {
+      setIsResponding(false);
+      reset();
+      setLlmText("");
+    },
+    onAudioDone: () => {
+      setIsResponding(false);
+    },
     onError: (msg) => {
       setIsResponding(false);
+      reset();
       setActiveTranscript({
         speaker: "system",
         text: `Error: ${msg}`,
@@ -34,17 +41,36 @@ const AssemblyAIVoiceConnection = () => {
     isAudioMuted,
   });
 
-  // Handle Microphone Mute (AssemblyAI)
-  useEffect(() => {
-    if (wsStatus === "open") {
-      if (isMuted) {
-        stopAiStt();
-      } else {
-        startAiStt();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMuted, wsStatus]);
+  const handleTurnEnd = (text: string) => {
+    setLlmText("");
+    setIsResponding(true);
+    setActiveTranscript({
+      speaker: "user",
+      text: text,
+    });
+    send(text);
+    reset();
+  };
+
+  const {
+    transcript: aiTranscript,
+    isRecording: aiIsRecording,
+    start: startAiStt,
+    stop: stopAiStt,
+    isConnecting: isSttConnecting,
+    error: transcriptError,
+    reset,
+  } = useAssemblyAITranscription({
+    onTurnEnd: handleTurnEnd,
+    onError: (err) => console.error("[stt]", err),
+  });
+
+  const computedWsStatus: VoiceSessionStatus = (() => {
+    if (wsStatus === "error" || transcriptError) return "error";
+    if (wsStatus === "open" && (aiIsRecording || isMuted)) return "open";
+    if (wsStatus === "connecting" || isSttConnecting) return "connecting";
+    return wsStatus;
+  })();
 
   useEffect(() => {
     if (wsStatus === "open") {
@@ -55,27 +81,18 @@ const AssemblyAIVoiceConnection = () => {
     }
   }, [wsStatus]);
 
-  const handleTurnEnd = (text: string) => {
-    setLlmText("");
-    setIsResponding(true);
-    send(text);
-    setActiveTranscript({
-      speaker: "user",
-      text: text,
-    });
-  };
-
-  const {
-    transcript: aiTranscript,
-    isRecording: aiIsRecording,
-    start: startAiStt,
-    stop: stopAiStt,
-  } = useAssemblyAITranscription({
-    onTurnEnd: handleTurnEnd,
-  });
+  useEffect(() => {
+    if (transcriptError) {
+      setActiveTranscript({
+        speaker: "system",
+        text: `Transcription Error: ${transcriptError}`,
+      });
+    }
+  }, [transcriptError]);
 
   useEffect(() => {
     if (llmText) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTranscript({
         speaker: "ai",
         text: llmText,
@@ -84,23 +101,42 @@ const AssemblyAIVoiceConnection = () => {
   }, [llmText]);
 
   const handleStartCall = useCallback(async () => {
-    if (wsStatus === "connecting" || wsStatus === "open") return;
-    connect();
+    if (
+      wsStatus === "connecting" ||
+      wsStatus === "open" ||
+      aiIsRecording ||
+      isSttConnecting
+    )
+      return;
     await startAiStt();
-  }, [connect, startAiStt, wsStatus]);
+    connect();
+  }, [wsStatus, aiIsRecording, isSttConnecting, startAiStt, connect]);
 
   const handleEndCall = async () => {
     disconnect();
     await stopAiStt();
     setActiveTranscript({
       speaker: "system",
-      text: "Call ended by user.",
+      text: "Call ended by you",
     });
+    reset();
   };
+
+  // Handle Microphone Mute (AssemblyAI)
+  // useEffect(() => {
+  //   if (wsStatus === "open") {
+  //     if (isMuted) {
+  //       stopAiStt();
+  //     } else {
+  //       startAiStt();
+  //     }
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [isMuted, wsStatus]);
 
   return (
     <VoiceInterface
-      wsStatus={wsStatus}
+      wsStatus={computedWsStatus}
       audioStatus={audioStatus}
       duration={duration}
       isResponding={isResponding}
@@ -115,6 +151,7 @@ const AssemblyAIVoiceConnection = () => {
       userName={user?.name}
       listening={aiIsRecording}
       voiceName={voice}
+      isAssemblyAIRecording={aiIsRecording}
     />
   );
 };

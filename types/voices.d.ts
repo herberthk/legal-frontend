@@ -102,6 +102,8 @@ declare global {
     userName?: string;
     listening: boolean; // Engine specific listening state
     voiceName?: string;
+    isAssemblyAIRecording?: boolean;
+    isAssemblyAI?: boolean;
   }
 }
 
