@@ -1,13 +1,12 @@
 import Header from "@/components/global/Header";
 import Sidebar from "@/components/global/Sidebar";
 import { getUserSession } from "@/lib";
-import { redirect } from "next/navigation";
 
 const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
   const session = await getUserSession();
-  if (!session) {
-    redirect("/login");
-  }
+  // Protection is now handled by middleware.ts for /dashboard/:path*
+  // to preserve the original URL in the returnTo search parameter.
+  if (!session) return null; // Fallback for type safety
   //console.log("session", session);
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden transition-colors duration-200 selection:bg-orange-500/30">

@@ -32,8 +32,6 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   listening,
   voiceName,
   userName,
-  isAssemblyAIRecording,
-  isAssemblyAI = false,
 }) => {
   // ─── Connection Status Mapping ───────────────────────────────────────────
   const statusConfig = {
