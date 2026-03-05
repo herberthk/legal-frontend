@@ -88,13 +88,16 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   const glowOpacity = isDark ? 0.4 : 0.7;
   const glowOpacityActive = isDark ? [0.3, 0.5, 0.3] : [0.6, 0.85, 0.6];
 
-  // Format duration SS to MM:SS
+  // Format duration SS to HH:MM:SS
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60)
       .toString()
       .padStart(2, "0");
     const s = (seconds % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
+    const h = Math.floor(seconds / 3600)
+      .toString()
+      .padStart(2, "0");
+    return `${h}:${m}:${s}`;
   };
 
   const getDisplayText = () => {
@@ -418,7 +421,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                 <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                   {wsStatus === "idle" && "Click Mic to Start"}
                   {wsStatus === "connecting" && "Establishing Secure Line..."}
-                  {wsStatus === "closed" && "Session Securely Ended"}
+                  {wsStatus === "closed" && "Session Ended"}
                   {wsStatus === "error" && "Connection Interrupted"}
                 </p>
                 {wsStatus === "error" && (
