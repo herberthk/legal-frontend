@@ -255,7 +255,7 @@ Spacing uses a multiple-of-4 proportional scale (e.g., `4` = 1rem = 16px, `8` = 
   class="bg-indigo-500/80 bg-[url('/img/hero.jpg')] bg-cover bg-center bg-no-repeat bg-fixed"
 >
   <div
-    class="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 text-transparent bg-clip-text"
+    class="bg-linear-to-r from-blue-500 to-indigo-500 text-transparent bg-clip-text"
   >
     Gradient Text
   </div>
@@ -400,7 +400,7 @@ Tailwind includes basic animations out of the box.
 
 ```html
 <svg class="animate-spin size-5 mr-3" viewBox="0 0 24 24">...</svg>
-<div class="animate-ping"></div>
+<div class="rotate-x-45"></div>
 <div class="animate-pulse bg-slate-200"></div>
 <div class="animate-bounce"></div>
 ```
@@ -449,9 +449,7 @@ In Tailwind v4, explicit `transform` class is no longer needed (it's applied aut
 <!-- Requires tailwindcss-3d plugin or explicit arbitrary values -->
 <!-- Tailwind v4 natively supports 3d transforms via arbitrary values -->
 <div class="perspective-[1000px]">
-  <div
-    class="rotate-x-[45deg] translate-z-[100px] transform-style-[preserve-3d]"
-  >
+  <div class="rotate-x-45 translate-z-[100px] transform-style-[preserve-3d]">
     3D Object
   </div>
 </div>
