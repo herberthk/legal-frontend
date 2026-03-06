@@ -53,6 +53,8 @@ const UserDashboard = () => {
     generateUserTransactions(20),
   );
 
+  const setPreferredVoice = useAppStore((state) => state.setPreferredVoice);
+
   // Transaction Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -105,10 +107,6 @@ const UserDashboard = () => {
   );
 
   const currentVoice = useAppStore((state) => state.preferredVoice);
-
-  const handleVoiceSelect = (voiceId: string) => {
-    useAppStore.setState({ preferredVoice: voiceId });
-  };
 
   // --- Limits Logic ---
   // If Welcome Tokens > 0, we show Welcome Bonus Card.
@@ -370,7 +368,7 @@ const UserDashboard = () => {
           {voices.map((voice) => (
             <button
               key={voice.id}
-              onClick={() => handleVoiceSelect(voice.id)}
+              onClick={() => setPreferredVoice(voice.name)}
               className={`relative p-3 rounded-xl border text-left transition-all duration-300 hover:shadow-md ${
                 currentVoice === voice.id
                   ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-500"

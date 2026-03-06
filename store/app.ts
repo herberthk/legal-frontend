@@ -4,8 +4,8 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 // implement voice selection in this store
 type AppStore = {
-  preferredVoice: string;
-  setPreferredVoice: (preferredVoice: string) => void;
+  preferredVoice: Voice;
+  setPreferredVoice: (preferredVoice: Voice) => void;
   activeTab: string;
   setActiveTab: (activeTab: string) => void;
   tokenUsageHistory: TokenUsageRecord[];
@@ -19,8 +19,8 @@ type AppStore = {
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
-      preferredVoice: "Kore",
-      setPreferredVoice: (preferredVoice: string) => set({ preferredVoice }),
+      preferredVoice: "Blake",
+      setPreferredVoice: (preferredVoice: Voice) => set({ preferredVoice }),
       activeTab: "dashboard",
       setActiveTab: (activeTab: string) => set({ activeTab }),
       tokenUsageHistory: [],

@@ -103,6 +103,13 @@ declare global {
     listening: boolean; // Engine specific listening state
     voiceName?: string;
   }
+
+  type VoicePasona = {
+    id: string;
+    name: Voice;
+    gender: string;
+    desc: string;
+  };
 }
 
 export {};

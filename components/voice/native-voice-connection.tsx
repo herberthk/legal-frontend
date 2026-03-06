@@ -5,7 +5,7 @@ import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 import { useVoiceSession } from "@/hooks";
-import { useAuthStore } from "@/store";
+import { useAppStore, useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 
 const NativeVoiceConnection = () => {
@@ -13,7 +13,7 @@ const NativeVoiceConnection = () => {
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const voice = "Blake";
+  const voice = useAppStore((state) => state.preferredVoice);
   const [activeTranscript, setActiveTranscript] = useState<Transcript | null>(
     null,
   );
