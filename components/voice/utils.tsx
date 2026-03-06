@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 // ─── Color Palette per Status ───────────────────────────────────────────────
 // Each status has separate tuned values for light vs dark backgrounds.
@@ -79,33 +80,33 @@ export const statusPalette: Record<
 };
 
 // ─── Animated Waveform Bars ──────────────────────────────────────────────────
-export const WaveBar: React.FC<{ delay: number; heights: number[] }> = ({
-  delay,
-  heights,
-}) => (
-  <motion.div
-    className="w-1 sm:w-1.5 bg-white rounded-full"
-    animate={{ height: heights }}
-    transition={{
-      duration: 0.6,
-      repeat: Infinity,
-      repeatType: "mirror",
-      delay,
-      ease: "easeInOut",
-    }}
-    style={{ height: heights[0] }}
-  />
+export const WaveBar = React.memo<{ delay: number; heights: number[] }>(
+  ({ delay, heights }) => (
+    <motion.div
+      className="w-1 sm:w-1.5 bg-white rounded-full"
+      animate={{ height: heights }}
+      transition={{
+        duration: 0.6,
+        repeat: Infinity,
+        repeatType: "mirror",
+        delay,
+        ease: "easeInOut",
+      }}
+      style={{ height: heights[0] }}
+    />
+  ),
 );
+WaveBar.displayName = "WaveBar";
 
 // ─── Ring Component ──────────────────────────────────────────────────────────
-export const OrbRing: React.FC<{
+export const OrbRing = React.memo<{
   color: string;
   size: number;
   status: CallStatus;
   delay?: number;
   opacity?: number;
   dashed?: boolean;
-}> = ({ color, size, status, delay = 0, opacity = 0.4, dashed = false }) => {
+}>(({ color, size, status, delay = 0, opacity = 0.4, dashed = false }) => {
   const isActive = status === "listening" || status === "speaking";
   const isPulsing = status === "listening";
   const isSpeaking = status === "speaking";
@@ -159,7 +160,8 @@ export const OrbRing: React.FC<{
       }
     />
   );
-};
+});
+OrbRing.displayName = "OrbRing";
 
 export const getStatusText = (
   status: CallStatus,

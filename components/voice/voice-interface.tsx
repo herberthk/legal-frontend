@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useThemeStore } from "@/store/theme";
 import {
@@ -15,6 +15,55 @@ import {
   RefreshCcw,
 } from "lucide-react";
 import { getStatusText, OrbRing, statusPalette, WaveBar } from "./utils";
+
+// ─── Hoisted Constants & Utilities ──────────────────────────────────────────
+const statusConfig = {
+  idle: { label: "Idle", color: "bg-slate-500", dot: "bg-slate-500" },
+  connecting: {
+    label: "Connecting...",
+    color: "bg-yellow-500",
+    dot: "bg-yellow-400",
+  },
+  open: {
+    label: "Connected",
+    color: "bg-green-500",
+    dot: "bg-green-400",
+  },
+  closed: {
+    label: "Disconnected",
+    color: "bg-slate-500",
+    dot: "bg-slate-500",
+  },
+  error: {
+    label: "Connection Error",
+    color: "bg-red-500",
+    dot: "bg-red-400",
+  },
+};
+
+const formatTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const s = (seconds % 60).toString().padStart(2, "0");
+  const h = Math.floor(seconds / 3600)
+    .toString()
+    .padStart(2, "0");
+  return `${h}:${m}:${s}`;
+};
+
+// ─── Sub-components for localized re-renders ────────────────────────────────
+const VoiceTimer = React.memo(
+  ({ duration, isCallActive }: { duration: number; isCallActive: boolean }) => (
+    <motion.div
+      className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-white/50 dark:border-slate-700/50 shadow-lg dark:shadow-slate-950/50 font-mono text-base sm:text-lg font-bold text-slate-800 dark:text-white min-w-[80px] sm:min-w-[100px] text-center"
+      animate={{ opacity: isCallActive ? 1 : 0.5 }}
+    >
+      {formatTime(duration)}
+    </motion.div>
+  ),
+);
+VoiceTimer.displayName = "VoiceTimer";
 
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   wsStatus,
@@ -33,36 +82,9 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   voiceName,
   userName,
 }) => {
-  // ─── Connection Status Mapping ───────────────────────────────────────────
-  const statusConfig = {
-    idle: { label: "Idle", color: "bg-slate-500", dot: "bg-slate-500" },
-    connecting: {
-      label: "Connecting...",
-      color: "bg-yellow-500",
-      dot: "bg-yellow-400",
-    },
-    open: {
-      label: "Connected",
-      color: "bg-green-500",
-      dot: "bg-green-400",
-    },
-    closed: {
-      label: "Disconnected",
-      color: "bg-slate-500",
-      dot: "bg-slate-500",
-    },
-    error: {
-      label: "Connection Error",
-      color: "bg-red-500",
-      dot: "bg-red-400",
-    },
-  };
-
-  const currentConfig = statusConfig[wsStatus] || statusConfig.idle;
-
   // ─── Derived UI Status ────────────────────────────────────────────────────
-  const status: CallStatus =
-    wsStatus === "open"
+  const status: CallStatus = useMemo(() => {
+    return wsStatus === "open"
       ? audioStatus === "playing"
         ? "speaking"
         : isResponding
@@ -75,30 +97,29 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       : wsStatus === "closed"
         ? "closed"
         : "idle";
+  }, [wsStatus, audioStatus, isResponding, isMuted, listening]);
 
-  const effectiveStatus: CallStatus | "error" =
-    wsStatus === "error" && status === "idle" ? "error" : status;
+  const effectiveStatus: CallStatus | "error" = useMemo(() => {
+    return wsStatus === "error" && status === "idle" ? "error" : status;
+  }, [wsStatus, status]);
+
   const palette = statusPalette[effectiveStatus];
 
   // Use the app's zustand theme store as the single source of truth
-  const isDark = useThemeStore((state) => state.theme) === "dark";
-  const glowColor = isDark ? palette.darkGlow : palette.lightGlow;
-  const ringColor = isDark ? palette.darkRing : palette.lightRing;
-  // Light-mode needs significantly more opacity to stand out on white
-  const glowOpacity = isDark ? 0.4 : 0.7;
-  const glowOpacityActive = isDark ? [0.3, 0.5, 0.3] : [0.6, 0.85, 0.6];
+  const theme = useThemeStore((state) => state.theme);
+  const isDark = theme === "dark";
 
-  // Format duration SS to HH:MM:SS
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = (seconds % 60).toString().padStart(2, "0");
-    const h = Math.floor(seconds / 3600)
-      .toString()
-      .padStart(2, "0");
-    return `${h}:${m}:${s}`;
-  };
+  const { glowColor, ringColor, glowOpacity, glowOpacityActive } =
+    useMemo(() => {
+      const p = statusPalette[effectiveStatus];
+      const isD = theme === "dark";
+      return {
+        glowColor: isD ? p.darkGlow : p.lightGlow,
+        ringColor: isD ? p.darkRing : p.lightRing,
+        glowOpacity: isD ? 0.4 : 0.7,
+        glowOpacityActive: isD ? [0.3, 0.5, 0.3] : [0.6, 0.85, 0.6],
+      };
+    }, [effectiveStatus, theme]);
 
   const getDisplayText = () => {
     if (status === "listening") {
@@ -112,6 +133,8 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
 
   const isCallActive = wsStatus === "open";
   const isAudioActive = status === "listening" || status === "speaking";
+
+  const currentConfig = statusConfig[wsStatus] || statusConfig.idle;
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#F8FAFC] dark:bg-[#0F172A] relative overflow-hidden transition-colors duration-500">
@@ -165,12 +188,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         </div>
 
         {/* Timer */}
-        <motion.div
-          className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-white/50 dark:border-slate-700/50 shadow-lg dark:shadow-slate-950/50 font-mono text-base sm:text-lg font-bold text-slate-800 dark:text-white min-w-[80px] sm:min-w-[100px] text-center"
-          animate={{ opacity: isCallActive ? 1 : 0.5 }}
-        >
-          {formatTime(duration)}
-        </motion.div>
+        <VoiceTimer duration={duration} isCallActive={isCallActive} />
       </motion.div>
 
       {/* ── Main Visualizer ───────────────────────────────────────────────── */}
@@ -652,4 +670,4 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   );
 };
 
-export default VoiceInterface;
+export default React.memo(VoiceInterface);
