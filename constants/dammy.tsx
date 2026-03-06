@@ -72,28 +72,27 @@ export const generateUserTransactions = (count = 15): Transaction[] => {
     details: i % 2 === 0 ? "Success" : "Completed",
   }));
 };
-
-export const voices = [
+export const voices: VoicePasona[] = [
   {
-    id: "Kore",
-    name: "Kore",
-    gender: "Female",
-    desc: "Balanced & Professional",
-  },
-  {
-    id: "Zephyr",
-    name: "Zephyr",
-    gender: "Female",
-    desc: "Bright & Helpful",
-  },
-  { id: "Puck", name: "Puck", gender: "Male", desc: "Calm & Reassuring" },
-  {
-    id: "Charon",
-    name: "Charon",
+    id: "Blake",
+    name: "Blake",
     gender: "Male",
-    desc: "Deep & Authoritative",
+    desc: "Professional & Authoritative",
   },
-  { id: "Fenrir", name: "Fenrir", gender: "Male", desc: "Strong & Direct" },
+  {
+    id: "Luna",
+    name: "Luna",
+    gender: "Female",
+    desc: "Calm & Relaxing",
+  },
+  { id: "Mark", name: "Mark", gender: "Male", desc: "Energetic & Expressive" },
+  {
+    id: "Wendy",
+    name: "Wendy",
+    gender: "Female",
+    desc: "Warm & Friendly",
+  },
+  { id: "Theodore", name: "Theodore", gender: "Male", desc: "Strong & Direct" },
 ];
 
 // Mock Data Generator for Voice Sessions
