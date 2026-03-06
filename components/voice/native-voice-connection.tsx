@@ -9,7 +9,7 @@ import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 
 const NativeVoiceConnection = () => {
-  const user = useAuthStore((state) => state.user);
+  const userName = useAuthStore((state) => state.user?.name);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -18,12 +18,19 @@ const NativeVoiceConnection = () => {
     null,
   );
 
-  const [llmText, setLlmText] = useState("");
   const [isResponding, setIsResponding] = useState(false);
 
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
     url: `ws://localhost:8000?voice=${voice}`,
-    onText: (delta) => setLlmText((prev) => prev + delta),
+    onText: (delta) => {
+      setActiveTranscript((prev) => {
+        const nextText = (prev?.speaker === "ai" ? prev.text : "") + delta;
+        return {
+          speaker: "ai",
+          text: nextText,
+        };
+      });
+    },
     onInterrupt: () => setIsResponding(false),
     onAudioDone: () => setIsResponding(false),
     onError: (msg) => {
@@ -74,7 +81,6 @@ const NativeVoiceConnection = () => {
     ) {
       lastSentRef.current = finalTranscript;
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLlmText("");
       setIsResponding(true);
       send(finalTranscript);
       setActiveTranscript({
@@ -87,32 +93,25 @@ const NativeVoiceConnection = () => {
     }
   }, [finalTranscript, wsStatus, send, resetTranscript]);
 
-  useEffect(() => {
-    if (llmText) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setActiveTranscript({
-        speaker: "ai",
-        text: llmText,
-      });
-    }
-  }, [llmText]);
-
   const handleStartCall = useCallback(async () => {
     if (wsStatus === "connecting" || wsStatus === "open") return;
     connect();
     SpeechRecognition.startListening({ continuous: true, language: "en-US" });
   }, [connect, wsStatus]);
 
-  const handleEndCall = async () => {
+  const handleEndCall = useCallback(async () => {
     disconnect();
     SpeechRecognition.stopListening();
     setActiveTranscript({
       speaker: "system",
       text: "You ended the call.",
     });
-  };
+  }, [disconnect]);
 
-  console.log("connection status", wsStatus);
+  useEffect(() => {
+    console.log("connection status", wsStatus);
+  }, [wsStatus]);
+
   return (
     <VoiceInterface
       wsStatus={wsStatus}
@@ -127,7 +126,7 @@ const NativeVoiceConnection = () => {
       setIsMuted={setIsMuted}
       isAudioMuted={isAudioMuted}
       setIsAudioMuted={setIsAudioMuted}
-      userName={user?.name}
+      userName={userName}
       listening={listening}
       voiceName={voice}
     />

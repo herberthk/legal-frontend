@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react"; // Added useMemo
 import { useVoiceSession, useAssemblyAITranscription } from "@/hooks";
 import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 
 const AssemblyAIVoiceConnection = () => {
-  const user = useAuthStore((state) => state.user);
+  const userName = useAuthStore((state) => state.user?.name); // Refined store subscription
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -15,16 +15,23 @@ const AssemblyAIVoiceConnection = () => {
     null,
   );
 
-  const [llmText, setLlmText] = useState("");
+  // llmText state removed
   const [isResponding, setIsResponding] = useState(false);
 
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
     url: `ws://localhost:8000?voice=${voice}`,
-    onText: (delta) => setLlmText((prev) => prev + delta),
+    onText: (delta) => {
+      setActiveTranscript((prev) => {
+        const nextText = (prev?.speaker === "ai" ? prev.text : "") + delta;
+        return {
+          speaker: "ai",
+          text: nextText,
+        };
+      });
+    },
     onInterrupt: () => {
       setIsResponding(false);
       reset();
-      setLlmText("");
     },
     onAudioDone: () => {
       setIsResponding(false);
@@ -41,17 +48,6 @@ const AssemblyAIVoiceConnection = () => {
     isAudioMuted,
   });
 
-  const handleTurnEnd = (text: string) => {
-    setLlmText("");
-    setIsResponding(true);
-    setActiveTranscript({
-      speaker: "user",
-      text: text,
-    });
-    send(text);
-    reset();
-  };
-
   const {
     transcript: aiTranscript,
     isRecording: aiIsRecording,
@@ -61,16 +57,29 @@ const AssemblyAIVoiceConnection = () => {
     error: transcriptError,
     reset,
   } = useAssemblyAITranscription({
-    onTurnEnd: handleTurnEnd,
+    onTurnEnd: useCallback(
+      (text: string) => {
+        // Stabilized handleTurnEnd
+        setIsResponding(true);
+        setActiveTranscript({
+          speaker: "user",
+          text: text,
+        });
+        send(text);
+        reset();
+      },
+      [send],
+    ), // Dependencies for useCallback
     onError: (err) => console.error("[stt]", err),
   });
 
-  const computedWsStatus: VoiceSessionStatus = (() => {
+  const computedWsStatus: VoiceSessionStatus = useMemo(() => {
+    // Memoized status
     if (wsStatus === "error" || transcriptError) return "error";
     if (wsStatus === "open" && (aiIsRecording || isMuted)) return "open";
     if (wsStatus === "connecting" || isSttConnecting) return "connecting";
     return wsStatus;
-  })();
+  }, [wsStatus, transcriptError, aiIsRecording, isMuted, isSttConnecting]);
 
   useEffect(() => {
     if (wsStatus === "open") {
@@ -90,17 +99,10 @@ const AssemblyAIVoiceConnection = () => {
     }
   }, [transcriptError]);
 
-  useEffect(() => {
-    if (llmText) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setActiveTranscript({
-        speaker: "ai",
-        text: llmText,
-      });
-    }
-  }, [llmText]);
+  // llmText useEffect removed
 
   const handleStartCall = useCallback(async () => {
+    // Stabilized handleStartCall
     if (
       wsStatus === "connecting" ||
       wsStatus === "open" ||
@@ -112,7 +114,7 @@ const AssemblyAIVoiceConnection = () => {
     connect();
   }, [wsStatus, aiIsRecording, isSttConnecting, startAiStt, connect]);
 
-  const handleEndCall = async () => {
+  const handleEndCall = useCallback(async () => {
     disconnect();
     await stopAiStt();
     setActiveTranscript({
@@ -120,7 +122,7 @@ const AssemblyAIVoiceConnection = () => {
       text: "Call ended by you",
     });
     reset();
-  };
+  }, [disconnect, stopAiStt, reset]);
 
   // Handle Microphone Mute (AssemblyAI)
   // useEffect(() => {
@@ -148,11 +150,11 @@ const AssemblyAIVoiceConnection = () => {
       setIsMuted={setIsMuted}
       isAudioMuted={isAudioMuted}
       setIsAudioMuted={setIsAudioMuted}
-      userName={user?.name}
+      userName={userName}
       listening={aiIsRecording}
       voiceName={voice}
     />
   );
 };
 
-export default AssemblyAIVoiceConnection;
+export default memo(AssemblyAIVoiceConnection);
