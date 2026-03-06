@@ -476,10 +476,11 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
                     <span
                       className={`text-xs sm:text-[11px] font-bold uppercase tracking-[0.2em] mb-3 ${palette.text}`}
                     >
-                      {status === "speaking" ||
-                      (activeTranscript?.speaker === "ai" && status === "idle")
-                        ? voiceName || "Legal Adviser"
-                        : userName || "You"}
+                      {status === "listening" && currentTranscript
+                        ? userName || "You"
+                        : activeTranscript?.speaker === "ai"
+                          ? voiceName || "Legal Adviser"
+                          : userName || "You"}
                     </span>
                     <p className="text-xs italic font-light text-slate-800 dark:text-slate-100 leading-relaxed">
                       {getDisplayText()}
