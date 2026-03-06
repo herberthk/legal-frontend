@@ -189,3 +189,52 @@ export const getStatusText = (
       return "";
   }
 };
+
+// ─── Hoisted Constants & Utilities ──────────────────────────────────────────
+export const statusConfig = {
+  idle: { label: "Idle", color: "bg-slate-500", dot: "bg-slate-500" },
+  connecting: {
+    label: "Connecting...",
+    color: "bg-yellow-500",
+    dot: "bg-yellow-400",
+  },
+  open: {
+    label: "Connected",
+    color: "bg-green-500",
+    dot: "bg-green-400",
+  },
+  closed: {
+    label: "Disconnected",
+    color: "bg-slate-500",
+    dot: "bg-slate-500",
+  },
+  error: {
+    label: "Connection Error",
+    color: "bg-red-500",
+    dot: "bg-red-400",
+  },
+};
+
+export const formatTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const s = (seconds % 60).toString().padStart(2, "0");
+  const h = Math.floor(seconds / 3600)
+    .toString()
+    .padStart(2, "0");
+  return `${h}:${m}:${s}`;
+};
+
+// ─── Sub-components for localized re-renders ────────────────────────────────
+export const VoiceTimer = React.memo(
+  ({ duration, isCallActive }: { duration: number; isCallActive: boolean }) => (
+    <motion.div
+      className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-white/50 dark:border-slate-700/50 shadow-lg dark:shadow-slate-950/50 font-mono text-base sm:text-lg font-bold text-slate-800 dark:text-white min-w-[80px] sm:min-w-[100px] text-center"
+      animate={{ opacity: isCallActive ? 1 : 0.5 }}
+    >
+      {formatTime(duration)}
+    </motion.div>
+  ),
+);
+VoiceTimer.displayName = "VoiceTimer";

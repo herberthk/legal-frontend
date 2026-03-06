@@ -26,8 +26,7 @@ const VoiceSessionManager = () => {
     );
   }
 
-  // return hasNative ? <NativeVoiceConnection /> : <AssemblyAIVoiceConnection />;
-  return <AssemblyAIVoiceConnection />;
+  return hasNative ? <NativeVoiceConnection /> : <AssemblyAIVoiceConnection />;
 };
 
 export default React.memo(VoiceSessionManager);
