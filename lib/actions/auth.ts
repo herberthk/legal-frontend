@@ -2,6 +2,7 @@
 
 import { auth, db } from "@/firebase/admin";
 import { cookies } from "next/headers";
+import { sendOtp } from "./email";
 
 /**
  * Session duration constant set to 1 week in seconds
@@ -172,14 +173,26 @@ export async function isAuthenticated() {
 export async function forgotPassword(email: string) {
   try {
     // Check if user exists first
-    await auth.getUserByEmail(email);
+    const user = await auth.getUserByEmail(email);
 
-    // If we reach here, the user exists.
-    // We return success and let the client handle sending the email
-    // via Firebase client SDK `sendPasswordResetEmail`.
+    // Send the custom OTP email
+    const otpsent = await sendOtp({
+      id: user.uid,
+      email: user.email || email,
+      name: user.displayName || user.email?.split("@")[0] || "User",
+      type: "reset",
+    });
+
+    if (!otpsent) {
+      return {
+        success: false,
+        message: "Failed to send OTP. Please check your email settings.",
+      };
+    }
+
     return {
       success: true,
-      message: "User found, ready to send email.",
+      message: "User found, OTP sent.",
     };
   } catch (error: unknown) {
     if (
@@ -198,6 +211,45 @@ export async function forgotPassword(email: string) {
     return {
       success: false,
       message: "Failed to process request. Please try again.",
+    };
+  }
+}
+
+export async function resetPasswordWithOtp(email: string, newPassword: string) {
+  try {
+    const user = await auth.getUserByEmail(email);
+
+    const docRef = db.collection("otp").doc(user.uid);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+      return {
+        success: false,
+        message: "No OTP request found. Please start over.",
+      };
+    }
+
+    const data = docSnap.data() as Otp & { verified?: boolean };
+
+    if (!data.verified) {
+      return {
+        success: false,
+        message: "OTP not verified. Please verify your code first.",
+      };
+    }
+
+    // Update the password using Admin SDK
+    await auth.updateUser(user.uid, { password: newPassword });
+
+    // Delete OTP document to prevent reuse
+    await docRef.delete();
+
+    return { success: true, message: "Password updated successfully." };
+  } catch (error) {
+    console.error("resetPasswordWithOtp error", error);
+    return {
+      success: false,
+      message: "Failed to reset password. Please try again.",
     };
   }
 }
