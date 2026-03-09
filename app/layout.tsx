@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import ThemeInitializer from "@/components/global/ThemeInitializer";
+import AuthProvider from "@/components/global/AuthProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -52,9 +53,11 @@ const RootLayout = ({
         className={`${inter.className}bg-slate-50 dark:bg-slate-900 transition-colors duration-200`}
         suppressHydrationWarning
       >
-        <ThemeInitializer />
-        <NextTopLoader />
-        {children}
+        <AuthProvider>
+          <ThemeInitializer />
+          <NextTopLoader />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

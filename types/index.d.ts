@@ -13,10 +13,9 @@ declare global {
   };
 
   type SignUpParams = {
-    uid: string;
     name: string;
     email: string;
-    password: string;
+    password?: string; // Optinal as it might be handled client-side
   };
 
   type Notifications = {
@@ -30,7 +29,7 @@ declare global {
   type Role = "ADMIN" | "USER";
 
   type User = {
-    id: string;
+    id: string; // Firebase UID
     name: string;
     email: string;
     avatar: string;
@@ -39,11 +38,12 @@ declare global {
     totalSpent: number;
     status: "active" | "suspended";
     voicePreference?: string;
-    // Free Tier Tracking
+    // Tier Tracking
     freeTextTokens: number; // Daily Recurring Limit (1000)
     welcomeTextTokens: number; // One-time Sign up bonus (4000)
     freeVoiceSeconds: number; // One-time welcome bonus (300s = 5mins)
     lastDailyReset: string; // ISO Date string
+    createdAt: string; // ISO Date string
   };
 
   type PaymentMethod = {

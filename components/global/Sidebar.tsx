@@ -1,6 +1,8 @@
 "use client";
-import { useAppStore, useAuthStore, usePopStore } from "@/store";
+import { useAuthStore, usePopStore } from "@/store";
 import { cn, signOut } from "@/lib";
+import { signOut as firebaseSignOut } from "firebase/auth";
+import { auth } from "@/firebase/client";
 
 import { LogOut, Scale, Shield, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,10 +19,15 @@ const Sidebar = ({ user }: Props) => {
   const isAdmin = user?.role === "ADMIN";
   const router = useRouter();
   const onLogout = async () => {
-    await signOut();
-    toggleSidebar();
-    clearUser();
-    router.push("/login");
+    try {
+      await firebaseSignOut(auth);
+      await signOut(); // Server action to delete cookie
+      toggleSidebar();
+      clearUser();
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
   };
   const navlinks = sideBarItems(user?.role);
 
@@ -98,110 +105,6 @@ const Sidebar = ({ user }: Props) => {
             <span>{link.label}</span>
           </Link>
         ))}
-        {/* Dashboard - Common */}
-        {/* <button
-          onClick={() => {}}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-            `${isAdmin ? "bg-indigo-600 shadow-indigo-500/20" : "bg-orange-600 shadow-orange-500/20"}`
-                text-white font-medium shadow-lg translate-x-1`
-            //   : "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1"
-          }`}
-        >
-          <LayoutDashboard size={20} className="animate-pulse" />
-          <span>Dashboard</span>
-        </button> */}
-
-        {/* Role Specific Links */}
-        {/* {isAdmin ? (
-          <>
-            <button
-              onClick={() => {}}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-                // currentView === View.USERS
-                //   ? "bg-indigo-600 text-white font-medium shadow-lg shadow-indigo-500/20 translate-x-1"
-                //   : "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1"
-                "bg-indigo-600 text-white font-medium shadow-lg shadow-indigo-500/20 translate-x-1"
-              }`}
-            >
-              <Users size={20} />
-              <span>User Management</span>
-            </button>
-            <button
-              onClick={() => {}}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-                // currentView === View.ADMIN_COMPLAINTS
-                //   ? "bg-indigo-600 text-white font-medium shadow-lg shadow-indigo-500/20 translate-x-1"
-                //   : "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1"
-                "bg-indigo-600 text-white font-medium shadow-lg shadow-indigo-500/20 translate-x-1"
-              }`}
-            >
-              <FileWarning size={20} />
-              <span>User Complaints</span>
-            </button>
-            <div className="pt-4 mt-4 border-t border-slate-800">
-              <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                System
-              </p>
-              <button
-                onClick={() => {}}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-                  //   currentView === View.CONFIGURATION
-                  //     ? "bg-indigo-600 text-white font-medium shadow-lg shadow-indigo-500/20 translate-x-1"
-                  //     : "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1"
-                  "bg-indigo-600 text-white font-medium shadow-lg shadow-indigo-500/20 translate-x-1"
-                }`}
-              >
-                <Settings size={20} />
-                <span>Configuration</span>
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => {}}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-                // currentView === View.CHAT
-                //   ? "bg-orange-600 text-white font-medium shadow-lg shadow-orange-500/20 translate-x-1"
-                //   : "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1"
-                "bg-orange-600 text-white font-medium shadow-lg shadow-orange-500/20 translate-x-1"
-              }`}
-            >
-              <MessageSquareText size={20} className="animate-pulse" />
-              <span>Legal Chat</span>
-            </button>
-
-            <div className="pt-4 mt-4 border-t border-slate-800">
-              <p className="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Account
-              </p>
-              <button
-                onClick={() => {}}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-                  //   currentView === View.BILLING
-                  //     ? "bg-orange-600 text-white font-medium shadow-lg shadow-orange-500/20 translate-x-1"
-                  //     : "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1"
-                  "bg-orange-600 text-white font-medium shadow-lg shadow-orange-500/20 translate-x-1"
-                }`}
-              >
-                <CreditCard size={20} />
-                <span>Billing & Usage</span>
-              </button>
-              <button
-                onClick={() => {}}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 ${
-                  //   currentView === View.SUPPORT
-                  //     ? "bg-orange-600 text-white font-medium shadow-lg shadow-orange-500/20 translate-x-1"
-                  //     : "hover:bg-slate-800 text-slate-400 hover:text-white hover:translate-x-1"
-                  "bg-orange-600 text-white font-medium shadow-lg shadow-orange-500/20 translate-x-1"
-                }`}
-              >
-                <LifeBuoy size={20} />
-                <span>Help & Support</span>
-              </button>
-            </div>
-          </>
-        )} */}
       </nav>
 
       <div className="p-4 border-t border-slate-800 dark:border-slate-800">
