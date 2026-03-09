@@ -12,7 +12,10 @@ export default function ResetPasswordPage() {
   return (
     <>
       <div className="sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <Link href="/" className="flex justify-center cursor-pointer group">
+        <Link
+          href="/"
+          className="flex justify-center cursor-pointer group lg:hidden"
+        >
           <div className="bg-linear-to-br from-amber-500 to-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-500/20 transform transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
             <Scale className="w-10 h-10 text-white" />
           </div>
