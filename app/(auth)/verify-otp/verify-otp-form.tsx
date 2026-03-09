@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,6 +12,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
+import { useAuthStore } from "@/store";
 
 export const VerifyOtpForm = () => {
   const [loading, setLoading] = useState(false);
@@ -20,38 +21,40 @@ export const VerifyOtpForm = () => {
   const [otp, setOtp] = useState("");
   const [isOTPinValid, setIsOTPinValid] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const countdownRef = useRef(0);
-  const [, setTick] = useState(0);
+  const otpTimer = useAuthStore((state) => state.otpResetTimer);
+  const updateResetTimer = useAuthStore((state) => state.updateOtpTimer);
+  const [remaining, setRemaining] = useState(0);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
 
   useEffect(() => {
-    // Check local storage on mount
-    const storedEndTime = localStorage.getItem("otpResendTimer_legal_adviser");
-    if (storedEndTime) {
-      const remaining = Math.floor(
-        (parseInt(storedEndTime, 10) - Date.now()) / 1000,
-      );
-      if (remaining > 0) {
-        countdownRef.current = remaining;
-        setTick((t) => t + 1);
-      } else {
-        localStorage.removeItem("otpResendTimer_legal_adviser");
-      }
-    }
+    // Rehydrate Zustand state explicitly as our store runs skipHydration
+    useAuthStore.persist.rehydrate();
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (countdownRef.current > 0) {
-        countdownRef.current -= 1;
-        setTick((t) => t + 1);
+    if (otpTimer > Date.now()) {
+      setRemaining(Math.floor((otpTimer - Date.now()) / 1000));
+      const interval = setInterval(() => {
+        const timeLeft = Math.floor((otpTimer - Date.now()) / 1000);
+        if (timeLeft <= 0) {
+          setRemaining(0);
+          updateResetTimer(0);
+          clearInterval(interval);
+        } else {
+          setRemaining(timeLeft);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setRemaining(0);
+      if (otpTimer !== 0) {
+        updateResetTimer(0);
       }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    }
+  }, [otpTimer, updateResetTimer]);
 
   const handleResend = async () => {
     if (!email) {
@@ -69,12 +72,8 @@ export const VerifyOtpForm = () => {
       const result = await forgotPassword(email);
       if (result.success) {
         setSuccess("A new verification code has been sent!");
-        countdownRef.current = 60;
-        setTick((t) => t + 1);
-        localStorage.setItem(
-          "otpResendTimer_legal_adviser",
-          (Date.now() + 60 * 1000).toString(),
-        );
+        // Store the exact future expiration timestamp in Zustand
+        updateResetTimer(Date.now() + 60 * 1000);
       } else {
         setError(result.message || "Failed to resend code.");
       }
@@ -212,13 +211,13 @@ export const VerifyOtpForm = () => {
           <button
             type="button"
             onClick={handleResend}
-            disabled={resendLoading || countdownRef.current > 0 || loading}
+            disabled={resendLoading || remaining > 0 || loading}
             className="font-medium text-orange-600 dark:text-orange-500 hover:underline disabled:opacity-50 disabled:no-underline transition-colors"
           >
             {resendLoading
               ? "Sending..."
-              : countdownRef.current > 0
-                ? `Resend in ${countdownRef.current}s`
+              : remaining > 0
+                ? `Resend in ${remaining}s`
                 : "Resend code?"}
           </button>
         </div>
