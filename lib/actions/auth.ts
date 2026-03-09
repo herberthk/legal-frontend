@@ -164,6 +164,44 @@ export async function isAuthenticated() {
   return !!user;
 }
 
+/**
+ * Sends a password reset email to the specified email address
+ * @param email - The email address to send the reset link to
+ * @returns Object with success status and message
+ */
+export async function forgotPassword(email: string) {
+  try {
+    // Check if user exists first
+    await auth.getUserByEmail(email);
+
+    // If we reach here, the user exists.
+    // We return success and let the client handle sending the email
+    // via Firebase client SDK `sendPasswordResetEmail`.
+    return {
+      success: true,
+      message: "User found, ready to send email.",
+    };
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (error as any).code === "auth/user-not-found"
+    ) {
+      return {
+        success: false,
+        code: "user-not-found",
+        message: "No account found with this email address.",
+      };
+    }
+
+    console.error("ForgotPassword Error:", error);
+    return {
+      success: false,
+      message: "Failed to process request. Please try again.",
+    };
+  }
+}
+
 export const createSession = async (user: User) => {
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   //   const session = await encrypt({ userId, expires });
