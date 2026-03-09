@@ -139,7 +139,7 @@ export const VerifyOtpForm = () => {
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 py-8 px-4 shadow-xl shadow-slate-200 dark:shadow-slate-950 sm:rounded-2xl sm:px-10 border border-slate-100 dark:border-slate-700 transition-all duration-300">
+    <div className="w-full transition-all duration-300">
       <form className="space-y-6" onSubmit={handleOtpSubmit}>
         {error && (
           <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium">
@@ -166,13 +166,13 @@ export const VerifyOtpForm = () => {
             disabled={loading}
             pattern={REGEXP_ONLY_DIGITS}
           >
-            <InputOTPGroup className="*:data-[slot=input-otp-slot]:h-12 *:data-[slot=input-otp-slot]:w-11 *:data-[slot=input-otp-slot]:text-xl">
+            <InputOTPGroup className="*:data-[slot=input-otp-slot]:h-14 *:data-[slot=input-otp-slot]:w-12 *:data-[slot=input-otp-slot]:text-xl *:data-[slot=input-otp-slot]:border-slate-200 dark:*:data-[slot=input-otp-slot]:border-slate-700 *:data-[slot=input-otp-slot]:bg-slate-50 dark:*:data-[slot=input-otp-slot]:bg-slate-900/50 *:data-[slot=input-otp-slot]:rounded-xl focus-within:ring-indigo-500">
               <InputOTPSlot index={0} aria-invalid={isOTPinValid} />
               <InputOTPSlot index={1} aria-invalid={isOTPinValid} />
               <InputOTPSlot index={2} aria-invalid={isOTPinValid} />
             </InputOTPGroup>
-            <InputOTPSeparator className="mx-2" />
-            <InputOTPGroup className="*:data-[slot=input-otp-slot]:h-12 *:data-[slot=input-otp-slot]:w-11 *:data-[slot=input-otp-slot]:text-xl">
+            <InputOTPSeparator className="mx-2 text-slate-400" />
+            <InputOTPGroup className="*:data-[slot=input-otp-slot]:h-14 *:data-[slot=input-otp-slot]:w-12 *:data-[slot=input-otp-slot]:text-xl *:data-[slot=input-otp-slot]:border-slate-200 dark:*:data-[slot=input-otp-slot]:border-slate-700 *:data-[slot=input-otp-slot]:bg-slate-50 dark:*:data-[slot=input-otp-slot]:bg-slate-900/50 *:data-[slot=input-otp-slot]:rounded-xl focus-within:ring-indigo-500">
               <InputOTPSlot index={3} aria-invalid={isOTPinValid} />
               <InputOTPSlot index={4} aria-invalid={isOTPinValid} />
               <InputOTPSlot index={5} aria-invalid={isOTPinValid} />
@@ -187,7 +187,7 @@ export const VerifyOtpForm = () => {
             otp.length !== 6 ||
             !!(success && success.includes("Redirecting"))
           }
-          className="w-full mt-8 flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-95 hover:shadow-lg bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 focus:ring-orange-500"
+          className="w-full mt-8 flex justify-center py-4 px-4 rounded-2xl shadow-lg text-sm font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01] active:scale-95 bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/20"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
