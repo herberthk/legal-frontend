@@ -120,6 +120,14 @@ const LoginPage = () => {
                   placeholder="••••••••"
                 />
               </div>
+              <div className="mt-2 flex justify-end">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-medium text-orange-600 dark:text-orange-500 hover:text-orange-500 transition-colors hover:underline"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
             </div>
 
             <button
