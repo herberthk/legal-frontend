@@ -311,7 +311,7 @@ export const useVoiceSession = (
     };
     ws.onmessage = handleMessage;
     ws.onerror = (err) => {
-      console.error("[voice] ws error", err);
+      console.log("[voice] ws error", err);
       setWsStatus("error");
     };
     ws.onclose = (ev) => {
