@@ -23,6 +23,7 @@ const Header: React.FC<Props> = ({ user }) => {
   const toggleProfile = usePopStore((state) => state.toggleProfile);
   const pathName = usePathname();
 
+  // console.log("avatar", user.avatar);
   return (
     <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 sm:px-6 z-10 sticky top-0">
       <div className="flex items-center flex-1 max-w-lg">
@@ -129,6 +130,7 @@ const Header: React.FC<Props> = ({ user }) => {
               alt={user?.name}
               width={40}
               height={40}
+              unoptimized
               className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-transparent transition-all duration-300 transform group-hover:scale-105 ${isAdmin ? "group-hover:ring-indigo-500" : "group-hover:ring-orange-500"}`}
             />
             <ChevronDown

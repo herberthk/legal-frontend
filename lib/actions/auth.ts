@@ -59,6 +59,7 @@ export async function signUp(params: SignUpParams & { uid: string }) {
       balance: 0,
       totalSpent: 0,
       status: "active",
+      voicePreference: "Brake",
       welcomeTextTokens: 4000,
       freeTextTokens: 1000,
       freeVoiceSeconds: 300,

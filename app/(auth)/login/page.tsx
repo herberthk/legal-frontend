@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Scale, Mail, Lock, ArrowRight, Shield, UserIcon } from "lucide-react";
+import { Scale, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { signIn, getCurrentUser } from "@/lib/actions/auth";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,7 +12,6 @@ const LoginPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<Role>("USER");
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
@@ -75,32 +74,6 @@ const LoginPage = () => {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
           Sign in to Portal
         </h2>
-
-        {/* Role Toggles - Kept for UI but actually determined by Firestore profile */}
-        <div className="mt-6 flex justify-center space-x-4">
-          <button
-            onClick={() => setSelectedRole("USER")}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-              selectedRole === "USER"
-                ? "bg-orange-100 text-orange-700 ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-slate-900"
-                : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-            }`}
-          >
-            <UserIcon size={16} />
-            <span>Client</span>
-          </button>
-          <button
-            onClick={() => setSelectedRole("ADMIN")}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-              selectedRole === "ADMIN"
-                ? "bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900"
-                : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-            }`}
-          >
-            <Shield size={16} />
-            <span>Admin</span>
-          </button>
-        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
@@ -152,17 +125,14 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-95 hover:shadow-lg ${
-                selectedRole === "ADMIN"
-                  ? "bg-linear-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 focus:ring-indigo-500"
-                  : "bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 focus:ring-orange-500"
-              }`}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-95 hover:shadow-lg bg-linear-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 focus:ring-orange-500
+              "
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <span className="flex items-center group">
-                  {`Sign In as ${selectedRole === "ADMIN" ? "Admin" : "Client"}`}
+                  Sign In
                   <ArrowRight className="ml-2 w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
                 </span>
               )}

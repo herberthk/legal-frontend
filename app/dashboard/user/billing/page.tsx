@@ -1,10 +1,9 @@
 import { BillingPage } from "@/components/admin/Billing";
-import { getUserSession } from "@/lib";
-import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib";
 
 const Billing = async () => {
-  const user = await getUserSession();
-  if (!user) redirect("/login");
+  const user = await getCurrentUser();
+  if (!user) return null;
   return <BillingPage user={user} />;
 };
 
