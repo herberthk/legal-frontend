@@ -2,56 +2,66 @@
 import React, { useState } from "react";
 import { Scale, Mail, Lock, ArrowRight, Shield, UserIcon } from "lucide-react";
 import Link from "next/link";
-import { createSession } from "@/lib";
+import { signIn, getCurrentUser } from "@/lib/actions/auth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/firebase/client";
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<Role>("USER");
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
-    const mockUser: User =
-      selectedRole === "ADMIN"
-        ? {
-            id: "admin-01",
-            name: "James Anderson",
-            email: "admin@legaladviser.ug",
-            avatar:
-              "https://ui-avatars.com/api/?name=Admin+User&background=0f172a&color=fff",
-            role: "ADMIN",
-            balance: 0,
-            totalSpent: 0,
-            status: "active",
-            freeTextTokens: 1000,
-            welcomeTextTokens: 0, // Admin doesn't need welcome bonus
-            freeVoiceSeconds: 300,
-            lastDailyReset: new Date().toISOString(),
-          }
-        : {
-            id: "user-01",
-            name: "Herbert Kavuma",
-            email: "citizen@uganda.com",
-            avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-            role: "USER",
-            balance: 0.0, // Reset to 0 for new user logic
-            totalSpent: 0.0,
-            status: "active",
-            // Specific Welcome Bonus: 4000 Tokens + 5 Mins Voice
-            welcomeTextTokens: 4000,
-            freeTextTokens: 1000, // Daily limit available after welcome is used (or parallel depending on logic, but logic enforces priority)
-            freeVoiceSeconds: 300,
-            lastDailyReset: new Date().toISOString(),
-          };
-    await createSession(mockUser);
-    setLoading(false);
-    const defaultPath =
-      selectedRole === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
-    router.push(returnTo || defaultPath);
+    try {
+      // 1. Authenticate with Firebase Client SDK
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const idToken = await userCredential.user.getIdToken();
+
+      // 2. Establish Server Session via Server Action
+      const result = await signIn({ idToken });
+
+      if (result?.success) {
+        // 3. Fetch user profile to determine role-based redirection
+        const user = await getCurrentUser();
+        if (user) {
+          const defaultPath =
+            user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
+          router.push(returnTo || defaultPath);
+        } else {
+          setError("User profile not found. Please contact support.");
+        }
+      } else {
+        setError(result?.message || "Failed to sign in. Please try again.");
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error("Login Error:", err);
+      if (
+        err.code === "auth/user-not-found" ||
+        err.code === "auth/wrong-password" ||
+        err.code === "auth/invalid-credential"
+      ) {
+        setError("Invalid email or password.");
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -66,7 +76,7 @@ const LoginPage = () => {
           Sign in to Portal
         </h2>
 
-        {/* Role Toggles */}
+        {/* Role Toggles - Kept for UI but actually determined by Firestore profile */}
         <div className="mt-6 flex justify-center space-x-4">
           <button
             onClick={() => setSelectedRole("USER")}
@@ -96,6 +106,11 @@ const LoginPage = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <div className="bg-white dark:bg-slate-800 py-8 px-4 shadow-xl shadow-slate-200 dark:shadow-slate-950 sm:rounded-2xl sm:px-10 border border-slate-100 dark:border-slate-700 transition-all duration-300">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium">
+                {error}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Email address
@@ -107,6 +122,8 @@ const LoginPage = () => {
                 <input
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-300 dark:border-slate-600 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200 transform focus:scale-[1.01]"
                   placeholder="account@example.com"
                 />
@@ -124,6 +141,8 @@ const LoginPage = () => {
                 <input
                   type="password"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full pl-10 px-3 py-3 border border-slate-300 dark:border-slate-600 rounded-xl shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent sm:text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-all duration-200 transform focus:scale-[1.01]"
                   placeholder="••••••••"
                 />

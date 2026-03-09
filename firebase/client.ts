@@ -2,7 +2,12 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+// import { getAnalytics } from "firebase/analytics";
 
+// If window is not defined, don't initialize Firebase
+if (typeof window === "undefined") {
+  console.log("Window is not defined, skipping Firebase initialization");
+}
 const firebaseConfig = {
   apiKey:
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY,
@@ -24,8 +29,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-export { auth, db };
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+// export const analytics = getAnalytics(app);
 export default app;

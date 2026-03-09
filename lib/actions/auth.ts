@@ -32,37 +32,50 @@ export async function setSessionCookie(idToken: string) {
 }
 
 /**
- * Creates a new user account in Firebase and stores user data in Firestore
+ * Creates a new user account in Firestore
  * @param params - Object containing uid, name, and email of new user
  * @returns Object with success status and message
  */
-export async function signUp(params: SignUpParams) {
+export async function signUp(params: SignUpParams & { uid: string }) {
   const { uid, name, email } = params;
-  console.log("SignUp Params", params);
   try {
-    // Check for existing user
-    const userRecord = await db.collection("users").doc(uid).get();
-    if (userRecord.exists)
+    // Check for existing user document in Firestore
+    const userDocRef = db.collection("users").doc(uid);
+    const userSnapshot = await userDocRef.get();
+
+    if (userSnapshot.exists) {
       return {
         success: false,
-        message: "User already exists. Please sign in.",
+        message: "Profile already exists.",
       };
+    }
 
-    // Create new user document
-    await db.collection("users").doc(uid).set({
+    // Initialize user profile with default rewards and metadata
+    const newUser: Partial<User> = {
       name,
       email,
-    });
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0f172a&color=fff`,
+      role: "USER",
+      balance: 0,
+      totalSpent: 0,
+      status: "active",
+      welcomeTextTokens: 4000,
+      freeTextTokens: 1000,
+      freeVoiceSeconds: 300,
+      lastDailyReset: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    await userDocRef.set(newUser);
 
     return {
       success: true,
-      message: "Account created successfully. Please sign in.",
+      message: "Account profile created successfully.",
     };
   } catch (error: unknown) {
     console.error("Error creating user:", error);
 
     // Handle Firebase specific errors
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     if (error.code === "auth/email-already-exists") {
       return {
@@ -73,7 +86,7 @@ export async function signUp(params: SignUpParams) {
 
     return {
       success: false,
-      message: "Failed to create account. Please try again.",
+      message: "Failed to create user profile. Please contact support.",
     };
   }
 }
@@ -83,24 +96,20 @@ export async function signUp(params: SignUpParams) {
  * @param params - Object containing email and Firebase ID token
  * @returns Object with success status and message if error occurs
  */
-export async function signIn(params: SignInParams) {
-  const { email, idToken } = params;
+export async function signIn(params: { idToken: string }) {
+  const { idToken } = params;
 
   try {
-    const userRecord = await auth.getUserByEmail(email);
-    if (!userRecord)
-      return {
-        success: false,
-        message: "User does not exist. Create an account.",
-      };
-
+    // Verify the idToken first to ensure it's valid before setting a session cookie
+    await auth.verifyIdToken(idToken);
     await setSessionCookie(idToken);
-  } catch (error) {
-    console.log("Error:", error);
 
+    return { success: true };
+  } catch (error) {
+    console.error("SignIn Error:", error);
     return {
       success: false,
-      message: "Failed to log into account. Please try again.",
+      message: "Authentication failed. Please sign in again.",
     };
   }
 }
@@ -127,18 +136,20 @@ export async function getCurrentUser(): Promise<User | null> {
     const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
 
     // Fetch user data from Firestore
-    const userRecord = await db
+    const userSnapshot = await db
       .collection("users")
       .doc(decodedClaims.uid)
       .get();
-    if (!userRecord.exists) return null;
 
+    if (!userSnapshot.exists) return null;
+
+    const data = userSnapshot.data();
     return {
-      ...userRecord.data(),
-      id: userRecord.id,
+      ...data,
+      id: userSnapshot.id,
     } as User;
   } catch (error) {
-    console.log(error);
+    console.error("GetCurrentUser Error:", error);
     return null;
   }
 }

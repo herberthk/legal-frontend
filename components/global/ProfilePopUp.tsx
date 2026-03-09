@@ -3,6 +3,8 @@ import { useAuthStore, usePopStore } from "@/store";
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib";
+import { signOut as firebaseSignOut } from "firebase/auth";
+import { auth } from "@/firebase/client";
 import Image from "next/image";
 type Props = {
   user: User;
@@ -15,10 +17,15 @@ const ProfilePopUp = ({ user }: Props) => {
   const clearUser = useAuthStore((state) => state.clearUser);
   const toggleSidebar = usePopStore((state) => state.toggleSidebar);
   const onLogout = async () => {
-    await signOut();
-    toggleSidebar();
-    clearUser();
-    router.push("/login");
+    try {
+      await firebaseSignOut(auth);
+      await signOut(); // Server action to delete cookie
+      toggleSidebar();
+      clearUser();
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
   };
   return (
     <>
