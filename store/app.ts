@@ -14,24 +14,37 @@ type AppStore = {
   setVoiceSessions: (voiceSessions: VoiceSession[]) => void;
   notifications: Notifications[];
   setNotifications: (notifications: Notifications[]) => void;
+  reset: () => void;
+};
+const initialState: Omit<
+  AppStore,
+  | "setPreferredVoice"
+  | "setActiveTab"
+  | "setTokenUsageHistory"
+  | "setVoiceSessions"
+  | "setNotifications"
+  | "reset"
+> = {
+  preferredVoice: "Blake",
+  activeTab: "dashboard",
+  tokenUsageHistory: [],
+  voiceSessions: generateMockVoiceSessions(),
+  notifications: notifications(),
 };
 // Implement persist middleware to persist the state in local storage
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
-      preferredVoice: "Blake",
+      ...initialState,
       setPreferredVoice: (preferredVoice: Voice) => set({ preferredVoice }),
-      activeTab: "dashboard",
       setActiveTab: (activeTab: string) => set({ activeTab }),
-      tokenUsageHistory: [],
       setTokenUsageHistory: (tokenUsageHistory: TokenUsageRecord[]) =>
         set({ tokenUsageHistory }),
-      voiceSessions: generateMockVoiceSessions(),
       setVoiceSessions: (voiceSessions: VoiceSession[]) =>
         set({ voiceSessions }),
-      notifications: notifications(),
       setNotifications: (notifications: Notifications[]) =>
         set({ notifications }),
+      reset: () => set(initialState),
     }),
     {
       name: "app-storage",
