@@ -2,14 +2,15 @@
 import React, { useState } from "react";
 import { Scale, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+import { useSearchParams } from "next/navigation";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { signUp, signIn } from "@/lib/actions/auth";
+import { toast } from "sonner";
 
 const SignupPage = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,8 +21,11 @@ const SignupPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !name || !password) {
+      toast.error("All fields are required");
+      return;
+    }
     setLoading(true);
-    setError(null);
 
     try {
       // 1. Create user in Firebase Auth
@@ -43,23 +47,23 @@ const SignupPage = () => {
         if (sessionResult?.success) {
           router.push(returnTo || "/dashboard/user");
         } else {
-          setError(
+          toast.error(
             sessionResult?.message ||
               "Profile created, but failed to start session. Please log in.",
           );
         }
       } else {
-        setError(profileResult.message);
+        toast.success(profileResult.message);
       }
     } catch (err: unknown) {
       console.error("Signup Error:", err);
       const firebaseError = err as { code: string };
       if (firebaseError.code === "auth/email-already-in-use") {
-        setError("This email is already in use.");
+        toast.error("This email is already in use.");
       } else if (firebaseError.code === "auth/weak-password") {
-        setError("Password should be at least 6 characters.");
+        toast.error("Password should be at least 6 characters.");
       } else {
-        setError("An error occurred during signup. Please try again.");
+        toast.error("An error occurred during signup. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -80,42 +84,11 @@ const SignupPage = () => {
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
           Create Account
         </h2>
-
-        {/* Role Toggles */}
-        {/* <div className="mt-6 flex justify-center space-x-4">
-          <button
-            onClick={() => setSelectedRole("USER")}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-              selectedRole === "USER"
-                ? "bg-orange-100 text-orange-700 ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-slate-900"
-                : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-            }`}
-          >
-            <UserIcon size={16} />
-            <span>Client</span>
-          </button>
-          <button
-            onClick={() => setSelectedRole("ADMIN")}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-              selectedRole === "ADMIN"
-                ? "bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900"
-                : "bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-            }`}
-          >
-            <Shield size={16} />
-            <span>Admin</span>
-          </button>
-        </div> */}
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <div className="w-full transition-all duration-300">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium">
-                {error}
-              </div>
-            )}
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Full Name

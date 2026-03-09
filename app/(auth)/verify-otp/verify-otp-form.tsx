@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, KeyRound } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+import { useSearchParams } from "next/navigation";
 import { verifyOtp } from "@/lib/actions/email";
 import { forgotPassword } from "@/lib/actions/auth";
 import {
@@ -13,11 +14,10 @@ import {
 } from "@/components/ui/input-otp";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { useAuthStore } from "@/store";
+import { toast } from "sonner";
 
 export const VerifyOtpForm = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [isOTPinValid, setIsOTPinValid] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -58,28 +58,26 @@ export const VerifyOtpForm = () => {
 
   const handleResend = async () => {
     if (!email) {
-      setError("Email is missing. Please restart the process.");
+      toast.error("Email is missing. Please restart the process.");
       return;
     }
 
     setResendLoading(true);
-    setError(null);
-    setSuccess(null);
     setOtp("");
     setIsOTPinValid(false);
 
     try {
       const result = await forgotPassword(email);
       if (result.success) {
-        setSuccess("A new verification code has been sent!");
+        toast.success("A new verification code has been sent!");
         // Store the exact future expiration timestamp in Zustand
         updateResetTimer(Date.now() + 60 * 1000);
       } else {
-        setError(result.message || "Failed to resend code.");
+        toast.error(result.message || "Failed to resend code.");
       }
     } catch (err: unknown) {
       console.error("Resend OTP Error:", err);
-      setError("An unexpected error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setResendLoading(false);
     }
@@ -88,29 +86,27 @@ export const VerifyOtpForm = () => {
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      setError("Email is missing. Please restart the process.");
+      toast.error("Email is missing. Please restart the process.");
       return;
     }
 
     if (otp.length !== 6) {
       setIsOTPinValid(true);
-      setError("Please enter the 6-digit verification code.");
+      toast.error("Please enter the 6-digit verification code.");
       return;
     }
 
     setLoading(true);
-    setError(null);
-    setSuccess(null);
 
     try {
       const result = await verifyOtp(email, otp);
       if (result.success) {
-        setSuccess("Verification successful! Redirecting...");
+        toast.success("Verification successful! Redirecting...");
         setTimeout(() => {
           router.push(`/reset?email=${encodeURIComponent(email)}`);
         }, 1500);
       } else {
-        setError(result.message);
+        toast.error(result.message);
         setIsOTPinValid(true);
         setTimeout(() => {
           setOtp("");
@@ -118,7 +114,7 @@ export const VerifyOtpForm = () => {
       }
     } catch (err: unknown) {
       console.error("Verify OTP Error:", err);
-      setError("An unexpected error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -141,17 +137,6 @@ export const VerifyOtpForm = () => {
   return (
     <div className="w-full transition-all duration-300">
       <form className="space-y-6" onSubmit={handleOtpSubmit}>
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 text-green-600 dark:text-green-400 text-sm font-medium">
-            {success}
-          </div>
-        )}
-
         <div className="flex flex-col items-center justify-center space-y-4 pt-4">
           <InputOTP
             maxLength={6}
@@ -182,11 +167,7 @@ export const VerifyOtpForm = () => {
 
         <button
           type="submit"
-          disabled={
-            loading ||
-            otp.length !== 6 ||
-            !!(success && success.includes("Redirecting"))
-          }
+          disabled={loading || otp.length !== 6}
           className="w-full mt-8 flex justify-center py-4 px-4 rounded-2xl shadow-lg text-sm font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01] active:scale-95 bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/20"
         >
           {loading ? (
@@ -200,14 +181,14 @@ export const VerifyOtpForm = () => {
         </button>
 
         <div className="flex items-center justify-between mt-4 text-sm px-1">
-          <Link
+          {/* <Link
             href="/forgot-password"
             className="font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 transition-colors inline-flex items-center"
           >
             <ArrowLeft className="mr-1 w-3 h-3" />
             Change Email
-          </Link>
-
+          </Link> */}
+          <div></div>
           <button
             type="button"
             onClick={handleResend}

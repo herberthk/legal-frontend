@@ -4,6 +4,7 @@ import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import ThemeInitializer from "@/components/global/ThemeInitializer";
 import AuthProvider from "@/components/global/AuthProvider";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -54,6 +55,7 @@ const RootLayout = ({
         suppressHydrationWarning
       >
         <AuthProvider>
+          <Toaster position="top-right" />
           <ThemeInitializer />
           <NextTopLoader />
           {children}
