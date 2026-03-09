@@ -3,13 +3,14 @@ import React, { useState } from "react";
 import { Scale, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { signIn, getCurrentUser } from "@/lib/actions/auth";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+import { useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/client";
+import { toast } from "sonner";
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
@@ -19,7 +20,6 @@ const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
 
     try {
       // 1. Authenticate with Firebase Client SDK
@@ -41,10 +41,10 @@ const LoginPage = () => {
             user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
           router.push(returnTo || defaultPath);
         } else {
-          setError("User profile not found. Please contact support.");
+          toast.error("User profile not found. Please contact support.");
         }
       } else {
-        setError(result?.message || "Failed to sign in. Please try again.");
+        toast.error(result?.message || "Failed to sign in. Please try again.");
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -54,9 +54,9 @@ const LoginPage = () => {
         err.code === "auth/wrong-password" ||
         err.code === "auth/invalid-credential"
       ) {
-        setError("Invalid email or password.");
+        toast.error("Invalid email or password.");
       } else {
-        setError("An unexpected error occurred. Please try again.");
+        toast.error("An unexpected error occurred. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -82,11 +82,6 @@ const LoginPage = () => {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <div className="w-full transition-all duration-300">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium">
-                {error}
-              </div>
-            )}
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Email address

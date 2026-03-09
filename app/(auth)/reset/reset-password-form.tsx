@@ -2,14 +2,15 @@
 import React, { useState } from "react";
 import { Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+import { useSearchParams } from "next/navigation";
 import { resetPasswordWithOtp, signIn } from "@/lib/actions/auth";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/client";
+import { toast } from "sonner";
 
 export const ResetPasswordForm = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -20,22 +21,21 @@ export const ResetPasswordForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      setError("Missing email verification. Please start over.");
+      toast.error("Missing email verification. Please start over.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      toast.error("Password must be at least 6 characters.");
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
       const result = await resetPasswordWithOtp(email, password);
@@ -56,11 +56,11 @@ export const ResetPasswordForm = () => {
           }, 2000);
         }
       } else {
-        setError(result.message);
+        toast.error(result.message);
       }
     } catch (err: unknown) {
       console.error("Reset Password Error:", err);
-      setError("Failed to reset password. Please try again.");
+      toast.error("Failed to reset password. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -88,12 +88,6 @@ export const ResetPasswordForm = () => {
   return (
     <div className="w-full transition-all duration-300">
       <form className="space-y-6" onSubmit={handleSubmit}>
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium">
-            {error}
-          </div>
-        )}
-
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             New Password

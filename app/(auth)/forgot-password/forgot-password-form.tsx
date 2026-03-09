@@ -2,44 +2,41 @@
 import React, { useState } from "react";
 import { Mail, ArrowLeft, Send } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { forgotPassword } from "@/lib/actions/auth";
+import { toast } from "sonner";
 
 export const ForgotPasswordForm = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const router = useRouter();
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
-    setSuccess(null);
 
     try {
       const result = await forgotPassword(email);
 
       if (result.success) {
-        setSuccess("Password reset code has been sent to your email.");
+        toast.success("Password reset code has been sent to your email.");
         setTimeout(() => {
           router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
         }, 1500);
       } else {
         // @ts-ignore
         if (result.code === "user-not-found") {
-          setError("Email not found. Redirecting to signup page...");
+          toast.error("Email not found. Redirecting to signup page...");
           setTimeout(() => {
             router.push("/signup");
           }, 3000);
         } else {
-          setError(result.message);
+          toast.error(result.message);
         }
       }
     } catch (err: unknown) {
       console.error("Forgot Password Error:", err);
-      setError("An unexpected error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -48,16 +45,6 @@ export const ForgotPasswordForm = () => {
   return (
     <div className="w-full transition-all duration-300">
       <form className="space-y-6" onSubmit={handleEmailSubmit}>
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-medium">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 text-green-600 dark:text-green-400 text-sm font-medium">
-            {success}
-          </div>
-        )}
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             Email address
@@ -79,7 +66,7 @@ export const ForgotPasswordForm = () => {
 
         <button
           type="submit"
-          disabled={loading || !!(success && success.includes("Redirecting"))}
+          disabled={loading}
           className="w-full flex justify-center py-4 px-4 rounded-2xl shadow-lg text-sm font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01] active:scale-95 bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/20"
         >
           {loading ? (
