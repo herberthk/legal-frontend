@@ -1,12 +1,12 @@
 import Header from "@/components/global/Header";
 import Sidebar from "@/components/global/Sidebar";
-import { getUserSession } from "@/lib";
+import { getCurrentUser } from "@/lib";
 
 const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
-  const session = await getUserSession();
+  const user = await getCurrentUser();
   // Protection is now handled by middleware.ts for /dashboard/:path*
   // to preserve the original URL in the returnTo search parameter.
-  if (!session) return null; // Fallback for type safety
+  if (!user) return null; // Fallback for type safety
   //console.log("session", session);
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden transition-colors duration-200 selection:bg-orange-500/30">
@@ -19,12 +19,12 @@ const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
       )} */}
 
       {/* Sidebar */}
-      <Sidebar user={session} />
+      <Sidebar user={user} />
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900 transition-colors duration-200">
         {/* Header */}
-        <Header user={session} />
+        <Header user={user} />
 
         <div className="flex-1 overflow-auto relative">{children}</div>
       </main>
