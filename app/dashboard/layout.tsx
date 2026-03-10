@@ -1,6 +1,7 @@
 import Header from "@/components/global/Header";
 import Sidebar from "@/components/global/Sidebar";
 import { getCurrentUser } from "@/lib";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 
 const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
   const user = await getCurrentUser();
@@ -9,26 +10,15 @@ const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
   if (!user) return null; // Fallback for type safety
   //console.log("session", session);
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden transition-colors duration-200 selection:bg-orange-500/30">
-      {/* Mobile Backdrop */}
-      {/* {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm md:hidden transition-opacity duration-300 animate-in fade-in"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )} */}
-
-      {/* Sidebar */}
+    <SidebarProvider>
       <Sidebar user={user} />
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-900 transition-colors duration-200">
+      <SidebarInset className="flex-1 flex flex-col min-h-screen min-w-0 bg-slate-50 dark:bg-slate-900 transition-colors duration-200 overflow-hidden">
         {/* Header */}
         <Header user={user} />
 
         <div className="flex-1 overflow-auto relative">{children}</div>
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 };
 export default DashboardLayout;
