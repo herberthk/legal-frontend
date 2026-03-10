@@ -19,24 +19,40 @@ export const ForgotPasswordForm = () => {
       const result = await forgotPassword(email);
 
       if (result.success) {
-        toast.success("Password reset code has been sent to your email.");
+        toast.success("Password reset code has been sent to your email.", {
+          style: {
+            background: "green",
+          },
+        });
         setTimeout(() => {
           router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
         }, 1500);
       } else {
         // @ts-ignore
         if (result.code === "user-not-found") {
-          toast.error("Email not found. Redirecting to signup page...");
+          toast.error("Email not found. Redirecting to signup page...", {
+            style: {
+              background: "#dc2626",
+            },
+          });
           setTimeout(() => {
             router.push("/signup");
           }, 3000);
         } else {
-          toast.error(result.message);
+          toast.error(result.message, {
+            style: {
+              background: "#dc2626",
+            },
+          });
         }
       }
     } catch (err: unknown) {
       console.error("Forgot Password Error:", err);
-      toast.error("An unexpected error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
     } finally {
       setLoading(false);
     }
