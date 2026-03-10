@@ -58,7 +58,11 @@ export const VerifyOtpForm = () => {
 
   const handleResend = async () => {
     if (!email) {
-      toast.error("Email is missing. Please restart the process.");
+      toast.error("Email is missing. Please restart the process.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
       return;
     }
 
@@ -69,15 +73,27 @@ export const VerifyOtpForm = () => {
     try {
       const result = await forgotPassword(email);
       if (result.success) {
-        toast.success("A new verification code has been sent!");
+        toast.success("A new verification code has been sent!", {
+          style: {
+            background: "green",
+          },
+        });
         // Store the exact future expiration timestamp in Zustand
         updateResetTimer(Date.now() + 60 * 1000);
       } else {
-        toast.error(result.message || "Failed to resend code.");
+        toast.error(result.message || "Failed to resend code.", {
+          style: {
+            background: "#dc2626",
+          },
+        });
       }
     } catch (err: unknown) {
       console.error("Resend OTP Error:", err);
-      toast.error("An unexpected error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
     } finally {
       setResendLoading(false);
     }
@@ -86,13 +102,21 @@ export const VerifyOtpForm = () => {
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      toast.error("Email is missing. Please restart the process.");
+      toast.error("Email is missing. Please restart the process.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
       return;
     }
 
     if (otp.length !== 6) {
       setIsOTPinValid(true);
-      toast.error("Please enter the 6-digit verification code.");
+      toast.error("Please enter the 6-digit verification code.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
       return;
     }
 
@@ -101,12 +125,20 @@ export const VerifyOtpForm = () => {
     try {
       const result = await verifyOtp(email, otp);
       if (result.success) {
-        toast.success("Verification successful! Redirecting...");
+        toast.success("Verification successful! Redirecting...", {
+          style: {
+            background: "green",
+          },
+        });
         setTimeout(() => {
           router.push(`/reset?email=${encodeURIComponent(email)}`);
         }, 1500);
       } else {
-        toast.error(result.message);
+        toast.error(result.message, {
+          style: {
+            background: "#dc2626",
+          },
+        });
         setIsOTPinValid(true);
         setTimeout(() => {
           setOtp("");
@@ -114,7 +146,11 @@ export const VerifyOtpForm = () => {
       }
     } catch (err: unknown) {
       console.error("Verify OTP Error:", err);
-      toast.error("An unexpected error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
     } finally {
       setLoading(false);
     }

@@ -21,17 +21,29 @@ export const ResetPasswordForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      toast.error("Missing email verification. Please start over.");
+      toast.error("Missing email verification. Please start over.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+      toast.error("Passwords do not match.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
       return;
     }
 
     if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+      toast.error("Password must be at least 6 characters.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
       return;
     }
 
@@ -50,17 +62,25 @@ export const ResetPasswordForm = () => {
           await signIn({ idToken });
           router.push("/dashboard/user");
         } catch (loginErr) {
-          console.error("Auto login error:", loginErr);
+          console.log("Auto login error:", loginErr);
           setTimeout(() => {
             router.push("/login");
           }, 2000);
         }
       } else {
-        toast.error(result.message);
+        toast.error(result.message, {
+          style: {
+            background: "#dc2626",
+          },
+        });
       }
     } catch (err: unknown) {
       console.error("Reset Password Error:", err);
-      toast.error("Failed to reset password. Please try again.");
+      toast.error("Failed to reset password. Please try again.", {
+        style: {
+          background: "#dc2626",
+        },
+      });
     } finally {
       setLoading(false);
     }

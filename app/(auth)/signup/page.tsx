@@ -22,7 +22,11 @@ const SignupPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !name || !password) {
-      toast.error("All fields are required");
+      toast.error("All fields are required", {
+        style: {
+          background: "#dc2626",
+        },
+      });
       return;
     }
     setLoading(true);
@@ -50,20 +54,41 @@ const SignupPage = () => {
           toast.error(
             sessionResult?.message ||
               "Profile created, but failed to start session. Please log in.",
+            {
+              style: {
+                background: "#dc2626",
+              },
+            },
           );
         }
       } else {
-        toast.success(profileResult.message);
+        toast.success(profileResult.message, {
+          style: {
+            background: "green",
+          },
+        });
       }
     } catch (err: unknown) {
       console.error("Signup Error:", err);
       const firebaseError = err as { code: string };
       if (firebaseError.code === "auth/email-already-in-use") {
-        toast.error("This email is already in use.");
+        toast.error("This email is already in use.", {
+          style: {
+            background: "#dc2626",
+          },
+        });
       } else if (firebaseError.code === "auth/weak-password") {
-        toast.error("Password should be at least 6 characters.");
+        toast.error("Password should be at least 6 characters.", {
+          style: {
+            background: "#dc2626",
+          },
+        });
       } else {
-        toast.error("An error occurred during signup. Please try again.");
+        toast.error("An error occurred during signup. Please try again.", {
+          style: {
+            background: "#dc2626",
+          },
+        });
       }
     } finally {
       setLoading(false);

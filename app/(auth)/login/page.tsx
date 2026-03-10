@@ -41,10 +41,18 @@ const LoginPage = () => {
             user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
           router.push(returnTo || defaultPath);
         } else {
-          toast.error("User profile not found. Please contact support.");
+          toast.error("User profile not found. Please contact support.", {
+            style: {
+              background: "#dc2626",
+            },
+          });
         }
       } else {
-        toast.error(result?.message || "Failed to sign in. Please try again.");
+        toast.error(result?.message || "Failed to sign in. Please try again.", {
+          style: {
+            background: "#dc2626",
+          },
+        });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -54,9 +62,17 @@ const LoginPage = () => {
         err.code === "auth/wrong-password" ||
         err.code === "auth/invalid-credential"
       ) {
-        toast.error("Invalid email or password.");
+        toast.error("Invalid email or password.", {
+          style: {
+            background: "#dc2626",
+          },
+        });
       } else {
-        toast.error("An unexpected error occurred. Please try again.");
+        toast.error("An unexpected error occurred. Please try again.", {
+          style: {
+            background: "#dc2626",
+          },
+        });
       }
     } finally {
       setLoading(false);
