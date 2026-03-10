@@ -10,6 +10,7 @@ import VoiceInterface from "./voice-interface";
 
 const NativeVoiceConnection = () => {
   const userName = useAuthStore((state) => state.user?.name);
+  const userId = useAuthStore((state) => state.user?.id);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -21,10 +22,11 @@ const NativeVoiceConnection = () => {
   const [isResponding, setIsResponding] = useState(false);
 
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
-    url: `ws://localhost:8000?voice=${voice}`,
+    url: `ws://localhost:8000?uid=${userId}`,
     onText: (delta) => {
       setActiveTranscript((prev) => {
         const nextText = (prev?.speaker === "ai" ? prev.text : "") + delta;
+        // console.log("nextText", nextText);
         return {
           speaker: "ai",
           text: nextText,

@@ -253,6 +253,7 @@ export const useVoiceSession = (
 
       // ── TEXT:<delta> ──────────────
       if (event.data.startsWith("TEXT:")) {
+        // console.log("[voice] TEXT:", event.data.slice(5));
         onTextRef.current?.(event.data.slice(5));
         return;
       }

@@ -6,7 +6,8 @@ import { useAppStore, useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 
 const AssemblyAIVoiceConnection = () => {
-  const userName = useAuthStore((state) => state.user?.name); // Refined store subscription
+  const userName = useAuthStore((state) => state.user?.name);
+  const uid = useAuthStore((state) => state.user?.id);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
@@ -19,7 +20,7 @@ const AssemblyAIVoiceConnection = () => {
   const [isResponding, setIsResponding] = useState(false);
 
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
-    url: `ws://localhost:8000?voice=${voice}`,
+    url: `ws://localhost:8000?uid=${uid}`,
     onText: (delta) => {
       setActiveTranscript((prev) => {
         const nextText = (prev?.speaker === "ai" ? prev.text : "") + delta;
@@ -135,7 +136,6 @@ const AssemblyAIVoiceConnection = () => {
   //   }
   //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // }, [isMuted, wsStatus]);
-
   return (
     <VoiceInterface
       wsStatus={computedWsStatus}
