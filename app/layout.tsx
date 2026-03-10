@@ -5,6 +5,7 @@ import "./globals.css";
 import ThemeInitializer from "@/components/global/ThemeInitializer";
 import AuthProvider from "@/components/global/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -55,10 +56,12 @@ const RootLayout = ({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <Toaster position="top-right" />
-          <ThemeInitializer />
-          <NextTopLoader />
-          {children}
+          <TooltipProvider>
+            <Toaster position="top-right" />
+            <ThemeInitializer />
+            <NextTopLoader />
+            {children}
+          </TooltipProvider>
         </AuthProvider>
       </body>
     </html>
