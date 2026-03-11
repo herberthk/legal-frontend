@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, memo } from "react"; // Added useMemo
 import { useVoiceSession, useAssemblyAITranscription } from "@/hooks";
-import { useAppStore, useAuthStore } from "@/store";
+import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 
 const AssemblyAIVoiceConnection = () => {
@@ -11,7 +11,7 @@ const AssemblyAIVoiceConnection = () => {
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const voice = useAppStore((state) => state.preferredVoice);
+  const voice = useAuthStore((state) => state.user?.voicePreference);
   const [activeTranscript, setActiveTranscript] = useState<Transcript | null>(
     null,
   );

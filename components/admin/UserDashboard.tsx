@@ -26,7 +26,7 @@ import {
   Trash2,
   Activity,
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   ResponsiveContainer,
   CartesianGrid,
@@ -39,6 +39,8 @@ import {
 } from "recharts";
 import { useAuthStore } from "@/store/auth";
 import { formatDuration } from "@/lib";
+import { updateUserVoicePreference } from "@/lib";
+import { toast } from "sonner";
 
 const UserDashboard = () => {
   const user = useAuthStore((state) => state.user)!;
@@ -52,8 +54,6 @@ const UserDashboard = () => {
   const [transactions, setTransactions] = useState<Transaction[]>(
     generateUserTransactions(20),
   );
-
-  const setPreferredVoice = useAppStore((state) => state.setPreferredVoice);
 
   // Transaction Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,8 +106,6 @@ const UserDashboard = () => {
     voicePage * voiceItemsPerPage,
   );
 
-  const currentVoice = useAppStore((state) => state.preferredVoice);
-
   // --- Limits Logic ---
   // If Welcome Tokens > 0, we show Welcome Bonus Card.
   // If Welcome Tokens == 0, we show Daily Limit Card.
@@ -129,15 +127,37 @@ const UserDashboard = () => {
   const potentialTokens = Math.floor((user?.balance / 0.03) * 1000);
   const potentialVoiceMins = Math.floor(user?.balance / 0.05);
 
-  useEffect(() => {
-    setUser({
-      ...user,
-      freeTextTokens: DAILY_FREE_TOKENS,
-      welcomeTextTokens: WELCOME_BONUS_TOKENS,
-      freeVoiceSeconds: WELCOME_BONUS_VOICE_SECONDS,
-      lastDailyReset: new Date().toISOString(),
-    });
-  }, []);
+  const updateVoice = async (voiceName: string) => {
+    try {
+      const result = await updateUserVoicePreference(voiceName, user.id);
+      if (result.success) {
+        toast.success(result.message, {
+          style: {
+            background: "#22c55e",
+            color: "#fff",
+          },
+        });
+        setUser({
+          ...user,
+          voicePreference: voiceName,
+        });
+      } else {
+        toast.error(result.message, {
+          style: {
+            background: "#ef4444",
+            color: "#fff",
+          },
+        });
+      }
+    } catch (error) {
+      toast.error("Failed to update voice preference", {
+        style: {
+          background: "#ef4444",
+          color: "#fff",
+        },
+      });
+    }
+  };
 
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
@@ -368,9 +388,9 @@ const UserDashboard = () => {
           {voices.map((voice) => (
             <button
               key={voice.id}
-              onClick={() => setPreferredVoice(voice.name)}
+              onClick={() => updateVoice(voice.name)}
               className={`relative p-3 rounded-xl border text-left transition-all duration-300 hover:shadow-md ${
-                currentVoice === voice.id
+                user?.voicePreference === voice.name
                   ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-500"
                   : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-orange-300 dark:hover:border-orange-700"
               }`}
@@ -385,7 +405,7 @@ const UserDashboard = () => {
                 >
                   {voice.gender}
                 </span>
-                {currentVoice === voice.id && (
+                {user?.voicePreference === voice.name && (
                   <Check
                     size={16}
                     className="text-orange-600 dark:text-orange-500"
