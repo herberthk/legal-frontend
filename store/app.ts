@@ -4,8 +4,6 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 // implement voice selection in this store
 type AppStore = {
-  preferredVoice: Voice;
-  setPreferredVoice: (preferredVoice: Voice) => void;
   activeTab: string;
   setActiveTab: (activeTab: string) => void;
   tokenUsageHistory: TokenUsageRecord[];
@@ -18,14 +16,12 @@ type AppStore = {
 };
 const initialState: Omit<
   AppStore,
-  | "setPreferredVoice"
   | "setActiveTab"
   | "setTokenUsageHistory"
   | "setVoiceSessions"
   | "setNotifications"
   | "reset"
 > = {
-  preferredVoice: "Blake",
   activeTab: "dashboard",
   tokenUsageHistory: [],
   voiceSessions: generateMockVoiceSessions(),
@@ -36,7 +32,6 @@ export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
       ...initialState,
-      setPreferredVoice: (preferredVoice: Voice) => set({ preferredVoice }),
       setActiveTab: (activeTab: string) => set({ activeTab }),
       setTokenUsageHistory: (tokenUsageHistory: TokenUsageRecord[]) =>
         set({ tokenUsageHistory }),
