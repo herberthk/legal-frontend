@@ -8,14 +8,16 @@ import { useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { toast } from "sonner";
+import { useAuthStore } from "@/store";
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("0123456789");
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
+  const { setUser } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +39,7 @@ const LoginPage = () => {
         // 3. Fetch user profile to determine role-based redirection
         const user = await getCurrentUser();
         if (user) {
+          setUser(user);
           const defaultPath =
             user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
           router.push(returnTo || defaultPath);

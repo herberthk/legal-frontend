@@ -41,6 +41,7 @@ import { useAuthStore } from "@/store/auth";
 import { formatDuration } from "@/lib";
 import { updateUserVoicePreference } from "@/lib";
 import { toast } from "sonner";
+import UsageHistory from "./UsageHistory";
 
 const UserDashboard = () => {
   const user = useAuthStore((state) => state.user)!;
@@ -158,7 +159,7 @@ const UserDashboard = () => {
       });
     }
   };
-
+  console.log("User", user);
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -422,6 +423,9 @@ const UserDashboard = () => {
           ))}
         </div>
       </div>
+
+      {/* Token Usage History */}
+      <UsageHistory userId={user?.id} />
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Usage Chart */}

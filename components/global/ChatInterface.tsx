@@ -20,11 +20,16 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { PRICE_PER_TOKEN, PRICE_PER_VOICE_SECOND } from "@/constants";
-import { useAppStore, useAuthStore } from "@/store";
+import { useAuthStore } from "@/store";
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import { useRouter } from "nextjs-toploader/app";
+import {
+  checkUserCanSend,
+  createChatSession,
+  saveChatMessage,
+} from "@/lib/actions";
+import { getCurrentUser } from "@/lib/actions/auth";
 
 // --- Helpers to extract content from UIMessage parts ---
 const getMessageText = (msg: UIMessage): string => {
@@ -66,10 +71,9 @@ const ChatInterface = () => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const router = useRouter();
-  const tokenUsageHistory = useAppStore((state) => state.tokenUsageHistory);
-  const setTokenUsageHistory = useAppStore(
-    (state) => state.setTokenUsageHistory,
-  );
+
+  // --- Chat Session State ---
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
 
   // --- Connectivity State ---
   const [connectionStatus, setConnectionStatus] =
@@ -105,126 +109,38 @@ const ChatInterface = () => {
   const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // --- CORE BILLING LOGIC ---
-
-  /**
-   * Checks if the user has enough resources to START an action.
-   * Returns true if allowed, false if blocked.
-   */
-  const checkBalance = (type: "TEXT" | "VOICE"): boolean => {
-    if (!user || user.role === "ADMIN") return true;
-
-    if (type === "TEXT") {
-      return (
-        user.welcomeTextTokens > 0 ||
-        user.freeTextTokens > 0 ||
-        user.balance > 0.01
-      );
-    }
-    if (type === "VOICE") {
-      return user.freeVoiceSeconds > 0 || user.balance > 0.05;
-    }
-    return false;
-  };
-
-  /**
-   * Processes consumption.
-   * STRICT ORDER: Welcome Bonus -> Daily Bonus -> Paid Balance.
-   */
-  const handleTokenUsage = (
-    amount: number,
-    unit: "TOKENS" | "SECONDS",
-    type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION",
-  ): boolean => {
-    if (!user) return false;
-    if (user.role === "ADMIN") return true;
-
-    let success = true;
-
-    let newBalance = user.balance;
-    let newFreeTokens = user.freeTextTokens;
-    let newWelcomeTokens = user.welcomeTextTokens || 0;
-    let newFreeVoice = user.freeVoiceSeconds;
-
-    let amountRemaining = amount;
-
-    if (unit === "TOKENS") {
-      // 1. Deduct from Welcome Bonus FIRST
-      if (newWelcomeTokens > 0) {
-        const deduction = Math.min(newWelcomeTokens, amountRemaining);
-        newWelcomeTokens -= deduction;
-        amountRemaining -= deduction;
-      }
-
-      // 2. Deduct from Daily Free SECOND (if Welcome is exhausted)
-      if (amountRemaining > 0 && newFreeTokens > 0) {
-        const deduction = Math.min(newFreeTokens, amountRemaining);
-        newFreeTokens -= deduction;
-        amountRemaining -= deduction;
-      }
-
-      // 3. Deduct from Balance LAST
-      if (amountRemaining > 0) {
-        const cost = amountRemaining * PRICE_PER_TOKEN;
-        newBalance -= cost;
-      }
-    } else if (unit === "SECONDS") {
-      // 1. Deduct from Welcome Voice FIRST
-      if (newFreeVoice >= amount) {
-        newFreeVoice -= amount;
-      } else {
-        const remainder = amount - newFreeVoice;
-        newFreeVoice = 0;
-        const cost = remainder * PRICE_PER_VOICE_SECOND;
-        newBalance -= cost;
-      }
-    }
-
-    // Check for Bankruptcy (Graceful termination trigger)
-    if (newBalance < 0) {
-      success = false;
-      newBalance = Math.max(0, newBalance);
-    }
-
-    const updatedUser = {
-      ...user,
-      balance: newBalance,
-      freeTextTokens: newFreeTokens,
-      welcomeTextTokens: newWelcomeTokens,
-      freeVoiceSeconds: newFreeVoice,
-      totalSpent: user.totalSpent + (user.balance - newBalance),
-    };
-    setUser(updatedUser);
-
-    // Log Usage Record
-    const record: TokenUsageRecord = {
-      id: `tkn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now(),
-      amount,
-      unit,
-      type,
-    };
-    setTokenUsageHistory([...tokenUsageHistory, record]);
-    return success;
-  };
-
-  const trackUsage = (
-    amount: number,
-    unit: "TOKENS" | "SECONDS",
-    type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION",
-  ) => {
-    const success = handleTokenUsage(amount, unit, type);
-    if (success) {
-      setSessionStats((prev) => ({
-        textTokens: prev.textTokens + (unit === "TOKENS" ? amount : 0),
-        voiceSeconds: prev.voiceSeconds + (unit === "SECONDS" ? amount : 0),
-      }));
-    }
-    return success;
-  };
-
-  // Manual input state (useChat v6 does not provide input/setInput)
+  // Manual input state
   const [input, setInput] = useState("");
+
+  /**
+   * Ensures a chat session exists. Creates one if needed.
+   * Returns the session ID.
+   */
+  const ensureChatSession = async (firstMessageText: string): Promise<string | null> => {
+    if (chatSessionId) return chatSessionId;
+    if (!user?.id) return null;
+
+    const result = await createChatSession(user.id, firstMessageText);
+    if (result.success && result.sessionId) {
+      setChatSessionId(result.sessionId);
+      return result.sessionId;
+    }
+    return null;
+  };
+
+  /**
+   * Refreshes user state from the server to reflect deductions.
+   */
+  const refreshUser = async () => {
+    try {
+      const freshUser = await getCurrentUser();
+      if (freshUser) {
+        setUser(freshUser);
+      }
+    } catch (err) {
+      console.error("Error refreshing user:", err);
+    }
+  };
 
   // --- Vercel AI SDK useChat ---
   const {
@@ -235,6 +151,8 @@ const ChatInterface = () => {
     error: chatError,
     setMessages,
   } = useChat({
+    // @ts-ignore - The ai package type definitions omit this property, but it's valid at runtime
+    body: { sessionId: chatSessionId },
     messages: [
       {
         id: "0",
@@ -247,11 +165,16 @@ const ChatInterface = () => {
         ],
       },
     ] as UIMessage[],
-    onFinish: ({ message }) => {
-      // Billing: estimate response tokens from text length
+    onFinish: async ({ message }) => {
+      // Update session stats with estimated token count
       const text = getMessageText(message);
-      const responseTokens = Math.ceil(text.length / 4);
-      trackUsage(responseTokens, "TOKENS", "TEXT_RESPONSE");
+      const estimatedTokens = Math.ceil(text.length / 4);
+      setSessionStats((prev) => ({
+        ...prev,
+        textTokens: prev.textTokens + estimatedTokens,
+      }));
+      // Refresh user state from server to reflect deductions
+      await refreshUser();
     },
     onError: (error) => {
       const msg = error.message?.toLowerCase() || "";
@@ -261,6 +184,13 @@ const ChatInterface = () => {
         msg.includes("failed to fetch")
       ) {
         setConnectionStatus("offline");
+      }
+      // Handle 403 (insufficient funds) from API route
+      if (msg.includes("insufficient funds") || msg.includes("403")) {
+        setBillingError(
+          "Insufficient funds or free tokens. Please add funds to continue.",
+        );
+        setTimeout(() => setBillingError(null), 5000);
       }
     },
   });
@@ -326,15 +256,6 @@ const ChatInterface = () => {
     if (connectionStatus === "offline") return;
     setBillingError(null);
 
-    // PRE-FLIGHT CHECK: Do we have balance?
-    if (!checkBalance("TEXT")) {
-      setBillingError(
-        "Insufficient funds or free tokens. Please add funds to continue.",
-      );
-      setTimeout(() => setBillingError(null), 5000);
-      return;
-    }
-
     const textToSend = manualInput ?? input;
     const attachmentToSend = manualAttachment ?? pendingAttachment;
 
@@ -343,10 +264,40 @@ const ChatInterface = () => {
     if (!manualInput && !manualAttachment && isUploading) return;
     if (!textToSend.trim() && !attachmentToSend) return;
 
-    // Estimate and bill prompt tokens from input text
-    const promptTokens = Math.ceil(textToSend.length / 4);
-    if (promptTokens > 0) {
-      trackUsage(promptTokens, "TOKENS", "TEXT_PROMPT");
+    // SERVER-SIDE PRE-FLIGHT: Check if user can send
+    if (user?.id && user.role !== "ADMIN") {
+      const check = await checkUserCanSend(user.id);
+      if (!check.canSend) {
+        setBillingError(
+          check.reason || "Insufficient funds or free tokens. Please add funds to continue.",
+        );
+        setTimeout(() => setBillingError(null), 5000);
+        return;
+      }
+    }
+
+    // Ensure we have a chat session
+    const sessionId = await ensureChatSession(textToSend);
+
+    // Save user message to Firestore
+    if (sessionId) {
+      const estimatedTokens = Math.ceil(textToSend.length / 4);
+      setSessionStats((prev) => ({
+        ...prev,
+        textTokens: prev.textTokens + estimatedTokens,
+      }));
+      saveChatMessage(sessionId, {
+        role: "user",
+        text: textToSend,
+        tokenCount: estimatedTokens,
+        ...(attachmentToSend && {
+          attachment: {
+            name: attachmentToSend.name,
+            type: attachmentToSend.type,
+            url: "",
+          },
+        }),
+      });
     }
 
     // Send via Vercel AI SDK
@@ -394,12 +345,6 @@ const ChatInterface = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (!checkBalance("TEXT")) {
-      setBillingError("Insufficient funds for document analysis.");
-      setTimeout(() => setBillingError(null), 5000);
-      return;
-    }
 
     setPendingAttachment(null);
     setIsUploading(true);

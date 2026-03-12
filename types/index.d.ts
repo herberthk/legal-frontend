@@ -43,6 +43,8 @@ declare global {
     freeTextTokens: number; // Daily Recurring Limit (1000)
     welcomeTextTokens: number; // One-time Sign up bonus (4000)
     freeVoiceSeconds: number; // One-time welcome bonus (300s = 5mins)
+    freeMessagesRemaining: number; // Daily free messages (5)
+    freeMessagesResetAt: string; // ISO Date string — next reset time
     lastDailyReset: string; // ISO Date string
     createdAt: string; // ISO Date string
   };
@@ -147,5 +149,39 @@ declare global {
     setTheme: (theme: Theme) => void;
   };
   type ConnectionStatus = "connected" | "reconnecting" | "offline";
+
+  // --- Chat Persistence Types ---
+  type ChatSession = {
+    id: string;
+    userId: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+    messageCount: number;
+  };
+
+  type ChatMessageRecord = {
+    id: string;
+    sessionId: string;
+    role: "user" | "assistant";
+    text: string;
+    createdAt: string;
+    tokenCount: number;
+    attachment?: { name: string; type: string; url: string };
+  };
+
+  // --- Usage Tracking Types ---
+  type UsageRecord = {
+    id: string;
+    userId: string;
+    type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION";
+    tokens: number;
+    cost: number;
+    source: "free" | "welcome" | "paid";
+    sessionId: string;
+    createdAt: string;
+  };
+
+  type UsageFilter = "today" | "yesterday" | "last_week" | "month" | "custom";
 }
 export {};
