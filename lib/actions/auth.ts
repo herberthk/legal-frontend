@@ -11,6 +11,17 @@ import { sendOtp } from "./email";
 const SESSION_DURATION = 60 * 60 * 24 * 7;
 
 /**
+ * Returns the ISO string for the next midnight (UTC)
+ */
+function getNextMidnight(): string {
+  const now = new Date();
+  const next = new Date(now);
+  next.setUTCDate(next.getUTCDate() + 1);
+  next.setUTCHours(0, 0, 0, 0);
+  return next.toISOString();
+}
+
+/**
  * Creates and sets a session cookie in the browser using Firebase ID token
  * @param idToken - Firebase ID token from authenticated user
  */
@@ -64,12 +75,14 @@ export async function signUp(params: SignUpParams & { uid: string }) {
       welcomeTextTokens: 4000,
       freeTextTokens: 1000,
       freeVoiceSeconds: 300,
+      freeMessagesRemaining: 5,
+      freeMessagesResetAt: getNextMidnight(),
       lastDailyReset: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
 
-    await userDocRef.set(newUser);
-
+    const account = await userDocRef.set(newUser);
+    console.log("account", account);
     return {
       success: true,
       message: "Account profile created successfully.",
