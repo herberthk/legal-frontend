@@ -13,7 +13,7 @@ type Props = {
 };
 const Header: React.FC<Props> = ({ user }) => {
   const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
-  const toggleSidebar = usePopStore((state) => state.toggleSidebar);
+
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const showNotifications = usePopStore((state) => state.showNotifications);
@@ -32,7 +32,7 @@ const Header: React.FC<Props> = ({ user }) => {
         <SidebarTrigger className="mr-3 p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors" />
 
         {/* Search Bar */}
-        <div className="relative w-full max-w-md hidden md:block group">
+        {/* <div className="relative w-full max-w-md hidden md:block group">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-hover:text-orange-500 transition-colors"
             size={18}
@@ -49,7 +49,7 @@ const Header: React.FC<Props> = ({ user }) => {
               ["--tw-ring-color" as string]: isAdmin ? "#6366f1" : "#f97316",
             }}
           />
-        </div>
+        </div> */}
         {/* Mobile title if sidebar is hidden */}
         <span className="md:hidden font-bold text-slate-900 dark:text-white truncate">
           {/* {currentView === View.ADMIN_COMPLAINTS

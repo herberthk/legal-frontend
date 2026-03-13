@@ -81,8 +81,7 @@ export async function signUp(params: SignUpParams & { uid: string }) {
       createdAt: new Date().toISOString(),
     };
 
-    const account = await userDocRef.set(newUser);
-    console.log("account", account);
+    await userDocRef.set(newUser);
     return {
       success: true,
       message: "Account profile created successfully.",
