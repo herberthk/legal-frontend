@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "skills": {
+    "deploy-to-vercel": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "d2b5bcc7c09fdb649129ffc7dd7b647ec1b155736974b974292675afd588cb39"
+    },
+    "developing-genkit-js": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "9e7c6e9a448b3649c3d3a060996f251954dbc1a80a11ce66ee911137aa6dc0a2"
+    },
+    "firebase-ai-logic": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "3b3d8994f2ac2e747a1f203488844a7e17b8a25c38e636b221903ae90e3b7c32"
+    },
+    "firebase-app-hosting-basics": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "7f0e0330510b4e6b06bcede472cebb183a491b8a0098f92d7563454c40d78050"
+    },
+    "firebase-auth-basics": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "df411eb125374de6086edd38dd739769088b60945052060aec1f57f934be3e27"
+    },
+    "firebase-basics": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "e7514db8c19e18237ac78a1b21456d7a736b3695def70cc10f16e0a528324e17"
+    },
+    "firebase-data-connect": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "e7e35c29c4851d495a7417c4331666119d2492e914a08a8d006f1471a554e09f"
+    },
+    "firebase-firestore-enterprise-native-mode": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "492369ab2bc95f385d6663381dbcdbd7c3d75d714cd8eda7b924411d0f461305"
+    },
+    "firebase-firestore-standard": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "433338142338ab05fe004adb37dce8ffbbcbce396303c8bd520ca2cc74f2da78"
+    },
+    "firebase-hosting-basics": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "fb86fd4035e8e6379931faeb443557ac6f2e43fde04b397433f287e69b6532a9"
+    },
+    "firebase-local-env-setup": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "801ca0ebcf7fad9cc973fbab153a60a71d6f2506b15b43c154a4bffaeee2e7be"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "computedHash": "91c02eb706f046fb9d6a061efbb96496e4be751b5b14c283cf82baaa50f3a985"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "f98931159fa9c7fed043bcd18a891a46dcf89ababa38df13a4c5b7b30dc0ce07"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "afeca00ac2f492d88fdd010e73d91719a5b57c564bb4a73325b0bd77e11323ab"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "2e9088a7333666d8c2833b8ff58bd51b955501c42b4c7244f72b4cbf22dafcc4"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
+    }
+  }
+}
