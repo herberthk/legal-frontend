@@ -33,7 +33,6 @@ import {
 import { getCurrentUser } from "@/lib/actions/auth";
 import { generateId } from "ai";
 import ChatInput from "./ChatInput";
-import Disclaimer from "./Disclaimer";
 
 // --- Helpers to extract content from UIMessage parts ---
 const getMessageText = (msg: UIMessage): string => {
@@ -424,17 +423,17 @@ const ChatInterface = ({
     if (!textToSend.trim() && !attachmentToSend) return;
 
     // SERVER-SIDE PRE-FLIGHT: Check if user can send
-    if (user?.id && user.role !== "ADMIN") {
-      const check = await checkUserCanSend(user.id);
-      if (!check.canSend) {
-        setBillingError(
-          check.reason ||
-            "Insufficient funds or free tokens. Please add funds to continue.",
-        );
-        setTimeout(() => setBillingError(null), 5000);
-        return;
-      }
-    }
+    // if (user?.id && user.role !== "ADMIN") {
+    //   const check = await checkUserCanSend(user.id);
+    //   if (!check.canSend) {
+    //     setBillingError(
+    //       check.reason ||
+    //         "Insufficient funds or free tokens. Please add funds to continue.",
+    //     );
+    //     setTimeout(() => setBillingError(null), 5000);
+    //     return;
+    //   }
+    // }
 
     // Ensure we have a chat session
     const sessionId = await ensureChatSession(textToSend);

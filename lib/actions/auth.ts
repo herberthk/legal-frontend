@@ -3,6 +3,10 @@
 import { auth, db } from "@/firebase/admin";
 import { cookies } from "next/headers";
 import { sendOtp } from "./email";
+import {
+  FREE_WELCOME_TEXT_TOKENS,
+  FREE_WELCOME_VOICE_SECONDS,
+} from "@/constants";
 
 /**
  * Session duration constant set to 1 week in seconds
@@ -72,12 +76,9 @@ export async function signUp(params: SignUpParams & { uid: string }) {
       totalSpent: 0,
       status: "active",
       voicePreference: "Brake",
-      welcomeTextTokens: 4000,
-      freeTextTokens: 1000,
-      freeVoiceSeconds: 300,
-      freeMessagesRemaining: 5,
-      freeMessagesResetAt: getNextMidnight(),
-      lastDailyReset: new Date().toISOString(),
+      freeTextTokens: FREE_WELCOME_TEXT_TOKENS,
+      freeVoiceSeconds: FREE_WELCOME_VOICE_SECONDS,
+      nextDailyReset: getNextMidnight(),
       createdAt: new Date().toISOString(),
     };
 
@@ -167,6 +168,21 @@ export async function getCurrentUser(): Promise<User | null> {
     return null;
   }
 }
+
+/**
+ * Extracts the authenticated user ID from the session cookie.
+ */
+export const getAuthenticatedUserId = async (): Promise<string | null> => {
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("session")?.value;
+    if (!sessionCookie) return null;
+    const decoded = await auth.verifySessionCookie(sessionCookie, true);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Checks if user has valid authentication session
@@ -266,24 +282,24 @@ export async function resetPasswordWithOtp(email: string, newPassword: string) {
   }
 }
 
-export const createSession = async (user: User) => {
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  //   const session = await encrypt({ userId, expires });
-  const cookieStore = await cookies();
-  await cookieStore.set("session", JSON.stringify(user), {
-    expires,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
-};
+// export const createSession = async (user: User) => {
+//   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+//   //   const session = await encrypt({ userId, expires });
+//   const cookieStore = await cookies();
+//   await cookieStore.set("session", JSON.stringify(user), {
+//     expires,
+//     httpOnly: true,
+//     secure: process.env.NODE_ENV === "production",
+//     sameSite: "lax",
+//     path: "/",
+//   });
+// };
 
-export const getUserSession = async () => {
-  const cookieStore = await cookies();
-  const session = cookieStore.get("session")?.value;
-  if (!session) {
-    return null;
-  }
-  return JSON.parse(session) as User;
-};
+// export const getUserSession = async () => {
+//   const cookieStore = await cookies();
+//   const session = cookieStore.get("session")?.value;
+//   if (!session) {
+//     return null;
+//   }
+//   return JSON.parse(session) as User;
+// };

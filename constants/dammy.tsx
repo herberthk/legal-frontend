@@ -175,41 +175,6 @@ export const generateUsageData = () => [
   { name: "Sun", cost: 1.2 },
 ];
 
-// export const generateMockComplaints = (count = 5): Complaint[] => {
-//   const categories: ComplaintCategory[] = [
-//     "DOUBLE_CHARGE",
-//     "OTHER",
-//     "OVERCHARGE",
-//     "REFUND",
-//     "TECHNICAL",
-//   ];
-//   const statuses: ComplaintStatus[] = [
-//     "OPEN",
-//     "IN_PROGRESS",
-//     "RESOLVED",
-//     "REJECTED",
-//   ];
-//   const referenceTimestamp = new Date("2024-01-01T00:00:00Z").getTime();
-
-//   return Array.from({ length: count }).map((_, i) => ({
-//     id: `c${i}`,
-//     userId: "user-01",
-//     category: categories[i % categories.length],
-//     subject: `Complaint #${i + 100}`,
-//     description:
-//       i % 2 === 0
-//         ? "There was an issue with my last transaction. The amount deducted was incorrect."
-//         : "The AI response quality was not up to standard for this query.",
-//     status: statuses[i % statuses.length],
-//     createdAt: new Date(
-//       referenceTimestamp - i * 86400000,
-//     ).toISOString(),
-//     updatedAt: new Date(
-//       referenceTimestamp - i * 86400000,
-//     ).toISOString(),
-//   }));
-// };
-
 export const complaints: Complaint[] = [
   {
     id: "cmp_mock1",

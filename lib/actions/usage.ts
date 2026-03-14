@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/firebase/admin";
-import { PRICE_PER_TOKEN } from "@/constants";
+import { COST_PER_THOUSAND_TOKENS, COST_PER_VOICE_MINUTE } from "@/constants";
 import { checkRootCollection } from "./utils";
 
 /**
@@ -10,11 +10,13 @@ import { checkRootCollection } from "./utils";
  * @param userId - The authenticated user's ID
  * @returns Whether the user can send, and a reason if blocked
  */
-export async function checkUserCanSend(userId: string): Promise<{
+export const checkUserCanSend = async (
+  userId: string,
+): Promise<{
   canSend: boolean;
   reason?: string;
   user?: User;
-}> {
+}> => {
   try {
     const userDoc = await db.collection("users").doc(userId).get();
     if (!userDoc.exists) {
@@ -23,22 +25,11 @@ export async function checkUserCanSend(userId: string): Promise<{
 
     const user = { id: userDoc.id, ...userDoc.data() } as User;
 
-    // Admin bypass
-    if (user.role === "ADMIN") {
-      return { canSend: true, user };
-    }
-
     // Check if user has any available resources
-    const hasFreeMessages = user.freeMessagesRemaining > 0;
-    const hasFreeTokens = user.freeTextTokens > 0;
-    const hasWelcomeTokens = (user.welcomeTextTokens || 0) > 0;
-    const hasPaidBalance = user.balance > 0.01;
+    const hasFreeTokens = user.freeTextTokens > 10;
+    const hasPaidBalance = user.balance > COST_PER_THOUSAND_TOKENS;
 
-    if (hasFreeMessages && (hasFreeTokens || hasWelcomeTokens)) {
-      return { canSend: true, user };
-    }
-
-    if (hasPaidBalance) {
+    if (hasFreeTokens || hasPaidBalance) {
       return { canSend: true, user };
     }
 
@@ -51,7 +42,7 @@ export async function checkUserCanSend(userId: string): Promise<{
     console.error("Error checking user send permission:", error);
     return { canSend: false, reason: "An error occurred. Please try again." };
   }
-}
+};
 
 /**
  * Records a usage entry and deducts from the correct billing tier.
@@ -61,13 +52,14 @@ export async function checkUserCanSend(userId: string): Promise<{
  * @param params - Usage parameters
  * @returns Success status and the deducted cost
  */
-export async function recordUsageAndDeduct(params: {
+export const recordUsageAndDeduct = async (params: {
   userId: string;
-  type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION";
-  tokens: number;
+  type: "TEXT_RESPONSE" | "VOICE_SESSION";
+  tokens?: number;
   sessionId: string;
-}) {
-  const { userId, type, tokens, sessionId } = params;
+  seconds?: number;
+}) => {
+  const { userId, type, tokens = 0, sessionId, seconds = 0 } = params;
 
   try {
     const result = await db.runTransaction(async (transaction) => {
@@ -80,68 +72,43 @@ export async function recordUsageAndDeduct(params: {
 
       const user = userDoc.data() as Omit<User, "id">;
 
-      // Admin bypass — record usage but don't deduct
-      if (user.role === "ADMIN") {
-        const usageRef = db.collection("usage").doc();
-        transaction.set(usageRef, {
-          userId,
-          type,
-          tokens,
-          cost: 0,
-          source: "free",
-          sessionId,
-          createdAt: new Date().toISOString(),
-        });
-        return { cost: 0, source: "free" as const };
-      }
-
-      let remaining = tokens;
       let totalCost = 0;
-      let source: "free" | "welcome" | "paid" = "free";
-
-      let newWelcomeTokens = user.welcomeTextTokens || 0;
-      let newFreeTokens = user.freeTextTokens;
-      let newBalance = user.balance;
-      let newFreeMessages = user.freeMessagesRemaining ?? 0;
-
-      // 1. Deduct from Welcome Bonus FIRST
-      if (newWelcomeTokens > 0 && remaining > 0) {
-        const deduction = Math.min(newWelcomeTokens, remaining);
-        newWelcomeTokens -= deduction;
-        remaining -= deduction;
-        source = "welcome";
-      }
+      let freeTokens = user.freeTextTokens;
+      let balance = user.balance;
+      let freeSeconds = user.freeVoiceSeconds;
 
       // 2. Deduct from Daily Free SECOND
-      if (newFreeTokens > 0 && remaining > 0) {
-        const deduction = Math.min(newFreeTokens, remaining);
-        newFreeTokens -= deduction;
-        remaining -= deduction;
-        source = "free";
+      if (type === "TEXT_RESPONSE" && freeTokens > 0) {
+        freeTokens -= tokens;
+      }
+
+      if (type === "VOICE_SESSION" && freeSeconds > 0) {
+        freeSeconds -= seconds;
       }
 
       // 3. Deduct from Paid Balance LAST
-      if (remaining > 0) {
-        const cost = remaining * PRICE_PER_TOKEN;
-        newBalance -= cost;
+      if (type === "TEXT_RESPONSE" && balance > 0) {
+        const tokensInThousand = tokens / 1000;
+        const cost = tokensInThousand * COST_PER_THOUSAND_TOKENS;
+        balance -= cost;
         totalCost = cost;
-        source = "paid";
       }
 
-      // Decrement free messages for user-initiated messages (prompts)
-      if (type === "TEXT_PROMPT" && newFreeMessages > 0 && totalCost === 0) {
-        newFreeMessages -= 1;
+      if (type === "VOICE_SESSION" && balance > 0) {
+        const minutes = seconds / 60;
+        const cost = minutes * COST_PER_VOICE_MINUTE;
+        balance -= cost;
+        totalCost = cost;
       }
 
       // Prevent negative balance
-      newBalance = Math.max(0, newBalance);
+      balance = Math.max(0, balance);
 
       // Update user document
       transaction.update(userRef, {
-        welcomeTextTokens: newWelcomeTokens,
-        freeTextTokens: newFreeTokens,
-        freeMessagesRemaining: newFreeMessages,
-        balance: newBalance,
+        freeTextTokens: freeTokens,
+        balance,
+        freeVoiceSeconds: freeSeconds,
         totalSpent: (user.totalSpent || 0) + totalCost,
       });
 
@@ -152,20 +119,20 @@ export async function recordUsageAndDeduct(params: {
         type,
         tokens,
         cost: totalCost,
-        source,
         sessionId,
+        seconds,
         createdAt: new Date().toISOString(),
       });
 
-      return { cost: totalCost, source };
+      return { cost: totalCost };
     });
 
     return { success: true, ...result };
   } catch (error) {
     console.error("Error recording usage:", error);
-    return { success: false, cost: 0, source: "free" as const };
+    return { success: false, cost: 0 };
   }
-}
+};
 
 /**
  * Gets usage records for a user, filtered by date range.
@@ -174,7 +141,7 @@ export async function recordUsageAndDeduct(params: {
  * @param customRange - Optional custom date range (for "custom" filter)
  * @returns Array of usage records
  */
-export async function getUserUsage(
+export const getUserUsage = async (
   userId: string,
   filter: UsageFilter = "today",
   customRange?: { start: string; end: string },
@@ -183,17 +150,30 @@ export async function getUserUsage(
   records: UsageRecord[];
   totalTokens: number;
   totalCost: number;
-}> {
+  totalSeconds: number;
+}> => {
   try {
     if (!userId) {
-      return { success: false, records: [], totalTokens: 0, totalCost: 0 };
+      return {
+        success: false,
+        records: [],
+        totalTokens: 0,
+        totalCost: 0,
+        totalSeconds: 0,
+      };
     }
     console.log("userId", userId);
     const { start, end } = getDateRange(filter, customRange);
     // Check if collection exists
     const usageExists = await checkRootCollection("usage");
     if (!usageExists) {
-      return { success: true, records: [], totalTokens: 0, totalCost: 0 };
+      return {
+        success: true,
+        records: [],
+        totalTokens: 0,
+        totalCost: 0,
+        totalSeconds: 0,
+      };
     }
     const snapshot = await db
       .collection("usage")
@@ -201,7 +181,7 @@ export async function getUserUsage(
       .where("createdAt", ">=", start)
       .where("createdAt", "<=", end)
       .orderBy("createdAt", "desc")
-      .limit(200)
+      .limit(20)
       .get();
 
     const records: UsageRecord[] = snapshot.docs.map((doc) => ({
@@ -211,13 +191,20 @@ export async function getUserUsage(
 
     const totalTokens = records.reduce((sum, r) => sum + r.tokens, 0);
     const totalCost = records.reduce((sum, r) => sum + r.cost, 0);
+    const totalSeconds = records.reduce((sum, r) => sum + r.seconds, 0);
 
-    return { success: true, records, totalTokens, totalCost };
+    return { success: true, records, totalTokens, totalCost, totalSeconds };
   } catch (error) {
     console.error("Error getting user usage:", error);
-    return { success: true, records: [], totalTokens: 0, totalCost: 0 };
+    return {
+      success: true,
+      records: [],
+      totalTokens: 0,
+      totalCost: 0,
+      totalSeconds: 0,
+    };
   }
-}
+};
 
 /**
  * Converts a UsageFilter preset into a { start, end } date range.
