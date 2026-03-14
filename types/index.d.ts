@@ -19,13 +19,13 @@ declare global {
     password?: string; // Optinal as it might be handled client-side
   };
 
-  type Notifications = {
-    id: number;
-    text: string;
-    time: string;
-    unread: boolean;
-    type?: "info" | "alert" | "success";
-  };
+  // type Notifications = {
+  //   id: number;
+  //   text: string;
+  //   time: string;
+  //   unread: boolean;
+  //   type?: "info" | "alert" | "success";
+  // };
 
   type Role = "ADMIN" | "USER";
 
@@ -35,17 +35,14 @@ declare global {
     email: string;
     avatar: string;
     role: Role;
-    balance: number; // In USD
-    totalSpent: number;
+    balance: number; // In UGX will be converted to USD at rate of 3800
+    totalSpent: number; // In UGX will be converted to USD at rate of 3800
     status: "active" | "suspended";
     voicePreference?: string;
     // Tier Tracking
-    freeTextTokens: number; // Daily Recurring Limit (1000)
-    welcomeTextTokens: number; // One-time Sign up bonus (4000)
+    freeTextTokens: number; // Daily Recurring Limit (1000) but 4000 at sign up
     freeVoiceSeconds: number; // One-time welcome bonus (300s = 5mins)
-    freeMessagesRemaining: number; // Daily free messages (5)
-    freeMessagesResetAt: string; // ISO Date string — next reset time
-    lastDailyReset: string; // ISO Date string
+    nextDailyReset: string; // ISO Date string — next reset time
     createdAt: string; // ISO Date string
   };
 
@@ -114,7 +111,7 @@ declare global {
     resolutionNote?: string;
   };
 
-  type Notification = {
+  type Notifications = {
     id: number;
     text: string;
     time: string;
@@ -122,19 +119,18 @@ declare global {
     type?: "info" | "alert" | "success";
   };
 
-  type TokenUsageRecord = {
-    id: string;
-    timestamp: number; // Unix timestamp
-    amount: number; // Quantity (Tokens or Seconds)
-    unit: "TOKENS" | "SECONDS";
-    type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION";
-  };
+  // type TokenUsageRecord = {
+  //   id: string;
+  //   timestamp: number; // Unix timestamp
+  //   unit: "TOKENS" | "SECONDS";
+  //   type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION";
+  // };
 
   type VoiceSession = {
     id: string;
     userId: string;
-    // unit: "SECONDS" | "MINUTES";
-    // amount: number;
+    unit?: "SECONDS" | "MINUTES";
+    amount?: number;
     date: string; // ISO string
     duration: number; // seconds
     audioUrl?: string; // Blob URL
@@ -174,10 +170,11 @@ declare global {
   type UsageRecord = {
     id: string;
     userId: string;
-    type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION";
+    type: "TEXT_RESPONSE" | "VOICE_SESSION";
     tokens: number;
     cost: number;
-    source: "free" | "welcome" | "paid";
+    seconds: number;
+    // source: "free" | "welcome" | "paid";
     sessionId: string;
     createdAt: string;
   };

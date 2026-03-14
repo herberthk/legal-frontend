@@ -9,7 +9,7 @@ import { FieldValue } from "firebase-admin/firestore";
  * @param title - Initial title for the session (e.g. first message preview)
  * @returns The created session ID
  */
-export async function createChatSession(userId: string, title: string) {
+export const createChatSession = async (userId: string, title: string) => {
   try {
     const now = new Date().toISOString();
     const sessionRef = db.collection("chatSessions").doc();
@@ -26,7 +26,7 @@ export async function createChatSession(userId: string, title: string) {
     console.error("Error creating chat session:", error);
     return { success: false, sessionId: null };
   }
-}
+};
 
 /**
  * Saves a chat message to a session's subcollection
@@ -129,3 +129,45 @@ export async function getChatMessages(sessionId: string) {
     return { success: true, messages: [] };
   }
 }
+
+/**
+ * Save chat session
+ */
+
+export const saveChatSession = async ({
+  sessionId,
+  text,
+  tokenCount,
+}: {
+  sessionId: string;
+  text: string;
+  tokenCount: number;
+}) => {
+  try {
+    const result = await db.runTransaction(async (transaction) => {
+      const msgRef = db
+        .collection("chatSessions")
+        .doc(sessionId)
+        .collection("messages")
+        .doc();
+
+      transaction.set(msgRef, {
+        sessionId,
+        role: "assistant",
+        text,
+        createdAt: new Date().toISOString(),
+        tokenCount: tokenCount ?? 0,
+      });
+
+      const { FieldValue } = await import("firebase-admin/firestore");
+      transaction.update(db.collection("chatSessions").doc(sessionId), {
+        updatedAt: new Date().toISOString(),
+        messageCount: FieldValue.increment(1),
+      });
+    });
+    return result;
+  } catch (error) {
+    console.error("Error saving chat session:", error);
+    return { success: false, title: null };
+  }
+};
