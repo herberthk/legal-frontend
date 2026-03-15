@@ -2,7 +2,6 @@ import { google } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, UIMessage } from "ai";
 import { BASE_SYSTEM_INSTRUCTION } from "@/constants";
 import {
-  checkUserCanSend,
   getAuthenticatedUserId,
   recordUsageAndDeduct,
   saveChatSession,
@@ -25,14 +24,6 @@ export async function POST(req: Request) {
         JSON.stringify({ error: "Authentication required." }),
         { status: 401, headers: { "Content-Type": "application/json" } },
       );
-    }
-
-    const canSend = await checkUserCanSend(userId);
-    if (!canSend.canSend) {
-      return new Response(JSON.stringify({ error: canSend.reason }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
     }
 
     // 2. Stream the AI response
