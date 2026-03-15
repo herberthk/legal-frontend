@@ -13,21 +13,11 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const {
-      messages,
-      sessionId: bodySessionId,
-    }: { messages: UIMessage[]; sessionId?: string } = await req.json();
-
-    // Parse URL for query params
-    const { searchParams } = new URL(req.url);
-    const urlSessionId = searchParams.get("sessionId");
-
+    const { messages }: { messages: UIMessage[] } = await req.json();
+    // Read session ID from the custom header set by prepareSendMessagesRequest
+    const rawSessionId = req.headers.get("x-chat-id");
     const sessionId =
-      bodySessionId ||
-      req.headers.get("x-chat-session-id") ||
-      urlSessionId ||
-      undefined;
-
+      rawSessionId && rawSessionId.length > 0 ? rawSessionId : null;
     // 1. Authenticate the user
     const userId = await getAuthenticatedUserId();
     if (!userId) {
@@ -36,6 +26,7 @@ export async function POST(req: Request) {
         { status: 401, headers: { "Content-Type": "application/json" } },
       );
     }
+
     const canSend = await checkUserCanSend(userId);
     if (!canSend.canSend) {
       return new Response(JSON.stringify({ error: canSend.reason }), {
@@ -55,7 +46,7 @@ export async function POST(req: Request) {
         const totalTokens =
           (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0);
         try {
-          if (sessionId && totalTokens > 0) {
+          if (sessionId !== null && totalTokens > 0) {
             await recordUsageAndDeduct({
               userId,
               type: "TEXT_RESPONSE",
@@ -64,7 +55,7 @@ export async function POST(req: Request) {
             });
           }
           // 4. Save assistant message to chat session
-          if (sessionId && text) {
+          if (sessionId !== null && text) {
             await saveChatSession({
               sessionId,
               text,

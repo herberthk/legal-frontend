@@ -40,6 +40,7 @@ export async function saveChatMessage(
     text: string;
     tokenCount: number;
     attachment?: { name: string; type: string; url: string };
+    isFirstMessage?: boolean; // Only update session title on the first user message
   },
 ) {
   try {
@@ -66,10 +67,11 @@ export async function saveChatMessage(
       .update({
         updatedAt: now,
         messageCount: FieldValue.increment(1),
-        // Update title from first user message if it's the first message
-        ...(message.role === "user" && {
-          title: message.text.slice(0, 100),
-        }),
+        // Only update the session title from the first user message
+        ...(message.role === "user" &&
+          message.isFirstMessage && {
+            title: message.text.slice(0, 100),
+          }),
       });
 
     return { success: true, messageId: messageRef.id };

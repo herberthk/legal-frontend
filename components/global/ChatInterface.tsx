@@ -31,7 +31,7 @@ import {
   getChatMessages,
 } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/actions/auth";
-import { generateId } from "ai";
+import { DefaultChatTransport, generateId } from "ai";
 import ChatInput from "./ChatInput";
 
 // --- Helpers to extract content from UIMessage parts ---
@@ -121,6 +121,11 @@ const ChatInterface = ({
   const fileReaderRef = useRef<FileReader | null>(null);
   const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Holds the latest chatSessionId synchronously — never stale even within the
+  // same render tick as setChatSessionId.
+  const chatSessionIdRef = useRef<string | null>(chatId || null);
+  // Prevents the auto-trigger effect from firing more than once per mount.
+  const autoTriggeredRef = useRef(false);
 
   // Manual input state
   const [input, setInput] = useState("");
@@ -209,7 +214,7 @@ const ChatInterface = ({
     textTokens: initialHistory.tokens,
     voiceSeconds: 0,
   });
-
+  // console.log("sessionId", chatSessionIdRef.current);
   // --- Vercel AI SDK useChat ---
   const {
     messages,
@@ -219,9 +224,14 @@ const ChatInterface = ({
     error: chatError,
     setMessages,
   } = useChat({
-    // @ts-ignore - The ai package type definitions omit this property, but it's valid at runtime
-    body: { sessionId: chatSessionId },
-    initialMessages: initialHistory.messages,
+    transport: new DefaultChatTransport({
+      // prepareSendMessagesRequest is called right before each fetch, so
+      // chatSessionIdRef.current is always the newest value — never stale.
+      prepareSendMessagesRequest: ({ messages: msgs, id }) => ({
+        headers: { "x-chat-id": chatSessionIdRef.current ?? "" },
+        body: { messages: msgs, id },
+      }),
+    }),
     onFinish: async ({ message }) => {
       // Update session stats with estimated token count
       const text = getMessageText(message);
@@ -258,7 +268,7 @@ const ChatInterface = ({
   // --- Fetch Chat History ---
   useEffect(() => {
     const loadChatHistory = async () => {
-      // If no chatId provided or it matches current, do nothing
+      // If no chatId provided, reset to a blank new chat
       if (!chatId) {
         setChatSessionId(null);
         setMessages([initialMessage]);
@@ -270,8 +280,12 @@ const ChatInterface = ({
         return; // Already loaded this chat
       }
 
-      // If the chatId we are trying to load matches the one from the server,
-      // AND we have serverMessages, use them instead of fetching!
+      // If there is a pending auto-trigger for this chatId, the new page will
+      // display and stream the message via sendMessage — skip history load so
+      // we don't race with the incoming stream or overwrite it.
+      if (sessionStorage.getItem(`chat_pending_${chatId}`)) return;
+
+      // If the chatId matches the one SSR-prefetched, use serverMessages directly
       if (
         chatId === serverChatId &&
         serverMessages &&
@@ -311,10 +325,7 @@ const ChatInterface = ({
       try {
         const result = await getChatMessages(chatId);
         if (result.success && result.messages && result.messages.length > 0) {
-          // Calculate stats
           let totalTokens = 0;
-
-          // Format messages for the AI SDK
           const historyMessages: UIMessage[] = result.messages.map((m) => {
             totalTokens += m.tokenCount || 0;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -340,7 +351,6 @@ const ChatInterface = ({
           setSessionStats((prev) => ({ ...prev, textTokens: totalTokens }));
           setMessages(historyMessages);
         } else {
-          // If the chat has no messages or failed to load, just show initial message
           setMessages([initialMessage]);
           setSessionStats({ textTokens: 0, voiceSeconds: 0 });
         }
@@ -354,6 +364,61 @@ const ChatInterface = ({
     loadChatHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]); // We specifically only want this to run when the prop changes
+
+  // --- Auto-trigger AI for newly created chats ---
+  // When navigating from /chat to /chat/[chatId] (new session), handleSend
+  // saves the user message to Firestore and stores a pending payload in
+  // sessionStorage instead of calling sendMessage. This effect picks that up
+  // on the destination page and fires sendMessage so both the user turn and the
+  // AI stream happen on the correct URL — just like ChatGPT / Gemini.
+  useEffect(() => {
+    if (!chatId || autoTriggeredRef.current) return;
+
+    const pendingKey = `chat_pending_${chatId}`;
+    const raw = sessionStorage.getItem(pendingKey);
+    if (!raw) return;
+
+    autoTriggeredRef.current = true;
+    sessionStorage.removeItem(pendingKey);
+
+    try {
+      const pending: {
+        text: string;
+        estimatedTokens: number;
+        attachment?: { name: string; type: string; data: string };
+      } = JSON.parse(raw);
+
+      // Update the ref and state so chatSessionIdRef carries the right ID
+      chatSessionIdRef.current = chatId;
+      setChatSessionId(chatId);
+      setSessionStats((prev) => ({
+        ...prev,
+        textTokens: prev.textTokens + pending.estimatedTokens,
+      }));
+
+      // Fire the AI call — sendMessage adds the user bubble and streams the reply
+      if (pending.attachment) {
+        const dataUrl = `data:${pending.attachment.type};base64,${pending.attachment.data}`;
+        sendMessage({
+          text: pending.text || "Please summarize this document.",
+          files: [
+            {
+              type: "file" as const,
+              mediaType: pending.attachment.type,
+              filename: pending.attachment.name,
+              url: dataUrl,
+            },
+          ],
+        });
+      } else {
+        sendMessage({ text: pending.text });
+      }
+    } catch {
+      // Corrupted payload — ignore
+      sessionStorage.removeItem(`chat_pending_${chatId}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Mount-only: chatId is stable for the lifetime of this component
 
   // --- Connectivity Listener ---
   useEffect(() => {
@@ -422,48 +487,58 @@ const ChatInterface = ({
     if (!manualInput && !manualAttachment && isUploading) return;
     if (!textToSend.trim() && !attachmentToSend) return;
 
-    // SERVER-SIDE PRE-FLIGHT: Check if user can send
-    // if (user?.id && user.role !== "ADMIN") {
-    //   const check = await checkUserCanSend(user.id);
-    //   if (!check.canSend) {
-    //     setBillingError(
-    //       check.reason ||
-    //         "Insufficient funds or free tokens. Please add funds to continue.",
-    //     );
-    //     setTimeout(() => setBillingError(null), 5000);
-    //     return;
-    //   }
-    // }
+    // Track whether this is a brand-new session BEFORE any async work
+    const isNewSession = !chatSessionId;
 
     // Ensure we have a chat session
     const sessionId = await ensureChatSession(textToSend);
+    if (!sessionId) return;
 
-    // Save user message to Firestore
-    if (sessionId) {
-      if (sessionId !== chatSessionId && onChatCreated) {
-        onChatCreated(sessionId);
-      }
-      setChatSessionId(sessionId);
-      const estimatedTokens = Math.ceil(textToSend.length / 4);
-      setSessionStats((prev) => ({
-        ...prev,
-        textTokens: prev.textTokens + estimatedTokens,
-      }));
-      saveChatMessage(sessionId, {
-        role: "user",
-        text: textToSend,
-        tokenCount: estimatedTokens,
-        ...(attachmentToSend && {
-          attachment: {
-            name: attachmentToSend.name,
-            type: attachmentToSend.type,
-            url: "",
-          },
-        }),
-      });
+    // Update ref immediately — React state won't settle until next render
+    chatSessionIdRef.current = sessionId;
+    setChatSessionId(sessionId);
+
+    const estimatedTokens = Math.ceil(textToSend.length / 4);
+    setSessionStats((prev) => ({
+      ...prev,
+      textTokens: prev.textTokens + estimatedTokens,
+    }));
+
+    // Persist the user message to Firestore (fire-and-forget)
+    saveChatMessage(sessionId, {
+      role: "user",
+      text: textToSend,
+      tokenCount: estimatedTokens,
+      isFirstMessage: isNewSession,
+      ...(attachmentToSend && {
+        attachment: {
+          name: attachmentToSend.name,
+          type: attachmentToSend.type,
+          url: "",
+        },
+      }),
+    });
+
+    if (isNewSession) {
+      // ── NEW CHAT ──────────────────────────────────────────────────────────
+      // Store the pending message so the destination page can pick it up and
+      // fire the AI call itself. This gives us ChatGPT-style behaviour:
+      //   navigate first → stream on the correct URL.
+      sessionStorage.setItem(
+        `chat_pending_${sessionId}`,
+        JSON.stringify({ text: textToSend, estimatedTokens, attachment: attachmentToSend ?? null }),
+      );
+
+      if (!manualInput) setInput("");
+      if (!manualAttachment) setPendingAttachment(null);
+
+      // Navigate — the auto-trigger effect on the new page handles the rest
+      if (onChatCreated) onChatCreated(sessionId);
+      return;
     }
 
-    // Send via Vercel AI SDK
+    // ── EXISTING CHAT ────────────────────────────────────────────────────────
+    // Send via Vercel AI SDK (adds user bubble + triggers stream)
     if (attachmentToSend) {
       const dataUrl = `data:${attachmentToSend.type};base64,${attachmentToSend.data}`;
       sendMessage({
