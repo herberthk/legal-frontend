@@ -77,32 +77,31 @@ export const recordUsageAndDeduct = async (params: {
       let balance = user.balance;
       let freeSeconds = user.freeVoiceSeconds;
 
-      // 2. Deduct from Daily Free SECOND
-      if (type === "TEXT_RESPONSE" && freeTokens > 0) {
-        freeTokens -= tokens;
+      if (type === "TEXT_RESPONSE") {
+        if (freeTokens > 0) {
+          // Deduct exclusively from free token quota first
+          freeTokens = Math.max(0, freeTokens - tokens);
+        } else {
+          // No free tokens left — deduct from paid balance
+          const tokensInThousand = tokens / 1000;
+          const cost = tokensInThousand * COST_PER_THOUSAND_TOKENS;
+          balance = Math.max(0, balance - cost);
+          totalCost = cost;
+        }
       }
 
-      if (type === "VOICE_SESSION" && freeSeconds > 0) {
-        freeSeconds -= seconds;
+      if (type === "VOICE_SESSION") {
+        if (freeSeconds > 0) {
+          // Deduct exclusively from free voice quota first
+          freeSeconds = Math.max(0, freeSeconds - seconds);
+        } else {
+          // No free seconds left — deduct from paid balance
+          const minutes = seconds / 60;
+          const cost = minutes * COST_PER_VOICE_MINUTE;
+          balance = Math.max(0, balance - cost);
+          totalCost = cost;
+        }
       }
-
-      // 3. Deduct from Paid Balance LAST
-      if (type === "TEXT_RESPONSE" && balance > 0) {
-        const tokensInThousand = tokens / 1000;
-        const cost = tokensInThousand * COST_PER_THOUSAND_TOKENS;
-        balance -= cost;
-        totalCost = cost;
-      }
-
-      if (type === "VOICE_SESSION" && balance > 0) {
-        const minutes = seconds / 60;
-        const cost = minutes * COST_PER_VOICE_MINUTE;
-        balance -= cost;
-        totalCost = cost;
-      }
-
-      // Prevent negative balance
-      balance = Math.max(0, balance);
 
       // Update user document
       transaction.update(userRef, {
