@@ -45,26 +45,24 @@ export async function saveChatMessage(
 ) {
   try {
     const now = new Date().toISOString();
-    const messageRef = db
-      .collection("chatSessions")
-      .doc(sessionId)
-      .collection("messages")
-      .doc();
+    const result = await db.runTransaction(async (transaction) => {
+      const messageRef = db
+        .collection("chatSessions")
+        .doc(sessionId)
+        .collection("messages")
+        .doc();
 
-    await messageRef.set({
-      sessionId,
-      role: message.role,
-      text: message.text,
-      createdAt: now,
-      tokenCount: message.tokenCount,
-      ...(message.attachment && { attachment: message.attachment }),
-    });
+      transaction.set(messageRef, {
+        sessionId,
+        role: message.role,
+        text: message.text,
+        createdAt: now,
+        tokenCount: message.tokenCount,
+        ...(message.attachment && { attachment: message.attachment }),
+      });
 
-    // Update session metadata
-    await db
-      .collection("chatSessions")
-      .doc(sessionId)
-      .update({
+      // Update session metadata
+      transaction.update(db.collection("chatSessions").doc(sessionId), {
         updatedAt: now,
         messageCount: FieldValue.increment(1),
         // Only update the session title from the first user message
@@ -74,7 +72,9 @@ export async function saveChatMessage(
           }),
       });
 
-    return { success: true, messageId: messageRef.id };
+      return { success: true, messageId: messageRef.id };
+    });
+    return result;
   } catch (error) {
     console.error("Error saving chat message:", error);
     return { success: false, messageId: null };

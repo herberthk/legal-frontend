@@ -4,7 +4,7 @@ import { BASE_SYSTEM_INSTRUCTION } from "@/constants";
 import {
   getAuthenticatedUserId,
   recordUsageAndDeduct,
-  saveChatSession,
+  saveChatMessage,
 } from "@/lib";
 
 // Allow streaming responses up to 30 seconds
@@ -17,6 +17,7 @@ export async function POST(req: Request) {
     const rawSessionId = req.headers.get("x-chat-id");
     const sessionId =
       rawSessionId && rawSessionId.length > 0 ? rawSessionId : null;
+    const isFirstMessage = req.headers.get("x-first-message");
     // 1. Authenticate the user
     const userId = await getAuthenticatedUserId();
     if (!userId) {
@@ -25,9 +26,14 @@ export async function POST(req: Request) {
         { status: 401, headers: { "Content-Type": "application/json" } },
       );
     }
+    const lastUserMessage = messages[messages.length - 1];
+    // console.log("lastUserMessage", lastUserMessage);
+    console.log("is first message", isFirstMessage);
 
-    // 2. Stream the AI response
-    const result = await streamText({
+    //@ts-ignore
+    const textToSend = lastUserMessage.parts[0].text;
+    const estimatedInputTokens = Math.ceil(textToSend.length / 4);
+    const result = streamText({
       model: google("gemini-2.5-flash"),
       system: BASE_SYSTEM_INSTRUCTION,
       messages: await convertToModelMessages(messages),
@@ -35,7 +41,7 @@ export async function POST(req: Request) {
       onFinish: async ({ text, usage }) => {
         // 3. Record usage after completion
         const totalTokens =
-          (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0);
+          (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);
         try {
           if (sessionId !== null && totalTokens > 0) {
             await recordUsageAndDeduct({
@@ -47,11 +53,34 @@ export async function POST(req: Request) {
           }
           // 4. Save assistant message to chat session
           if (sessionId !== null && text) {
-            await saveChatSession({
-              sessionId,
-              text,
-              tokenCount: usage?.outputTokens ?? 0,
+            // Save user message
+            // const attachmentToSend = lastUserMessage.attachments?.[0];
+            await saveChatMessage(sessionId, {
+              role: "user",
+              text: textToSend,
+              tokenCount: estimatedInputTokens,
+              isFirstMessage: isFirstMessage === "true",
+              // ...(attachmentToSend && {
+              //   attachment: {
+              //     name: attachmentToSend.name,
+              //     type: attachmentToSend.type,
+              //     url: "",
+              //   },
+              // }),
             });
+
+            // Save assistant message
+            await saveChatMessage(sessionId, {
+              role: "assistant",
+              text: text,
+              tokenCount: usage?.outputTokens ?? 0,
+              isFirstMessage: false,
+            });
+            // await saveChatSession({
+            //   sessionId,
+            //   text,
+            //   tokenCount: usage?.outputTokens ?? 0,
+            // });
           }
         } catch (err) {
           console.error("Error saving assistant message:", err);
