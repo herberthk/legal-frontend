@@ -62,10 +62,9 @@ const UserDashboard = () => {
       .filter((r) => r.type === "TEXT_RESPONSE")
       .reduce((sum, r) => sum + r.tokens, 0);
 
-    // const voiceSeconds = tokenHistory
-    //   .filter((r) => r.type === "VOICE_SESSION")
-    //   .reduce((sum, r) => sum + r.duration, 0);
-    const voiceSeconds = 300;
+    const voiceSeconds = tokenHistory
+      .filter((r) => r.type === "VOICE_SESSION")
+      .reduce((sum, r) => sum + r.seconds, 0);
     // Convert seconds to minutes for display
     const voiceMinutes = parseFloat((voiceSeconds / 60).toFixed(2));
 

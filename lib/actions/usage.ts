@@ -84,7 +84,7 @@ export const recordUsageAndDeduct = async (params: {
           // Deduct exclusively from free token quota first
           welcomeTextTokens = Math.max(0, welcomeTextTokens - tokens);
           source = "welcome";
-        } else if (freeTokens > 0) {
+        } else if (freeTokens > 0 && welcomeTextTokens === 0) {
           // Deduct exclusively from free token quota first
           freeTokens = Math.max(0, freeTokens - tokens);
           source = "free";
