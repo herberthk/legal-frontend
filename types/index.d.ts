@@ -40,7 +40,8 @@ declare global {
     status: "active" | "suspended";
     voicePreference?: string;
     // Tier Tracking
-    freeTextTokens: number; // Daily Recurring Limit (1000) but 4000 at sign up
+    welcomeTextTokens: number; // One-time welcome bonus (4000)
+    freeTextTokens: number; // Daily Recurring Limit (1000)
     freeVoiceSeconds: number; // One-time welcome bonus (300s = 5mins)
     nextDailyReset: string; // ISO Date string — next reset time
     createdAt: string; // ISO Date string
@@ -166,6 +167,7 @@ declare global {
     attachment?: { name: string; type: string; url: string };
   };
 
+  type UsageSource = "free" | "paid" | "welcome";
   // --- Usage Tracking Types ---
   type UsageRecord = {
     id: string;
@@ -174,7 +176,7 @@ declare global {
     tokens: number;
     cost: number;
     seconds: number;
-    // source: "free" | "welcome" | "paid";
+    source: UsageSource;
     sessionId: string;
     createdAt: string;
   };

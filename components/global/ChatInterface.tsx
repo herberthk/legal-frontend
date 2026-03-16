@@ -11,11 +11,8 @@ import {
   Server,
   WifiOff,
   Wifi,
-  ServerCrash,
-  X,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import MakdownFormater from "./MakdownFormater";
 import { useAuthStore } from "@/store";
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
@@ -96,16 +93,6 @@ const ChatInterface = ({
     useState<ConnectionStatus>("connected");
   const [showOnlineBadge, setShowOnlineBadge] = useState(false);
 
-  // --- Upload State ---
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [tempFileName, setTempFileName] = useState("");
-  const [pendingAttachment, setPendingAttachment] = useState<{
-    name: string;
-    type: string;
-    data: string;
-  } | null>(null);
-
   // --- Billing & Error Banner State ---
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingBannerVisible, setBillingBannerVisible] = useState(false);
@@ -119,22 +106,13 @@ const ChatInterface = ({
   const dismissChatErrorBanner = () => setChatErrorBannerVisible(false);
 
   // --- Input Focus State ---
-  const [isInputFocused, setIsInputFocused] = useState(false);
-
-  // --- Refs ---
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const fileReaderRef = useRef<FileReader | null>(null);
-  const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
   // Holds the latest chatSessionId synchronously — never stale even within the
   // same render tick as setChatSessionId.
   const chatSessionIdRef = useRef<string | null>(chatId || null);
   // Prevents the auto-trigger effect from firing more than once per mount.
   const autoTriggeredRef = useRef(false);
-
-  // Manual input state
-  const [input, setInput] = useState("");
 
   /**
    * Ensures a chat session exists. Creates one if needed.
@@ -462,24 +440,19 @@ const ChatInterface = ({
     };
   }, [connectionStatus]);
 
-  // Cleanup upload timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (uploadTimeoutRef.current) {
-        clearTimeout(uploadTimeoutRef.current);
-      }
-    };
-  }, []);
-
   // Auto-scroll to bottom
-  useEffect(() => {
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, pendingAttachment, isUploading, isLoading, isInputFocused]);
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
 
   // --- Send Message ---
   const handleSend = async (
-    manualInput?: string,
-    manualAttachment?: { name: string; type: string; data: string },
+    textToSend: string,
+    attachmentToSend?: { name: string; type: string; data: string },
   ) => {
     if (connectionStatus === "offline") return;
     setBillingError(null);
@@ -494,12 +467,8 @@ const ChatInterface = ({
       return;
     }
 
-    const textToSend = manualInput ?? input;
-    const attachmentToSend = manualAttachment ?? pendingAttachment;
-
     // Guard clauses
     if (isLoading) return;
-    if (!manualInput && !manualAttachment && isUploading) return;
     if (!textToSend.trim() && !attachmentToSend) return;
 
     // Track whether this is a brand-new session BEFORE any async work
@@ -533,9 +502,6 @@ const ChatInterface = ({
         }),
       );
 
-      if (!manualInput) setInput("");
-      if (!manualAttachment) setPendingAttachment(null);
-
       // Navigate — the auto-trigger effect on the new page handles the rest
       if (onChatCreated) onChatCreated(sessionId);
       return;
@@ -561,9 +527,6 @@ const ChatInterface = ({
     } else {
       sendMessage({ text: textToSend });
     }
-
-    if (!manualInput) setInput("");
-    if (!manualAttachment) setPendingAttachment(null);
   };
 
   // --- Retry ---
@@ -571,68 +534,6 @@ const ChatInterface = ({
     if (connectionStatus === "offline") return;
     regenerate();
   };
-
-  // --- Voice ---
-  const handleStartVoice = () => router.push("/dashboard/user/voice");
-
-  // --- File Upload ---
-  const cancelUpload = () => {
-    if (fileReaderRef.current) fileReaderRef.current.abort();
-    if (uploadTimeoutRef.current) clearTimeout(uploadTimeoutRef.current);
-    setIsUploading(false);
-    setPendingAttachment(null);
-    setTempFileName("");
-    setUploadProgress(0);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setPendingAttachment(null);
-    setIsUploading(true);
-    setUploadProgress(0);
-    setTempFileName(file.name);
-
-    const reader = new FileReader();
-    fileReaderRef.current = reader;
-
-    reader.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        setUploadProgress(percent);
-      }
-    };
-
-    reader.onload = (evt) => {
-      uploadTimeoutRef.current = setTimeout(() => {
-        const result = evt.target?.result as string;
-        const base64Data = result.split(",")[1];
-        const newAttachment = {
-          name: file.name,
-          type: file.type,
-          data: base64Data,
-        };
-        setIsUploading(false);
-        setTempFileName("");
-        fileReaderRef.current = null;
-        handleSend("Please summarize this document.", newAttachment);
-      }, 600);
-    };
-
-    reader.onerror = () => {
-      setIsUploading(false);
-      setTempFileName("");
-    };
-
-    reader.readAsDataURL(file);
-    e.target.value = "";
-  };
-
-  const clearAttachment = () => setPendingAttachment(null);
-  const activeFileName = pendingAttachment?.name || tempFileName;
-  const isImage = pendingAttachment?.type.includes("image") || false;
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 transition-colors duration-200 relative">
@@ -800,192 +701,10 @@ const ChatInterface = ({
                     <div
                       className={`prose prose-sm max-w-none wrap-break-word ${msg.role === "user" ? "prose-invert" : "dark:prose-invert"}`}
                     >
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          p: ({ node, ...props }) => (
-                            <p className="mb-2 last:mb-0" {...props} />
-                          ),
-                          a: ({ node, ...props }) => (
-                            <a
-                              className={`underline decoration-1 underline-offset-2 transition-colors font-medium ${
-                                msg.role === "user"
-                                  ? "text-white decoration-white/50 hover:decoration-white"
-                                  : "text-orange-600 dark:text-orange-400 decoration-orange-600/30 dark:decoration-orange-400/30 hover:decoration-orange-600 dark:hover:decoration-orange-400"
-                              }`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              {...props}
-                            />
-                          ),
-                          code: ({
-                            node,
-                            className,
-                            children,
-                            ...props
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          }: any) => {
-                            const match = /language-(\w+)/.exec(
-                              className || "",
-                            );
-                            const isInline =
-                              !match && !String(children).includes("\n");
-
-                            return isInline ? (
-                              <code
-                                className={`px-1.5 py-0.5 rounded font-mono text-xs ${
-                                  msg.role === "user"
-                                    ? "bg-black/20 text-white border border-white/10"
-                                    : "bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
-                                }`}
-                                {...props}
-                              >
-                                {children}
-                              </code>
-                            ) : (
-                              <div
-                                className={`rounded-lg overflow-hidden my-3 border ${
-                                  msg.role === "user"
-                                    ? "bg-black/20 border-white/10 text-white"
-                                    : "bg-slate-900 border-slate-700 text-slate-200"
-                                }`}
-                              >
-                                <div
-                                  className={`px-4 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider border-b flex items-center justify-between ${
-                                    msg.role === "user"
-                                      ? "border-white/10 bg-white/5"
-                                      : "border-slate-700 bg-slate-950"
-                                  }`}
-                                >
-                                  <span>{match ? match[1] : "code"}</span>
-                                </div>
-                                <div className="overflow-x-auto">
-                                  <pre className="p-3 text-xs font-mono leading-relaxed bg-transparent m-0">
-                                    <code className={className} {...props}>
-                                      {children}
-                                    </code>
-                                  </pre>
-                                </div>
-                              </div>
-                            );
-                          },
-                          blockquote: ({ node, ...props }) => (
-                            <blockquote
-                              className={`border-l-4 pl-4 py-1 my-4 italic ${
-                                msg.role === "user"
-                                  ? "border-white/40 text-white/90 bg-white/5 rounded-r-lg"
-                                  : "border-orange-500/50 text-slate-600 dark:text-slate-400 bg-orange-50/50 dark:bg-orange-900/10 rounded-r-lg"
-                              }`}
-                              {...props}
-                            />
-                          ),
-                          ul: ({ node, ...props }) => (
-                            <ul
-                              className={`list-disc pl-5 my-2 space-y-1 ${
-                                msg.role === "user"
-                                  ? "marker:text-white/70"
-                                  : "marker:text-orange-500"
-                              }`}
-                              {...props}
-                            />
-                          ),
-                          ol: ({ node, ...props }) => (
-                            <ol
-                              className={`list-decimal pl-5 my-2 space-y-1 ${
-                                msg.role === "user"
-                                  ? "marker:text-white/70"
-                                  : "marker:text-orange-500"
-                              }`}
-                              {...props}
-                            />
-                          ),
-                          li: ({ node, ...props }) => (
-                            <li className="pl-1" {...props} />
-                          ),
-                          h1: ({ node, ...props }) => (
-                            <h1
-                              className={`text-xl font-bold mb-3 mt-4 ${msg.role === "user" ? "text-white" : "text-slate-900 dark:text-white"}`}
-                              {...props}
-                            />
-                          ),
-                          h2: ({ node, ...props }) => (
-                            <h2
-                              className={`text-lg font-bold mb-2 mt-3 ${msg.role === "user" ? "text-white" : "text-slate-900 dark:text-white"}`}
-                              {...props}
-                            />
-                          ),
-                          h3: ({ node, ...props }) => (
-                            <h3
-                              className={`text-base font-bold mb-2 mt-3 ${msg.role === "user" ? "text-white" : "text-slate-900 dark:text-white"}`}
-                              {...props}
-                            />
-                          ),
-                          table: ({ node, ...props }) => (
-                            <div className="overflow-x-auto my-4 rounded-lg border border-opacity-20 overflow-hidden shadow-sm">
-                              <table
-                                className={`min-w-full divide-y ${
-                                  msg.role === "user"
-                                    ? "divide-white/20 border-white/20"
-                                    : "divide-slate-200 dark:divide-slate-700 border-slate-200 dark:border-slate-700"
-                                }`}
-                                {...props}
-                              />
-                            </div>
-                          ),
-                          thead: ({ node, ...props }) => (
-                            <thead
-                              className={
-                                msg.role === "user"
-                                  ? "bg-white/10"
-                                  : "bg-slate-50 dark:bg-slate-800"
-                              }
-                              {...props}
-                            />
-                          ),
-                          th: ({ node, ...props }) => (
-                            <th
-                              className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${
-                                msg.role === "user"
-                                  ? "text-white/90"
-                                  : "text-slate-500 dark:text-slate-400"
-                              }`}
-                              {...props}
-                            />
-                          ),
-                          tbody: ({ node, ...props }) => (
-                            <tbody
-                              className={`divide-y ${
-                                msg.role === "user"
-                                  ? "divide-white/10"
-                                  : "divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900"
-                              }`}
-                              {...props}
-                            />
-                          ),
-                          tr: ({ node, ...props }) => (
-                            <tr
-                              className={
-                                msg.role === "user"
-                                  ? "hover:bg-white/5 transition-colors"
-                                  : "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                              }
-                              {...props}
-                            />
-                          ),
-                          td: ({ node, ...props }) => (
-                            <td
-                              className={`px-4 py-2.5 text-sm whitespace-pre-wrap ${
-                                msg.role === "user"
-                                  ? "text-white"
-                                  : "text-slate-600 dark:text-slate-300"
-                              }`}
-                              {...props}
-                            />
-                          ),
-                        }}
-                      >
-                        {msgText}
-                      </ReactMarkdown>
+                      <MakdownFormater
+                        content={msgText}
+                        role={msg.role as "user" | "assistant" | "system" | "data"}
+                      />
                       {msgIsStreaming && (
                         <span
                           className={`inline-block w-1.5 h-4 ml-1 animate-pulse align-middle rounded-sm ${
@@ -1052,23 +771,10 @@ const ChatInterface = ({
 
       {/* Input Area */}
       <ChatInput
-        clearAttachment={clearAttachment}
-        cancelUpload={cancelUpload}
-        input={input}
-        setInput={setInput}
-        pendingAttachment={pendingAttachment}
-        isUploading={isUploading}
-        uploadProgress={uploadProgress}
-        isInputFocused={isInputFocused}
-        setIsInputFocused={setIsInputFocused}
-        handleSend={handleSend}
-        handleStartVoice={handleStartVoice}
-        fileInputRef={fileInputRef}
-        handleFileSelect={handleFileSelect}
+        onSend={handleSend}
         connectionStatus={connectionStatus}
         isLoading={isLoading}
-        activeFileName={activeFileName}
-        isImage={isImage}
+        onHeightChange={scrollToBottom}
       />
     </div>
   );

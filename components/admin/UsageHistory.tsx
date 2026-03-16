@@ -76,7 +76,6 @@ const UsageHistory = ({ userId }: Props) => {
 
   const getTypeIcon = (type: UsageRecord["type"]) => {
     switch (type) {
-      case "TEXT_PROMPT":
       case "TEXT_RESPONSE":
         return <FileTextIcon size={14} />;
       case "VOICE_SESSION":
@@ -86,8 +85,6 @@ const UsageHistory = ({ userId }: Props) => {
 
   const getTypeLabel = (type: UsageRecord["type"]) => {
     switch (type) {
-      case "TEXT_PROMPT":
-        return "Text Prompt";
       case "TEXT_RESPONSE":
         return "AI Response";
       case "VOICE_SESSION":
@@ -103,12 +100,7 @@ const UsageHistory = ({ userId }: Props) => {
             Free
           </span>
         );
-      case "welcome":
-        return (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-bold">
-            Welcome
-          </span>
-        );
+
       case "paid":
         return (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 font-bold">
@@ -159,10 +151,7 @@ const UsageHistory = ({ userId }: Props) => {
 
       {/* Filters */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <Filter
-          size={14}
-          className="text-slate-400 shrink-0"
-        />
+        <Filter size={14} className="text-slate-400 shrink-0" />
         {FILTER_OPTIONS.map((opt) => (
           <button
             key={opt.value}

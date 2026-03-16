@@ -11,11 +11,12 @@ const AdminDashboard = () => {
   const tokenUsageHistory = useAppStore((state) => state.tokenUsageHistory);
   // Calculate stats from tokenHistory or use mocks
   const textTokens = tokenUsageHistory
-    .filter((r) => r.unit === "TOKENS")
-    .reduce((a, b) => a + b.amount, 0);
-  const voiceSeconds = tokenUsageHistory
-    .filter((r) => r.unit === "SECONDS")
-    .reduce((a, b) => a + b.amount, 0);
+    .filter((r) => r.type === "TEXT_RESPONSE")
+    .reduce((a, b) => a + b.tokens, 0);
+  // const voiceSeconds = tokenUsageHistory
+  //   .filter((r) => r.type === "VOICE_SESSION")
+  //   .reduce((a, b) => a + b.duration, 0);
+  const voiceSeconds = 300;
 
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
@@ -104,19 +105,19 @@ const AdminDashboard = () => {
                   className="flex items-center gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0"
                 >
                   <div
-                    className={`w-2 h-2 rounded-full ${rec.unit === "TOKENS" ? "bg-blue-500" : "bg-purple-500"}`}
+                    className={`w-2 h-2 rounded-full ${rec.type === "TEXT_RESPONSE" ? "bg-blue-500" : "bg-purple-500"}`}
                   ></div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-slate-900 dark:text-white">
                       {rec.type}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {rec.amount} {rec.unit.toLowerCase()} consumption
+                      {rec.tokens} {rec.tokens} consumption
                     </p>
                   </div>
                   <span className="text-xs text-slate-400 font-mono">
                     {mounted
-                      ? new Date(rec.timestamp).toLocaleTimeString()
+                      ? new Date(rec.createdAt).toLocaleTimeString()
                       : "--:--"}
                   </span>
                 </div>
