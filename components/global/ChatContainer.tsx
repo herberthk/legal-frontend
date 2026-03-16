@@ -3,23 +3,28 @@
 import React, { useState, useEffect } from "react";
 import ChatInterface from "./ChatInterface";
 import ChatHistorySidebar from "./ChatHistorySidebar";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 
 interface ChatContainerProps {
   serverChatId?: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  serverMessages?: any[] | null;
+  serverMessages?: ChatMessageRecord[] | null;
   serverSessions?: ChatSession[] | null;
 }
 
 const CHAT_BASE = "/dashboard/user/chat";
 
-const ChatContainer = ({ serverChatId, serverMessages, serverSessions }: ChatContainerProps) => {
+const ChatContainer = ({
+  serverChatId,
+  serverMessages,
+  serverSessions,
+}: ChatContainerProps) => {
   const router = useRouter();
 
   // serverChatId is the SSR-injected value from the [chatId] route segment.
   // It is the single source of truth — no need to read query params.
-  const [activeChatId, setActiveChatId] = useState<string | null>(serverChatId || null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(
+    serverChatId || null,
+  );
 
   // Keep local state in sync when Next.js re-renders the page with a new segment
   useEffect(() => {

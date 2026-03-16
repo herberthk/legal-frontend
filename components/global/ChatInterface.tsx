@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import {
   User as UserIcon,
   Scale,
@@ -12,6 +12,7 @@ import {
   WifiOff,
   Wifi,
   Coins,
+  ServerCrash,
   X,
   Lock,
   CreditCard,
@@ -26,7 +27,6 @@ import { useRouter } from "nextjs-toploader/app";
 import {
   checkUserCanSend,
   createChatSession,
-  saveChatMessage,
   getChatMessages,
 } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/actions/auth";
@@ -108,15 +108,17 @@ const ChatInterface = ({
     data: string;
   } | null>(null);
 
-  // --- Billing Banner State ---
+  // --- Billing & Error Banner State ---
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingBannerVisible, setBillingBannerVisible] = useState(false);
+  const [chatErrorBannerVisible, setChatErrorBannerVisible] = useState(false);
 
   const showBillingBanner = (msg: string) => {
     setBillingError(msg);
     setBillingBannerVisible(true);
   };
   const dismissBillingBanner = () => setBillingBannerVisible(false);
+  const dismissChatErrorBanner = () => setChatErrorBannerVisible(false);
 
   // --- Input Focus State ---
   const [isInputFocused, setIsInputFocused] = useState(false);
@@ -234,7 +236,10 @@ const ChatInterface = ({
       // prepareSendMessagesRequest is called right before each fetch, so
       // chatSessionIdRef.current is always the newest value — never stale.
       prepareSendMessagesRequest: ({ messages: msgs, id }) => ({
-        headers: { "x-chat-id": chatSessionIdRef.current ?? "" },
+        headers: {
+          "x-chat-id": chatSessionIdRef.current ?? "",
+          "x-first-message": !chatSessionId ? "true" : "false",
+        },
         body: { messages: msgs, id },
       }),
     }),
@@ -260,10 +265,12 @@ const ChatInterface = ({
       }
       // Handle 403 (insufficient funds) from API route
       if (msg.includes("insufficient funds") || msg.includes("403")) {
-        setBillingError(
+        showBillingBanner(
           "Insufficient funds or free tokens. Please add funds to continue.",
         );
-        setTimeout(() => setBillingError(null), 5000);
+      } else {
+        // Show general error banner
+        setChatErrorBannerVisible(true);
       }
     },
   });
@@ -271,10 +278,30 @@ const ChatInterface = ({
   const isLoadingChat = status === "submitted" || status === "streaming";
   const isLoading = isLoadingChat || isFetchingHistory;
 
+  // --- SSR Hydration: populate messages before first paint ---
+  // useLayoutEffect runs synchronously before the browser paints, so messages
+  // from SSR props are visible immediately — equivalent to initialMessages but
+  // compatible with @ai-sdk/react v3 which removed that option.
+  useLayoutEffect(() => {
+    if (initialHistory.messages.length > 0) {
+      setMessages(initialHistory.messages);
+    }
+    if (initialHistory.tokens > 0) {
+      setSessionStats((prev) => ({
+        ...prev,
+        textTokens: initialHistory.tokens,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount-only — initialHistory is stable (useMemo with [] deps)
+
   // --- Fetch Chat History ---
+  // Only needed when navigating to a chat that was NOT server-side prefetched
+  // (e.g. switching chats via the sidebar after initial load). When useChat
+  // is seeded with initialMessages the effect short-circuits immediately.
   useEffect(() => {
     const loadChatHistory = async () => {
-      // If no chatId provided, reset to a blank new chat
+      // Reset to blank when there is no active chat
       if (!chatId) {
         setChatSessionId(null);
         setMessages([initialMessage]);
@@ -282,49 +309,30 @@ const ChatInterface = ({
         return;
       }
 
-      if (chatId === chatSessionId && messages.length > 1) {
-        return; // Already loaded this chat
-      }
+      // messages is already populated (from initialMessages or a previous load)
+      if (chatId === chatSessionId && messages.length > 1) return;
 
-      // If there is a pending auto-trigger for this chatId, the new page will
-      // display and stream the message via sendMessage — skip history load so
-      // we don't race with the incoming stream or overwrite it.
+      // Auto-trigger handles the brand-new session case — don't race with it
       if (sessionStorage.getItem(`chat_pending_${chatId}`)) return;
 
-      // If the chatId matches the one SSR-prefetched, use serverMessages directly
+      // The current chatId matches what was SSR-prefetched: initialMessages
+      // already holds the data, just sync the session-ID state.
       if (
         chatId === serverChatId &&
         serverMessages &&
         serverMessages.length > 0
       ) {
         setChatSessionId(chatId);
-        let totalTokens = 0;
-        const historyMessages: UIMessage[] = serverMessages.map((m) => {
-          totalTokens += m.tokenCount || 0;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const parts: any[] = [{ type: "text", text: m.text }];
-
-          if (m.attachment) {
-            parts.push({
-              type: "file",
-              mediaType: m.attachment.type,
-              filename: m.attachment.name,
-              url: m.attachment.url || "",
-            });
-          }
-
-          return {
-            id: m.id || generateId(),
-            role: m.role,
-            parts,
-            metadata: { createdAt: new Date(m.createdAt) },
-          };
-        });
+        const totalTokens = serverMessages.reduce(
+          (sum: number, m: { tokenCount?: number }) =>
+            sum + (m.tokenCount || 0),
+          0,
+        );
         setSessionStats((prev) => ({ ...prev, textTokens: totalTokens }));
-        setMessages(historyMessages);
-        return;
+        return; // initialMessages already has these messages — no setMessages needed
       }
 
+      // Fallback: fetch from Firestore (sidebar navigation to a non-prefetched chat)
       setIsFetchingHistory(true);
       setChatSessionId(chatId);
 
@@ -336,7 +344,6 @@ const ChatInterface = ({
             totalTokens += m.tokenCount || 0;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const parts: any[] = [{ type: "text", text: m.text }];
-
             if (m.attachment) {
               parts.push({
                 type: "file",
@@ -345,7 +352,6 @@ const ChatInterface = ({
                 url: m.attachment.url || "",
               });
             }
-
             return {
               id: m.id || generateId(),
               role: m.role,
@@ -353,15 +359,14 @@ const ChatInterface = ({
               metadata: { createdAt: new Date(m.createdAt) },
             };
           });
-
           setSessionStats((prev) => ({ ...prev, textTokens: totalTokens }));
           setMessages(historyMessages);
         } else {
           setMessages([initialMessage]);
           setSessionStats({ textTokens: 0, voiceSeconds: 0 });
         }
-      } catch (error) {
-        console.error("Failed to load history:", error);
+      } catch (err) {
+        console.error("Failed to load history:", err);
       } finally {
         setIsFetchingHistory(false);
       }
@@ -369,14 +374,9 @@ const ChatInterface = ({
 
     loadChatHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId]); // We specifically only want this to run when the prop changes
+  }, [chatId]);
 
   // --- Auto-trigger AI for newly created chats ---
-  // When navigating from /chat to /chat/[chatId] (new session), handleSend
-  // saves the user message to Firestore and stores a pending payload in
-  // sessionStorage instead of calling sendMessage. This effect picks that up
-  // on the destination page and fires sendMessage so both the user turn and the
-  // AI stream happen on the correct URL — just like ChatGPT / Gemini.
   useEffect(() => {
     if (!chatId || autoTriggeredRef.current) return;
 
@@ -394,7 +394,6 @@ const ChatInterface = ({
         attachment?: { name: string; type: string; data: string };
       } = JSON.parse(raw);
 
-      // Update the ref and state so chatSessionIdRef carries the right ID
       chatSessionIdRef.current = chatId;
       setChatSessionId(chatId);
       setSessionStats((prev) => ({
@@ -402,7 +401,11 @@ const ChatInterface = ({
         textTokens: prev.textTokens + pending.estimatedTokens,
       }));
 
-      // Fire the AI call — sendMessage adds the user bubble and streams the reply
+      // Clear any greeting/stale messages that initialMessages may have set
+      // so the user bubble and AI stream start on a clean slate.
+      setMessages([]);
+
+      // sendMessage adds the user bubble and starts the AI stream
       if (pending.attachment) {
         const dataUrl = `data:${pending.attachment.type};base64,${pending.attachment.data}`;
         sendMessage({
@@ -420,7 +423,6 @@ const ChatInterface = ({
         sendMessage({ text: pending.text });
       }
     } catch {
-      // Corrupted payload — ignore
       sessionStorage.removeItem(`chat_pending_${chatId}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -519,21 +521,6 @@ const ChatInterface = ({
       textTokens: prev.textTokens + estimatedTokens,
     }));
 
-    // Persist the user message to Firestore (fire-and-forget)
-    saveChatMessage(sessionId, {
-      role: "user",
-      text: textToSend,
-      tokenCount: estimatedTokens,
-      isFirstMessage: isNewSession,
-      ...(attachmentToSend && {
-        attachment: {
-          name: attachmentToSend.name,
-          type: attachmentToSend.type,
-          url: "",
-        },
-      }),
-    });
-
     if (isNewSession) {
       // ── NEW CHAT ──────────────────────────────────────────────────────────
       // Store the pending message so the destination page can pick it up and
@@ -558,6 +545,8 @@ const ChatInterface = ({
 
     // ── EXISTING CHAT ────────────────────────────────────────────────────────
     // Send via Vercel AI SDK (adds user bubble + triggers stream)
+    // console.log("attachmentToSend", attachmentToSend);
+    // console.log("textToSend", textToSend);
     if (attachmentToSend) {
       const dataUrl = `data:${attachmentToSend.type};base64,${attachmentToSend.data}`;
       sendMessage({
@@ -749,13 +738,79 @@ const ChatInterface = ({
             </div>
           </div>
         )}
-        {/* Chat Error Toast */}
-        {chatError && !billingError && (
-          <div className="bg-red-600 text-white text-sm font-bold py-2 px-4 text-center flex justify-center items-center gap-2 shadow-lg animate-in slide-in-from-top-0">
-            <AlertTriangle size={16} />
-            <span>
-              {chatError.message || "An error occurred. Please try again."}
-            </span>
+        {/* ── Chat Error Banner ─────────────────────────────────────────── */}
+        {chatErrorBannerVisible && chatError && !billingError && (
+          <div
+            className="fixed inset-0 z-100 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chat error notice"
+          >
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+              onClick={dismissChatErrorBanner}
+            />
+
+            {/* Card */}
+            <div className="relative w-full max-w-sm animate-in fade-in zoom-in-95 duration-300">
+              <div className="absolute -inset-px rounded-2xl bg-linear-to-br from-red-400 via-rose-400 to-red-500 opacity-60 blur-sm" />
+
+              <div className="relative rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+                <div className="h-1.5 bg-linear-to-r from-red-400 via-rose-400 to-red-600" />
+
+                <button
+                  onClick={dismissChatErrorBanner}
+                  className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-150"
+                  aria-label="Dismiss"
+                >
+                  <X size={16} />
+                </button>
+
+                <div className="p-8 pb-6">
+                  {/* Icon badge */}
+                  <div className="flex justify-center mb-5">
+                    <div className="w-16 h-16 rounded-full bg-linear-to-br from-red-100 to-rose-100 dark:from-red-900/40 dark:to-rose-900/40 flex items-center justify-center shadow-inner">
+                      <ServerCrash
+                        size={28}
+                        className="text-red-500 dark:text-red-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Text */}
+                  <div className="text-center mb-6">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                      Request Failed
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-h-24 overflow-y-auto custom-scrollbar">
+                      {chatError.message ||
+                        "An unexpected error occurred while processing your request."}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={() => {
+                        dismissChatErrorBanner();
+                        handleRetry();
+                      }}
+                      className="flex items-center justify-center gap-2 w-full py-3 px-5 rounded-xl bg-linear-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold text-sm shadow-md shadow-red-500/30 transition-all duration-200 hover:shadow-red-500/50 hover:-translate-y-0.5"
+                    >
+                      <RefreshCw size={15} />
+                      Try Again
+                    </button>
+                    <button
+                      onClick={dismissChatErrorBanner}
+                      className="w-full py-2.5 px-5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-150"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
