@@ -29,13 +29,13 @@ export async function POST(req: Request) {
 
     const lastUserMessage = messages[messages.length - 1];
     // console.log("lastUserMessage", lastUserMessage);
-    // console.log("is first message", isFirstMessage);
+    console.log("is first message", isFirstMessage);
 
     //@ts-ignore
     const textToSend = lastUserMessage.parts[0].text;
     const estimatedInputTokens = Math.ceil(textToSend.length / 4);
     const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-    // console.log("messages", historyMessages.length);
+    console.log("messages", historyMessages.length);
     const result = streamText({
       model: google("gemini-2.5-flash"),
       system: BASE_SYSTEM_INSTRUCTION,
