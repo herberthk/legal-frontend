@@ -13,10 +13,9 @@ const AdminDashboard = () => {
   const textTokens = tokenUsageHistory
     .filter((r) => r.type === "TEXT_RESPONSE")
     .reduce((a, b) => a + b.tokens, 0);
-  // const voiceSeconds = tokenUsageHistory
-  //   .filter((r) => r.type === "VOICE_SESSION")
-  //   .reduce((a, b) => a + b.duration, 0);
-  const voiceSeconds = 300;
+  const voiceSeconds = tokenUsageHistory
+    .filter((r) => r.type === "VOICE_SESSION")
+    .reduce((a, b) => a + b.seconds, 0);
 
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
@@ -112,7 +111,9 @@ const AdminDashboard = () => {
                       {rec.type}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {rec.tokens} {rec.tokens} consumption
+                      {rec.tokens}{" "}
+                      {rec.type === "TEXT_RESPONSE" ? "tokens" : "seconds"}
+                      consumption
                     </p>
                   </div>
                   <span className="text-xs text-slate-400 font-mono">
