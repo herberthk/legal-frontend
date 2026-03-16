@@ -28,8 +28,9 @@ export const checkUserCanSend = async (
     // Check if user has any available resources
     const hasFreeTokens = user.freeTextTokens > 10;
     const hasPaidBalance = user.balance > COST_PER_THOUSAND_TOKENS;
+    const hasWelcomeTokens = user.welcomeTextTokens > 10;
 
-    if (hasFreeTokens || hasPaidBalance) {
+    if (hasFreeTokens || hasPaidBalance || hasWelcomeTokens) {
       return { canSend: true, user };
     }
 
@@ -71,22 +72,29 @@ export const recordUsageAndDeduct = async (params: {
       }
 
       const user = userDoc.data() as Omit<User, "id">;
-
+      let source: UsageSource = "free";
       let totalCost = 0;
       let freeTokens = user.freeTextTokens;
       let balance = user.balance;
       let freeSeconds = user.freeVoiceSeconds;
+      let welcomeTextTokens = user.welcomeTextTokens;
 
       if (type === "TEXT_RESPONSE") {
-        if (freeTokens > 0) {
+        if (welcomeTextTokens > 0) {
+          // Deduct exclusively from free token quota first
+          welcomeTextTokens = Math.max(0, welcomeTextTokens - tokens);
+          source = "welcome";
+        } else if (freeTokens > 0) {
           // Deduct exclusively from free token quota first
           freeTokens = Math.max(0, freeTokens - tokens);
+          source = "free";
         } else {
           // No free tokens left — deduct from paid balance
           const tokensInThousand = tokens / 1000;
           const cost = tokensInThousand * COST_PER_THOUSAND_TOKENS;
           balance = Math.max(0, balance - cost);
           totalCost = cost;
+          source = "paid";
         }
       }
 
@@ -94,12 +102,14 @@ export const recordUsageAndDeduct = async (params: {
         if (freeSeconds > 0) {
           // Deduct exclusively from free voice quota first
           freeSeconds = Math.max(0, freeSeconds - seconds);
+          source = "free";
         } else {
           // No free seconds left — deduct from paid balance
           const minutes = seconds / 60;
           const cost = minutes * COST_PER_VOICE_MINUTE;
           balance = Math.max(0, balance - cost);
           totalCost = cost;
+          source = "paid";
         }
       }
 
@@ -107,6 +117,7 @@ export const recordUsageAndDeduct = async (params: {
       transaction.update(userRef, {
         freeTextTokens: freeTokens,
         balance,
+        welcomeTextTokens,
         freeVoiceSeconds: freeSeconds,
         totalSpent: (user.totalSpent || 0) + totalCost,
       });
@@ -120,6 +131,7 @@ export const recordUsageAndDeduct = async (params: {
         cost: totalCost,
         sessionId,
         seconds,
+        source,
         createdAt: new Date().toISOString(),
       });
 

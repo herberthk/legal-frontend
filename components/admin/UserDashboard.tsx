@@ -1,12 +1,5 @@
 "use client";
-import {
-  DAILY_FREE_TOKENS,
-  generateMockVoiceSessions,
-  generateUserTransactions,
-  voices,
-  WELCOME_BONUS_TOKENS,
-  WELCOME_BONUS_VOICE_SECONDS,
-} from "@/constants";
+import { generateUserTransactions, voices } from "@/constants";
 import { useAppStore, useThemeStore } from "@/store";
 import {
   PlusCircle,
@@ -66,13 +59,13 @@ const UserDashboard = () => {
 
   const usageStats = useMemo(() => {
     const textTokens = tokenHistory
-      .filter((r) => r.unit === "TOKENS")
-      .reduce((sum, r) => sum + r.amount, 0);
+      .filter((r) => r.type === "TEXT_RESPONSE")
+      .reduce((sum, r) => sum + r.tokens, 0);
 
-    const voiceSeconds = tokenHistory
-      .filter((r) => r.unit === "SECONDS")
-      .reduce((sum, r) => sum + r.amount, 0);
-
+    // const voiceSeconds = tokenHistory
+    //   .filter((r) => r.type === "VOICE_SESSION")
+    //   .reduce((sum, r) => sum + r.duration, 0);
+    const voiceSeconds = 300;
     // Convert seconds to minutes for display
     const voiceMinutes = parseFloat((voiceSeconds / 60).toFixed(2));
 
@@ -111,7 +104,6 @@ const UserDashboard = () => {
   // If Welcome Tokens > 0, we show Welcome Bonus Card.
   // If Welcome Tokens == 0, we show Daily Limit Card.
   const isWelcomeActive = user?.welcomeTextTokens > 0;
-  const isWelcomeTextEmpty = user?.welcomeTextTokens === 0;
   const isDailyTextEmpty = user?.freeTextTokens === 0;
 
   // Total Capacities for reference
@@ -737,19 +729,19 @@ const UserDashboard = () => {
                 className="flex items-center gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors animate-in fade-in slide-in-from-left-2"
               >
                 <div
-                  className={`w-2 h-2 rounded-full ${rec.unit === "TOKENS" ? "bg-blue-500" : "bg-purple-500"}`}
+                  className={`w-2 h-2 rounded-full ${rec.type === "TEXT_RESPONSE" ? "bg-blue-500" : "bg-purple-500"}`}
                 ></div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-slate-900 dark:text-white">
                     Usage Recorded
                   </p>
                   <p className="text-xs text-slate-500">
-                    {rec.amount} {rec.unit.toLowerCase()} •{" "}
+                    {rec.cost} {rec.type.toLowerCase()} •{" "}
                     {rec.type.replace("_", " ")}
                   </p>
                 </div>
                 <span className="text-xs text-slate-400">
-                  {new Date(rec.timestamp).toLocaleTimeString()}
+                  {new Date(rec.createdAt).toLocaleTimeString()}
                 </span>
               </div>
             ))}

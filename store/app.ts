@@ -6,8 +6,8 @@ import { persist, createJSONStorage } from "zustand/middleware";
 type AppStore = {
   activeTab: string;
   setActiveTab: (activeTab: string) => void;
-  tokenUsageHistory: TokenUsageRecord[];
-  setTokenUsageHistory: (tokenUsageHistory: TokenUsageRecord[]) => void;
+  tokenUsageHistory: UsageRecord[];
+  setTokenUsageHistory: (tokenUsageHistory: UsageRecord[]) => void;
   voiceSessions: VoiceSession[];
   setVoiceSessions: (voiceSessions: VoiceSession[]) => void;
   notifications: Notifications[];
@@ -33,7 +33,7 @@ export const useAppStore = create<AppStore>()(
     (set) => ({
       ...initialState,
       setActiveTab: (activeTab: string) => set({ activeTab }),
-      setTokenUsageHistory: (tokenUsageHistory: TokenUsageRecord[]) =>
+      setTokenUsageHistory: (tokenUsageHistory: UsageRecord[]) =>
         set({ tokenUsageHistory }),
       setVoiceSessions: (voiceSessions: VoiceSession[]) =>
         set({ voiceSessions }),

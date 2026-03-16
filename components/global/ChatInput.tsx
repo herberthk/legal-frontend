@@ -8,52 +8,143 @@ import {
   Send,
   X,
 } from "lucide-react";
-import { FC } from "react";
+import React, { FC, useState, useRef, useEffect } from "react";
 import Disclaimer from "./Disclaimer";
-
+import { useRouter } from "nextjs-toploader/app";
 type ChatInputProps = {
-  input: string;
-  setInput: (input: string) => void;
-  pendingAttachment: {
+  onSend: (
+    text: string,
+    attachment?: { name: string; type: string; data: string },
+  ) => void;
+
+  connectionStatus: string;
+  isLoading: boolean;
+  onHeightChange?: () => void;
+};
+
+const ChatInput: FC<ChatInputProps> = ({
+  onSend,
+
+  connectionStatus,
+  isLoading,
+  onHeightChange,
+}) => {
+  const [input, setInput] = useState("");
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [tempFileName, setTempFileName] = useState("");
+  const [pendingAttachment, setPendingAttachment] = useState<{
     name: string;
     type: string;
     data: string;
-  } | null;
+  } | null>(null);
 
-  isUploading: boolean;
-  uploadProgress: number;
-  isInputFocused: boolean;
-  setIsInputFocused: (isInputFocused: boolean) => void;
-  handleSend: () => void;
-  handleStartVoice: () => void;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-  handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  connectionStatus: ConnectionStatus;
-  isLoading: boolean;
-  clearAttachment: () => void;
-  cancelUpload: () => void;
-  activeFileName: string;
-  isImage: boolean;
-};
-const ChatInput: FC<ChatInputProps> = ({
-  input,
-  setInput,
-  pendingAttachment,
-  isUploading,
-  uploadProgress,
-  isInputFocused,
-  setIsInputFocused,
-  handleSend,
-  handleStartVoice,
-  fileInputRef,
-  handleFileSelect,
-  connectionStatus,
-  isLoading,
-  clearAttachment,
-  cancelUpload,
-  activeFileName,
-  isImage,
-}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileReaderRef = useRef<FileReader | null>(null);
+  const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
+  // Notify parent of layout/height changes for auto-scroll
+  useEffect(() => {
+    onHeightChange?.();
+  }, [input, isUploading, pendingAttachment, isInputFocused, onHeightChange]);
+
+  // Cleanup upload timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (uploadTimeoutRef.current) {
+        clearTimeout(uploadTimeoutRef.current);
+      }
+      if (fileReaderRef.current) {
+        fileReaderRef.current.abort();
+      }
+    };
+  }, []);
+
+  const handleSendClick = () => {
+    if (
+      isLoading ||
+      isUploading ||
+      connectionStatus === "offline" ||
+      (!input.trim() && !pendingAttachment)
+    ) {
+      return;
+    }
+
+    onSend(input, pendingAttachment || undefined);
+    setInput("");
+    setPendingAttachment(null);
+  };
+
+  const cancelUpload = () => {
+    if (fileReaderRef.current) fileReaderRef.current.abort();
+    if (uploadTimeoutRef.current) clearTimeout(uploadTimeoutRef.current);
+    setIsUploading(false);
+    setPendingAttachment(null);
+    setTempFileName("");
+    setUploadProgress(0);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const clearAttachment = () => {
+    setPendingAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPendingAttachment(null);
+    setIsUploading(true);
+    setUploadProgress(0);
+    setTempFileName(file.name);
+
+    const reader = new FileReader();
+    fileReaderRef.current = reader;
+
+    reader.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setUploadProgress(percent);
+      }
+    };
+
+    reader.onload = (evt) => {
+      uploadTimeoutRef.current = setTimeout(() => {
+        const result = evt.target?.result as string;
+        const base64Data = result.split(",")[1];
+        const newAttachment = {
+          name: file.name,
+          type: file.type,
+          data: base64Data,
+        };
+        setIsUploading(false);
+        setTempFileName("");
+        fileReaderRef.current = null;
+
+        // Auto-send upon finishing upload, mimicking the previous behaviour
+        onSend("Please summarize this document.", newAttachment);
+
+        // Reset file input so the same file can be selected again
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }, 600);
+    };
+
+    reader.onerror = () => {
+      setIsUploading(false);
+      setTempFileName("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const activeFileName = pendingAttachment?.name || tempFileName;
+  const isImage = pendingAttachment?.type.includes("image") || false;
+
+  // --- Voice ---
+  const handleGoToVoice = () => router.push("/dashboard/user/voice");
   return (
     <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors">
       <div className="max-w-4xl mx-auto">
@@ -162,7 +253,7 @@ const ChatInput: FC<ChatInputProps> = ({
           </button>
 
           <button
-            onClick={handleStartVoice}
+            onClick={handleGoToVoice}
             className="p-3 mb-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 hover:-rotate-12"
             title="Start Voice Consultation (Live Overlay)"
             type="button"
@@ -179,7 +270,7 @@ const ChatInput: FC<ChatInputProps> = ({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSend();
+                handleSendClick();
               }
             }}
             placeholder={
@@ -198,7 +289,7 @@ const ChatInput: FC<ChatInputProps> = ({
             style={{ minHeight: "56px" }}
           />
           <button
-            onClick={() => handleSend()}
+            onClick={handleSendClick}
             disabled={
               isLoading ||
               isUploading ||
