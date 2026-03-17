@@ -109,8 +109,8 @@ const ChatInterface = ({
   // Holds the latest chatSessionId synchronously — never stale even within the
   // same render tick as setChatSessionId.
   const chatSessionIdRef = useRef<string | null>(chatId || null);
-  // Prevents the auto-trigger effect from firing more than once per mount.
-  const autoTriggeredRef = useRef(false);
+  // Tracks the ID of the chat that was auto-triggered to prevent loading its history
+  const autoTriggeredChatIdRef = useRef<string | null>(null);
 
   /**
    * Ensures a chat session exists. Creates one if needed.
@@ -276,7 +276,12 @@ const ChatInterface = ({
       if (chatId === chatSessionId && messages.length > 1) return;
 
       // Auto-trigger handles the brand-new session case — don't race with it
-      if (sessionStorage.getItem(`chat_pending_${chatId}`)) return;
+      if (
+        sessionStorage.getItem(`chat_pending_${chatId}`) ||
+        autoTriggeredChatIdRef.current === chatId
+      ) {
+        return;
+      }
 
       // The current chatId matches what was SSR-prefetched: initialMessages
       // already holds the data, just sync the session-ID state.
@@ -341,13 +346,13 @@ const ChatInterface = ({
 
   // --- Auto-trigger AI for newly created chats ---
   useEffect(() => {
-    if (!chatId || autoTriggeredRef.current) return;
+    if (!chatId || autoTriggeredChatIdRef.current === chatId) return;
 
     const pendingKey = `chat_pending_${chatId}`;
     const raw = sessionStorage.getItem(pendingKey);
     if (!raw) return;
 
-    autoTriggeredRef.current = true;
+    autoTriggeredChatIdRef.current = chatId;
     sessionStorage.removeItem(pendingKey);
 
     try {
