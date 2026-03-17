@@ -1,5 +1,14 @@
 "use client";
-import { generateUserTransactions, voices } from "@/constants";
+import {
+  COST_PER_THOUSAND_TOKENS,
+  COST_PER_VOICE_MINUTE,
+  FREE_DAILY_TEXT_TOKENS,
+  FREE_WELCOME_TEXT_TOKENS,
+  FREE_WELCOME_VOICE_SECONDS,
+  generateUserTransactions,
+  USD_TO_UGX_EXCHANGE_RATE,
+  voices,
+} from "@/constants";
 import { useAppStore, useThemeStore } from "@/store";
 import {
   PlusCircle,
@@ -19,7 +28,7 @@ import {
   Trash2,
   Activity,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, FC } from "react";
 import {
   ResponsiveContainer,
   CartesianGrid,
@@ -35,9 +44,10 @@ import { formatDuration } from "@/lib";
 import { updateUserVoicePreference } from "@/lib";
 import { toast } from "sonner";
 import UsageHistory from "./UsageHistory";
-
-const UserDashboard = () => {
-  const user = useAuthStore((state) => state.user)!;
+type Props = {
+  user: User;
+};
+const UserDashboard: FC<Props> = ({ user }) => {
   const isDark = useThemeStore((state) => state.theme);
   const tokenHistory = useAppStore((state) => state.tokenUsageHistory);
   // --- Voice Sessions State ---
@@ -100,24 +110,22 @@ const UserDashboard = () => {
   );
 
   // --- Limits Logic ---
-  // If Welcome Tokens > 0, we show Welcome Bonus Card.
-  // If Welcome Tokens == 0, we show Daily Limit Card.
-  const isWelcomeActive = user?.welcomeTextTokens > 0;
-  const isDailyTextEmpty = user?.freeTextTokens === 0;
+  const hasBalance = (user?.balance ?? 0) > 0;
+  const hasWelcomeTokens = (user?.welcomeTextTokens ?? 0) > 0;
+  const hasFreeTextTokens = (user?.freeTextTokens ?? 0) > 0;
+  const hasFreeVoiceSeconds = (user?.freeVoiceSeconds ?? 0) > 0;
 
-  // Total Capacities for reference
-  const WELCOME_CAP = 4000;
-  const DAILY_CAP = 1000;
-
-  // Voice limit is static 300s welcome bonus
-  const voiceLimit = 300;
-  const isVoiceEmpty = user?.freeVoiceSeconds === 0;
+  const showTextWarning =
+    !hasBalance && !hasWelcomeTokens && !hasFreeTextTokens;
+  const showVoiceWarning = !hasBalance && !hasFreeVoiceSeconds;
 
   // Wallet Equivalence
-  // Text: $0.03 per 1000 tokens
-  // Voice: $0.05 per minute
-  const potentialTokens = Math.floor((user?.balance / 0.03) * 1000);
-  const potentialVoiceMins = Math.floor(user?.balance / 0.05);
+  // Text: $0.027 per 1000 tokens
+  // Voice: $0.08 per minute
+  const potentialTokens = Math.floor(
+    (user?.balance / COST_PER_THOUSAND_TOKENS) * 1000,
+  );
+  const potentialVoiceMins = Math.floor(user?.balance / COST_PER_VOICE_MINUTE);
 
   const updateVoice = async (voiceName: string) => {
     try {
@@ -150,13 +158,13 @@ const UserDashboard = () => {
       });
     }
   };
-  console.log("User", user);
+  // console.log("User", user);
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
-            My Dashboard
+            Dashboard
           </h1>
           <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mt-2">
             Track your daily free credits and account balance.
@@ -181,12 +189,20 @@ const UserDashboard = () => {
               Paid
             </span>
           </p>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-            ${user?.balance ? user?.balance.toFixed(2) : "0.00"}
-          </h2>
+          <div className="flex flex-col">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+              ${user?.balance ? user?.balance.toFixed(2) : "0.00"}
+            </h2>
+            <p className="text-sm md:text-base font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+              USh{" "}
+              {user?.balance
+                ? (user?.balance * USD_TO_UGX_EXCHANGE_RATE).toLocaleString()
+                : "0"}
+            </p>
+          </div>
 
           <div className="mt-6 flex flex-col gap-2">
-            {(user?.balance ?? 0 < 0.05) ? (
+            {user?.balance === 0 ? (
               <div className="flex items-center text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 w-fit px-3 py-1 rounded-full border border-red-100 dark:border-red-800">
                 <AlertCircle size={14} className="mr-1" />
                 <span>Balance Empty</span>
@@ -214,124 +230,222 @@ const UserDashboard = () => {
 
         {/* Text Tokens Tracker (Switches between Welcome and Daily) */}
         <div
-          className={`bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border transition-all duration-300 group relative overflow-hidden ${!isWelcomeActive && isDailyTextEmpty ? "border-red-200 dark:border-red-900/50" : "border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-900"}`}
+          className={`bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border transition-all duration-300 group relative overflow-hidden ${
+            showTextWarning
+              ? "border-red-500 bg-red-50/30 dark:bg-red-900/10 animate-flash"
+              : "border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-900"
+          }`}
         >
           <div className="flex items-center justify-between mb-4 relative">
             <div
-              className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${!isWelcomeActive && isDailyTextEmpty ? "bg-red-50 dark:bg-red-900/20 text-red-500" : "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"}`}
+              className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${
+                showTextWarning
+                  ? "bg-red-100 dark:bg-red-900/40 text-red-600"
+                  : "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+              }`}
             >
-              {isWelcomeActive ? (
+              {hasWelcomeTokens && !hasBalance ? (
                 <Gift size={20} />
               ) : (
                 <MessageSquareIcon size={20} />
               )}
             </div>
             <span
-              className={`text-xs font-bold uppercase tracking-wide ${!isWelcomeActive && isDailyTextEmpty ? "text-red-500" : "text-blue-600 dark:text-blue-400"}`}
+              className={`text-xs font-bold uppercase tracking-wide ${showTextWarning ? "text-red-600" : "text-blue-600 dark:text-blue-400"}`}
             >
-              {isWelcomeActive ? "Welcome Bundle" : "Daily Limit"}
+              {hasBalance
+                ? "Available Tokens"
+                : hasWelcomeTokens
+                  ? "Welcome Tokens"
+                  : hasFreeTextTokens
+                    ? "Free Token"
+                    : "No Credits"}
             </span>
           </div>
 
           <div className="relative">
-            {isWelcomeActive ? (
+            {hasBalance ? (
+              // WALLET BALANCE MODE
+              <div className="space-y-3">
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
+                  ~{potentialTokens.toLocaleString()}
+                  <span className="text-sm font-medium text-slate-400">
+                    tokens available
+                  </span>
+                </h3>
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700 space-y-1.5">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Calculation Breakdown
+                  </p>
+                  <div className="flex justify-between items-start text-xs text-slate-600 dark:text-slate-400">
+                    <span>Current Wallet Balance</span>
+                    <div className="text-right">
+                      <p className="font-mono font-bold text-slate-900 dark:text-white">
+                        ${user?.balance.toFixed(2)}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        USh{" "}
+                        {(
+                          user?.balance * USD_TO_UGX_EXCHANGE_RATE
+                        ).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start text-xs text-slate-600 dark:text-slate-400">
+                    <span>Cost per 1,000 Tokens</span>
+                    <div className="text-right">
+                      <p className="font-mono font-bold text-slate-900 dark:text-white">
+                        ${COST_PER_THOUSAND_TOKENS}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        USh{" "}
+                        {(
+                          COST_PER_THOUSAND_TOKENS * USD_TO_UGX_EXCHANGE_RATE
+                        ).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-1 border-t border-slate-200 dark:border-slate-700 flex justify-between text-xs font-bold text-blue-600 dark:text-blue-400">
+                    <span>Estimated Total</span>
+                    <span>~{potentialTokens.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            ) : hasWelcomeTokens ? (
               // WELCOME MODE
               <>
                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
                   {user?.welcomeTextTokens}{" "}
                   <span className="text-sm font-medium text-slate-400">
-                    / {WELCOME_CAP} left
+                    / {FREE_WELCOME_TEXT_TOKENS} left
                   </span>
                 </h3>
                 <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full mt-3 overflow-hidden">
                   <div
                     className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out"
                     style={{
-                      width: `${(user?.welcomeTextTokens ?? 0 / WELCOME_CAP) * 100}%`,
+                      width: `${(user?.welcomeTextTokens / FREE_WELCOME_TEXT_TOKENS) * 100}%`,
                     }}
                   ></div>
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  One-time bonus. Daily limit applies after this is fully
-                  consumed.
+                  Welcome Reward: Usage stats active for this bundle.
                 </p>
               </>
-            ) : // DAILY MODE (Or Empty)
-            isDailyTextEmpty ? (
-              <>
-                <h3 className="text-2xl font-bold text-red-600 dark:text-red-400 flex items-baseline gap-1">
-                  {DAILY_CAP}/{DAILY_CAP}{" "}
-                  <span className="text-sm font-medium opacity-80">
-                    Consumed
-                  </span>
-                </h3>
-                <div className="w-full h-2 bg-red-100 dark:bg-red-900/30 rounded-full mt-3 overflow-hidden">
-                  <div className="h-full bg-red-500 rounded-full w-full"></div>
-                </div>
-                <div className="flex items-center gap-1.5 mt-2 text-xs font-bold text-red-600 dark:text-red-400 animate-pulse">
-                  <AlertCircle size={12} />
-                  Please fund your wallet
-                </div>
-              </>
-            ) : (
+            ) : hasFreeTextTokens ? (
+              // DAILY MODE
               <>
                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
                   {Math.floor(user?.freeTextTokens ?? 0)}{" "}
                   <span className="text-sm font-medium text-slate-400">
-                    / {DAILY_CAP} free
+                    / {FREE_DAILY_TEXT_TOKENS} free
                   </span>
                 </h3>
                 <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full mt-3 overflow-hidden">
                   <div
                     className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out"
                     style={{
-                      width: `${(user?.freeTextTokens ?? 0 / DAILY_CAP) * 100}%`,
+                      width: `${(user?.freeTextTokens / FREE_DAILY_TEXT_TOKENS) * 100}%`,
                     }}
                   ></div>
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  Resets every 24 hours. Using paid balance if exceeded.
+                  Resets daily. Paid balance applied after exhaustion.
                 </p>
               </>
+            ) : (
+              // EMPTY MODE
+              <div className="py-2">
+                <h3 className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  0 Tokens
+                </h3>
+                <div className="flex items-center gap-2 mt-3 p-3 bg-red-500/10 rounded-xl border border-red-500/20 text-red-600 dark:text-red-400">
+                  <AlertCircle size={18} className="shrink-0" />
+                  <p className="text-xs font-bold leading-tight">
+                    Your balance and free credits are exhausted. Please fund
+                    your wallet to continue.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
 
         {/* Voice Tracker */}
         <div
-          className={`bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border transition-all duration-300 group relative overflow-hidden ${isVoiceEmpty ? "border-red-200 dark:border-red-900/50" : "border-slate-100 dark:border-slate-700 hover:border-purple-200 dark:hover:border-purple-900"}`}
+          className={`bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border transition-all duration-300 group relative overflow-hidden ${
+            showVoiceWarning
+              ? "border-orange-500 bg-orange-50/30 dark:bg-orange-900/10 animate-flash"
+              : "border-slate-100 dark:border-slate-700 hover:border-purple-200 dark:hover:border-purple-900"
+          }`}
         >
           <div className="flex items-center justify-between mb-4 relative">
             <div
-              className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${isVoiceEmpty ? "bg-red-50 dark:bg-red-900/20 text-red-500" : "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"}`}
+              className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${
+                showVoiceWarning
+                  ? "bg-orange-100 dark:bg-orange-900/40 text-orange-600"
+                  : "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"
+              }`}
             >
               <MicIcon size={20} />
             </div>
             <span
-              className={`text-xs font-bold uppercase tracking-wide ${isVoiceEmpty ? "text-red-500" : "text-purple-600 dark:text-purple-400"}`}
+              className={`text-xs font-bold uppercase tracking-wide ${showVoiceWarning ? "text-orange-600" : "text-purple-600 dark:text-purple-400"}`}
             >
-              Voice Bonus
+              {hasBalance ? "Voice Minutes" : "Voice Bonus"}
             </span>
           </div>
 
           <div className="relative">
-            {isVoiceEmpty ? (
-              <>
-                <h3 className="text-2xl font-bold text-red-600 dark:text-red-400 flex items-baseline gap-1">
-                  {voiceLimit}/{voiceLimit}s{" "}
-                  <span className="text-sm font-medium opacity-80">
-                    Consumed
+            {hasBalance ? (
+              // PAID VOICE MODE
+              <div className="space-y-3">
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
+                  {potentialVoiceMins}
+                  <span className="text-sm font-medium text-slate-400">
+                    mins available
                   </span>
                 </h3>
-                <div className="w-full h-2 bg-red-100 dark:bg-red-900/30 rounded-full mt-3 overflow-hidden">
-                  <div className="h-full bg-red-500 rounded-full w-full"></div>
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-700 space-y-1.5">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Wallet Breakdown
+                  </p>
+                  <div className="flex justify-between items-start text-xs text-slate-600 dark:text-slate-400">
+                    <span>Balance</span>
+                    <div className="text-right">
+                      <p className="font-mono font-bold text-slate-900 dark:text-white">
+                        ${user?.balance.toFixed(2)}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        USh{" "}
+                        {(
+                          user?.balance * USD_TO_UGX_EXCHANGE_RATE
+                        ).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start text-xs text-slate-600 dark:text-slate-400">
+                    <span>Rate / Minute</span>
+                    <div className="text-right">
+                      <p className="font-mono font-bold text-slate-900 dark:text-white">
+                        ${COST_PER_VOICE_MINUTE}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        USh{" "}
+                        {(
+                          COST_PER_VOICE_MINUTE * USD_TO_UGX_EXCHANGE_RATE
+                        ).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-1 border-t border-slate-200 dark:border-slate-700 flex justify-between text-xs font-bold text-purple-600 dark:text-purple-400">
+                    <span>Total Mins</span>
+                    <span>{potentialVoiceMins}m</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 mt-2 text-xs font-bold text-red-600 dark:text-red-400 animate-pulse">
-                  <AlertCircle size={12} />
-                  Please fund your wallet
-                </div>
-              </>
-            ) : (
+              </div>
+            ) : hasFreeVoiceSeconds ? (
+              // FREE VOICE MODE
               <>
                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
                   {Math.ceil(user?.freeVoiceSeconds ?? 0)}{" "}
@@ -339,22 +453,35 @@ const UserDashboard = () => {
                     sec left
                   </span>
                 </h3>
-                {/* Progress Bar */}
                 <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full mt-3 overflow-hidden">
                   <div
                     className="h-full bg-purple-500 rounded-full transition-all duration-1000 ease-out"
                     style={{
-                      width: `${(user?.freeVoiceSeconds ?? 0 / voiceLimit) * 100}%`,
+                      width: `${(user?.freeVoiceSeconds / FREE_WELCOME_VOICE_SECONDS) * 100}%`,
                     }}
                   ></div>
                 </div>
                 <p className="text-xs text-slate-500 mt-2 flex justify-between">
-                  <span>One-time welcome gift</span>
+                  <span>Welcome Gift</span>
                   <span className="font-bold text-purple-600 dark:text-purple-400">
-                    (~ {(user?.freeVoiceSeconds ?? 0 / 60).toFixed(1)} mins)
+                    (~ {(user?.freeVoiceSeconds / 60).toFixed(1)} mins)
                   </span>
                 </p>
               </>
+            ) : (
+              // EMPTY VOICE MODE
+              <div className="py-2">
+                <h3 className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  0 Seconds
+                </h3>
+                <div className="flex items-center gap-2 mt-3 p-3 bg-orange-500/10 rounded-xl border border-orange-500/20 text-orange-600 dark:text-orange-400">
+                  <AlertCircle size={18} className="shrink-0" />
+                  <p className="text-xs font-bold leading-tight">
+                    Voice credits depleted. Please re-charge your wallet to
+                    continue consultations.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
