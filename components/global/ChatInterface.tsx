@@ -16,7 +16,6 @@ import MakdownFormater from "./MakdownFormater";
 import { useAuthStore } from "@/store";
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
-import { useRouter } from "nextjs-toploader/app";
 import {
   checkUserCanSend,
   createChatSession,
@@ -80,7 +79,6 @@ const ChatInterface = ({
 }: ChatInterfaceProps) => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
-  const router = useRouter();
 
   // --- Chat Session State ---
   const [chatSessionId, setChatSessionId] = useState<string | null>(
@@ -146,17 +144,6 @@ const ChatInterface = ({
     }
   };
 
-  const initialMessage: UIMessage = {
-    id: "0",
-    role: "assistant",
-    parts: [
-      {
-        type: "text",
-        text: "Greetings. I am your Legal Adviser specializing in Ugandan Law. How may I assist you with the Constitution, Tax Administration, or Rule of Law today?",
-      },
-    ],
-  };
-
   const initialHistory = React.useMemo(() => {
     if (
       chatId &&
@@ -189,7 +176,7 @@ const ChatInterface = ({
       });
       return { messages: historyMessages, tokens: totalTokens };
     }
-    return { messages: [initialMessage], tokens: 0 };
+    return { messages: [], tokens: 0 };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only directly on mount so that it populates initial messages synchronously
 
@@ -280,7 +267,7 @@ const ChatInterface = ({
       // Reset to blank when there is no active chat
       if (!chatId) {
         setChatSessionId(null);
-        setMessages([initialMessage]);
+        setMessages([]);
         setSessionStats({ textTokens: 0, voiceSeconds: 0 });
         return;
       }
@@ -338,7 +325,7 @@ const ChatInterface = ({
           setSessionStats((prev) => ({ ...prev, textTokens: totalTokens }));
           setMessages(historyMessages);
         } else {
-          setMessages([initialMessage]);
+          setMessages([]);
           setSessionStats({ textTokens: 0, voiceSeconds: 0 });
         }
       } catch (err) {
@@ -599,172 +586,256 @@ const ChatInterface = ({
             </div>
           </div>
         )}
-
-        <div className="max-w-4xl mx-auto space-y-6">
-          {messages.map((msg, index) => {
-            const msgText = getMessageText(msg);
-            const msgFile = getMessageFile(msg);
-            const msgIsStreaming = isMessageStreaming(msg);
-            const isAssistant = msg.role === "assistant";
-            const isError =
-              isAssistant &&
-              (msgText.includes("apologize") ||
-                msgText.includes("error") ||
-                msgText.includes("offline"));
-
-            return (
-              <div
-                key={msg.id}
-                className={`flex items-start max-w-3xl animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-                  msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
-                }`}
-              >
-                <div
-                  className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-transform hover:scale-105 ${
-                    msg.role === "user"
-                      ? "bg-linear-to-br from-amber-500 to-orange-600 ml-3 shadow-md"
-                      : isError
-                        ? "bg-red-100 dark:bg-red-900/30 mr-3"
-                        : "bg-orange-100 dark:bg-orange-900/30 mr-3"
-                  }`}
-                >
-                  {msg.role === "user" ? (
-                    <UserIcon size={20} className="text-white" />
-                  ) : isError ? (
-                    <AlertTriangle
-                      size={20}
-                      className="text-red-600 dark:text-red-500"
-                    />
-                  ) : (
-                    <Scale
-                      size={20}
-                      className="text-orange-600 dark:text-orange-500"
-                    />
-                  )}
-                </div>
-
-                <div
-                  className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} max-w-full overflow-hidden`}
-                >
-                  <div
-                    className={`px-6 py-4 rounded-2xl shadow-sm text-sm leading-relaxed w-full transition-all hover:shadow-md ${
-                      msg.role === "user"
-                        ? "bg-linear-to-br from-amber-500 to-orange-600 text-white rounded-tr-none shadow-orange-500/20"
-                        : isError
-                          ? "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 text-slate-800 dark:text-slate-200 rounded-tl-none"
-                          : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none"
-                    }`}
-                  >
-                    {/* File attachment display */}
-                    {msgFile && (
-                      <div
-                        className={`mb-3 p-3 rounded-lg flex items-center space-x-3 ${
-                          msg.role === "user"
-                            ? "bg-white/10"
-                            : "bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
-                        }`}
-                      >
-                        <div
-                          className={`p-2 rounded flex items-center justify-center ${msg.role === "user" ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800"}`}
-                        >
-                          {msgFile.type.includes("image") ? (
-                            <ImageIcon
-                              size={18}
-                              className={
-                                msg.role === "user"
-                                  ? "text-white"
-                                  : "text-slate-500"
-                              }
-                            />
-                          ) : (
-                            <FileText
-                              size={18}
-                              className={
-                                msg.role === "user"
-                                  ? "text-white"
-                                  : "text-slate-500"
-                              }
-                            />
-                          )}
-                        </div>
-                        <div className="flex flex-col overflow-hidden">
-                          <span className="font-medium truncate text-xs opacity-90 max-w-[200px]">
-                            {msgFile.name}
-                          </span>
-                          <span className="text-[10px] opacity-70">
-                            Attached Document
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    <div
-                      className={`prose prose-sm max-w-none wrap-break-word ${msg.role === "user" ? "prose-invert" : "dark:prose-invert"}`}
-                    >
-                      <MakdownFormater
-                        content={msgText}
-                        role={msg.role as "user" | "assistant" | "system" | "data"}
-                      />
-                      {msgIsStreaming && (
-                        <span
-                          className={`inline-block w-1.5 h-4 ml-1 animate-pulse align-middle rounded-sm ${
-                            msg.role === "user"
-                              ? "bg-white"
-                              : "bg-orange-500 dark:bg-orange-400"
-                          }`}
-                          aria-hidden="true"
-                        />
-                      )}
-                    </div>
-
-                    {isError && !isLoading && index === messages.length - 1 && (
-                      <button
-                        onClick={handleRetry}
-                        disabled={connectionStatus === "offline"}
-                        className="mt-3 flex items-center space-x-2 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors bg-white/50 dark:bg-black/10 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <RefreshCw size={12} />
-                        <span>
-                          {connectionStatus === "offline"
-                            ? "Connect to retry"
-                            : "Retry Request"}
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                  <span className="text-xs text-slate-400 dark:text-slate-500 mt-2 mx-1">
-                    {(
-                      msg.metadata as { createdAt?: Date } | undefined
-                    )?.createdAt?.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }) ??
-                      new Date().toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-
-          {isLoading && messages[messages.length - 1]?.role === "user" && (
-            <div className="flex items-start mr-auto max-w-3xl animate-in fade-in duration-300">
-              <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-orange-100 dark:bg-orange-900/30 mr-3">
+        <div className="max-w-4xl flex-1 mx-auto flex flex-col justify-end min-h-full w-full">
+          {/* ── HERO WELCOME SCREEN (Only visible on new, empty chat) ── */}
+          {messages.length === 0 && !chatId && !isLoading && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500 pb-10 mt-auto mb-auto">
+              <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-amber-600 rounded-3xl flex items-center justify-center shadow-xl mb-8 transform hover:scale-105 transition-transform duration-300">
                 <Scale
-                  size={20}
-                  className="text-orange-600 dark:text-orange-500"
+                  size={40}
+                  className="text-white drop-shadow-md"
+                  strokeWidth={1.5}
                 />
               </div>
-              <div className="px-6 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none flex items-center space-x-1 h-[54px]">
-                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
+              <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
+                Good{" "}
+                {new Date().getHours() < 12
+                  ? "morning"
+                  : new Date().getHours() < 18
+                    ? "afternoon"
+                    : "evening"}
+                , {user?.name?.split(" ")[0] || "there"}
+              </h1>
+              <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 max-w-2xl mb-12">
+                I am your Legal Adviser specifically trained on Ugandan Law. How
+                can I help you today?
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl">
+                {[
+                  {
+                    icon: <FileText size={20} className="text-blue-500" />,
+                    title: "Review a document",
+                    subtitle: "Upload a contract or agreement for analysis",
+                    prompt:
+                      "Please review this document and summarize the key clauses, potential risks, and obligations.",
+                  },
+                  {
+                    icon: <Scale size={20} className="text-orange-500" />,
+                    title: "Constitutional Law",
+                    subtitle: "Questions about rights and governance",
+                    prompt:
+                      "Explain the fundamental human rights guaranteed under Chapter Four of the Constitution of Uganda.",
+                  },
+                  {
+                    icon: (
+                      <AlertTriangle size={20} className="text-amber-500" />
+                    ),
+                    title: "Tax Administration",
+                    subtitle: "Compliance and URA regulations",
+                    prompt:
+                      "What are the penalties for late filing of income tax returns under the Tax Procedures Code Act?",
+                  },
+                  {
+                    icon: <UserIcon size={20} className="text-emerald-500" />,
+                    title: "Employment Law",
+                    subtitle: "Worker rights and termination",
+                    prompt:
+                      "What is the legally required notice period for terminating an employee who has worked for 5 years?",
+                  },
+                ].map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSend(suggestion.prompt)}
+                    className="p-4 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 hover:border-orange-500/50 dark:hover:border-orange-500/50 hover:shadow-md transition-all text-left group flex items-start gap-4"
+                  >
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 group-hover:scale-110 transition-transform">
+                      {suggestion.icon}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                        {suggestion.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {suggestion.subtitle}
+                      </p>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
+          {/* ── STANDARD CHAT MESSAGE LOOP ── */}
+          <div className="space-y-6 w-full">
+            {messages.map((msg, index) => {
+              const msgText = getMessageText(msg);
+              const msgFile = getMessageFile(msg);
+              const msgIsStreaming = isMessageStreaming(msg);
+              const isAssistant = msg.role === "assistant";
+              const isError =
+                isAssistant &&
+                (msgText.includes("apologize") ||
+                  msgText.includes("error") ||
+                  msgText.includes("offline"));
+
+              return (
+                <div
+                  key={msg.id}
+                  className={`flex items-start max-w-3xl animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+                    msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
+                  }`}
+                >
+                  <div
+                    className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-transform hover:scale-105 ${
+                      msg.role === "user"
+                        ? "bg-linear-to-br from-amber-500 to-orange-600 ml-3 shadow-md"
+                        : isError
+                          ? "bg-red-100 dark:bg-red-900/30 mr-3"
+                          : "bg-orange-100 dark:bg-orange-900/30 mr-3"
+                    }`}
+                  >
+                    {msg.role === "user" ? (
+                      <UserIcon size={20} className="text-white" />
+                    ) : isError ? (
+                      <AlertTriangle
+                        size={20}
+                        className="text-red-600 dark:text-red-500"
+                      />
+                    ) : (
+                      <Scale
+                        size={20}
+                        className="text-orange-600 dark:text-orange-500"
+                      />
+                    )}
+                  </div>
+
+                  <div
+                    className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} max-w-full overflow-hidden`}
+                  >
+                    <div
+                      className={`px-6 py-4 rounded-2xl shadow-sm text-sm leading-relaxed w-full transition-all hover:shadow-md ${
+                        msg.role === "user"
+                          ? "bg-linear-to-br from-amber-500 to-orange-600 text-white rounded-tr-none shadow-orange-500/20"
+                          : isError
+                            ? "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 text-slate-800 dark:text-slate-200 rounded-tl-none"
+                            : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none"
+                      }`}
+                    >
+                      {/* File attachment display */}
+                      {msgFile && (
+                        <div
+                          className={`mb-3 p-3 rounded-lg flex items-center space-x-3 ${
+                            msg.role === "user"
+                              ? "bg-white/10"
+                              : "bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
+                          }`}
+                        >
+                          <div
+                            className={`p-2 rounded flex items-center justify-center ${msg.role === "user" ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800"}`}
+                          >
+                            {msgFile.type.includes("image") ? (
+                              <ImageIcon
+                                size={18}
+                                className={
+                                  msg.role === "user"
+                                    ? "text-white"
+                                    : "text-slate-500"
+                                }
+                              />
+                            ) : (
+                              <FileText
+                                size={18}
+                                className={
+                                  msg.role === "user"
+                                    ? "text-white"
+                                    : "text-slate-500"
+                                }
+                              />
+                            )}
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="font-medium truncate text-xs opacity-90 max-w-[200px]">
+                              {msgFile.name}
+                            </span>
+                            <span className="text-[10px] opacity-70">
+                              Attached Document
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div
+                        className={`prose prose-sm max-w-none wrap-break-word ${msg.role === "user" ? "prose-invert" : "dark:prose-invert"}`}
+                      >
+                        <MakdownFormater
+                          content={msgText}
+                          role={
+                            msg.role as "user" | "assistant" | "system" | "data"
+                          }
+                        />
+                        {msgIsStreaming && (
+                          <span
+                            className={`inline-block w-1.5 h-4 ml-1 animate-pulse align-middle rounded-sm ${
+                              msg.role === "user"
+                                ? "bg-white"
+                                : "bg-orange-500 dark:bg-orange-400"
+                            }`}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </div>
+
+                      {isError &&
+                        !isLoading &&
+                        index === messages.length - 1 && (
+                          <button
+                            onClick={handleRetry}
+                            disabled={connectionStatus === "offline"}
+                            className="mt-3 flex items-center space-x-2 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors bg-white/50 dark:bg-black/10 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <RefreshCw size={12} />
+                            <span>
+                              {connectionStatus === "offline"
+                                ? "Connect to retry"
+                                : "Retry Request"}
+                            </span>
+                          </button>
+                        )}
+                    </div>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 mt-2 mx-1">
+                      {(
+                        msg.metadata as { createdAt?: Date } | undefined
+                      )?.createdAt?.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }) ??
+                        new Date().toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {isLoading && messages[messages.length - 1]?.role === "user" && (
+              <div className="flex items-start mr-auto max-w-3xl animate-in fade-in duration-300">
+                <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-orange-100 dark:bg-orange-900/30 mr-3">
+                  <Scale
+                    size={20}
+                    className="text-orange-600 dark:text-orange-500"
+                  />
+                </div>
+                <div className="px-6 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none flex items-center space-x-1 h-[54px]">
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
+                </div>
+              </div>
+            )}
+          </div>
           <div ref={messagesEndRef} />
         </div>
       </div>
