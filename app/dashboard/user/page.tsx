@@ -1,7 +1,11 @@
 import UserDashboard from "@/components/admin/UserDashboard";
+import { getCurrentUser } from "@/lib";
 
-const UserPage = () => {
-  return <UserDashboard />;
+const UserPage = async () => {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  return <UserDashboard user={user} />;
 };
 
 export default UserPage;
