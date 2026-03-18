@@ -95,12 +95,24 @@ const ChatHistorySidebar = ({
             s.id === editingSessionId ? { ...s, title: editTitle } : s,
           ),
         );
-        toast.success("Chat renamed successfully");
+        toast.success("Chat renamed successfully", {
+          style: {
+            background: "green",
+          },
+        });
       } else {
-        toast.error("Failed to rename chat");
+        toast.error("Failed to rename chat", {
+          style: {
+            background: "red",
+          },
+        });
       }
     } catch (error) {
-      toast.error("An error occurred while renaming");
+      toast.error("An error occurred while renaming", {
+        style: {
+          background: "red",
+        },
+      });
     } finally {
       setEditingSessionId(null);
     }
@@ -115,12 +127,24 @@ const ChatHistorySidebar = ({
         if (activeChatId === sessionId) {
           onSelectChat(null);
         }
-        toast.success("Chat deleted successfully");
+        toast.success("Chat deleted successfully", {
+          style: {
+            background: "green",
+          },
+        });
       } else {
-        toast.error("Failed to delete chat");
+        toast.error("Failed to delete chat", {
+          style: {
+            background: "red",
+          },
+        });
       }
     } catch (error) {
-      toast.error("An error occurred while deleting");
+      toast.error("An error occurred while deleting", {
+        style: {
+          background: "red",
+        },
+      });
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirmId(null);
