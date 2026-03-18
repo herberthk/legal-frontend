@@ -1,5 +1,6 @@
 "use server";
 
+import { COLLECTIONS } from "@/constants";
 import { db } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -12,7 +13,7 @@ import { FieldValue } from "firebase-admin/firestore";
 export const createChatSession = async (userId: string, title: string) => {
   try {
     const now = new Date().toISOString();
-    const sessionRef = db.collection("chatSessions").doc();
+    const sessionRef = db.collection(COLLECTIONS.CHAT_SESSIONS).doc();
     await sessionRef.set({
       userId,
       title: title.slice(0, 100), // Truncate to 100 chars
@@ -47,9 +48,9 @@ export async function saveChatMessage(
     const now = new Date().toISOString();
     const result = await db.runTransaction(async (transaction) => {
       const messageRef = db
-        .collection("chatSessions")
+        .collection(COLLECTIONS.CHAT_SESSIONS)
         .doc(sessionId)
-        .collection("messages")
+        .collection(COLLECTIONS.MESSAGES)
         .doc();
 
       transaction.set(messageRef, {
@@ -62,15 +63,18 @@ export async function saveChatMessage(
       });
 
       // Update session metadata
-      transaction.update(db.collection("chatSessions").doc(sessionId), {
-        updatedAt: now,
-        messageCount: FieldValue.increment(1),
-        // Only update the session title from the first user message
-        ...(message.role === "user" &&
-          message.isFirstMessage && {
-            title: message.text.slice(0, 100),
-          }),
-      });
+      transaction.update(
+        db.collection(COLLECTIONS.CHAT_SESSIONS).doc(sessionId),
+        {
+          updatedAt: now,
+          messageCount: FieldValue.increment(1),
+          // Only update the session title from the first user message
+          ...(message.role === "user" &&
+            message.isFirstMessage && {
+              title: message.text.slice(0, 100),
+            }),
+        },
+      );
 
       return { success: true, messageId: messageRef.id };
     });
@@ -89,7 +93,7 @@ export async function saveChatMessage(
 export async function getChatSessions(userId: string, limit = 20) {
   try {
     const snapshot = await db
-      .collection("chatSessions")
+      .collection(COLLECTIONS.CHAT_SESSIONS)
       .where("userId", "==", userId)
       .orderBy("updatedAt", "desc")
       .limit(limit)
@@ -114,9 +118,9 @@ export async function getChatSessions(userId: string, limit = 20) {
 export async function getChatMessages(sessionId: string) {
   try {
     const snapshot = await db
-      .collection("chatSessions")
+      .collection(COLLECTIONS.CHAT_SESSIONS)
       .doc(sessionId)
-      .collection("messages")
+      .collection(COLLECTIONS.MESSAGES)
       .orderBy("createdAt", "asc")
       .get();
 
@@ -182,7 +186,7 @@ export const updateChatSessionTitle = async (
   title: string,
 ) => {
   try {
-    const sessionRef = db.collection("chatSessions").doc(sessionId);
+    const sessionRef = db.collection(COLLECTIONS.CHAT_SESSIONS).doc(sessionId);
     await sessionRef.update({
       title: title.slice(0, 100),
       updatedAt: new Date().toISOString(),
@@ -199,10 +203,12 @@ export const updateChatSessionTitle = async (
  */
 export const deleteChatSession = async (sessionId: string) => {
   try {
-    const sessionRef = db.collection("chatSessions").doc(sessionId);
+    const sessionRef = db.collection(COLLECTIONS.CHAT_SESSIONS).doc(sessionId);
 
     // Delete all messages in the subcollection
-    const messagesSnapshot = await sessionRef.collection("messages").get();
+    const messagesSnapshot = await sessionRef
+      .collection(COLLECTIONS.MESSAGES)
+      .get();
     const batch = db.batch();
     messagesSnapshot.docs.forEach((doc) => {
       batch.delete(doc.ref);

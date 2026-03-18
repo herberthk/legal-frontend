@@ -26,6 +26,7 @@ import {
   onSnapshot,
   limit,
 } from "firebase/firestore";
+import { COLLECTIONS } from "@/constants";
 
 interface ChatHistorySidebarProps {
   activeChatId: string | null;
@@ -59,7 +60,7 @@ const ChatHistorySidebar = ({
     setIsLoading(true);
 
     const q = query(
-      collection(db, "chatSessions"),
+      collection(db, COLLECTIONS.CHAT_SESSIONS),
       where("userId", "==", user.id),
       orderBy("updatedAt", "desc"),
       limit(10),

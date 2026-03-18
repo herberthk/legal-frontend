@@ -4,6 +4,7 @@ import { auth, db } from "@/firebase/admin";
 import { cookies } from "next/headers";
 import { sendOtp } from "./email";
 import {
+  COLLECTIONS,
   FREE_WELCOME_TEXT_TOKENS,
   FREE_WELCOME_VOICE_SECONDS,
 } from "@/constants";
@@ -56,7 +57,7 @@ export async function signUp(params: SignUpParams & { uid: string }) {
   const { uid, name, email } = params;
   try {
     // Check for existing user document in Firestore
-    const userDocRef = db.collection("users").doc(uid);
+    const userDocRef = db.collection(COLLECTIONS.USERS).doc(uid);
     const userSnapshot = await userDocRef.get();
 
     if (userSnapshot.exists) {
@@ -248,7 +249,7 @@ export async function resetPasswordWithOtp(email: string, newPassword: string) {
   try {
     const user = await auth.getUserByEmail(email);
 
-    const docRef = db.collection("otp").doc(user.uid);
+    const docRef = db.collection(COLLECTIONS.OTP).doc(user.uid);
     const docSnap = await docRef.get();
 
     if (!docSnap.exists) {

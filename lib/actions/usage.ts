@@ -1,7 +1,11 @@
 "use server";
 
 import { db } from "@/firebase/admin";
-import { COST_PER_THOUSAND_TOKENS, COST_PER_VOICE_MINUTE } from "@/constants";
+import {
+  COLLECTIONS,
+  COST_PER_THOUSAND_TOKENS,
+  COST_PER_VOICE_MINUTE,
+} from "@/constants";
 import { checkRootCollection } from "./utils";
 
 /**
@@ -64,7 +68,7 @@ export const recordUsageAndDeduct = async (params: {
 
   try {
     const result = await db.runTransaction(async (transaction) => {
-      const userRef = db.collection("users").doc(userId);
+      const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
       const userDoc = await transaction.get(userRef);
 
       if (!userDoc.exists) {
@@ -123,7 +127,7 @@ export const recordUsageAndDeduct = async (params: {
       });
 
       // Create usage record
-      const usageRef = db.collection("usage").doc();
+      const usageRef = db.collection(COLLECTIONS.USAGE).doc();
       transaction.set(usageRef, {
         userId,
         type,
@@ -173,10 +177,10 @@ export const getUserUsage = async (
         totalSeconds: 0,
       };
     }
-    console.log("userId", userId);
+    // console.log("userId", userId);
     const { start, end } = getDateRange(filter, customRange);
     // Check if collection exists
-    const usageExists = await checkRootCollection("usage");
+    const usageExists = await checkRootCollection(COLLECTIONS.USAGE);
     if (!usageExists) {
       return {
         success: true,
@@ -187,7 +191,7 @@ export const getUserUsage = async (
       };
     }
     const snapshot = await db
-      .collection("usage")
+      .collection(COLLECTIONS.USAGE)
       .where("userId", "==", userId)
       .where("createdAt", ">=", start)
       .where("createdAt", "<=", end)
