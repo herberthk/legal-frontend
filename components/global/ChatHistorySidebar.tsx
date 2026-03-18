@@ -14,13 +14,18 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  updateChatSessionTitle,
-  deleteChatSession,
-  getChatSessions,
-} from "@/lib/actions/chat";
+import { updateChatSessionTitle, deleteChatSession } from "@/lib/actions/chat";
 import { toast } from "sonner";
 import { formatDate } from "@/utils";
+import { db } from "@/firebase/client";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  limit,
+} from "firebase/firestore";
 
 interface ChatHistorySidebarProps {
   activeChatId: string | null;
@@ -47,34 +52,36 @@ const ChatHistorySidebar = ({
   );
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Poll for sessions to keep it updated when a new message creates a session
+  // Real-time listener for chat sessions
   useEffect(() => {
-    let mounted = true;
+    if (!user?.id) return;
 
-    const fetchSessions = async () => {
-      if (!user?.id) return;
-      try {
-        const result = await getChatSessions(user.id);
-        if (mounted && result.success) {
-          setSessions(result.sessions || []);
-        }
-      } catch (error) {
-        console.error("Failed to load chat sessions:", error);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    };
+    setIsLoading(true);
 
-    fetchSessions();
+    const q = query(
+      collection(db, "chatSessions"),
+      where("userId", "==", user.id),
+      orderBy("updatedAt", "desc"),
+      limit(10),
+    );
 
-    // Set up a simple polling interval to catch new sessions created by the ChatInterface
-    // In a production app, Firestore real-time listeners would be preferable here.
-    const interval = setInterval(fetchSessions, 5000);
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const sessionData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setSessions(sessionData);
+        setIsLoading(false);
+      },
+      (error) => {
+        console.error("Firestore listener error:", error);
+        setIsLoading(false);
+      },
+    );
 
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
+    return () => unsubscribe();
   }, [user?.id]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,11 +97,7 @@ const ChatHistorySidebar = ({
     try {
       const result = await updateChatSessionTitle(editingSessionId, editTitle);
       if (result.success) {
-        setSessions((prev) =>
-          prev.map((s) =>
-            s.id === editingSessionId ? { ...s, title: editTitle } : s,
-          ),
-        );
+        // No need to manually update state, onSnapshot will handle it
         toast.success("Chat renamed successfully", {
           style: {
             background: "green",
@@ -123,7 +126,7 @@ const ChatHistorySidebar = ({
     try {
       const result = await deleteChatSession(sessionId);
       if (result.success) {
-        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+        // No need to manually update state, onSnapshot will handle it
         if (activeChatId === sessionId) {
           onSelectChat(null);
         }
