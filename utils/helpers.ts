@@ -67,3 +67,20 @@ export const generateTxRef = async (length = 8) => {
 
   return `TX_${result}`;
 };
+
+export const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const today = new Date();
+
+  if (date.toDateString() === today.toDateString()) {
+    return `Today, ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `Yesterday, ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+};

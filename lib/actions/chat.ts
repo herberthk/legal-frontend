@@ -173,3 +173,48 @@ export const saveChatSession = async ({
     return { success: false, title: null };
   }
 };
+
+/**
+ * Updates the title of a chat session
+ */
+export const updateChatSessionTitle = async (
+  sessionId: string,
+  title: string,
+) => {
+  try {
+    const sessionRef = db.collection("chatSessions").doc(sessionId);
+    await sessionRef.update({
+      title: title.slice(0, 100),
+      updatedAt: new Date().toISOString(),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating chat session title:", error);
+    return { success: false };
+  }
+};
+
+/**
+ * Deletes a chat session and all its messages
+ */
+export const deleteChatSession = async (sessionId: string) => {
+  try {
+    const sessionRef = db.collection("chatSessions").doc(sessionId);
+
+    // Delete all messages in the subcollection
+    const messagesSnapshot = await sessionRef.collection("messages").get();
+    const batch = db.batch();
+    messagesSnapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    // Delete the session record itself
+    batch.delete(sessionRef);
+
+    await batch.commit();
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting chat session:", error);
+    return { success: false };
+  }
+};
