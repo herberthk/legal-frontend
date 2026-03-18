@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/firebase/admin";
+import { COLLECTIONS } from "@/constants";
 
 /**
  * Updates the user's voice preference in Firestore
@@ -12,7 +13,7 @@ export async function updateUserVoicePreference(
   userId: string,
 ) {
   try {
-    const userDocRef = db.collection("users").doc(userId);
+    const userDocRef = db.collection(COLLECTIONS.USERS).doc(userId);
     await userDocRef.update({
       voicePreference,
     });

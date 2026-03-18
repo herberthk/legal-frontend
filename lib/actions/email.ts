@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import { db } from "@/firebase/admin";
 import { generateOTP, hashOTP, verifyOTP } from "@/utils/helpers";
 import { OTPEmail } from "@/components/global";
+import { COLLECTIONS } from "@/constants";
 
 const SMTP_HOST = process.env.SMTP_HOST!;
 const SMTP_PORT = process.env.SMTP_PORT!;
@@ -42,7 +43,7 @@ export const sendOtp = async ({ id, email, name, type = "verify" }: Props) => {
       expiresAt,
       attempts: 0,
     };
-    await db.collection("otp").doc(id.toString()).set(otpData);
+    await db.collection(COLLECTIONS.OTP).doc(id.toString()).set(otpData);
     // Render React component to HTML
     const emailHtml = await render(
       OTPEmail({ otp, userName: name, expiryMinutes: 15, type }),
@@ -66,7 +67,7 @@ export const sendOtp = async ({ id, email, name, type = "verify" }: Props) => {
 export const verifyOtp = async (email: string, otpInput: string) => {
   try {
     const snapshot = await db
-      .collection("otp")
+      .collection(COLLECTIONS.OTP)
       .where("email", "==", email)
       .get();
 
