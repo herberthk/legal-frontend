@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore";
 import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { Loader2, Filter, Calendar, Activity } from "lucide-react";
+import CustomTooltip from "../global/modal/CustomTooltip";
 
 const FILTER_OPTIONS: { label: string; value: UsageFilter }[] = [
   { label: "Today", value: "today" },
@@ -35,65 +36,6 @@ interface ChartDataItem {
   voice: number;
   cost: number;
 }
-
-type TooltipProps = {
-  active: boolean;
-  payload: { name: string; value: number; dataKey: string; stroke: string }[];
-  label: string;
-};
-
-const CustomTooltip: FC<TooltipProps> = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white dark:bg-slate-900 p-4 border border-slate-100 dark:border-slate-800 rounded-xl shadow-xl backdrop-blur-md bg-opacity-95">
-        <p className="text-sm font-black text-slate-900 dark:text-white mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
-          {label}
-        </p>
-        <div className="space-y-3">
-          {payload.map((item) => {
-            if (item.name.includes("Cost")) {
-              const usd = Number(item.value);
-              const ugx = Math.round(usd * USD_TO_UGX_EXCHANGE_RATE);
-              return (
-                <div key={item.name} className="flex flex-col gap-0.5">
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                    {item.name}
-                  </p>
-                  <p className="text-base font-black text-rose-500 dark:text-rose-400 leading-tight">
-                    ${usd.toFixed(4)}
-                  </p>
-                  <p className="text-[11px] font-semibold text-slate-400">
-                    UGX {ugx.toLocaleString()}
-                  </p>
-                </div>
-              );
-            }
-            if (item.dataKey === "cost" && item.stroke === "none") return null;
-
-            const color = item.dataKey === "text" ? "#3b82f6" : "#f4511e";
-            return (
-              <div key={item.name} className="flex items-center gap-2">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: color }}
-                />
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                    {item.name}
-                  </p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">
-                    {item.value.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-  return null;
-};
 
 const UsageChart = () => {
   const user = useAuthStore((state) => state.user);
@@ -296,21 +238,22 @@ const UsageChart = () => {
         </div>
       </div>
 
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
         <div className="flex items-start gap-2">
-          <div className="text-xs text-slate-400 font-medium mt-1">
+          <div className="text-xs text-slate-400 font-medium mt-1 uppercase">
             Period Total Cost:
           </div>
-          <div className="flex flex-col">
-            <div className="text-2xl font-black text-rose-500 dark:text-rose-400 leading-none">
+          <div className="flex gap-2">
+            <div className="text-sm text-rose-500 dark:text-rose-400">
               -${totalPeriodCost.toFixed(2)}
             </div>
-            <div className="text-[10px] md:text-xs font-semibold text-slate-400 mt-1">
-              UGX{" "}
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              ( UGX{" "}
               {(totalPeriodCost * USD_TO_UGX_EXCHANGE_RATE).toLocaleString(
                 undefined,
                 { maximumFractionDigits: 0 },
               )}
+              )
             </div>
           </div>
         </div>
@@ -451,7 +394,7 @@ const UsageChart = () => {
                 <Area
                   yAxisId="left"
                   dataKey="cost"
-                  name="Estimated Cost (USD)"
+                  name="Estimated Cost (USD/UGX)"
                   stroke="none"
                   fill="none"
                   legendType="none"
