@@ -6,8 +6,9 @@ import { useRouter } from "nextjs-toploader/app";
 import { useSearchParams } from "next/navigation";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/client";
-import { signUp, signIn } from "@/lib/actions/auth";
+import { signUp, signIn, recordUserStats } from "@/lib/actions/auth";
 import { toast } from "sonner";
+import { getDeviceStats } from "@/utils/device";
 
 const SignupPage = () => {
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,11 @@ const SignupPage = () => {
         const sessionResult = await signIn({ idToken });
 
         if (sessionResult?.success) {
+          // 4. Record Signup Statistics
+          const stats = getDeviceStats();
+          if (stats) {
+            recordUserStats(uid, { ...stats, type: "SIGNUP" });
+          }
           router.push(returnTo || "/dashboard/user");
         } else {
           toast.error(

@@ -182,5 +182,27 @@ declare global {
   };
 
   type UsageFilter = "today" | "yesterday" | "last_week" | "month" | "custom";
+
+  type UserStats = {
+    id?: string;
+    userId: string;
+    type: "LOGIN" | "SIGNUP" | "LOGOUT";
+    browser: string;
+    os: string;
+    device: string; // Generic type (Mobile, Tablet, Desktop)
+    deviceName: string; // Specific name (e.g. iPhone, Samsung, HP)
+    resolution: string;
+    ip: string;
+    country: string;
+    city: string;
+    timezone: string;
+    timestamp: string;
+    userAgent: string;
+  };
+
+  type SessionStore = {
+    user: User;
+    session: string;
+  };
 }
 export {};

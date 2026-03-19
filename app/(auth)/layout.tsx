@@ -1,11 +1,14 @@
-import { isAuthenticated } from "@/lib";
+import { getCurrentUser } from "@/lib";
 import { AuthSidebar } from "./auth-sidebar";
+import { redirect } from "next/navigation";
 
 const AuthLayout = async ({ children }: { children: React.ReactNode }) => {
-  const authenticated = await isAuthenticated();
+  const user = await getCurrentUser();
 
-  if (authenticated) {
-    return null;
+  if (user) {
+    const dashboardPath =
+      user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
+    return redirect(dashboardPath);
   }
 
   return (

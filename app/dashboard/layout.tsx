@@ -2,12 +2,18 @@ import Header from "@/components/global/Header";
 import Sidebar from "@/components/global/Sidebar";
 import { getCurrentUser } from "@/lib";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { redirect } from "next/navigation";
 
 const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
   const user = await getCurrentUser();
   // Protection is now handled by middleware.ts for /dashboard/:path*
   // to preserve the original URL in the returnTo search parameter.
-  if (!user) return null; // Fallback for type safety
+  // console.log("user", user);
+  if (!user) {
+    // const loginUrl = new URL("/login", request.url);
+    // loginUrl.searchParams.set("returnTo", request.url);
+    return redirect("/login");
+  }
   //console.log("session", session);
   return (
     <SidebarProvider>
