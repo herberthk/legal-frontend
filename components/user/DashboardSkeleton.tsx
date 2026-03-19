@@ -18,7 +18,10 @@ const DashboardSkeleton = () => {
       {/* Usage Cards Skeleton */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
+          <div
+            key={i}
+            className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 space-y-4"
+          >
             <div className="flex items-center justify-between">
               <Skeleton className="h-10 w-10 rounded-lg" />
               <Skeleton className="h-4 w-24" />
@@ -50,7 +53,10 @@ const DashboardSkeleton = () => {
         <Skeleton className="h-8 w-48" />
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="p-4 border-b border-slate-50 dark:border-slate-700 last:border-0 flex justify-between">
+            <div
+              key={i}
+              className="p-4 border-b border-slate-50 dark:border-slate-700 last:border-0 flex justify-between"
+            >
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-4 w-16 invisible md:visible" />
