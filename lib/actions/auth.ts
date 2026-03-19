@@ -154,7 +154,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
     // Fetch user data from Firestore
     const userSnapshot = await db
-      .collection("users")
+      .collection(COLLECTIONS.USERS)
       .doc(decodedClaims.uid)
       .get();
 
@@ -305,3 +305,49 @@ export async function resetPasswordWithOtp(email: string, newPassword: string) {
 //   }
 //   return JSON.parse(session) as User;
 // };
+
+/**
+ * Records user statistics in Firestore.
+ */
+export async function recordUserStats(
+  userId: string,
+  stats: Omit<UserStats, "userId" | "ip" | "timestamp" | "country" | "city">,
+) {
+  const { headers } = await import("next/headers");
+  const headerList = await headers();
+
+  const ip =
+    headerList.get("x-forwarded-for")?.split(",")[0] ||
+    headerList.get("x-real-ip") ||
+    "Unknown";
+
+  const country = headerList.get("x-vercel-ip-country") || "Unknown";
+  const city = headerList.get("x-vercel-ip-city") || "Unknown";
+
+  const deviceStats = {
+    browser: headerList.get("x-device-browser"),
+    browserVersion: headerList.get("x-device-browser-version"),
+    os: headerList.get("x-device-os"),
+    osVersion: headerList.get("x-device-os-version"),
+    device: headerList.get("x-device-type"),
+    model: headerList.get("x-device-model"),
+    vendor: headerList.get("x-device-vendor"),
+    userAgent: headerList.get("x-device-ua"),
+  };
+
+  console.log("deviceStats", deviceStats);
+  try {
+    await db.collection(COLLECTIONS.USER_STATS).add({
+      ...stats,
+      userId,
+      ip,
+      country,
+      city,
+      timestamp: new Date().toISOString(),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error recording user stats:", error);
+    return { success: false };
+  }
+}

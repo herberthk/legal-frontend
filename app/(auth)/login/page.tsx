@@ -2,13 +2,14 @@
 import React, { useState } from "react";
 import { Scale, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { signIn, getCurrentUser } from "@/lib/actions/auth";
+import { signIn, getCurrentUser, recordUserStats } from "@/lib/actions/auth";
 import { useRouter } from "nextjs-toploader/app";
 import { useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store";
+import { getDeviceStats } from "@/utils/device";
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,13 @@ const LoginPage = () => {
         // 3. Fetch user profile to determine role-based redirection
         const user = await getCurrentUser();
         if (user) {
+          // 4. Capture and Record User Statistics
+          const stats = getDeviceStats();
+          if (stats) {
+            // We don't await this to keep login fast (best performance)
+            recordUserStats(user.id, { ...stats, type: "LOGIN" });
+          }
+
           setUser(user);
           const defaultPath =
             user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
