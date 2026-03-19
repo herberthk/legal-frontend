@@ -2,16 +2,26 @@
 
 import React, { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/firebase/client";
+import { auth, db } from "@/firebase/client";
 import { useAuthStore } from "@/store";
 import { getCurrentUser } from "@/lib/actions/auth";
+import {
+  collection,
+  limit,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
+import { COLLECTIONS } from "@/constants";
 
 export default function AuthProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { setUser, clearUser } = useAuthStore();
+  // const clearUser = useAuthStore((state) => state.clearUser);
+  const setUser = useAuthStore((state) => state.setUser);
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     // 1. Initial hydration from server session to avoid flicker
@@ -19,29 +29,39 @@ export default function AuthProvider({
       const user = await getCurrentUser();
       if (user) {
         setUser(user);
-      } else {
-        clearUser();
       }
     };
     hydrate();
 
-    // 2. Listen for Firebase Auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // If we have a firebase user, ensure the server session is also in sync
-        // Note: The actual cookie setting happens during login/signup actions
-        const user = await getCurrentUser();
-        if (user) {
-          setUser(user);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, COLLECTIONS.USERS),
+      where("id", "==", user.id),
+      limit(1),
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (snapshot.empty) {
+          return;
         }
-      } else {
-        // Clear local store if signed out of Firebase
-        clearUser();
-      }
-    });
+        const user = snapshot.docs[0].data() as User;
+        console.log("Change detected", user);
+        setUser(user);
+      },
+      (error) => {
+        console.error("Firestore listener error:", error);
+      },
+    );
 
     return () => unsubscribe();
-  }, [setUser, clearUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   return <>{children}</>;
 }
