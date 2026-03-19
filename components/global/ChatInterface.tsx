@@ -26,6 +26,7 @@ import { DefaultChatTransport, generateId } from "ai";
 import ChatInput from "./ChatInput";
 import BillingError from "./modal/BillingError";
 import ChatError from "./modal/ChatError";
+import { checkCanSend } from "@/lib";
 
 // --- Helpers to extract content from UIMessage parts ---
 const getMessageText = (msg: UIMessage): string => {
@@ -450,7 +451,7 @@ const ChatInterface = ({
     setBillingError(null);
 
     // Check if user can send message
-    const canSend = await checkUserCanSend(user?.id || "");
+    const canSend = await checkCanSend(user?.id || "");
     if (!canSend.canSend) {
       showBillingBanner(
         canSend.reason ??
