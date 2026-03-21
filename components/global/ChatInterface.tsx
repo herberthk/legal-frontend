@@ -16,11 +16,7 @@ import MakdownFormater from "./MakdownFormater";
 import { useAuthStore } from "@/store";
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
-import {
-  checkUserCanSend,
-  createChatSession,
-  getChatMessages,
-} from "@/lib/actions";
+import { createChatSession, getChatMessages } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/actions/auth";
 import { DefaultChatTransport, generateId } from "ai";
 import ChatInput from "./ChatInput";

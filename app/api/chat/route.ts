@@ -57,7 +57,6 @@ export async function POST(req: Request) {
           // 4. Save assistant message to chat session
           if (sessionId !== null && text) {
             // Save user message
-            // const attachmentToSend = lastUserMessage.attachments?.[0];
             await saveChatMessage(sessionId, {
               role: "user",
               text: textToSend,
@@ -79,11 +78,6 @@ export async function POST(req: Request) {
               tokenCount: usage?.outputTokens ?? 0,
               isFirstMessage: false,
             });
-            // await saveChatSession({
-            //   sessionId,
-            //   text,
-            //   tokenCount: usage?.outputTokens ?? 0,
-            // });
           }
         } catch (err) {
           console.error("Error saving assistant message:", err);
