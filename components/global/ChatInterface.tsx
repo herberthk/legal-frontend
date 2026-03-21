@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, FC } from "react";
 import {
   User as UserIcon,
   Scale,
@@ -11,7 +11,9 @@ import {
   Server,
   WifiOff,
   Wifi,
+  BrainCircuit,
 } from "lucide-react";
+
 import MakdownFormater from "./MakdownFormater";
 import { useAuthStore } from "@/store";
 import { useChat } from "@ai-sdk/react";
@@ -23,57 +25,21 @@ import ChatInput from "./ChatInput";
 import BillingError from "./modal/BillingError";
 import ChatError from "./modal/ChatError";
 import { checkCanSend } from "@/lib";
+import {
+  getMessageFile,
+  getMessageReasoning,
+  getMessageText,
+  isMessageStreaming,
+  isReasoningStreaming,
+  ThinkingBlock,
+} from "./chat-hepers";
 
-// --- Helpers to extract content from UIMessage parts ---
-const getMessageText = (msg: UIMessage): string => {
-  return (
-    msg.parts
-      ?.filter(
-        (
-          p,
-        ): p is { type: "text"; text: string; state?: "streaming" | "done" } =>
-          p.type === "text",
-      )
-      .map((p) => p.text)
-      .join("") || ""
-  );
-};
-
-const getMessageFile = (
-  msg: UIMessage,
-): { name: string; type: string; url: string } | undefined => {
-  const filePart = msg.parts?.find((p) => p.type === "file");
-  if (!filePart || filePart.type !== "file") return undefined;
-  return {
-    name: filePart.filename || "Attached Document",
-    type: filePart.mediaType,
-    url: filePart.url,
-  };
-};
-
-const isMessageStreaming = (msg: UIMessage): boolean => {
-  return (
-    msg.parts?.some(
-      (p) =>
-        p.type === "text" && (p as { state?: string }).state === "streaming",
-    ) ?? false
-  );
-};
-
-interface ChatInterfaceProps {
-  chatId?: string | null;
-  onChatCreated?: (chatId: string) => void;
-  serverChatId?: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  serverMessages?: any[] | null;
-}
-
-const ChatInterface = ({
+const ChatInterface: FC<ChatInterfaceProps> = ({
   chatId,
   onChatCreated,
   serverChatId,
   serverMessages,
-}: ChatInterfaceProps) => {
+}) => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
 
@@ -592,7 +558,7 @@ const ChatInterface = ({
           {/* ── HERO WELCOME SCREEN (Only visible on new, empty chat) ── */}
           {messages.length === 0 && !chatId && !isLoading && (
             <div className="flex-1 flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500 pb-10 mt-auto mb-auto">
-              <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-amber-600 rounded-3xl flex items-center justify-center shadow-xl mb-8 transform hover:scale-105 transition-transform duration-300">
+              <div className="w-20 h-20 bg-linear-to-br from-orange-500 to-amber-600 rounded-3xl flex items-center justify-center shadow-xl mb-8 transform hover:scale-105 transition-transform duration-300">
                 <Scale
                   size={40}
                   className="text-white drop-shadow-md"
@@ -672,14 +638,11 @@ const ChatInterface = ({
           <div className="space-y-6 w-full">
             {messages.map((msg, index) => {
               const msgText = getMessageText(msg);
+              const msgReasoning = getMessageReasoning(msg);
               const msgFile = getMessageFile(msg);
               const msgIsStreaming = isMessageStreaming(msg);
+              const msgReasoningStreaming = isReasoningStreaming(msg);
               const isAssistant = msg.role === "assistant";
-              const isError =
-                isAssistant &&
-                (msgText.includes("apologize") ||
-                  msgText.includes("error") ||
-                  msgText.includes("offline"));
 
               return (
                 <div
@@ -692,14 +655,14 @@ const ChatInterface = ({
                     className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-transform hover:scale-105 ${
                       msg.role === "user"
                         ? "bg-linear-to-br from-amber-500 to-orange-600 ml-3 shadow-md"
-                        : isError
+                        : chatError
                           ? "bg-red-100 dark:bg-red-900/30 mr-3"
                           : "bg-orange-100 dark:bg-orange-900/30 mr-3"
                     }`}
                   >
                     {msg.role === "user" ? (
                       <UserIcon size={20} className="text-white" />
-                    ) : isError ? (
+                    ) : chatError ? (
                       <AlertTriangle
                         size={20}
                         className="text-red-600 dark:text-red-500"
@@ -715,11 +678,19 @@ const ChatInterface = ({
                   <div
                     className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} max-w-full overflow-hidden`}
                   >
+                    {/* Reasoning / Thinking Block — only for assistant messages */}
+                    {isAssistant && msgReasoning && (
+                      <ThinkingBlock
+                        reasoning={msgReasoning}
+                        isStreaming={msgReasoningStreaming}
+                      />
+                    )}
+
                     <div
                       className={`px-6 py-4 rounded-2xl shadow-sm text-sm leading-relaxed w-full transition-all hover:shadow-md ${
                         msg.role === "user"
                           ? "bg-linear-to-br from-amber-500 to-orange-600 text-white rounded-tr-none shadow-orange-500/20"
-                          : isError
+                          : chatError
                             ? "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 text-slate-800 dark:text-slate-200 rounded-tl-none"
                             : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none"
                       }`}
@@ -788,7 +759,7 @@ const ChatInterface = ({
                         )}
                       </div>
 
-                      {isError &&
+                      {chatError &&
                         !isLoading &&
                         index === messages.length - 1 && (
                           <button
@@ -830,11 +801,34 @@ const ChatInterface = ({
                     className="text-orange-600 dark:text-orange-500"
                   />
                 </div>
-                <div className="px-6 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none flex items-center space-x-1 h-[54px]">
-                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
-                </div>
+                {status === "submitted" ? (
+                  // Waiting for first token — show thinking indicator
+                  <div className="px-4 py-3 rounded-2xl bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/60 dark:border-orange-800/40 rounded-tl-none flex items-center gap-2.5">
+                    <BrainCircuit
+                      size={15}
+                      className="text-orange-500 animate-pulse shrink-0"
+                    />
+                    <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 tracking-wide uppercase">
+                      Thinking
+                    </span>
+                    <span className="flex gap-0.5">
+                      {[0, 1, 2].map((i) => (
+                        <span
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-bounce"
+                          style={{ animationDelay: `${i * 0.15}s` }}
+                        />
+                      ))}
+                    </span>
+                  </div>
+                ) : (
+                  // Streaming — show subtle dots while text is coming in
+                  <div className="px-6 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none flex items-center space-x-1 h-[54px]">
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
+                  </div>
+                )}
               </div>
             )}
           </div>

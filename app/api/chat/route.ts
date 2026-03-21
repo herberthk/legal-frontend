@@ -1,4 +1,4 @@
-import { google } from "@ai-sdk/google";
+import { google, GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, UIMessage } from "ai";
 import { BASE_SYSTEM_INSTRUCTION } from "@/constants";
 import {
@@ -37,8 +37,17 @@ export async function POST(req: Request) {
     const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
     console.log("messages", historyMessages.length);
     const result = streamText({
-      model: google("gemini-2.5-flash"),
+      model: google("gemini-3-flash-preview"),
       system: BASE_SYSTEM_INSTRUCTION,
+      providerOptions: {
+        google: {
+          thinkingConfig: {
+            // For Gemini 3 models, use thinkingLevel (e.g. 'minimal', 'low', 'medium', 'high')
+            thinkingLevel: "medium",
+            includeThoughts: true,
+          },
+        } satisfies GoogleLanguageModelOptions,
+      },
       messages: await convertToModelMessages(historyMessages),
       temperature: 0.2,
       onFinish: async ({ text, usage }) => {
@@ -85,7 +94,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({ sendReasoning: true });
   } catch (error) {
     console.error("Error in /api/chat:", error);
     return new Response(

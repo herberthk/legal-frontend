@@ -204,5 +204,13 @@ declare global {
     user: User;
     session: string;
   };
+
+  interface ChatInterfaceProps {
+    chatId?: string | null;
+    onChatCreated?: (chatId: string) => void;
+    serverChatId?: string | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    serverMessages?: any[] | null;
+  }
 }
 export {};
