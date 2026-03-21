@@ -1,5 +1,5 @@
-import ChatSkeleton from "@/components/user/ChatSkeleton";
+import ChatSessionSkeleton from "@/components/user/ChatSessionSkeleton";
 
 export default function Loading() {
-  return <ChatSkeleton />;
+  return <ChatSessionSkeleton />;
 }
