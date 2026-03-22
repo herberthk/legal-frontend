@@ -2,7 +2,7 @@
 import { PlusCircle } from "lucide-react";
 import { FC, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
-import UsageHistory from "../admin/UsageHistory";
+import UsageHistory from "./UsageHistory";
 import UsageCards from "./UsageCards";
 import VoiceSelection from "./VoiceSelection";
 import UsageChart from "./UsageChart";
@@ -47,11 +47,9 @@ const UserDashboard: FC<Props> = ({ user }) => {
       {/* Voice Selection */}
       <VoiceSelection />
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="w-full">
         {/* Usage Chart */}
         <UsageChart />
-        {/* Transactions List */}
-        <TransactionList />
       </div>
 
       {/* Token Usage History */}
