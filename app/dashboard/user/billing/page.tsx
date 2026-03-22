@@ -1,4 +1,4 @@
-import { BillingPage } from "@/components/admin/Billing";
+import { BillingPage } from "@/components/user/Billing";
 import { getCurrentUser } from "@/lib";
 
 const Billing = async () => {
