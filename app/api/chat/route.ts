@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         google: {
           thinkingConfig: {
             // For Gemini 3 models, use thinkingLevel (e.g. 'minimal', 'low', 'medium', 'high')
-            thinkingLevel: "medium",
+            // thinkingLevel: "medium",
             includeThoughts: true,
           },
         } satisfies GoogleLanguageModelOptions,
