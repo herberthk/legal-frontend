@@ -11,7 +11,7 @@ import {
   Server,
   WifiOff,
   Wifi,
-  BrainCircuit,
+  Sparkles,
 } from "lucide-react";
 
 import MakdownFormater from "./MakdownFormater";
@@ -686,96 +686,99 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
                       />
                     )}
 
-                    <div
-                      className={`px-6 py-4 rounded-2xl shadow-sm text-sm leading-relaxed w-full transition-all hover:shadow-md ${
-                        msg.role === "user"
-                          ? "bg-linear-to-br from-amber-500 to-orange-600 text-white rounded-tr-none shadow-orange-500/20"
-                          : chatError
-                            ? "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 text-slate-800 dark:text-slate-200 rounded-tl-none"
-                            : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none"
-                      }`}
-                    >
-                      {/* File attachment display */}
-                      {msgFile && (
-                        <div
-                          className={`mb-3 p-3 rounded-lg flex items-center space-x-3 ${
-                            msg.role === "user"
-                              ? "bg-white/10"
-                              : "bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
-                          }`}
-                        >
-                          <div
-                            className={`p-2 rounded flex items-center justify-center ${msg.role === "user" ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800"}`}
-                          >
-                            {msgFile.type.includes("image") ? (
-                              <ImageIcon
-                                size={18}
-                                className={
-                                  msg.role === "user"
-                                    ? "text-white"
-                                    : "text-slate-500"
-                                }
-                              />
-                            ) : (
-                              <FileText
-                                size={18}
-                                className={
-                                  msg.role === "user"
-                                    ? "text-white"
-                                    : "text-slate-500"
-                                }
-                              />
-                            )}
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="font-medium truncate text-xs opacity-90 max-w-[200px]">
-                              {msgFile.name}
-                            </span>
-                            <span className="text-[10px] opacity-70">
-                              Attached Document
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
+                    {/* Message container */}
+                    {(msg.role === "user" || msgText.length > 0 || !!msgFile || !msgReasoning || !msgReasoningStreaming) && (
                       <div
-                        className={`prose prose-sm max-w-none wrap-break-word ${msg.role === "user" ? "prose-invert" : "dark:prose-invert"}`}
+                        className={`px-6 py-4 rounded-2xl shadow-sm text-sm leading-relaxed w-full transition-all hover:shadow-md ${
+                          msg.role === "user"
+                            ? "bg-linear-to-br from-amber-500 to-orange-600 text-white rounded-tr-none shadow-orange-500/20"
+                            : chatError
+                              ? "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 text-slate-800 dark:text-slate-200 rounded-tl-none"
+                              : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none"
+                        } ${(isAssistant && msgReasoning) ? "rounded-tl-none mt-2" : ""}`}
                       >
-                        <MakdownFormater
-                          content={msgText}
-                          role={
-                            msg.role as "user" | "assistant" | "system" | "data"
-                          }
-                        />
-                        {msgIsStreaming && (
-                          <span
-                            className={`inline-block w-1.5 h-4 ml-1 animate-pulse align-middle rounded-sm ${
+                        {/* File attachment display */}
+                        {msgFile && (
+                          <div
+                            className={`mb-3 p-3 rounded-lg flex items-center space-x-3 ${
                               msg.role === "user"
-                                ? "bg-white"
-                                : "bg-orange-500 dark:bg-orange-400"
+                                ? "bg-white/10"
+                                : "bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"
                             }`}
-                            aria-hidden="true"
-                          />
-                        )}
-                      </div>
-
-                      {chatError &&
-                        !isLoading &&
-                        index === messages.length - 1 && (
-                          <button
-                            onClick={handleRetry}
-                            disabled={connectionStatus === "offline"}
-                            className="mt-3 flex items-center space-x-2 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors bg-white/50 dark:bg-black/10 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <RefreshCw size={12} />
-                            <span>
-                              {connectionStatus === "offline"
-                                ? "Connect to retry"
-                                : "Retry Request"}
-                            </span>
-                          </button>
+                            <div
+                              className={`p-2 rounded flex items-center justify-center ${msg.role === "user" ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800"}`}
+                            >
+                              {msgFile.type.includes("image") ? (
+                                <ImageIcon
+                                  size={18}
+                                  className={
+                                    msg.role === "user"
+                                      ? "text-white"
+                                      : "text-slate-500"
+                                  }
+                                />
+                              ) : (
+                                <FileText
+                                  size={18}
+                                  className={
+                                    msg.role === "user"
+                                      ? "text-white"
+                                      : "text-slate-500"
+                                  }
+                                />
+                              )}
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span className="font-medium truncate text-xs opacity-90 max-w-[200px]">
+                                {msgFile.name}
+                              </span>
+                              <span className="text-[10px] opacity-70">
+                                Attached Document
+                              </span>
+                            </div>
+                          </div>
                         )}
-                    </div>
+
+                        <div
+                          className={`prose prose-sm max-w-none wrap-break-word ${msg.role === "user" ? "prose-invert" : "dark:prose-invert"}`}
+                        >
+                          <MakdownFormater
+                            content={msgText}
+                            role={
+                              msg.role as "user" | "assistant" | "system" | "data"
+                            }
+                          />
+                          {msgIsStreaming && (
+                            <span
+                              className={`inline-block w-1.5 h-4 ml-1 animate-pulse align-middle rounded-sm ${
+                                msg.role === "user"
+                                  ? "bg-white"
+                                  : "bg-orange-500 dark:bg-orange-400"
+                              }`}
+                              aria-hidden="true"
+                            />
+                          )}
+                        </div>
+
+                          {chatError &&
+                            !isLoading &&
+                            index === messages.length - 1 && (
+                              <button
+                                onClick={handleRetry}
+                                disabled={connectionStatus === "offline"}
+                                className="mt-3 flex items-center space-x-2 text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors bg-white/50 dark:bg-black/10 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-800 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <RefreshCw size={12} />
+                                <span>
+                                  {connectionStatus === "offline"
+                                    ? "Connect to retry"
+                                    : "Retry Request"}
+                                </span>
+                              </button>
+                            )}
+                        </div>
+                    )}
                     <span className="text-xs text-slate-400 dark:text-slate-500 mt-2 mx-1">
                       {(
                         msg.metadata as { createdAt?: Date } | undefined
@@ -802,27 +805,29 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
                   />
                 </div>
                 {status === "submitted" ? (
-                  // Waiting for first token — show thinking indicator
-                  <div className="px-4 py-3 rounded-2xl bg-orange-50/80 dark:bg-orange-950/30 border border-orange-200/60 dark:border-orange-800/40 rounded-tl-none flex items-center gap-2.5">
-                    <BrainCircuit
-                      size={15}
-                      className="text-orange-500 animate-pulse shrink-0"
-                    />
-                    <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 tracking-wide uppercase">
-                      Thinking
-                    </span>
-                    <span className="flex gap-0.5">
-                      {[0, 1, 2].map((i) => (
-                        <span
-                          key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-bounce"
-                          style={{ animationDelay: `${i * 0.15}s` }}
-                        />
-                      ))}
-                    </span>
+                  // Waiting for first token — show thinking indicator perfectly matching ThinkingBlock
+                  <div className="w-[200px] rounded-tl-xl rounded-tr-xl border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/50 dark:bg-orange-950/20 overflow-hidden">
+                    <div className="w-full flex items-center gap-2 px-3 py-2 text-left bg-transparent">
+                      <Sparkles
+                        size={13}
+                        className="shrink-0 text-orange-500 animate-pulse"
+                      />
+                      <span className="flex-1 text-[11px] font-semibold text-orange-700 dark:text-orange-400 tracking-wide uppercase">
+                        Thinking…
+                      </span>
+                      <span className="flex gap-0.5">
+                        {[0, 1, 2].map((i) => (
+                          <span
+                            key={i}
+                            className="w-1 h-1 rounded-full bg-orange-400 animate-bounce"
+                            style={{ animationDelay: `${i * 0.15}s` }}
+                          />
+                        ))}
+                      </span>
+                    </div>
                   </div>
                 ) : (
-                  // Streaming — show subtle dots while text is coming in
+                  // Streaming — wait for text to begin or reasoning logic to take over
                   <div className="px-6 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-tl-none flex items-center space-x-1 h-[54px]">
                     <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                     <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
