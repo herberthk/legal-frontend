@@ -1,5 +1,10 @@
+import {
+  COST_PER_THOUSAND_TOKENS,
+  COST_PER_VOICE_MINUTE,
+  FREE_DAILY_TEXT_TOKENS,
+  USD_TO_UGX_EXCHANGE_RATE,
+} from "@/constants";
 import { AlertCircle } from "lucide-react";
-import React from "react";
 
 const PricingGuide = () => {
   return (
@@ -11,15 +16,23 @@ const PricingGuide = () => {
       <ul className="space-y-2 text-sm text-indigo-100">
         <li className="flex justify-between">
           <span>Text Queries</span>
-          <span className="font-mono font-bold">$0.03 / 1k tokens</span>
+          <span className="font-mono font-bold">
+            ${COST_PER_THOUSAND_TOKENS} (UGX{" "}
+            {COST_PER_THOUSAND_TOKENS * USD_TO_UGX_EXCHANGE_RATE}) / 1k tokens
+          </span>
         </li>
         <li className="flex justify-between">
           <span>Voice Minutes</span>
-          <span className="font-mono font-bold">$0.05 / min</span>
+          <span className="font-mono font-bold">
+            ${COST_PER_VOICE_MINUTE} (UGX{" "}
+            {COST_PER_VOICE_MINUTE * USD_TO_UGX_EXCHANGE_RATE}) / min
+          </span>
         </li>
         <li className="flex justify-between">
           <span>Daily Free</span>
-          <span className="font-mono font-bold">1,000 Tokens</span>
+          <span className="font-mono font-bold">
+            {FREE_DAILY_TEXT_TOKENS.toLocaleString()} Tokens
+          </span>
         </li>
       </ul>
     </div>
