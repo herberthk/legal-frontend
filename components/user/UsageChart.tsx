@@ -19,7 +19,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
-import { Loader2, Filter, Calendar, Activity } from "lucide-react";
+import { Filter, Calendar, Activity } from "lucide-react";
 import CustomTooltip from "../global/modal/CustomTooltip";
 
 const FILTER_OPTIONS: { label: string; value: UsageFilter }[] = [
@@ -302,8 +302,15 @@ const UsageChart = () => {
 
       <div className="flex-1 relative">
         {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="animate-spin text-slate-400" size={32} />
+          <div className="space-y-4">
+            <div className="flex items-end justify-between gap-4 h-64 px-2">
+              {[40, 70, 45, 90, 65, 50, 80].map((h, i) => (
+                <div key={i} className="flex-1 space-y-2">
+                  <div className="w-full bg-slate-100 dark:bg-slate-700/50 rounded-t-lg transition-all duration-500 animate-pulse" style={{ height: `${h}%` }}></div>
+                  <div className="h-2 w-full bg-slate-50 dark:bg-slate-800 rounded animate-pulse"></div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : chartData.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center text-slate-500">

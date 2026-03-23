@@ -210,8 +210,22 @@ const UsageHistory = ({ userId }: Props) => {
       {/* Records List */}
       <div className="space-y-1 min-h-[200px]">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 size={24} className="animate-spin text-slate-400" />
+          <div className="space-y-2 py-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-slate-50 dark:border-slate-800/50 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-24 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                    <div className="h-3 w-16 bg-slate-50 dark:bg-slate-900 rounded"></div>
+                  </div>
+                </div>
+                <div className="space-y-2 text-right">
+                  <div className="h-4 w-12 bg-slate-100 dark:bg-slate-800 rounded ml-auto"></div>
+                  <div className="h-3 w-8 bg-slate-50 dark:bg-slate-900 rounded ml-auto"></div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : paginatedRecords.length === 0 ? (
           <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-sm">
