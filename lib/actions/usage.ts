@@ -139,6 +139,20 @@ export const recordUsageAndDeduct = async (params: {
         createdAt: new Date().toISOString(),
       });
 
+      // Record negative transaction if user paid for processing
+      if (totalCost > 0) {
+        const txRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
+        transaction.set(txRef, {
+          id: txRef.id,
+          userId,
+          type: type === "TEXT_RESPONSE" ? "TEXT_CHAT" : "VOICE_SESSION",
+          description: type === "TEXT_RESPONSE" ? "AI Text Chat Processing" : "Voice Consultation Session",
+          amount: -totalCost,
+          date: new Date().toISOString(),
+          details: type === "TEXT_RESPONSE" ? `${tokens} Tokens` : `${Math.ceil(seconds / 60)} Mins`,
+        });
+      }
+
       return { cost: totalCost };
     });
 
