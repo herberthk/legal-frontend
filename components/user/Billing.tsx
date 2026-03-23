@@ -3,10 +3,28 @@ import React, { useState, useEffect } from "react";
 import { Check, Activity } from "lucide-react";
 import { generateMockTransactions } from "@/constants";
 import BillingCard from "./BillingCard";
-import UsageChart from "./UsageChart";
-import TransactionList from "./TransactionList";
 import PricingGuide from "./PricingGuide";
-import PaymentMethods from "./PaymentMethods";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Dynamically import heavy components
+const UsageChart = dynamic(() => import("./UsageChart"), {
+  loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
+  ssr: false,
+});
+
+const TransactionList = dynamic(() => import("./TransactionList"), {
+  loading: () => (
+    <div className="space-y-4">
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-64 w-full" />
+    </div>
+  ),
+});
+
+const PaymentMethods = dynamic(() => import("./PaymentMethods"), {
+  loading: () => <Skeleton className="h-80 w-full rounded-2xl" />,
+});
 
 type BillingPageProps = {
   user: User;
@@ -14,9 +32,14 @@ type BillingPageProps = {
 
 export const BillingPage: React.FC<BillingPageProps> = ({ user }) => {
   // State
-  const [transactions, setTransactions] = useState<Transaction[]>(
-    generateMockTransactions(),
-  );
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  useEffect(() => {
+    // Delay mock generation to avoid hydration mismatch if needed,
+    // though it's better to fetch real data.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTransactions(generateMockTransactions());
+  }, []);
 
   // Simulation State
   const [simulatedUsage, setSimulatedUsage] = useState(0);
