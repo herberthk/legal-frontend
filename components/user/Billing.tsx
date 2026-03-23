@@ -26,7 +26,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   transactionsList,
 }) => {
   // State
-  const [simulatedUsage, setSimulatedUsage] = useState(0);
+  // const [simulatedUsage, setSimulatedUsage] = useState(0);
 
   // Feedback State
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -34,19 +34,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   // --- Real World Simulation Effects ---
 
   // 1. Simulate real-time usage (cost ticker) based on $0.05/min voice rate
-  useEffect(() => {
-    // $0.05 per minute = ~$0.00083 per second for active session
-    const interval = setInterval(() => {
-      setSimulatedUsage((prev) => prev + 0.00083);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // --- CRUD Operations ---
-
-  const handleTransactionAdded = () => {
-    // Relying on revalidatePath in the server action to refresh the TransactionList
-  };
+  // useEffect(() => {
+  //   // $0.05 per minute = ~$0.00083 per second for active session
+  //   const interval = setInterval(() => {
+  //     setSimulatedUsage((prev) => prev + 0.00083);
+  //   }, 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
@@ -60,7 +54,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             Manage your funds, payment methods, and view consumption history.
           </p>
         </div>
-        <div className="flex items-center space-x-3 bg-orange-50 dark:bg-orange-900/20 px-4 py-2 rounded-lg border border-orange-100 dark:border-orange-800 animate-in slide-in-from-right-4 duration-500">
+        {/* <div className="flex items-center space-x-3 bg-orange-50 dark:bg-orange-900/20 px-4 py-2 rounded-lg border border-orange-100 dark:border-orange-800 animate-in slide-in-from-right-4 duration-500">
           <Activity className="text-orange-500 w-5 h-5 animate-pulse" />
           <div className="flex flex-col">
             <span className="text-xs text-orange-600 dark:text-orange-400 font-bold uppercase tracking-wider">
@@ -70,17 +64,14 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               ${simulatedUsage.toFixed(5)}
             </span>
           </div>
-        </div>
+        </div> */}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Stats & Charts */}
         <div className="lg:col-span-2 space-y-8">
           {/* Main Balance Card */}
-          <BillingCard
-            user={user}
-            onTransactionAdded={handleTransactionAdded}
-          />
+          <BillingCard user={user} />
 
           {/* Usage Chart */}
           <UsageChart />
