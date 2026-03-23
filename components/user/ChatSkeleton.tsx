@@ -7,7 +7,7 @@ const ChatSkeleton = () => {
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white dark:bg-slate-950">
       {/* Sidebar Skeleton */}
-      <div className="w-64 md:w-80 border-r border-slate-100 dark:border-slate-800 flex flex-col">
+      <div className="w-64 border-r border-slate-100 dark:border-slate-800 flex flex-col">
         <div className="p-4 border-b border-slate-100 dark:border-slate-800">
           <Skeleton className="h-10 w-full rounded-xl" />
         </div>

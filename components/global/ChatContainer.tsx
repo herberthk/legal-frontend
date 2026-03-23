@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import ChatInterface from "./ChatInterface";
 import ChatHistorySidebar from "./ChatHistorySidebar";
 import { useRouter } from "nextjs-toploader/app";
@@ -20,20 +20,9 @@ const ChatContainer = ({
 }: ChatContainerProps) => {
   const router = useRouter();
 
-  // serverChatId is the SSR-injected value from the [chatId] route segment.
-  // It is the single source of truth — no need to read query params.
-  const [activeChatId, setActiveChatId] = useState<string | null>(
-    serverChatId || null,
-  );
-
-  // Keep local state in sync when Next.js re-renders the page with a new segment
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setActiveChatId(serverChatId || null);
-  }, [serverChatId]);
-
   const handleSelectChat = (chatId: string | null) => {
-    setActiveChatId(chatId);
+    if (chatId === serverChatId) return; // Already on this chat
+
     if (chatId) {
       // Navigate to /dashboard/user/chat/[chatId]
       router.push(`${CHAT_BASE}/${chatId}`);
@@ -42,6 +31,8 @@ const ChatContainer = ({
       router.push(CHAT_BASE);
     }
   };
+
+  const activeChatId = serverChatId || null;
 
   return (
     <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden">

@@ -6,17 +6,22 @@ export default async function ChatPage(props: {
   params: Promise<{ chatId: string }>;
 }) {
   const { chatId } = await props.params;
-  const user = await getCurrentUser();
+
+  // Parallelize user fetch and message fetch (messages don't depend on user ID)
+  const [user, messagesResult] = await Promise.all([
+    getCurrentUser(),
+    getChatMessages(chatId),
+  ]);
+
   if (!user) return null;
 
-  // Load messages for this specific chat session
+  // Load messages from the parallel result
   let initialMessages = null;
-  const result = await getChatMessages(chatId);
-  if (result.success && result.messages) {
-    initialMessages = result.messages;
+  if (messagesResult.success && messagesResult.messages) {
+    initialMessages = messagesResult.messages;
   }
 
-  // Load sidebar sessions
+  // Load sidebar sessions (depends on user.id)
   let initialSessions: ChatSession[] = [];
   const sessionsResult = await getChatSessions(user.id);
   if (sessionsResult.success && sessionsResult.sessions) {
