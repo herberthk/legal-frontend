@@ -112,6 +112,15 @@ declare global {
     resolutionNote?: string;
   };
 
+  type HelpArticle = {
+    id: string;
+    title: string;
+    category: string;
+    content: string; // Markdown supported
+    order: number;
+    createdAt: string;
+  };
+
   type Notifications = {
     id: number;
     text: string;

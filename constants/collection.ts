@@ -5,4 +5,6 @@ export const COLLECTIONS = {
   OTP: "otp",
   USAGE: "usage",
   USER_STATS: "userStats",
+  SUPPORT_TICKETS: "supportTickets",
+  HELP_ARTICLES: "helpArticles",
 } as const;
