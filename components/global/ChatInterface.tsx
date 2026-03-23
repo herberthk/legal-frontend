@@ -246,13 +246,9 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
         return;
       }
 
-      // The current chatId matches what was SSR-prefetched: initialMessages
-      // already holds the data, just sync the session-ID state.
-      if (
-        chatId === serverChatId &&
-        serverMessages &&
-        serverMessages.length > 0
-      ) {
+      // The current chatId matches what was SSR-prefetched: trust the serverMessages
+      // (even if empty) to avoid a redundant client-side fetch.
+      if (chatId === serverChatId && serverMessages) {
         setChatSessionId(chatId);
         const totalTokens = serverMessages.reduce(
           (sum: number, m: { tokenCount?: number }) =>
@@ -260,7 +256,10 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
           0,
         );
         setSessionStats((prev) => ({ ...prev, textTokens: totalTokens }));
-        return; // initialMessages already has these messages — no setMessages needed
+        
+        // If there are messages, we don't need to do anything else as they 
+        // were already seeded via useLayoutEffect + setMessages.
+        return;
       }
 
       // Fallback: fetch from Firestore (sidebar navigation to a non-prefetched chat)
