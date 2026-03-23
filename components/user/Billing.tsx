@@ -5,21 +5,11 @@ import BillingCard from "./BillingCard";
 import PricingGuide from "./PricingGuide";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getUserTransactions } from "@/lib/actions/wallet";
 
 // Dynamically import heavy components
 const UsageChart = dynamic(() => import("./UsageChart"), {
   loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
   ssr: false,
-});
-
-const TransactionList = dynamic(() => import("./TransactionList"), {
-  loading: () => (
-    <div className="space-y-4">
-      <Skeleton className="h-12 w-full" />
-      <Skeleton className="h-64 w-full" />
-    </div>
-  ),
 });
 
 const PaymentMethods = dynamic(() => import("./PaymentMethods"), {
@@ -28,26 +18,14 @@ const PaymentMethods = dynamic(() => import("./PaymentMethods"), {
 
 type BillingPageProps = {
   user: User;
+  transactionsList: React.ReactNode;
 };
 
-export const BillingPage: React.FC<BillingPageProps> = ({ user }) => {
+export const BillingPage: React.FC<BillingPageProps> = ({
+  user,
+  transactionsList,
+}) => {
   // State
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoadingTx, setIsLoadingTx] = useState(true);
-
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      setIsLoadingTx(true);
-      const res = await getUserTransactions(user.id);
-      if (res.success && res.transactions) {
-        setTransactions(res.transactions as Transaction[]);
-      }
-      setIsLoadingTx(false);
-    };
-    fetchTransactions();
-  }, [user.id]);
-
-  // Simulation State
   const [simulatedUsage, setSimulatedUsage] = useState(0);
 
   // Feedback State
@@ -66,13 +44,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user }) => {
 
   // --- CRUD Operations ---
 
-  const handleTransactionAdded = (newTx: Transaction) => {
-    setTransactions((prev) => [newTx, ...prev]);
-  };
-
-  const handleArchiveTransaction = (id: string) => {
-    // Soft delete simulation
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  const handleTransactionAdded = () => {
+    // Relying on revalidatePath in the server action to refresh the TransactionList
   };
 
   return (
@@ -111,18 +84,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user }) => {
 
           {/* Usage Chart */}
           <UsageChart />
-          {/* Transaction History Table */}
-          {isLoadingTx ? (
-            <div className="space-y-4">
-              <Skeleton className="h-12 w-full rounded-xl" />
-              <Skeleton className="h-64 w-full rounded-2xl" />
-            </div>
-          ) : (
-            <TransactionList
-              transactions={transactions}
-              onArchive={handleArchiveTransaction}
-            />
-          )}
+          {/* Transaction History Table (Server-Rendered) */}
+          {transactionsList}
         </div>
 
         {/* Right Column: Payment Methods */}
