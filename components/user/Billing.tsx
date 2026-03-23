@@ -1,11 +1,11 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Check, Activity } from "lucide-react";
-import { generateMockTransactions } from "@/constants";
 import BillingCard from "./BillingCard";
 import PricingGuide from "./PricingGuide";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getUserTransactions } from "@/lib/actions/wallet";
 
 // Dynamically import heavy components
 const UsageChart = dynamic(() => import("./UsageChart"), {
@@ -33,13 +33,19 @@ type BillingPageProps = {
 export const BillingPage: React.FC<BillingPageProps> = ({ user }) => {
   // State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoadingTx, setIsLoadingTx] = useState(true);
 
   useEffect(() => {
-    // Delay mock generation to avoid hydration mismatch if needed,
-    // though it's better to fetch real data.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTransactions(generateMockTransactions());
-  }, []);
+    const fetchTransactions = async () => {
+      setIsLoadingTx(true);
+      const res = await getUserTransactions(user.id);
+      if (res.success && res.transactions) {
+        setTransactions(res.transactions as Transaction[]);
+      }
+      setIsLoadingTx(false);
+    };
+    fetchTransactions();
+  }, [user.id]);
 
   // Simulation State
   const [simulatedUsage, setSimulatedUsage] = useState(0);
@@ -106,10 +112,17 @@ export const BillingPage: React.FC<BillingPageProps> = ({ user }) => {
           {/* Usage Chart */}
           <UsageChart />
           {/* Transaction History Table */}
-          <TransactionList
-            transactions={transactions}
-            onArchive={handleArchiveTransaction}
-          />
+          {isLoadingTx ? (
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full rounded-xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
+            </div>
+          ) : (
+            <TransactionList
+              transactions={transactions}
+              onArchive={handleArchiveTransaction}
+            />
+          )}
         </div>
 
         {/* Right Column: Payment Methods */}

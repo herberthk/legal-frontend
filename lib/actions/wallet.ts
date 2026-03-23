@@ -53,3 +53,27 @@ export async function processDeposit(
     };
   }
 }
+
+export async function getUserTransactions(userId: string) {
+  try {
+    const snapshot = await db
+      .collection(COLLECTIONS.TRANSACTIONS)
+      .where("userId", "==", userId)
+      .orderBy("date", "desc")
+      .limit(50)
+      .get();
+
+    const transactions = snapshot.docs.map((doc) => doc.data());
+
+    return {
+      success: true,
+      transactions,
+    };
+  } catch (error) {
+    console.error("Error fetching transactions:", error);
+    return {
+      success: false,
+      transactions: [],
+    };
+  }
+}
