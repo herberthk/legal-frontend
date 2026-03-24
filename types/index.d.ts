@@ -83,6 +83,8 @@ declare global {
     amount: number; // Cost (negative) or Deposit (positive)
     date: string;
     details: string; // e.g., "1.5k tokens" or "4m 20s"
+    status: "pending" | "completed" | "failed";
+    reference: string;
   };
 
   type ConnectionState = "disconnected" | "connecting" | "connected" | "error";

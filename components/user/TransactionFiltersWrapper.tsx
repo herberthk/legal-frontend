@@ -6,6 +6,7 @@ import TransactionPagination from "./TransactionPagination";
 
 interface TransactionFiltersWrapperProps {
   currentType: string;
+  currentDuration: string;
   transactions: Transaction[];
   totalPages: number;
   currentPage: number;
@@ -13,6 +14,7 @@ interface TransactionFiltersWrapperProps {
 
 const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
   currentType,
+  currentDuration,
   transactions,
   totalPages,
   currentPage,
@@ -32,6 +34,7 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
     <>
       <TransactionFilters
         currentType={currentType}
+        currentDuration={currentDuration}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
       />

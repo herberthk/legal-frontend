@@ -5,8 +5,6 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
-  Server,
-  Clock,
   Receipt,
   CreditCard,
   Trash2,
@@ -34,7 +32,8 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
       const lowerTerm = searchTerm.toLowerCase();
       const matchDesc = t.description.toLowerCase().includes(lowerTerm);
       const matchId = t.id.toLowerCase().includes(lowerTerm);
-      if (!matchDesc && !matchId) return false;
+      const matchRef = t.reference?.toLowerCase().includes(lowerTerm);
+      if (!matchDesc && !matchId && !matchRef) return false;
     }
     return true;
   });
@@ -58,9 +57,7 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                     className={`p-2 rounded-full transition-colors ${
                       t.type === "DEPOSIT"
                         ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                        : t.type === "VOICE_SESSION"
-                          ? "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
-                          : "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                        : "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
                     }`}
                   >
                     {t.type === "DEPOSIT" ? (
@@ -133,92 +130,6 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
               <tr className="bg-slate-50 dark:bg-slate-700/20 animate-in fade-in slide-in-from-top-1 duration-200">
                 <td colSpan={4} className="px-6 pb-6 pt-2">
                   <div className="ml-14 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    {t.type === "TEXT_CHAT" && (
-                      <>
-                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-3">
-                          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded">
-                            <Server size={16} />
-                          </div>
-                          <div>
-                            <span className="text-xs text-slate-500 block">
-                              Usage
-                            </span>
-                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
-                              {t.details}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-3">
-                          <div className="p-2 bg-slate-50 dark:bg-slate-700 text-slate-500 rounded">
-                            <Clock size={16} />
-                          </div>
-                          <div>
-                            <span className="text-xs text-slate-500 block">
-                              Timestamp
-                            </span>
-                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
-                              {new Date(t.date).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-3">
-                          <div className="p-2 bg-orange-50 dark:bg-orange-900/20 text-orange-500 rounded">
-                            <Activity size={16} />
-                          </div>
-                          <div>
-                            <span className="text-xs text-slate-500 block">
-                              Channel
-                            </span>
-                            <span className="font-medium text-slate-700 dark:text-slate-300">
-                              Chat Session
-                            </span>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    {t.type === "VOICE_SESSION" && (
-                      <>
-                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-3">
-                          <div className="p-2 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded">
-                            <Clock size={16} />
-                          </div>
-                          <div>
-                            <span className="text-xs text-slate-500 block">
-                              Duration
-                            </span>
-                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
-                              {t.details}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-3">
-                          <div className="p-2 bg-slate-50 dark:bg-slate-700 text-slate-500 rounded">
-                            <DollarSign size={16} />
-                          </div>
-                          <div>
-                            <span className="text-xs text-slate-500 block">
-                              Rate
-                            </span>
-                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
-                              Standard
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-3">
-                          <div className="p-2 bg-purple-50 dark:bg-purple-900/20 text-purple-500 rounded">
-                            <Activity size={16} />
-                          </div>
-                          <div>
-                            <span className="text-xs text-slate-500 block">
-                              Voice ID
-                            </span>
-                            <span className="font-medium text-slate-700 dark:text-slate-300">
-                              AI Voice
-                            </span>
-                          </div>
-                        </div>
-                      </>
-                    )}
                     {t.type === "DEPOSIT" && (
                       <>
                         <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-3">
@@ -230,7 +141,7 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                               Ref ID
                             </span>
                             <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
-                              TXN-{t.id.toUpperCase()}
+                              {t.reference}
                             </span>
                           </div>
                         </div>
@@ -243,9 +154,8 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                               Method
                             </span>
                             <span className="font-medium text-slate-700 dark:text-slate-300">
-                              {t.description
-                                .split("(")[1]
-                                ?.replace(")", "") || "Direct"}
+                              {t.description.split("(")[1]?.replace(")", "") ||
+                                "Direct"}
                             </span>
                           </div>
                         </div>
