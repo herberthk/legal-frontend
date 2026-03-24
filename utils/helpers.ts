@@ -52,11 +52,10 @@ export const verifyOTPWithSalt = async (
 };
 
 //generate random transaction reference of 8 characters alphanumeric it should be prefixed with TX_
-export const generateTransactionReference = async (
-  length = 8,
-): Promise<string> => crypto.randomBytes(length).toString("hex").toUpperCase();
+export const generateTransactionReference = (length = 8) =>
+  crypto.randomBytes(length).toString("hex").toUpperCase();
 
-export const generateTxRef = async (length = 8) => {
+export const generateTxRef = (length = 8) => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   const bytes = crypto.getRandomValues(new Uint8Array(length));
 
@@ -84,3 +83,5 @@ export const formatDate = (dateString: string) => {
 
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 };
+
+console.log("transaction reference", generateTxRef());

@@ -5,14 +5,15 @@ import TransactionList from "@/components/user/TransactionList";
 const Billing = async ({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; type?: string }>;
+  searchParams: Promise<{ page?: string; type?: string; duration?: string }>;
 }) => {
-  const { page, type } = await searchParams;
+  const { page, type, duration } = await searchParams;
   const user = await getCurrentUser();
   if (!user) return null;
 
   const currentPage = parseInt(page || "1");
   const currentType = type || "ALL";
+  const currentDuration = duration || "all";
 
   return (
     <BillingPage
@@ -22,6 +23,7 @@ const Billing = async ({
           userId={user.id}
           currentPage={currentPage}
           currentType={currentType}
+          currentDuration={currentDuration}
         />
       }
     />

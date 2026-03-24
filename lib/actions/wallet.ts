@@ -4,6 +4,7 @@ import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
+import { generateTxRef } from "@/utils";
 
 export async function processDeposit(
   userId: string,
@@ -23,6 +24,8 @@ export async function processDeposit(
       amount: amount,
       date: new Date().toISOString(),
       details: details,
+      reference: generateTxRef(),
+      status: "pending",
     };
 
     // We use a batch to ensure both updates happen atomically
@@ -61,6 +64,7 @@ export async function getUserTransactions(
   page: number = 1,
   pageSize: number = 10,
   type: string = "ALL",
+  duration: string = "all",
 ) {
   try {
     let query = db
@@ -69,6 +73,35 @@ export async function getUserTransactions(
 
     if (type !== "ALL") {
       query = query.where("type", "==", type);
+    }
+
+    // Filter by duration
+    if (duration !== "all") {
+      const start = new Date();
+
+      switch (duration) {
+        case "today":
+          start.setHours(0, 0, 0, 0);
+          break;
+        case "yesterday":
+          start.setDate(start.getDate() - 1);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date();
+          end.setDate(end.getDate() - 1);
+          end.setHours(23, 59, 59, 999);
+          query = query.where("date", "<=", end.toISOString());
+          break;
+        case "last_week":
+          start.setDate(start.getDate() - 7);
+          start.setHours(0, 0, 0, 0);
+          break;
+        case "month":
+          start.setMonth(start.getMonth() - 1);
+          start.setHours(0, 0, 0, 0);
+          break;
+      }
+
+      query = query.where("date", ">=", start.toISOString());
     }
 
     // Get total count for pagination metadata

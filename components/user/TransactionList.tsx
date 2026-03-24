@@ -6,14 +6,22 @@ interface TransactionListProps {
   userId: string;
   currentPage: number;
   currentType: string;
+  currentDuration: string;
 }
 
 const TransactionList = async ({
   userId,
   currentPage,
   currentType,
+  currentDuration,
 }: TransactionListProps) => {
-  const res = await getUserTransactions(userId, currentPage, 6, currentType);
+  const res = await getUserTransactions(
+    userId,
+    currentPage,
+    6,
+    currentType,
+    currentDuration,
+  );
 
   const transactions = res.success ? (res.transactions as Transaction[]) : [];
   const totalPages = res.success ? res.totalPages || 1 : 1;
@@ -31,6 +39,7 @@ const TransactionList = async ({
 
       <TransactionFiltersWrapper
         currentType={currentType}
+        currentDuration={currentDuration}
         transactions={transactions}
         totalPages={totalPages}
         currentPage={currentPage}

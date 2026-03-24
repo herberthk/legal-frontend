@@ -1,7 +1,7 @@
 import { COLLECTIONS, COST_PER_THOUSAND_TOKENS } from "@/constants";
 import { db } from "@/firebase/client";
 import { clsx, type ClassValue } from "clsx";
-import { collection, doc, getDoc, query, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
