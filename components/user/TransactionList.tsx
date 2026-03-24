@@ -7,6 +7,7 @@ interface TransactionListProps {
   currentPage: number;
   currentType: string;
   currentDuration: string;
+  variant?: "summary" | "full";
 }
 
 const TransactionList = async ({
@@ -14,11 +15,13 @@ const TransactionList = async ({
   currentPage,
   currentType,
   currentDuration,
+  variant = "full",
 }: TransactionListProps) => {
+  const pageSize = variant === "summary" ? 6 : 10;
   const res = await getUserTransactions(
     userId,
     currentPage,
-    6,
+    pageSize,
     currentType,
     currentDuration,
   );
@@ -43,6 +46,7 @@ const TransactionList = async ({
         transactions={transactions}
         totalPages={totalPages}
         currentPage={currentPage}
+        variant={variant}
       />
     </div>
   );
