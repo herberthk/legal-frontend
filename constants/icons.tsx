@@ -104,6 +104,12 @@ export const sideBarItems = (role: Role) =>
           href: "/dashboard/user/voice",
         },
         {
+          id: "/dashboard/user/transactions",
+          label: "Transactions",
+          icon: <CreditCard size={20} />,
+          href: "/dashboard/user/transactions",
+        },
+        {
           id: "/dashboard/user/billing",
           label: "Billing & Usage",
           icon: <CreditCard size={20} />,

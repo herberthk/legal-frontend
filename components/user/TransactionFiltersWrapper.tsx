@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import TransactionFilters from "./TransactionFilters";
 import TransactionTableBody from "./TransactionTableBody";
 import TransactionPagination from "./TransactionPagination";
+import Link from "next/link";
 
 interface TransactionFiltersWrapperProps {
   currentType: string;
@@ -10,6 +11,7 @@ interface TransactionFiltersWrapperProps {
   transactions: Transaction[];
   totalPages: number;
   currentPage: number;
+  variant?: "summary" | "full";
 }
 
 const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
@@ -18,8 +20,10 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
   transactions,
   totalPages,
   currentPage,
+  variant = "full",
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const isSummary = variant === "summary";
 
   const handleArchiveTransaction = (id: string) => {
     // Note: In a real app with Server Components, this would be a Server Action
@@ -32,12 +36,14 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
 
   return (
     <>
-      <TransactionFilters
-        currentType={currentType}
-        currentDuration={currentDuration}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-      />
+      {!isSummary && (
+        <TransactionFilters
+          currentType={currentType}
+          currentDuration={currentDuration}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 text-xs uppercase font-semibold">
@@ -57,10 +63,35 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
           </tbody>
         </table>
       </div>
-      <TransactionPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-      />
+
+      {isSummary ? (
+        <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex justify-center">
+          <Link
+            href="/dashboard/user/transactions"
+            className="text-sm font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors flex items-center gap-2"
+          >
+            View All Transactions
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </Link>
+        </div>
+      ) : (
+        <TransactionPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+        />
+      )}
     </>
   );
 };
