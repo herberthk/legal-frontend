@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { Check, Activity } from "lucide-react";
+import React, { useState } from "react";
+import { Check } from "lucide-react";
 import BillingCard from "./BillingCard";
 import PricingGuide from "./PricingGuide";
 import dynamic from "next/dynamic";
