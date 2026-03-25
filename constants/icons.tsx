@@ -133,4 +133,10 @@ export const sideBarItems = (role: Role) =>
           icon: <LifeBuoy size={20} />,
           href: "/dashboard/user/help",
         },
+        {
+          id: "/dashboard/user/settings",
+          label: "Settings",
+          icon: <Settings size={20} />,
+          href: "/dashboard/user/settings",
+        },
       ];

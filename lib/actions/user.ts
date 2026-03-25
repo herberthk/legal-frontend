@@ -30,3 +30,32 @@ export async function updateUserVoicePreference(
     };
   }
 }
+/**
+ * Updates the user's basic profile information in Firestore
+ * @param profileData - The data to update (name, avatar, etc.)
+ * @param userId - The user's ID
+ * @returns Object with success status and message
+ */
+export async function updateUserProfile(
+  profileData: { name?: string; avatar?: string },
+  userId: string,
+) {
+  try {
+    const userDocRef = db.collection(COLLECTIONS.USERS).doc(userId);
+    await userDocRef.update({
+      ...profileData,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return {
+      success: true,
+      message: "Profile updated successfully",
+    };
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    return {
+      success: false,
+      message: "Failed to update profile",
+    };
+  }
+}
