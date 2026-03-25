@@ -89,8 +89,7 @@ const navItemVariants: Variants = {
   active: {
     x: 4,
     scale: 1.02,
-    boxShadow: "0 0 15px 5px rgba(255, 69, 0, 0.4)",
-    backgroundColor: "rgba(255, 69, 0, 0.1)",
+    boxShadow: "0 0 20px 6px rgba(255, 69, 0, 0.45)",
     transition: { type: "spring", stiffness: 400, damping: 25 },
   },
   tap: {
@@ -163,7 +162,11 @@ const CollapsibleMenu = ({
             <SidebarMenuButton
               tooltip={link.label}
               isActive={pathname === link.id}
-              className="transition-all duration-300"
+              className={cn(
+                "transition-all duration-300",
+                pathname === link.id &&
+                  "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
+              )}
             >
               <motion.div
                 className="flex items-center w-full gap-2 px-2 py-1.5 rounded-lg"
@@ -200,7 +203,11 @@ const CollapsibleMenu = ({
                             <MotionLink
                               href={sub.href}
                               onClick={() => setOpenMobile(false)}
-                              className="flex items-center w-full gap-2 px-2 py-1.5 rounded-lg"
+                              className={cn(
+                                "flex items-center w-full gap-2 px-2 py-1.5 rounded-lg transition-all duration-300",
+                                pathname === sub.id &&
+                                  "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
+                              )}
                               variants={navItemVariants}
                               animate={pathname === sub.id ? "active" : "initial"}
                               whileHover="hover"
@@ -428,7 +435,11 @@ const GlobalSidebar = ({ user }: Props) => {
                         <MotionLink
                           href={link.href}
                           onClick={() => setOpenMobile(false)}
-                          className="flex items-center w-full gap-2 px-2 py-1.5 rounded-lg"
+                          className={cn(
+                            "flex items-center w-full gap-2 px-2 py-1.5 rounded-lg transition-all duration-300",
+                            pathname === link.id &&
+                              "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
+                          )}
                           variants={navItemVariants}
                           animate={pathname === link.id ? "active" : "initial"}
                           whileHover="hover"
