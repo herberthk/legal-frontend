@@ -139,7 +139,7 @@ const CollapsibleMenu = ({
 }) => {
   const isParentActive =
     pathname === link.id ||
-    link.subItems?.some((sub: SidebarSubItem) => pathname === sub.id);
+    link.subItems?.some((sub: SidebarSubItem) => pathname.startsWith(sub.id));
 
   const [isOpen, setIsOpen] = useState(isParentActive);
 
@@ -196,7 +196,7 @@ const CollapsibleMenu = ({
                       <SidebarMenuSubItem key={sub.id}>
                         <SidebarMenuSubButton
                           asChild
-                          isActive={pathname === sub.id}
+                          isActive={pathname.startsWith(sub.id)}
                           className="transition-all duration-300"
                         >
                           <MotionLink
@@ -204,11 +204,11 @@ const CollapsibleMenu = ({
                             onClick={() => setOpenMobile(false)}
                             className={cn(
                               "flex items-center w-full gap-2 px-2 py-1.5 rounded-lg transition-all duration-300",
-                              pathname === sub.id &&
+                              pathname.startsWith(sub.id) &&
                                 "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
                             )}
                             variants={navItemVariants}
-                            animate={pathname === sub.id ? "active" : "initial"}
+                            animate={pathname.startsWith(sub.id) ? "active" : "initial"}
                             whileHover="hover"
                             whileTap="tap"
                           >

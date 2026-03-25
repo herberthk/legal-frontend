@@ -15,13 +15,18 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import { formatCost } from "@/utils";
 
 interface VoiceConsultationsProps {
   isDashboard?: boolean;
   sessions?: VoiceSession[];
 }
 
-const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultationsProps) => {
+const VoiceConsultations = ({
+  isDashboard = false,
+  sessions,
+}: VoiceConsultationsProps) => {
   const storeSessions = useAppStore((state) => state.voiceSessions);
   const voiceSessions = sessions || storeSessions;
   const [voicePage, setVoicePage] = useState(1);
@@ -29,17 +34,22 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
 
   const itemsPerPage = isDashboard ? 6 : 8;
   const totalPages = Math.ceil(voiceSessions.length / itemsPerPage);
-  
-  const currentSessions = isDashboard 
-    ? voiceSessions.slice(0, 6) 
-    : voiceSessions.slice((voicePage - 1) * itemsPerPage, voicePage * itemsPerPage);
+
+  const currentSessions = isDashboard
+    ? voiceSessions.slice(0, 6)
+    : voiceSessions.slice(
+        (voicePage - 1) * itemsPerPage,
+        voicePage * itemsPerPage,
+      );
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
   };
 
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700/50 transition-all duration-300 ${isDashboard ? "mt-8" : ""}`}>
+    <div
+      className={`bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700/50 transition-all duration-300 ${isDashboard ? "mt-8" : ""}`}
+    >
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-linear-to-br from-orange-500 to-orange-600 text-white rounded-2xl shadow-lg shadow-orange-500/20">
@@ -47,11 +57,13 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
           </div>
           <div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-              {isDashboard ? "Recent Consultations" : "Voice Consultation History"}
+              {isDashboard
+                ? "Recent Consultations"
+                : "Voice Consultation History"}
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              {isDashboard 
-                ? "Your latest recorded voice sessions." 
+              {isDashboard
+                ? "Your latest recorded voice sessions."
                 : "Manage and playback your recorded voice sessions."}
             </p>
           </div>
@@ -70,7 +82,9 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
           <div className="text-center py-16 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-700/50 rounded-3xl bg-slate-50/50 dark:bg-slate-900/20">
             <Mic size={48} className="mx-auto mb-4 opacity-20" />
             <p className="text-lg font-medium">No recorded sessions yet</p>
-            <p className="text-sm">Start a voice chat to see your records here.</p>
+            <p className="text-sm">
+              Start a voice chat to see your records here.
+            </p>
           </div>
         ) : (
           <>
@@ -81,21 +95,23 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`group relative overflow-hidden bg-white dark:bg-slate-900/40 rounded-2xl border transition-all duration-300 ${
-                  expandedId === session.id 
-                    ? "border-orange-500 ring-4 ring-orange-500/5" 
+                  expandedId === session.id
+                    ? "border-orange-500 ring-4 ring-orange-500/5"
                     : "border-slate-100 dark:border-slate-700/50 hover:border-orange-200 dark:hover:border-orange-900/30 shadow-sm"
                 }`}
               >
-                <div 
+                <div
                   className="p-5 cursor-pointer flex items-center justify-between"
                   onClick={() => toggleExpand(session.id)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl transition-colors duration-300 ${
-                      expandedId === session.id 
-                        ? "bg-orange-500 text-white" 
-                        : "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                    }`}>
+                    <div
+                      className={`p-3 rounded-xl transition-colors duration-300 ${
+                        expandedId === session.id
+                          ? "bg-orange-500 text-white"
+                          : "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                      }`}
+                    >
                       <Mic size={20} />
                     </div>
                     <div>
@@ -105,11 +121,14 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
                           <Clock size={12} className="text-slate-400" />
-                          {new Date(session.date).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
+                          {new Date(session.date).toLocaleDateString(
+                            undefined,
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            },
+                          )}
                         </span>
                         <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
                         <span className="text-xs text-slate-500 font-medium">
@@ -119,7 +138,11 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {expandedId === session.id ? <ChevronUp size={20} className="text-orange-500" /> : <ChevronDown size={20} className="text-slate-400" />}
+                    {expandedId === session.id ? (
+                      <ChevronUp size={20} className="text-orange-500" />
+                    ) : (
+                      <ChevronDown size={20} className="text-slate-400" />
+                    )}
                   </div>
                 </div>
 
@@ -135,32 +158,37 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
                         <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl mb-5">
                           <div className="flex items-center gap-2 mb-2">
                             <FileText size={14} className="text-orange-500" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Summary</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                              Summary
+                            </span>
                           </div>
                           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {session.summary || "No summary available for this session."}
+                            {session.summary ||
+                              "No summary available for this session."}
                           </p>
                         </div>
-                        
+
                         <div className="flex flex-col sm:flex-row items-center gap-3">
-                          <Link 
+                          <Link
                             href={`/dashboard/user/transcription/${session.id}`}
                             className="w-full sm:w-auto"
                           >
-                            <Button 
-                              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl px-6 py-2 h-11 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-none"
-                            >
+                            <Button className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl px-6 py-2 h-11 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-none">
                               <ExternalLink size={16} />
                               View Detailed Info
                             </Button>
                           </Link>
-                          
+
                           <div className="flex-1" />
-                          
+
                           <div className="flex items-center gap-6 px-2">
                             <div className="text-center">
-                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">Cost</p>
-                              <p className="text-sm font-bold text-slate-700 dark:text-slate-200">${(session.cost || 0).toFixed(2)}</p>
+                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">
+                                Cost
+                              </p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                {formatCost(session.cost || 0)}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -174,40 +202,51 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
             {isDashboard ? (
               <div className="mt-6 flex justify-center">
                 <Link href="/dashboard/user/transcription">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="group border-2 border-slate-100 dark:border-slate-700/50 hover:border-orange-500 hover:text-orange-500 rounded-2xl px-8 h-12 transition-all duration-300 flex items-center gap-2 font-bold"
                   >
                     View All Sessions
-                    <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    <ChevronRight
+                      size={18}
+                      className="group-hover:translate-x-1 transition-transform"
+                    />
                   </Button>
                 </Link>
               </div>
             ) : (
               <div className="mt-8 flex items-center justify-between bg-slate-50 dark:bg-slate-900/30 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
                 <p className="text-sm font-medium text-slate-500">
-                  Showing <span className="text-slate-900 dark:text-white">{Math.min(itemsPerPage, currentSessions.length)}</span> of <span className="text-slate-900 dark:text-white">{voiceSessions.length}</span> sessions
+                  Showing{" "}
+                  <span className="text-slate-900 dark:text-white">
+                    {Math.min(itemsPerPage, currentSessions.length)}
+                  </span>{" "}
+                  of{" "}
+                  <span className="text-slate-900 dark:text-white">
+                    {voiceSessions.length}
+                  </span>{" "}
+                  sessions
                 </p>
-                
+
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setVoicePage(p => Math.max(1, p - 1))}
+                    onClick={() => setVoicePage((p) => Math.max(1, p - 1))}
                     disabled={voicePage === 1}
                     className="rounded-xl h-10 w-10 border border-slate-200 dark:border-slate-700 disabled:opacity-30 bg-white dark:bg-slate-800"
                   >
                     <ChevronLeft size={20} />
                   </Button>
-                  
+
                   <div className="flex items-center gap-1 mx-2">
                     {[...Array(totalPages)].map((_, i) => (
                       <button
                         key={i}
                         onClick={() => setVoicePage(i + 1)}
                         className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                          voicePage === i + 1 
-                            ? "bg-orange-500 w-8" 
+                          voicePage === i + 1
+                            ? "bg-orange-500 w-8"
                             : "bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500"
                         }`}
                       />
@@ -217,7 +256,9 @@ const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultation
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setVoicePage(p => Math.min(totalPages, p + 1))}
+                    onClick={() =>
+                      setVoicePage((p) => Math.min(totalPages, p + 1))
+                    }
                     disabled={voicePage === totalPages}
                     className="rounded-xl h-10 w-10 border border-slate-200 dark:border-slate-700 disabled:opacity-30 bg-white dark:bg-slate-800"
                   >
