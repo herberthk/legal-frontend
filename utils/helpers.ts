@@ -57,7 +57,14 @@ export const generateTransactionReference = (length = 8) =>
 
 export const generateTxRef = (length = 8) => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  let bytes: Uint8Array;
+
+  if (typeof window !== "undefined" && window.crypto) {
+    bytes = window.crypto.getRandomValues(new Uint8Array(length));
+  } else {
+    // Standard Node.js crypto
+    bytes = new Uint8Array(crypto.randomBytes(length));
+  }
 
   let result = "";
   for (let i = 0; i < length; i++) {
@@ -84,4 +91,3 @@ export const formatDate = (dateString: string) => {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
-console.log("transaction reference", generateTxRef());
