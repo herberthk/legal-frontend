@@ -72,6 +72,33 @@ const itemVariants: Variants = {
   },
 };
 
+const navItemVariants: Variants = {
+  initial: {
+    x: 0,
+    scale: 1,
+    boxShadow: "0 0 0px 0px rgba(255, 69, 0, 0)",
+    backgroundColor: "transparent",
+  },
+  hover: {
+    x: 4,
+    scale: 1.02,
+    boxShadow: "0 0 20px 5px rgba(255, 69, 0, 0.35)",
+    backgroundColor: "rgba(255, 69, 0, 0.05)",
+    transition: { type: "spring", stiffness: 400, damping: 25 },
+  },
+  active: {
+    x: 4,
+    scale: 1.02,
+    boxShadow: "0 0 15px 5px rgba(255, 69, 0, 0.4)",
+    backgroundColor: "rgba(255, 69, 0, 0.1)",
+    transition: { type: "spring", stiffness: 400, damping: 25 },
+  },
+  tap: {
+    scale: 0.98,
+    boxShadow: "0 0 8px 2px rgba(255, 69, 0, 0.2)",
+  },
+};
+
 const floatingVariants: Variants = {
   initial: { y: 0 },
   animate: {
@@ -100,14 +127,12 @@ interface SidebarLink {
 
 const CollapsibleMenu = ({
   link,
-  isAdmin,
   pathname,
   itemVariants,
   setOpenMobile,
   MotionLink,
 }: {
   link: SidebarLink;
-  isAdmin: boolean;
   pathname: string;
   itemVariants: Variants;
   setOpenMobile: (open: boolean) => void;
@@ -138,18 +163,14 @@ const CollapsibleMenu = ({
             <SidebarMenuButton
               tooltip={link.label}
               isActive={pathname === link.id}
-              className={cn(
-                "transition-all duration-300",
-                pathname === link.id &&
-                  (isAdmin
-                    ? "bg-indigo-600 shadow-indigo-500/20 text-white! hover:bg-indigo-700"
-                    : "bg-orange-400! shadow-orange-500/40 text-white! hover:bg-orange-700"),
-              )}
+              className="transition-all duration-300"
             >
               <motion.div
-                className="flex items-center w-full gap-2"
-                whileHover={{ x: 4 }}
-                whileTap={{ scale: 0.98 }}
+                className="flex items-center w-full gap-2 px-2 py-1.5 rounded-lg"
+                variants={navItemVariants}
+                animate={pathname === link.id ? "active" : "initial"}
+                whileHover="hover"
+                whileTap="tap"
               >
                 {link.icon}
                 <span>{link.label}</span>
@@ -174,18 +195,16 @@ const CollapsibleMenu = ({
                           <SidebarMenuSubButton
                             asChild
                             isActive={pathname === sub.id}
-                            className={cn(
-                              "transition-all duration-300",
-                              pathname === sub.id &&
-                                (isAdmin
-                                  ? "bg-indigo-600 shadow-indigo-500/20 text-white! hover:bg-indigo-700"
-                                  : "bg-orange-400! shadow-orange-500/40 text-white! hover:bg-orange-600"),
-                            )}
+                            className="transition-all duration-300"
                           >
                             <MotionLink
                               href={sub.href}
                               onClick={() => setOpenMobile(false)}
-                              whileHover={{ x: 4 }}
+                              className="flex items-center w-full gap-2 px-2 py-1.5 rounded-lg"
+                              variants={navItemVariants}
+                              animate={pathname === sub.id ? "active" : "initial"}
+                              whileHover="hover"
+                              whileTap="tap"
                             >
                               <span>{sub.label}</span>
                             </MotionLink>
@@ -389,7 +408,6 @@ const GlobalSidebar = ({ user }: Props) => {
                     <CollapsibleMenu
                       key={link.id}
                       link={link as SidebarLink}
-                      isAdmin={isAdmin}
                       pathname={pathname}
                       itemVariants={itemVariants}
                       setOpenMobile={setOpenMobile}
@@ -405,19 +423,16 @@ const GlobalSidebar = ({ user }: Props) => {
                         asChild
                         tooltip={link.label}
                         isActive={isParentActive}
-                        className={cn(
-                          "transition-all duration-300",
-                          isParentActive &&
-                            (isAdmin
-                              ? "bg-indigo-600 shadow-indigo-500/20 text-white! hover:bg-indigo-700"
-                              : "bg-orange-400! shadow-orange-500/40 text-white! hover:bg-orange-600"),
-                        )}
+                        className="transition-all duration-300"
                       >
                         <MotionLink
                           href={link.href}
                           onClick={() => setOpenMobile(false)}
-                          whileHover={{ x: 4 }}
-                          whileTap={{ scale: 0.98 }}
+                          className="flex items-center w-full gap-2 px-2 py-1.5 rounded-lg"
+                          variants={navItemVariants}
+                          animate={pathname === link.id ? "active" : "initial"}
+                          whileHover="hover"
+                          whileTap="tap"
                         >
                           {link.icon}
                           <span>{link.label}</span>
