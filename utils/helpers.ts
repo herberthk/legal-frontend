@@ -1,3 +1,4 @@
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import crypto from "crypto";
 
 export const generateOTP = async (length = 6): Promise<string> =>
@@ -91,3 +92,7 @@ export const formatDate = (dateString: string) => {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 };
 
+export const formatCost = (cost: number) => {
+  const ugxCost = cost * USD_TO_UGX_EXCHANGE_RATE;
+  return `$${cost.toFixed(2)} (UGX ${ugxCost.toLocaleString()})`;
+};

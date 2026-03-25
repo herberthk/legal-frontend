@@ -125,7 +125,7 @@ export const generateMockVoiceSessions = (count = 12): VoiceSession[] => {
       "Customary Land Verification",
       "Tax Clearance Help",
       "IP Rights for Devs",
-    ][i % 8],
+    ][i % 8] || "Untitled Session",
     date: new Date(
       referenceTimestamp - i * 1000 * 60 * 60 * 24 * (i % 3 + 1),
     ).toISOString(),
@@ -140,7 +140,7 @@ export const generateMockVoiceSessions = (count = 12): VoiceSession[] => {
       "Verified procedures for customary land ownership certification.",
       "Outlined requirements for obtaining a URA tax clearance certificate.",
       "Discussed copyright and patent protections for software products.",
-    ][i % 8],
+    ][i % 8] || "No summary available for this session.",
     transcripts: mockTranscripts[i % mockTranscripts.length],
     cost: 2.5 + (i * 0.5),
   }));

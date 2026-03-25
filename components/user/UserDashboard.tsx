@@ -2,7 +2,7 @@
 import { PlusCircle } from "lucide-react";
 import { FC, useEffect } from "react";
 import { useAuthStore } from "@/store/auth";
-import UsageHistory from "./UsageHistory";
+// import UsageHistory from "./UsageHistory";
 import UsageCards from "./UsageCards";
 import VoiceSelection from "./VoiceSelection";
 import VoiceConsultations from "./VoiceConsultations";
