@@ -141,12 +141,13 @@ declare global {
   type VoiceSession = {
     id: string;
     userId: string;
-    unit?: "SECONDS" | "MINUTES";
-    amount?: number;
+    title: string;
     date: string; // ISO string
     duration: number; // seconds
-    audioUrl?: string; // Blob URL
-    previewText: string; // Summary or first user message
+    audioUrl?: string; // Recording
+    summary: string;
+    transcripts: Transcript[];
+    cost?: number;
   };
 
   type Theme = "light" | "dark";

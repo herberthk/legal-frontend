@@ -1,147 +1,231 @@
-import { formatDuration } from "@/lib";
 import { useAppStore } from "@/store";
 import {
   Mic,
   Clock,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   Activity,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
+import { formatTime } from "@/lib/utils";
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
-const VoiceConsultations = () => {
-  // --- Voice Sessions State ---
-  const voiceSessions = useAppStore((state) => state.voiceSessions);
+interface VoiceConsultationsProps {
+  isDashboard?: boolean;
+  sessions?: VoiceSession[];
+}
 
-  // Voice Session Pagination
+const VoiceConsultations = ({ isDashboard = false, sessions }: VoiceConsultationsProps) => {
+  const storeSessions = useAppStore((state) => state.voiceSessions);
+  const voiceSessions = sessions || storeSessions;
   const [voicePage, setVoicePage] = useState(1);
-  const voiceItemsPerPage = 4;
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Voice Pagination Logic
-  const totalVoicePages = Math.ceil(voiceSessions.length / voiceItemsPerPage);
-  const currentVoiceSessions = voiceSessions.slice(
-    (voicePage - 1) * voiceItemsPerPage,
-    voicePage * voiceItemsPerPage,
-  );
+  const itemsPerPage = isDashboard ? 6 : 8;
+  const totalPages = Math.ceil(voiceSessions.length / itemsPerPage);
+  
+  const currentSessions = isDashboard 
+    ? voiceSessions.slice(0, 6) 
+    : voiceSessions.slice((voicePage - 1) * itemsPerPage, voicePage * itemsPerPage);
+
+  const toggleExpand = (id: string) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
+
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 mt-8 overflow-hidden">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-500 rounded-lg">
-          <Activity size={20} />
+    <div className={`bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700/50 transition-all duration-300 ${isDashboard ? "mt-8" : ""}`}>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-linear-to-br from-orange-500 to-orange-600 text-white rounded-2xl shadow-lg shadow-orange-500/20">
+            <Activity size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+              {isDashboard ? "Recent Consultations" : "Voice Consultation History"}
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {isDashboard 
+                ? "Your latest recorded voice sessions." 
+                : "Manage and playback your recorded voice sessions."}
+            </p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-            Recorded Voice Consultations
-          </h3>
-          <p className="text-xs text-slate-500">
-            Playback your recent session recordings.
-          </p>
-        </div>
+        {!isDashboard && (
+          <div className="flex items-center gap-2">
+            <div className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-700/50 px-3 py-1.5 rounded-full">
+              {voiceSessions.length} Total Sessions
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-4">
         {voiceSessions.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm italic border-2 border-dashed border-slate-100 dark:border-slate-700 rounded-xl">
-            No recorded sessions available. Start a voice chat to see records
-            here.
+          <div className="text-center py-16 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-700/50 rounded-3xl bg-slate-50/50 dark:bg-slate-900/20">
+            <Mic size={48} className="mx-auto mb-4 opacity-20" />
+            <p className="text-lg font-medium">No recorded sessions yet</p>
+            <p className="text-sm">Start a voice chat to see your records here.</p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {currentVoiceSessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="group relative bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all hover:border-orange-500/20 dark:hover:border-orange-500/20 animate-in fade-in slide-in-from-bottom-2 duration-300"
+            {currentSessions.map((session) => (
+              <motion.div
+                key={session.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`group relative overflow-hidden bg-white dark:bg-slate-900/40 rounded-2xl border transition-all duration-300 ${
+                  expandedId === session.id 
+                    ? "border-orange-500 ring-4 ring-orange-500/5" 
+                    : "border-slate-100 dark:border-slate-700/50 hover:border-orange-200 dark:hover:border-orange-900/30 shadow-sm"
+                }`}
+              >
+                <div 
+                  className="p-5 cursor-pointer flex items-center justify-between"
+                  onClick={() => toggleExpand(session.id)}
                 >
-                  {/* Header with Icon and Date */}
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-500 p-2.5 rounded-xl">
-                        <Mic size={18} />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                          Legal Consultation
-                        </h4>
-                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                          <Clock size={10} />
-                          {new Date(session.date).toLocaleDateString()} •{" "}
-                          {new Date(session.date).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-xl transition-colors duration-300 ${
+                      expandedId === session.id 
+                        ? "bg-orange-500 text-white" 
+                        : "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                    }`}>
+                      <Mic size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white">
+                        {session.title || "Untitled Session"}
+                      </h4>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
+                          <Clock size={12} className="text-slate-400" />
+                          {new Date(session.date).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
                           })}
-                        </p>
+                        </span>
+                        <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+                        <span className="text-xs text-slate-500 font-medium">
+                          {formatTime(session.duration)}
+                        </span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => {}}
-                      className="text-slate-400 hover:text-red-500 transition-colors p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg opacity-0 group-hover:opacity-100"
-                      title="Delete Recording"
-                    >
-                      <Trash2 size={16} />
-                    </button>
                   </div>
-
-                  {/* Context Preview */}
-                  <div className="mb-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
-                    <p className="text-xs text-slate-600 dark:text-slate-300 italic line-clamp-2">
-                      &quot;{session.previewText}&quot;
-                    </p>
-                  </div>
-
-                  {/* Audio Player */}
-                  <div className="mt-2">
-                    <audio
-                      controls
-                      src={session.audioUrl}
-                      className="w-full h-8 [&::-webkit-media-controls-panel]:bg-slate-100 dark:[&::-webkit-media-controls-panel]:bg-slate-700 rounded-lg"
-                    />
-                    <div className="flex justify-between mt-1 px-1">
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        Duration: {formatDuration(session.duration)}
-                      </span>
-                      <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase tracking-wider">
-                        Voice & AI Audio
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-4">
+                    {expandedId === session.id ? <ChevronUp size={20} className="text-orange-500" /> : <ChevronDown size={20} className="text-slate-400" />}
                   </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Voice Pagination Controls */}
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30 rounded-lg p-3">
-              <span className="text-xs text-slate-500">
-                Page {voicePage} of {Math.max(1, totalVoicePages)}
-              </span>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setVoicePage((p) => Math.max(1, p - 1))}
-                  disabled={voicePage === 1}
-                  className="p-1 rounded-md hover:bg-white dark:hover:bg-slate-700 disabled:opacity-50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-600"
-                >
-                  <ChevronLeft
-                    size={20}
-                    className="text-slate-600 dark:text-slate-400"
-                  />
-                </button>
-                <button
-                  onClick={() =>
-                    setVoicePage((p) => Math.min(totalVoicePages, p + 1))
-                  }
-                  disabled={
-                    voicePage === totalVoicePages || totalVoicePages === 0
-                  }
-                  className="p-1 rounded-md hover:bg-white dark:hover:bg-slate-700 disabled:opacity-50 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-600"
-                >
-                  <ChevronRight
-                    size={20}
-                    className="text-slate-600 dark:text-slate-400"
-                  />
-                </button>
+                <AnimatePresence>
+                  {expandedId === session.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                    >
+                      <div className="px-5 pb-5 pt-1 border-t border-slate-50 dark:border-slate-800/50">
+                        <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl mb-5">
+                          <div className="flex items-center gap-2 mb-2">
+                            <FileText size={14} className="text-orange-500" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Summary</span>
+                          </div>
+                          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {session.summary || "No summary available for this session."}
+                          </p>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                          <Link 
+                            href={`/dashboard/user/transcription/${session.id}`}
+                            className="w-full sm:w-auto"
+                          >
+                            <Button 
+                              className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl px-6 py-2 h-11 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-none"
+                            >
+                              <ExternalLink size={16} />
+                              View Detailed Info
+                            </Button>
+                          </Link>
+                          
+                          <div className="flex-1" />
+                          
+                          <div className="flex items-center gap-6 px-2">
+                            <div className="text-center">
+                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-0.5">Cost</p>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-200">${(session.cost || 0).toFixed(2)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+
+            {isDashboard ? (
+              <div className="mt-6 flex justify-center">
+                <Link href="/dashboard/user/transcription">
+                  <Button 
+                    variant="outline" 
+                    className="group border-2 border-slate-100 dark:border-slate-700/50 hover:border-orange-500 hover:text-orange-500 rounded-2xl px-8 h-12 transition-all duration-300 flex items-center gap-2 font-bold"
+                  >
+                    View All Sessions
+                    <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
               </div>
-            </div>
+            ) : (
+              <div className="mt-8 flex items-center justify-between bg-slate-50 dark:bg-slate-900/30 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+                <p className="text-sm font-medium text-slate-500">
+                  Showing <span className="text-slate-900 dark:text-white">{Math.min(itemsPerPage, currentSessions.length)}</span> of <span className="text-slate-900 dark:text-white">{voiceSessions.length}</span> sessions
+                </p>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setVoicePage(p => Math.max(1, p - 1))}
+                    disabled={voicePage === 1}
+                    className="rounded-xl h-10 w-10 border border-slate-200 dark:border-slate-700 disabled:opacity-30 bg-white dark:bg-slate-800"
+                  >
+                    <ChevronLeft size={20} />
+                  </Button>
+                  
+                  <div className="flex items-center gap-1 mx-2">
+                    {[...Array(totalPages)].map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setVoicePage(i + 1)}
+                        className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                          voicePage === i + 1 
+                            ? "bg-orange-500 w-8" 
+                            : "bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500"
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setVoicePage(p => Math.min(totalPages, p + 1))}
+                    disabled={voicePage === totalPages}
+                    className="rounded-xl h-10 w-10 border border-slate-200 dark:border-slate-700 disabled:opacity-30 bg-white dark:bg-slate-800"
+                  >
+                    <ChevronRight size={20} />
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

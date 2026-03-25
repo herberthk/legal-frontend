@@ -70,6 +70,8 @@ export const generateUserTransactions = (count = 15): Transaction[] => {
     amount: (i % 2 === 0 ? 1 : -1) * (((i * 1.5) % 5) + 1),
     date: formatDate(new Date(referenceTimestamp - i * 86400000)),
     details: i % 2 === 0 ? "Success" : "Completed",
+    status: "completed",
+    reference: `REF-${1000 + i}`,
   }));
 };
 export const voices: VoicePasona[] = [
@@ -95,29 +97,52 @@ export const voices: VoicePasona[] = [
   { id: "Theodore", name: "Theodore", gender: "Male", desc: "Strong & Direct" },
 ];
 
-// Mock Data Generator for Voice Sessions
-export const generateMockVoiceSessions = (count = 8): VoiceSession[] => {
-  // Use a fixed reference timestamp for deterministic dates during SSR
-  const referenceTimestamp = new Date("2024-01-01T00:00:00Z").getTime();
+export const generateMockVoiceSessions = (count = 12): VoiceSession[] => {
+  const referenceTimestamp = new Date("2024-03-20T00:00:00Z").getTime();
+
+  const mockTranscripts: Transcript[][] = [
+    [
+      { speaker: "user", text: "I need help with a land title transfer." },
+      { speaker: "ai", text: "I can assist with that. Are you transferring to a family member?" },
+      { speaker: "user", text: "Yes, it's a gift to my son." },
+    ],
+    [
+      { speaker: "user", text: "What is the VAT threshold in Uganda?" },
+      { speaker: "ai", text: "The current VAT registration threshold is UGX 150 million per year." },
+    ],
+    // Add more as needed
+  ];
 
   return Array.from({ length: count }).map((_, i) => ({
     id: `vs_${i}`,
     userId: "user-01",
-    date: new Date(
-      referenceTimestamp - i * 1000 * 60 * 60 * 24 * 2,
-    ).toISOString(), // Every 2 days
-    duration: 60 + ((i * 50) % 400),
-    audioUrl: undefined, // Mock entries won't play audio, but UI will render
-    previewText: [
-      "Inquiry regarding land title transfer procedures under the Registration of Titles Act.",
-      "Question about VAT registration threshold for small businesses in Kampala.",
-      "Clarification on employee termination notice periods according to the Employment Act.",
-      "Dispute resolution mechanisms for commercial tenancy agreements.",
-      "Inheritance rights and succession planning advice.",
-      "Customary land ownership certificates and verification.",
-      "URA tax clearance certificate requirements for government tenders.",
-      "Intellectual property rights for software developers in Uganda.",
+    title: [
+      "Land Title Consultation",
+      "VAT Registration Query",
+      "Employee Termination Advice",
+      "Commercial Tenancy Dispute",
+      "Succession Planning",
+      "Customary Land Verification",
+      "Tax Clearance Help",
+      "IP Rights for Devs",
     ][i % 8],
+    date: new Date(
+      referenceTimestamp - i * 1000 * 60 * 60 * 24 * (i % 3 + 1),
+    ).toISOString(),
+    duration: 120 + ((i * 45) % 600),
+    audioUrl: undefined,
+    summary: [
+      "Discussed steps for land title transfer as a gift to a family member.",
+      "Clarified VAT registration thresholds and requirements for small businesses.",
+      "Reviewed legal notice periods for employee termination under the Employment Act.",
+      "Explored dispute resolution options for a commercial tenancy disagreement.",
+      "Drafted initial thoughts on succession planning and inheritance rights.",
+      "Verified procedures for customary land ownership certification.",
+      "Outlined requirements for obtaining a URA tax clearance certificate.",
+      "Discussed copyright and patent protections for software products.",
+    ][i % 8],
+    transcripts: mockTranscripts[i % mockTranscripts.length],
+    cost: 2.5 + (i * 0.5),
   }));
 };
 
@@ -144,6 +169,8 @@ export const generateMockTransactions = (count = 20): Transaction[] => {
         : -parseFloat(((i % 5) + 1 + (i % 3) * 0.5).toFixed(2)),
     date: formatDate(new Date(referenceTimestamp - i * 86400000)),
     details: i % 5 === 0 ? "Success" : i % 3 === 0 ? "12m 45s" : "1.2k tokens",
+    status: "completed",
+    reference: `REF-${2000 + i}`,
   }));
 };
 
