@@ -89,12 +89,12 @@ const navItemVariants: Variants = {
   active: {
     x: 4,
     scale: 1.02,
-    boxShadow: "0 0 20px 6px rgba(255, 69, 0, 0.45)",
+    // boxShadow: "0 0 20px 6px rgba(255, 69, 0, 0.45)",
     transition: { type: "spring", stiffness: 400, damping: 25 },
   },
   tap: {
     scale: 0.98,
-    boxShadow: "0 0 8px 2px rgba(255, 69, 0, 0.2)",
+    // boxShadow: "0 0 8px 2px rgba(255, 69, 0, 0.2)",
   },
 };
 
@@ -192,33 +192,31 @@ const CollapsibleMenu = ({
                   style={{ overflow: "hidden" }}
                 >
                   <SidebarMenuSub>
-                    {link.subItems?.map(
-                      (sub: SidebarSubItem) => (
-                        <SidebarMenuSubItem key={sub.id}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={pathname === sub.id}
-                            className="transition-all duration-300"
+                    {link.subItems?.map((sub: SidebarSubItem) => (
+                      <SidebarMenuSubItem key={sub.id}>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={pathname === sub.id}
+                          className="transition-all duration-300"
+                        >
+                          <MotionLink
+                            href={sub.href}
+                            onClick={() => setOpenMobile(false)}
+                            className={cn(
+                              "flex items-center w-full gap-2 px-2 py-1.5 rounded-lg transition-all duration-300",
+                              pathname === sub.id &&
+                                "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
+                            )}
+                            variants={navItemVariants}
+                            animate={pathname === sub.id ? "active" : "initial"}
+                            whileHover="hover"
+                            whileTap="tap"
                           >
-                            <MotionLink
-                              href={sub.href}
-                              onClick={() => setOpenMobile(false)}
-                              className={cn(
-                                "flex items-center w-full gap-2 px-2 py-1.5 rounded-lg transition-all duration-300",
-                                pathname === sub.id &&
-                                  "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
-                              )}
-                              variants={navItemVariants}
-                              animate={pathname === sub.id ? "active" : "initial"}
-                              whileHover="hover"
-                              whileTap="tap"
-                            >
-                              <span>{sub.label}</span>
-                            </MotionLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ),
-                    )}
+                            <span>{sub.label}</span>
+                          </MotionLink>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
                   </SidebarMenuSub>
                 </motion.div>
               )}
@@ -436,7 +434,7 @@ const GlobalSidebar = ({ user }: Props) => {
                           href={link.href}
                           onClick={() => setOpenMobile(false)}
                           className={cn(
-                            "flex items-center w-full gap-2 px-2 py-1.5 rounded-lg transition-all duration-300",
+                            "flex items-center w-full gap-2 px-2 py-1.5 rounded-sm transition-all duration-300",
                             pathname === link.id &&
                               "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
                           )}

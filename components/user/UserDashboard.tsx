@@ -59,10 +59,10 @@ const UserDashboard: FC<Props> = ({ user }) => {
       </div>
 
       {/* Token Usage History */}
-      <UsageHistory userId={user?.id} />
+      {/* <UsageHistory userId={user?.id} /> */}
 
       {/* Voice Consultations Card */}
-      <VoiceConsultations />
+      <VoiceConsultations isDashboard={true} />
 
       {/* Recent System Activity Placeholder */}
       <SystemEvents />
