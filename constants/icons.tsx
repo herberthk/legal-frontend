@@ -102,6 +102,13 @@ export const sideBarItems = (role: Role) =>
           label: "Voice Chat",
           icon: <MicIcon size={20} />,
           href: "/dashboard/user/voice",
+          subItems: [
+            {
+              id: "/dashboard/user/transcription",
+              label: "Transcription",
+              href: "/dashboard/user/transcription",
+            },
+          ],
         },
         {
           id: "/dashboard/user/transactions",
