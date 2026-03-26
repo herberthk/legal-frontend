@@ -1,4 +1,4 @@
-import { generateMockVoiceSessions, notifications } from "@/constants";
+import { notifications } from "@/constants";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
@@ -14,6 +14,7 @@ type AppStore = {
   setNotifications: (notifications: Notifications[]) => void;
   reset: () => void;
 };
+
 const initialState: Omit<
   AppStore,
   | "setActiveTab"
@@ -24,7 +25,7 @@ const initialState: Omit<
 > = {
   activeTab: "dashboard",
   tokenUsageHistory: [],
-  voiceSessions: generateMockVoiceSessions(),
+  voiceSessions: [],
   notifications: notifications(),
 };
 // Implement persist middleware to persist the state in local storage
