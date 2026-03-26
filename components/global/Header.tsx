@@ -1,12 +1,13 @@
 "use client";
-import { notifications } from "@/constants";
 import { useAuthStore, usePopStore, useThemeStore } from "@/store";
-import { Menu, Search, Moon, Sun, Bell, ChevronDown } from "lucide-react";
+import { useNotifications } from "@/hooks";
+import { Moon, Sun, Bell, ChevronDown } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { usePathname } from "next/navigation";
 import NotificationPopUp from "./NotificationPopUp";
 import ProfilePopUp from "./ProfilePopUp";
 import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Props = {
   user: User;
@@ -18,8 +19,7 @@ const Header: React.FC<Props> = ({ user }) => {
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const showNotifications = usePopStore((state) => state.showNotifications);
   const toggleNotifications = usePopStore((state) => state.toggleNotifications);
-  const displayedNotifications = notifications().slice(0, 4);
-  const unreadCount = displayedNotifications.filter((n) => n.unread).length;
+  const { unreadCount } = useNotifications();
   const showProfile = usePopStore((state) => state.showProfile);
   const toggleProfile = usePopStore((state) => state.toggleProfile);
   const pathName = usePathname();
@@ -31,30 +31,7 @@ const Header: React.FC<Props> = ({ user }) => {
         {/* Mobile Menu Trigger */}
         <SidebarTrigger className="mr-3 p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors" />
 
-        {/* Search Bar */}
-        {/* <div className="relative w-full max-w-md hidden md:block group">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-hover:text-orange-500 transition-colors"
-            size={18}
-          />
-          <input
-            type="text"
-            placeholder={
-              isAdmin
-                ? "Search users, transaction IDs..."
-                : "Search documents, cases, or laws..."
-            }
-            className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-500 outline-none transition-all focus:bg-white dark:focus:bg-slate-950 ring-2 ring-transparent focus:ring-opacity-50 focus:ring-current"
-            style={{
-              ["--tw-ring-color" as string]: isAdmin ? "#6366f1" : "#f97316",
-            }}
-          />
-        </div> */}
-        {/* Mobile title if sidebar is hidden */}
         <span className="md:hidden font-bold text-slate-900 dark:text-white truncate">
-          {/* {currentView === View.ADMIN_COMPLAINTS
-            ? "Complaints"
-            : currentView.charAt(0) + currentView.slice(1).toLowerCase()} */}
           {pathName.charAt(0).toUpperCase() + pathName.slice(1)}
         </span>
       </div>
@@ -80,9 +57,11 @@ const Header: React.FC<Props> = ({ user }) => {
         </button>
 
         <div className="relative">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             onClick={toggleNotifications}
-            className={`p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 hover:scale-110 relative ${showNotifications ? "bg-slate-100 dark:bg-slate-800" : ""}`}
+            className={`p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 relative ${showNotifications ? "bg-slate-100 dark:bg-slate-800" : ""}`}
           >
             <Bell
               size={20}
@@ -94,14 +73,25 @@ const Header: React.FC<Props> = ({ user }) => {
                   : ""
               }
             />
-            {unreadCount > 0 && (
-              <span
-                className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 border-2 border-white dark:border-slate-900 rounded-full animate-pulse ${isAdmin ? "bg-indigo-500" : "bg-orange-500"}`}
-              ></span>
-            )}
-          </button>
+            <AnimatePresence>
+              {unreadCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className={`absolute -top-1 -right-1 min-w-[20px] h-5 px-1 flex items-center justify-center border-2 border-white dark:border-slate-900 rounded-full text-[10px] font-black text-white shadow-lg ${
+                    isAdmin ? "bg-indigo-500" : "bg-orange-600"
+                  }`}
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </motion.button>
 
-          {showNotifications && <NotificationPopUp />}
+          <AnimatePresence>
+            {showNotifications && <NotificationPopUp />}
+          </AnimatePresence>
         </div>
 
         {/* User Profile Section */}

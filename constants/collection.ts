@@ -8,5 +8,6 @@ export const COLLECTIONS = {
   SUPPORT_TICKETS: "supportTickets",
   HELP_ARTICLES: "helpArticles",
   TRANSACTIONS: "transactions",
+  NOTIFICATIONS: "notifications",
   VOICE_SESSIONS: "voiceSessions",
 } as const;

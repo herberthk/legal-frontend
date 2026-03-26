@@ -1,4 +1,4 @@
-import { notifications } from "@/constants";
+// import { notifications } from "@/constants";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
@@ -10,8 +10,8 @@ type AppStore = {
   setTokenUsageHistory: (tokenUsageHistory: UsageRecord[]) => void;
   voiceSessions: VoiceSession[];
   setVoiceSessions: (voiceSessions: VoiceSession[]) => void;
-  notifications: Notifications[];
-  setNotifications: (notifications: Notifications[]) => void;
+  // notifications: Notifications[];
+  // setNotifications: (notifications: Notifications[]) => void;
   reset: () => void;
 };
 
@@ -26,7 +26,7 @@ const initialState: Omit<
   activeTab: "dashboard",
   tokenUsageHistory: [],
   voiceSessions: [],
-  notifications: notifications(),
+  // notifications: notifications(),
 };
 // Implement persist middleware to persist the state in local storage
 export const useAppStore = create<AppStore>()(
@@ -38,8 +38,8 @@ export const useAppStore = create<AppStore>()(
         set({ tokenUsageHistory }),
       setVoiceSessions: (voiceSessions: VoiceSession[]) =>
         set({ voiceSessions }),
-      setNotifications: (notifications: Notifications[]) =>
-        set({ notifications }),
+      // setNotifications: (notifications: Notifications[]) =>
+      //   set({ notifications }),
       reset: () => set(initialState),
     }),
     {

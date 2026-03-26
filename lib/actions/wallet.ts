@@ -5,6 +5,7 @@ import { COLLECTIONS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import { generateTxRef } from "@/utils";
+import { createNotification } from "./notifications";
 
 export async function processDeposit(
   userId: string,
@@ -38,6 +39,14 @@ export async function processDeposit(
     batch.set(transactionRef, transaction);
 
     await batch.commit();
+
+    // Create a notification for the deposit
+    await createNotification(userId, {
+      title: "Deposit Successful",
+      message: `Your deposit of UGX ${amount.toLocaleString()} was successful.`,
+      type: "SUCCESS",
+      url: "/dashboard/user/billing",
+    });
 
     // Fetch the latest balance
     const userDoc = await userRef.get();

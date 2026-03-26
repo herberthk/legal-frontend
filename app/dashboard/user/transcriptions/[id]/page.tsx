@@ -87,7 +87,7 @@ const SessionDetailPage = async ({ params }: PageProps) => {
           <Mic size={240} />
         </div>
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="space-y-4">
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-bold uppercase tracking-wider w-fit">
               <Mic size={12} />

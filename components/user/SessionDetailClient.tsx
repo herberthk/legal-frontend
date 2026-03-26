@@ -15,14 +15,16 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       {/* Left Column: Summary & Recording */}
       <div className="md:col-span-1 space-y-8">
-        <section className="bg-slate-900 dark:bg-slate-950 p-6 rounded-3xl text-white shadow-xl shadow-slate-900/20">
+        <section className="bg-slate-100 dark:bg-slate-950 p-6 rounded-3xl text-white shadow-xl shadow-slate-900/20">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-orange-500/20 border border-orange-500/30 rounded-xl">
               <FileText size={18} className="text-orange-500" />
             </div>
-            <h3 className="text-lg font-bold">Executive Summary</h3>
+            <h3 className="text-lg text-slate-900 dark:text-white font-bold">
+              Executive Summary
+            </h3>
           </div>
-          <div className="text-slate-400 text-sm leading-relaxed mb-6 italic">
+          <div className="text-slate-900 dark:text-white text-sm leading-relaxed mb-6 italic">
             {session.summary ? (
               <MarkdownFormatter content={session.summary} role="assistant" />
             ) : (
@@ -30,7 +32,7 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
             )}
           </div>
           <div className="pt-6 border-t border-slate-800">
-            <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold flex items-center gap-2 transition-all">
+            <Button className="w-full dark:bg-slate-100 dark:text-slate-900 bg-slate-800 text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-100 rounded-xl font-bold flex items-center gap-2 transition-all">
               <Download size={18} />
               Export Summary
             </Button>
