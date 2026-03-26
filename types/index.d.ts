@@ -117,12 +117,17 @@ declare global {
     createdAt: string;
   };
 
-  type Notifications = {
-    id: number;
-    text: string;
-    time: string;
-    unread: boolean;
-    type?: "info" | "alert" | "success";
+  type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ERROR";
+  
+  type AppNotification = {
+    id: string;
+    userId: string;
+    title: string;
+    message: string;
+    type: NotificationType;
+    url?: string;
+    isRead: boolean;
+    createdAt: string; // ISO Date string
   };
 
   // type TokenUsageRecord = {

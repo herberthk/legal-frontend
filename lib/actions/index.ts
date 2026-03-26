@@ -5,3 +5,4 @@ export * from "./chat";
 export * from "./usage";
 export * from "./wallet";
 export * from "./support";
+export * from "./notifications";
