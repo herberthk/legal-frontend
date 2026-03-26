@@ -10,8 +10,15 @@ import { motion, AnimatePresence } from "framer-motion";
 const NotificationPopUp = () => {
   const toggleNotifications = usePopStore((state) => state.toggleNotifications);
   const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
-  const { notifications, unreadCount, markAllAsRead, isLoading } =
-    useNotifications();
+  const { 
+    notifications, 
+    unreadCount, 
+    markAllAsRead, 
+    markAsRead, 
+    markAsUnread, 
+    deleteNotification, 
+    isLoading 
+  } = useNotifications();
 
   return (
     <>
@@ -58,7 +65,7 @@ const NotificationPopUp = () => {
           </div>
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+        <div className="max-h-[400px] overflow-y-auto overflow-x-hidden custom-scrollbar">
           <AnimatePresence mode="popLayout">
             {isLoading && notifications.length === 0 ? (
               <div className="p-12 flex flex-col items-center justify-center text-slate-400">
@@ -89,9 +96,9 @@ const NotificationPopUp = () => {
                   key={n.id}
                   notification={n}
                   isAdmin={isAdmin}
-                  onClick={() => {
-                    /* Mark as read is handled in item if it has a URL or we can add it here */
-                  }}
+                  onMarkRead={markAsRead}
+                  onMarkUnread={markAsUnread}
+                  onDelete={deleteNotification}
                 />
               ))
             )}

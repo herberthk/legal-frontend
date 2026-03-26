@@ -13,15 +13,14 @@ import "react-credit-cards-2/dist/es/styles-compiled.css";
 import Cards from "react-credit-cards-2";
 import { z } from "zod";
 import { processDeposit } from "@/lib/actions/wallet";
+import { toast } from "sonner";
 
 interface BillingCardProps {
   user: User;
 }
 
 const cardSchema = z.object({
-  number: z
-    .string()
-    .regex(/^\d{16}$/, "Card number must be exactly 16 digits"),
+  number: z.string().regex(/^\d{16}$/, "Card number must be exactly 16 digits"),
   expiry: z
     .string()
     .regex(/^\d{2}\/\d{2}$/, "Expiry must be in MM/YY format")
@@ -101,7 +100,14 @@ const BillingCard: React.FC<BillingCardProps> = ({ user }) => {
     }
 
     if (paymentMethod === "mobile_money") {
-      if (!phoneNumber || !depositAmount) return;
+      if (!phoneNumber || !depositAmount) {
+        toast.error("Please fill in all the fields", {
+          style: {
+            background: "red",
+          },
+        });
+        return;
+      }
 
       setIsProcessing(true);
 

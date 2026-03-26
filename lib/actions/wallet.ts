@@ -43,7 +43,7 @@ export async function processDeposit(
     // Create a notification for the deposit
     await createNotification(userId, {
       title: "Deposit Successful",
-      message: `Your deposit of UGX ${amount.toLocaleString()} was successful.`,
+      message: `Your deposit of $${amount.toLocaleString()} was successful.`,
       type: "SUCCESS",
       url: "/dashboard/user/billing",
     });

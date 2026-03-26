@@ -39,7 +39,6 @@ const NotificationPage = async ({ searchParams }: PageProps) => {
 
       <NotificationList
         initialNotifications={result.notifications || []}
-        totalCount={result.totalCount || 0}
         totalPages={result.totalPages || 0}
         currentPage={currentPage}
         currentFilter={currentFilter}
