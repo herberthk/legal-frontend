@@ -13,10 +13,16 @@ import { formatCost } from "@/utils";
 import { getVoiceSessionById } from "@/lib/actions/voice";
 import Link from "next/link";
 import SessionDetailClient from "../../../../../components/user/SessionDetailClient";
+import { Metadata } from "next";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
+
+export const metadata: Metadata = {
+  title: "Transcription Detail",
+  description: "Transcription detail of voice consultation",
+};
 
 const SessionDetailPage = async ({ params }: PageProps) => {
   const { id } = await params;

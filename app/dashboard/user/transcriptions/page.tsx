@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { getVoiceSessions } from "@/lib/actions/voice";
 import { getAuthenticatedUserId } from "@/lib/actions/auth";
 import TranscriptionFilters from "@/components/user/TranscriptionFilters";
+import { Metadata } from "next";
 
 interface PageProps {
   searchParams: Promise<{
@@ -12,6 +13,11 @@ interface PageProps {
     search?: string;
   }>;
 }
+
+export const metadata: Metadata = {
+  title: "Transcriptions",
+  description: "Transcriptions of voice consultations",
+};
 
 const TranscriptionPage = async ({ searchParams }: PageProps) => {
   const { page = "1", filter = "last_week", search = "" } = await searchParams;
