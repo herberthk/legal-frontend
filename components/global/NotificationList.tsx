@@ -3,21 +3,18 @@
 import React, { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
-  Bell, 
   ChevronLeft, 
   ChevronRight, 
-  Filter, 
   CheckCircle2, 
-  BellOff,
-  Search
+  BellOff
 } from "lucide-react";
 import NotificationItem from "./NotificationItem";
-import { markAllAsRead } from "@/lib/actions/notifications";
+import { markAllAsRead, markAsRead, markAsUnread, deleteNotification } from "@/lib/actions/notifications";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 interface NotificationListProps {
   initialNotifications: AppNotification[];
-  totalCount: number;
   totalPages: number;
   currentPage: number;
   currentFilter: "ALL" | "UNREAD" | "READ";
@@ -27,7 +24,6 @@ interface NotificationListProps {
 
 const NotificationList: React.FC<NotificationListProps> = ({
   initialNotifications,
-  totalCount,
   totalPages,
   currentPage,
   currentFilter,
@@ -56,8 +52,33 @@ const NotificationList: React.FC<NotificationListProps> = ({
   };
 
   const handleMarkAllRead = async () => {
-    await markAllAsRead(userId);
-    router.refresh();
+    const result = await markAllAsRead(userId);
+    if (result.success) {
+      toast.success("All notifications marked as read");
+      router.refresh();
+    }
+  };
+
+  const handleMarkRead = async (id: string) => {
+    const result = await markAsRead(id);
+    if (result.success) {
+      router.refresh();
+    }
+  };
+
+  const handleMarkUnread = async (id: string) => {
+    const result = await markAsUnread(id);
+    if (result.success) {
+      router.refresh();
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const result = await deleteNotification(id);
+    if (result.success) {
+      toast.success("Notification deleted");
+      router.refresh();
+    }
   };
 
   const filters = [
@@ -136,6 +157,9 @@ const NotificationList: React.FC<NotificationListProps> = ({
                   key={n.id}
                   notification={n}
                   isAdmin={isAdmin}
+                  onMarkRead={handleMarkRead}
+                  onMarkUnread={handleMarkUnread}
+                  onDelete={handleDelete}
                 />
               ))}
             </motion.div>

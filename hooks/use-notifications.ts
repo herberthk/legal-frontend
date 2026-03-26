@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getNotifications, markAsRead, markAllAsRead } from "@/lib/actions/notifications";
+import { getNotifications, markAsRead, markAllAsRead, markAsUnread, deleteNotification } from "@/lib/actions/notifications";
 import { useAuthStore } from "@/store";
 
 export const useNotifications = () => {
@@ -51,6 +51,30 @@ export const useNotifications = () => {
     return result;
   };
 
+  const handleMarkAsUnread = async (id: string) => {
+    const result = await markAsUnread(id);
+    if (result.success) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: false } : n))
+      );
+      setUnreadCount((prev) => prev + 1);
+    }
+    return result;
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    const result = await deleteNotification(id);
+    if (result.success) {
+      const deletedItem = notifications.find((n) => n.id === id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      setTotalCount((prev) => Math.max(0, prev - 1));
+      if (deletedItem && !deletedItem.isRead) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    }
+    return result;
+  };
+
   const handleMarkAllAsRead = async () => {
     if (!user?.id) return;
     const result = await markAllAsRead(user.id);
@@ -67,6 +91,8 @@ export const useNotifications = () => {
     isLoading,
     totalCount,
     markAsRead: handleMarkAsRead,
+    markAsUnread: handleMarkAsUnread,
+    deleteNotification: handleDeleteNotification,
     markAllAsRead: handleMarkAllAsRead,
     refresh: fetchNotifications,
   };

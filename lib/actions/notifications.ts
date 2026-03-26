@@ -130,3 +130,39 @@ export async function markAllAsRead(userId: string) {
     return { success: false, error: "Failed to mark all as read" };
   }
 }
+
+/**
+ * Marks a notification as unread.
+ */
+export async function markAsUnread(notificationId: string) {
+  try {
+    await db
+      .collection(COLLECTIONS.NOTIFICATIONS)
+      .doc(notificationId)
+      .update({ isRead: false });
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    console.error("Error marking notification as unread:", error);
+    return { success: false, error: "Failed to mark as unread" };
+  }
+}
+
+/**
+ * Deletes a notification.
+ */
+export async function deleteNotification(notificationId: string) {
+  try {
+    await db
+      .collection(COLLECTIONS.NOTIFICATIONS)
+      .doc(notificationId)
+      .delete();
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting notification:", error);
+    return { success: false, error: "Failed to delete notification" };
+  }
+}
