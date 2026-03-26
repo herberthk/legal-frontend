@@ -100,15 +100,21 @@ export const voices: VoicePasona[] = [
 export const generateMockVoiceSessions = (count = 12): VoiceSession[] => {
   const referenceTimestamp = new Date("2024-03-20T00:00:00Z").getTime();
 
-  const mockTranscripts: Transcript[][] = [
+  const mockTranscripts: AgentTranscript[][] = [
     [
       { speaker: "user", text: "I need help with a land title transfer." },
-      { speaker: "ai", text: "I can assist with that. Are you transferring to a family member?" },
+      {
+        speaker: "ai",
+        text: "I can assist with that. Are you transferring to a family member?",
+      },
       { speaker: "user", text: "Yes, it's a gift to my son." },
     ],
     [
       { speaker: "user", text: "What is the VAT threshold in Uganda?" },
-      { speaker: "ai", text: "The current VAT registration threshold is UGX 150 million per year." },
+      {
+        speaker: "ai",
+        text: "The current VAT registration threshold is UGX 150 million per year.",
+      },
     ],
     // Add more as needed
   ];
@@ -116,33 +122,35 @@ export const generateMockVoiceSessions = (count = 12): VoiceSession[] => {
   return Array.from({ length: count }).map((_, i) => ({
     id: `vs_${i}`,
     userId: "user-01",
-    title: [
-      "Land Title Consultation",
-      "VAT Registration Query",
-      "Employee Termination Advice",
-      "Commercial Tenancy Dispute",
-      "Succession Planning",
-      "Customary Land Verification",
-      "Tax Clearance Help",
-      "IP Rights for Devs",
-    ][i % 8] || "Untitled Session",
+    title:
+      [
+        "Land Title Consultation",
+        "VAT Registration Query",
+        "Employee Termination Advice",
+        "Commercial Tenancy Dispute",
+        "Succession Planning",
+        "Customary Land Verification",
+        "Tax Clearance Help",
+        "IP Rights for Devs",
+      ][i % 8] || "Untitled Session",
     date: new Date(
-      referenceTimestamp - i * 1000 * 60 * 60 * 24 * (i % 3 + 1),
+      referenceTimestamp - i * 1000 * 60 * 60 * 24 * ((i % 3) + 1),
     ).toISOString(),
     duration: 120 + ((i * 45) % 600),
     audioUrl: undefined,
-    summary: [
-      "Discussed steps for land title transfer as a gift to a family member.",
-      "Clarified VAT registration thresholds and requirements for small businesses.",
-      "Reviewed legal notice periods for employee termination under the Employment Act.",
-      "Explored dispute resolution options for a commercial tenancy disagreement.",
-      "Drafted initial thoughts on succession planning and inheritance rights.",
-      "Verified procedures for customary land ownership certification.",
-      "Outlined requirements for obtaining a URA tax clearance certificate.",
-      "Discussed copyright and patent protections for software products.",
-    ][i % 8] || "No summary available for this session.",
+    summary:
+      [
+        "Discussed steps for land title transfer as a gift to a family member.",
+        "Clarified VAT registration thresholds and requirements for small businesses.",
+        "Reviewed legal notice periods for employee termination under the Employment Act.",
+        "Explored dispute resolution options for a commercial tenancy disagreement.",
+        "Drafted initial thoughts on succession planning and inheritance rights.",
+        "Verified procedures for customary land ownership certification.",
+        "Outlined requirements for obtaining a URA tax clearance certificate.",
+        "Discussed copyright and patent protections for software products.",
+      ][i % 8] || "No summary available for this session.",
     transcripts: mockTranscripts[i % mockTranscripts.length],
-    cost: 2.5 + (i * 0.5),
+    cost: 2.5 + i * 0.5,
   }));
 };
 

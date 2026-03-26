@@ -18,9 +18,10 @@ const UsageChart = dynamic(() => import("./UsageChart"), {
 
 type Props = {
   user: User;
+  recentSessions?: VoiceSession[];
 };
 
-const UserDashboard: FC<Props> = ({ user }) => {
+const UserDashboard: FC<Props> = ({ user, recentSessions }) => {
   const setUser = useAuthStore((state) => state.setUser);
 
   // Sync user only if needed (e.g. on first load if store is empty)
@@ -62,7 +63,7 @@ const UserDashboard: FC<Props> = ({ user }) => {
       {/* <UsageHistory userId={user?.id} /> */}
 
       {/* Voice Consultations Card */}
-      <VoiceConsultations isDashboard={true} />
+      <VoiceConsultations isDashboard={true} sessions={recentSessions} />
 
       {/* Recent System Activity Placeholder */}
       <SystemEvents />
