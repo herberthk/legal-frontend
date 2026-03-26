@@ -22,7 +22,7 @@ export const checkUserCanSend = async (
   user?: User;
 }> => {
   try {
-    const userDoc = await db.collection("users").doc(userId).get();
+    const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
     if (!userDoc.exists) {
       return { canSend: false, reason: "User not found" };
     }

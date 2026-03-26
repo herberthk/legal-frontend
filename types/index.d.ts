@@ -2,12 +2,6 @@
 /// <reference path="voices.d.ts" />
 import "./email.d.ts";
 declare global {
-  // type User = {
-  //   name: string;
-  //   email: string;
-  //   id: string;
-  // };
-
   type SignInParams = {
     email: string;
     idToken: string;
