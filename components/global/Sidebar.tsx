@@ -208,7 +208,9 @@ const CollapsibleMenu = ({
                                 "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
                             )}
                             variants={navItemVariants}
-                            animate={pathname.startsWith(sub.id) ? "active" : "initial"}
+                            animate={
+                              pathname.startsWith(sub.id) ? "active" : "initial"
+                            }
                             whileHover="hover"
                             whileTap="tap"
                           >
@@ -271,12 +273,8 @@ const GlobalSidebar = ({ user }: Props) => {
   const MotionLink = motion(Link);
 
   // Custom user fallback
-  const userName =
-    extendedUser?.name ||
-    extendedUser?.displayName ||
-    (isAdmin ? "Admin User" : "shadcn");
-  const userEmail =
-    extendedUser?.email || (isAdmin ? "admin@example.com" : "m@example.com");
+  const userName = extendedUser?.name || extendedUser?.displayName || "";
+  const userEmail = extendedUser?.email || "";
 
   if (!mounted) {
     return (

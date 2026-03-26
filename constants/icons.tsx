@@ -109,9 +109,9 @@ export const sideBarItems = (role: Role) =>
               href: "/dashboard/user/voice",
             },
             {
-              id: "/dashboard/user/transcription",
-              label: "Transcription",
-              href: "/dashboard/user/transcription",
+              id: "/dashboard/user/voice-sessions",
+              label: "Recorded Sessions",
+              href: "/dashboard/user/voice-sessions",
             },
           ],
         },
