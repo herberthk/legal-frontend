@@ -1,3 +1,4 @@
+"use client";
 import { useAppStore } from "@/store";
 import {
   Mic,
@@ -11,39 +12,55 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { formatCost } from "@/utils";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 interface VoiceConsultationsProps {
   isDashboard?: boolean;
   sessions?: VoiceSession[];
+  totalSessionsCount?: number;
 }
 
 const VoiceConsultations = ({
   isDashboard = false,
   sessions,
+  totalSessionsCount = 0,
 }: VoiceConsultationsProps) => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const storeSessions = useAppStore((state) => state.voiceSessions);
   const voiceSessions = sessions || storeSessions;
-  const [voicePage, setVoicePage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const currentPage = parseInt(searchParams.get("page") || "1");
   const itemsPerPage = isDashboard ? 6 : 8;
-  const totalPages = Math.ceil(voiceSessions.length / itemsPerPage);
+  const totalCount = sessions ? totalSessionsCount : voiceSessions.length;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-  const currentSessions = isDashboard
-    ? voiceSessions.slice(0, 6)
-    : voiceSessions.slice(
-        (voicePage - 1) * itemsPerPage,
-        voicePage * itemsPerPage,
-      );
+  // When sessions are passed (from server), we use them directly.
+  // When not (dashboard), we take first 6 from store.
+  const currentSessions =
+    sessions ||
+    (isDashboard
+      ? voiceSessions.slice(0, 6)
+      : voiceSessions.slice(
+          (currentPage - 1) * itemsPerPage,
+          currentPage * itemsPerPage,
+        ));
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", newPage.toString());
+    router.push(`${pathname}?${params.toString()}`);
   };
 
   return (
@@ -71,14 +88,14 @@ const VoiceConsultations = ({
         {!isDashboard && (
           <div className="flex items-center gap-2">
             <div className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-700/50 px-3 py-1.5 rounded-full">
-              {voiceSessions.length} Total Sessions
+              {totalCount} Total Sessions
             </div>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        {voiceSessions.length === 0 ? (
+        {currentSessions.length === 0 ? (
           <div className="text-center py-16 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-700/50 rounded-3xl bg-slate-50/50 dark:bg-slate-900/20">
             <Mic size={48} className="mx-auto mb-4 opacity-20" />
             <p className="text-lg font-medium">No recorded sessions yet</p>
@@ -219,11 +236,11 @@ const VoiceConsultations = ({
                 <p className="text-sm font-medium text-slate-500">
                   Showing{" "}
                   <span className="text-slate-900 dark:text-white">
-                    {Math.min(itemsPerPage, currentSessions.length)}
+                    {currentSessions.length}
                   </span>{" "}
                   of{" "}
                   <span className="text-slate-900 dark:text-white">
-                    {voiceSessions.length}
+                    {totalCount}
                   </span>{" "}
                   sessions
                 </p>
@@ -232,8 +249,8 @@ const VoiceConsultations = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setVoicePage((p) => Math.max(1, p - 1))}
-                    disabled={voicePage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage <= 1}
                     className="rounded-xl h-10 w-10 border border-slate-200 dark:border-slate-700 disabled:opacity-30 bg-white dark:bg-slate-800"
                   >
                     <ChevronLeft size={20} />
@@ -243,9 +260,9 @@ const VoiceConsultations = ({
                     {[...Array(totalPages)].map((_, i) => (
                       <button
                         key={i}
-                        onClick={() => setVoicePage(i + 1)}
+                        onClick={() => handlePageChange(i + 1)}
                         className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                          voicePage === i + 1
+                          currentPage === i + 1
                             ? "bg-orange-500 w-8"
                             : "bg-slate-300 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500"
                         }`}
@@ -256,10 +273,8 @@ const VoiceConsultations = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() =>
-                      setVoicePage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={voicePage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
                     className="rounded-xl h-10 w-10 border border-slate-200 dark:border-slate-700 disabled:opacity-30 bg-white dark:bg-slate-800"
                   >
                     <ChevronRight size={20} />

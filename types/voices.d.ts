@@ -80,7 +80,7 @@ declare global {
     | "closed";
   type Speaker = "user" | "ai" | "system";
 
-  interface Transcript {
+  interface AgentTranscript {
     speaker: Speaker;
     text: string;
   }
@@ -90,7 +90,7 @@ declare global {
     audioStatus: VoiceAudioStatus;
     duration: number;
     isResponding: boolean;
-    activeTranscript: Transcript | null;
+    activeTranscript: AgentTranscript | null;
     currentTranscript: string; // Live transcript from STT
 
     onStart: () => void;

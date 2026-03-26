@@ -131,6 +131,10 @@ declare global {
   //   unit: "TOKENS" | "SECONDS";
   //   type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION";
   // };
+  type Transcript = {
+    role: "user" | "AI";
+    content: string;
+  };
 
   type VoiceSession = {
     id: string;
@@ -141,7 +145,8 @@ declare global {
     audioUrl?: string; // Recording
     summary: string;
     transcripts: Transcript[];
-    cost?: number;
+    cost: number;
+    sessionId: string;
   };
 
   type Theme = "light" | "dark";

@@ -15,9 +15,8 @@ const NativeVoiceConnection = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const voice = useAuthStore((state) => state.user?.voicePreference);
-  const [activeTranscript, setActiveTranscript] = useState<Transcript | null>(
-    null,
-  );
+  const [activeTranscript, setActiveTranscript] =
+    useState<AgentTranscript | null>(null);
 
   const [isResponding, setIsResponding] = useState(false);
 
