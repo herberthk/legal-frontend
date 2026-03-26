@@ -42,33 +42,50 @@ export const getVoiceSessions = async (params: {
       .where("date", "<=", end)
       .orderBy("date", "desc");
 
-    // Fetch all matching for client-side search if searchQuery is provided
-    // Firestore doesn't support full-text search without external tools
-    // But for a reasonable number of sessions per user, we can filter in memory or fetch all and filter
-    // For performance, let's fetch matching dates first.
+    // If no search query, we can use Firestore pagination efficiently
+    // But since we are doing in-memory search filtering, we need to fetch all matching dates
+    // ONLY if searchQuery is present. Otherwise, we limit here.
     
-    const snapshot = await query.get();
-    let allSessions = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as VoiceSession[];
+    let allSessions: VoiceSession[] = [];
+    let totalCount = 0;
 
-    // Apply search filter if present
     if (searchQuery) {
+      const snapshot = await query.get();
+      allSessions = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as VoiceSession[];
+
       const queryLower = searchQuery.toLowerCase();
       allSessions = allSessions.filter(s => 
         (s.title || "").toLowerCase().includes(queryLower) || 
         (s.summary || "").toLowerCase().includes(queryLower)
       );
+      
+      totalCount = allSessions.length;
+      allSessions = allSessions.slice((page - 1) * limit, page * limit);
+    } else {
+      // Get total count for pagination
+      const countSnapshot = await query.count().get();
+      totalCount = countSnapshot.data().count;
+
+      // Fetch only the needed page
+      const snapshot = await query
+        .limit(limit)
+        .offset((page - 1) * limit)
+        .get();
+        
+      allSessions = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as VoiceSession[];
     }
 
-    const totalCount = allSessions.length;
     const totalPages = Math.ceil(totalCount / limit);
-    const paginatedSessions = allSessions.slice((page - 1) * limit, page * limit);
 
     return {
       success: true,
-      sessions: paginatedSessions,
+      sessions: allSessions,
       totalCount,
       totalPages,
     };

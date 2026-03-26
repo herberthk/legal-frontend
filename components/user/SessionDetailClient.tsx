@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
 import { FileText, Play, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+
+import MarkdownFormatter from "@/components/global/MakdownFormater";
 
 interface SessionDetailClientProps {
   session: VoiceSession;
@@ -21,9 +22,13 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
             </div>
             <h3 className="text-lg font-bold">Executive Summary</h3>
           </div>
-          <p className="text-slate-400 text-sm leading-relaxed mb-6 italic">
-            &quot;{session.summary}&quot;
-          </p>
+          <div className="text-slate-400 text-sm leading-relaxed mb-6 italic">
+            {session.summary ? (
+              <MarkdownFormatter content={session.summary} role="assistant" />
+            ) : (
+              "No summary available."
+            )}
+          </div>
           <div className="pt-6 border-t border-slate-800">
             <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold flex items-center gap-2 transition-all">
               <Download size={18} />
@@ -91,7 +96,12 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
                       {t.role === "user" ? "You" : "Legal Assistant"}
                     </span>
                   </div>
-                  <p className="text-[15px] leading-relaxed">{t.content}</p>
+                  <div className="text-[15px] leading-relaxed">
+                    <MarkdownFormatter
+                      content={t.content}
+                      role={t.role === "user" ? "user" : "assistant"}
+                    />
+                  </div>
                 </div>
               </motion.div>
             ))

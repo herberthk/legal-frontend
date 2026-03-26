@@ -93,6 +93,6 @@ export const formatDate = (dateString: string) => {
 };
 
 export const formatCost = (cost: number) => {
-  const ugxCost = cost * USD_TO_UGX_EXCHANGE_RATE;
+  const ugxCost = Math.round(cost * USD_TO_UGX_EXCHANGE_RATE);
   return `$${cost.toFixed(2)} (UGX ${ugxCost.toLocaleString()})`;
 };
