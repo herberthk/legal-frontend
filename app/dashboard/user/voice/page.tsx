@@ -1,4 +1,3 @@
-import React from "react";
 import VoiceSessionManager from "@/components/voice/voice-session-manager";
 
 export const metadata = {

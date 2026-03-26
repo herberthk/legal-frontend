@@ -18,6 +18,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatCost } from "@/utils";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import MarkdownFormatter from "@/components/global/MakdownFormater";
 
 interface VoiceConsultationsProps {
   isDashboard?: boolean;
@@ -179,10 +180,16 @@ const VoiceConsultations = ({
                               Summary
                             </span>
                           </div>
-                          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {session.summary ||
-                              "No summary available for this session."}
-                          </p>
+                          <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {session.summary ? (
+                              <MarkdownFormatter 
+                                content={session.summary} 
+                                role="assistant" 
+                              />
+                            ) : (
+                              "No summary available for this session."
+                            )}
+                          </div>
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-center gap-3">
