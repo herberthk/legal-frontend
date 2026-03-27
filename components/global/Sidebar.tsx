@@ -169,10 +169,10 @@ const CollapsibleMenu = ({
               )}
             >
               <motion.div
-                className="flex items-center w-full gap-2 px-2 py-1.5 rounded-lg"
+                className="flex items-center w-full gap-2 py-1.5 my-2"
                 variants={navItemVariants}
                 animate={pathname === link.id ? "active" : "initial"}
-                whileHover="hover"
+                // whileHover="hover"
                 whileTap="tap"
               >
                 {link.icon}
