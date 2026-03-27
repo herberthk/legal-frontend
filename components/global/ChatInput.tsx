@@ -1,7 +1,6 @@
 import {
   CheckCircle2,
   FileText,
-  ImageIcon,
   Loader2,
   Mic,
   Paperclip,
@@ -66,7 +65,7 @@ const ChatInput: FC<ChatInputProps> = ({
       isLoading ||
       isUploading ||
       connectionStatus === "offline" ||
-      (!input.trim() && !pendingAttachment)
+      !input.trim()
     ) {
       return;
     }
@@ -94,6 +93,13 @@ const ChatInput: FC<ChatInputProps> = ({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Only allow PDF files
+    if (file.type !== "application/pdf") {
+      alert("Only PDF files are supported. Please select a PDF document.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     setPendingAttachment(null);
     setIsUploading(true);
@@ -123,8 +129,8 @@ const ChatInput: FC<ChatInputProps> = ({
         setTempFileName("");
         fileReaderRef.current = null;
 
-        // Auto-send upon finishing upload, mimicking the previous behaviour
-        onSend("Please summarize this document.", newAttachment);
+        // Stage the attachment — user must type a description before sending
+        setPendingAttachment(newAttachment);
 
         // Reset file input so the same file can be selected again
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -141,7 +147,6 @@ const ChatInput: FC<ChatInputProps> = ({
   };
 
   const activeFileName = pendingAttachment?.name || tempFileName;
-  const isImage = pendingAttachment?.type.includes("image") || false;
 
   // --- Voice ---
   const handleGoToVoice = () => router.push("/dashboard/user/voice");
@@ -178,8 +183,6 @@ const ChatInput: FC<ChatInputProps> = ({
                     size={isInputFocused ? 16 : 20}
                     className="animate-spin text-slate-400"
                   />
-                ) : isImage ? (
-                  <ImageIcon size={isInputFocused ? 16 : 20} />
                 ) : (
                   <FileText size={isInputFocused ? 16 : 20} />
                 )}
@@ -229,7 +232,7 @@ const ChatInput: FC<ChatInputProps> = ({
           ref={fileInputRef}
           onChange={handleFileSelect}
           className="hidden"
-          accept="application/pdf,image/*"
+          accept="application/pdf"
         />
 
         <div
@@ -246,7 +249,7 @@ const ChatInput: FC<ChatInputProps> = ({
                 ? "text-orange-500 bg-orange-50 dark:bg-orange-900/20"
                 : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 hover:rotate-12"
             }`}
-            title="Upload legal document (PDF, Image)"
+            title="Upload legal document (PDF)"
             disabled={isUploading || connectionStatus === "offline"}
           >
             <Paperclip size={20} />
@@ -278,7 +281,9 @@ const ChatInput: FC<ChatInputProps> = ({
                 ? "Waiting for connection..."
                 : isUploading
                   ? "Uploading document..."
-                  : "Ask about Ugandan Law, or attach a PDF/Image..."
+                  : pendingAttachment
+                    ? "Describe what you need done with this PDF..."
+                    : "Ask about Ugandan Law, or attach a PDF..."
             }
             disabled={
               isLoading || isUploading || connectionStatus === "offline"
@@ -294,7 +299,7 @@ const ChatInput: FC<ChatInputProps> = ({
               isLoading ||
               isUploading ||
               connectionStatus === "offline" ||
-              (!input.trim() && !pendingAttachment)
+              !input.trim()
             }
             className="p-2.5 mb-2 mr-2 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 hover:rotate-3 disabled:hover:scale-100 disabled:hover:rotate-0"
           >

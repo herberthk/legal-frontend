@@ -91,37 +91,39 @@ export const ThinkingBlock = ({
   if (!reasoning) return null;
 
   return (
-    <div className="rounded-tl-xl rounded-tr-xl border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/50 dark:bg-orange-950/20 overflow-hidden">
+    <div className="rounded-tl-2xl rounded-tr-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 overflow-hidden mb-[-8px] pb-2 relative z-0">
       {/* Header / Toggle */}
       <button
         onClick={() => !isStreaming && setUserCollapsed((c) => !c)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-orange-100/50 dark:hover:bg-orange-900/20 transition-colors"
+        className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors ${
+          !isStreaming ? "hover:bg-slate-100/50 dark:hover:bg-slate-800/50 cursor-pointer" : "cursor-default"
+        }`}
       >
         <Sparkles
-          size={13}
+          size={14}
           className={`shrink-0 ${
             isStreaming
-              ? "text-orange-500 animate-pulse"
-              : "text-orange-400 dark:text-orange-500"
+              ? "text-slate-500 dark:text-slate-400 animate-pulse"
+              : "text-slate-400 dark:text-slate-500"
           }`}
         />
-        <span className="flex-1 text-[11px] font-semibold text-orange-700 dark:text-orange-400 tracking-wide uppercase">
-          {isStreaming ? "Thinking…" : `Thought for ${elapsedSeconds}s`}
+        <span className="flex-1 text-[12px] font-medium text-slate-600 dark:text-slate-300 tracking-wide">
+          {isStreaming ? "Thinking" : `Thought for ${elapsedSeconds} seconds`}
         </span>
         {isStreaming ? (
-          <span className="flex gap-0.5">
+          <span className="flex gap-1 items-center mr-1">
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
-                className="w-1 h-1 rounded-full bg-orange-400 animate-bounce"
-                style={{ animationDelay: `${i * 0.15}s` }}
+                className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-pulse"
+                style={{ animationDelay: `${i * 0.2}s`, animationDuration: "1s" }}
               />
             ))}
           </span>
         ) : isOpen ? (
-          <ChevronDown size={13} className="shrink-0 text-orange-400" />
+          <ChevronDown size={14} className="shrink-0 text-slate-400 transition-transform duration-200" />
         ) : (
-          <ChevronRight size={13} className="shrink-0 text-orange-400" />
+          <ChevronRight size={14} className="shrink-0 text-slate-400 transition-transform duration-200" />
         )}
       </button>
 
@@ -133,16 +135,17 @@ export const ThinkingBlock = ({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
+            transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
             className="overflow-hidden"
+            layout
           >
-            <div className="px-3 pb-3 pt-1 border-t border-orange-200/50 dark:border-orange-800/30">
-              <div className="prose prose-sm prose-orange dark:prose-invert max-w-none text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 [&_p]:text-[11px] [&_p]:leading-relaxed [&_p]:text-slate-500 [&_pre]:text-[10px] [&_code]:text-[10px]">
-                <MakdownFormater content={reasoning} role="assistant" />
-                {isStreaming && (
-                  <span className="inline-block w-1 h-3 ml-0.5 mt-1 bg-orange-400 animate-pulse align-middle rounded-sm" />
-                )}
-              </div>
+            <div className="px-4 pb-4 pt-1 border-t border-slate-200/50 dark:border-slate-800/50 relative">
+              <motion.div 
+                layout="position"
+                className="prose prose-sm dark:prose-invert max-w-none text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400 [&_p]:text-[12.5px] [&_p]:leading-relaxed [&_p]:text-slate-500 dark:[&_p]:text-slate-400 [&_p]:m-0 [&_p]:mb-2 [&_p:last-child]:mb-0"
+              >
+                <MakdownFormater content={reasoning} role="assistant" isReasoning={true} isStreaming={isStreaming} />
+              </motion.div>
             </div>
           </motion.div>
         )}

@@ -28,16 +28,94 @@ export async function POST(req: Request) {
     }
 
     const lastUserMessage = messages[messages.length - 1];
-    // console.log("lastUserMessage", lastUserMessage);
     console.log("is first message", isFirstMessage);
 
-    //@ts-ignore
-    const textToSend = lastUserMessage.parts[0].text;
+    const textPart = lastUserMessage.parts?.find(
+      (p: { type: string }) => p.type === "text",
+    ) as { type: "text"; text: string } | undefined;
+    const textToSend = textPart?.text || "";
     const estimatedInputTokens = Math.ceil(textToSend.length / 4);
+
+    // Extract attachment metadata from the last user message (if any)
+    const filePart = lastUserMessage.parts?.find(
+      (p: { type: string }) => p.type === "file",
+    ) as
+      | { type: "file"; mediaType: string; filename?: string; url: string }
+      | undefined;
+
     const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
     console.log("messages", historyMessages.length);
+
+    // --- Preprocess: strip data: URL file parts before conversion ---
+    // convertToModelMessages tries to HTTP-fetch file URLs, which fails for
+    // inline data: URLs. We extract them, convert to ModelMessages without
+    // them, then re-inject the file data as inline base64 FileParts.
+    const extractedFiles: Array<{
+      msgIndex: number;
+      data: Buffer;
+      mediaType: string;
+    }> = [];
+
+    const cleanedMessages = historyMessages.map((msg, i) => {
+      const hasDataUrl = msg.parts?.some(
+        (p) =>
+          p.type === "file" &&
+          typeof (p as { url?: string }).url === "string" &&
+          (p as { url: string }).url.startsWith("data:"),
+      );
+      if (!hasDataUrl) return msg;
+
+      const filteredParts = msg.parts?.filter((p) => {
+        if (p.type === "file") {
+          const fileP = p as { url?: string; mediaType: string };
+          if (fileP.url?.startsWith("data:")) {
+            const base64 = fileP.url.split(",")[1];
+            extractedFiles.push({
+              msgIndex: i,
+              data: Buffer.from(base64, "base64"),
+              mediaType: fileP.mediaType,
+            });
+            return false; // Remove from parts
+          }
+        }
+        return true;
+      });
+
+      return { ...msg, parts: filteredParts } as UIMessage;
+    });
+
+    const modelMessages = await convertToModelMessages(cleanedMessages);
+
+    // Re-inject extracted file data into the last user model message
+    if (extractedFiles.length > 0) {
+      // Find the last user message in the model messages array
+      const lastUserModelMsg = [...modelMessages]
+        .reverse()
+        .find((m) => m.role === "user");
+      if (lastUserModelMsg) {
+        for (const extracted of extractedFiles) {
+          if (typeof lastUserModelMsg.content === "string") {
+            lastUserModelMsg.content = [
+              { type: "text" as const, text: lastUserModelMsg.content },
+              {
+                type: "file" as const,
+                data: extracted.data,
+                mediaType: extracted.mediaType,
+              },
+            ];
+          } else if (Array.isArray(lastUserModelMsg.content)) {
+            lastUserModelMsg.content.push({
+              type: "file" as const,
+              data: extracted.data,
+              mediaType: extracted.mediaType,
+            });
+          }
+        }
+      }
+    }
+
     const result = streamText({
-      model: google("gemini-3-flash-preview"),
+      model: google("gemini-2.5-flash"),
       system: BASE_SYSTEM_INSTRUCTION,
       providerOptions: {
         google: {
@@ -48,7 +126,7 @@ export async function POST(req: Request) {
           },
         } satisfies GoogleLanguageModelOptions,
       },
-      messages: await convertToModelMessages(historyMessages),
+      messages: modelMessages,
       temperature: 0.2,
       onFinish: async ({ text, usage }) => {
         // 3. Record usage after completion
@@ -65,19 +143,19 @@ export async function POST(req: Request) {
           }
           // 4. Save assistant message to chat session
           if (sessionId !== null && text) {
-            // Save user message
+            // Save user message (with attachment metadata if present)
             await saveChatMessage(sessionId, {
               role: "user",
               text: textToSend,
               tokenCount: estimatedInputTokens,
               isFirstMessage: isFirstMessage === "true",
-              // ...(attachmentToSend && {
-              //   attachment: {
-              //     name: attachmentToSend.name,
-              //     type: attachmentToSend.type,
-              //     url: "",
-              //   },
-              // }),
+              ...(filePart && {
+                attachment: {
+                  name: filePart.filename || "document.pdf",
+                  type: filePart.mediaType,
+                  url: "",
+                },
+              }),
             });
 
             // Save assistant message
