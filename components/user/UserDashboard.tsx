@@ -9,6 +9,7 @@ import VoiceConsultations from "./VoiceConsultations";
 import SystemEvents from "./SystemEvents";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 
 // Dynamically import UsageChart (contains heavy Recharts)
 const UsageChart = dynamic(() => import("./UsageChart"), {
@@ -42,10 +43,13 @@ const UserDashboard: FC<Props> = ({ user, recentSessions }) => {
             Track your daily free credits and account balance.
           </p>
         </div>
-        <button className="w-full md:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg shadow-lg shadow-orange-500/20 transition-all hover:scale-105 active:scale-95">
+        <Link
+          href="/dashboard/user/billing"
+          className="w-full md:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg shadow-lg shadow-orange-500/20 transition-all hover:scale-105 active:scale-95"
+        >
           <PlusCircle size={18} />
           <span>Add Funds</span>
-        </button>
+        </Link>
       </div>
 
       {/* Balance & Usage Cards */}
