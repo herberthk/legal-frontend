@@ -21,7 +21,7 @@ import type { UIMessage } from "ai";
 import { createChatSession, getChatMessages } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/actions/auth";
 import { DefaultChatTransport, generateId } from "ai";
-import ChatInput from "./ChatInput";
+import ChatInput, { ChatInputRef } from "./ChatInput";
 import BillingError from "./modal/BillingError";
 import ChatError from "./modal/ChatError";
 import { checkCanSend } from "@/lib";
@@ -69,6 +69,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
   // --- Input Focus State ---
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const chatInputRef = useRef<ChatInputRef>(null);
   // Holds the latest chatSessionId synchronously — never stale even within the
   // same render tick as setChatSessionId.
   const chatSessionIdRef = useRef<string | null>(chatId || null);
@@ -613,7 +614,13 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
                 ].map((suggestion, idx) => (
                   <button
                     key={idx}
-                    onClick={() => handleSend(suggestion.prompt)}
+                    onClick={() => {
+                      if (suggestion.title === "Review a document") {
+                        chatInputRef.current?.triggerFileUpload(suggestion.prompt);
+                      } else {
+                        handleSend(suggestion.prompt);
+                      }
+                    }}
                     className="p-4 rounded-2xl bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 hover:border-orange-500/50 dark:hover:border-orange-500/50 hover:shadow-md transition-all text-left group flex items-start gap-4"
                   >
                     <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 group-hover:scale-110 transition-transform">
@@ -796,21 +803,21 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
                 </div>
                 {status === "submitted" ? (
                   // Waiting for first token — show thinking indicator perfectly matching ThinkingBlock
-                  <div className="w-[200px] rounded-tl-xl rounded-tr-xl border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/50 dark:bg-orange-950/20 overflow-hidden">
-                    <div className="w-full flex items-center gap-2 px-3 py-2 text-left bg-transparent">
+                  <div className="w-[220px] rounded-bl-xl rounded-tr-2xl rounded-br-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 overflow-hidden">
+                    <div className="w-full flex items-center gap-2.5 px-4 py-3 text-left bg-transparent">
                       <Sparkles
-                        size={13}
-                        className="shrink-0 text-orange-500 animate-pulse"
+                        size={14}
+                        className="shrink-0 text-slate-500 dark:text-slate-400 animate-pulse"
                       />
-                      <span className="flex-1 text-[11px] font-semibold text-orange-700 dark:text-orange-400 tracking-wide uppercase">
-                        Thinking…
+                      <span className="flex-1 text-[12px] font-medium text-slate-600 dark:text-slate-300 tracking-wide">
+                        Thinking
                       </span>
-                      <span className="flex gap-0.5">
+                      <span className="flex gap-1 items-center mr-1">
                         {[0, 1, 2].map((i) => (
                           <span
                             key={i}
-                            className="w-1 h-1 rounded-full bg-orange-400 animate-bounce"
-                            style={{ animationDelay: `${i * 0.15}s` }}
+                            className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-pulse"
+                            style={{ animationDelay: `${i * 0.2}s`, animationDuration: "1s" }}
                           />
                         ))}
                       </span>
@@ -832,12 +839,15 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       </div>
 
       {/* Input Area */}
-      <ChatInput
-        onSend={handleSend}
-        connectionStatus={connectionStatus}
-        isLoading={isLoading}
-        onHeightChange={scrollToBottom}
-      />
+      <div className="shrink-0 relative z-10 w-full">
+        <ChatInput
+          ref={chatInputRef}
+          onSend={handleSend}
+          connectionStatus={connectionStatus}
+          isLoading={isLoading}
+          onHeightChange={scrollToBottom}
+        />
+      </div>
     </div>
   );
 };
