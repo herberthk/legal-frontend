@@ -339,7 +339,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       if (pending.attachment) {
         const dataUrl = `data:${pending.attachment.type};base64,${pending.attachment.data}`;
         sendMessage({
-          text: pending.text || "Please summarize this document.",
+          text: pending.text,
           files: [
             {
               type: "file" as const,
@@ -468,7 +468,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     if (attachmentToSend) {
       const dataUrl = `data:${attachmentToSend.type};base64,${attachmentToSend.data}`;
       sendMessage({
-        text: textToSend || "Please summarize this document.",
+        text: textToSend,
         files: [
           {
             type: "file" as const,
@@ -747,17 +747,8 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
                             role={
                               msg.role as "user" | "assistant" | "system" | "data"
                             }
+                            isStreaming={msgIsStreaming}
                           />
-                          {msgIsStreaming && (
-                            <span
-                              className={`inline-block w-1.5 h-4 ml-1 animate-pulse align-middle rounded-sm ${
-                                msg.role === "user"
-                                  ? "bg-white"
-                                  : "bg-orange-500 dark:bg-orange-400"
-                              }`}
-                              aria-hidden="true"
-                            />
-                          )}
                         </div>
 
                           {chatError &&

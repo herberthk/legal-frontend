@@ -5,16 +5,50 @@ import remarkGfm from "remark-gfm";
 type MarkdownFormatterProps = {
   content: string;
   role: "user" | "assistant" | "system" | "data";
+  isStreaming?: boolean;
+  isReasoning?: boolean;
 };
 
-const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({ content, role }) => {
+const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({ 
+  content, 
+  role, 
+  isStreaming = false,
+  isReasoning = false
+}) => {
+  // If streaming, append a special character that we'll render as the cursor
+  const displayContent = isStreaming ? content + " ▋" : content;
+
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        p: ({ ...props }) => (
-          <p className="mb-2 last:mb-0" {...props} />
-        ),
+        p: ({ children, ...props }) => {
+          // Check if children contains our cursor marker
+          const childrenArray = React.Children.toArray(children);
+          const hasCursor = childrenArray.some(child => 
+            typeof child === 'string' && child.includes('▋')
+          );
+
+          if (hasCursor) {
+            // Replace the marker with our animated cursor UI
+            const newChildren = childrenArray.map((child, index) => {
+              if (typeof child === 'string' && child.includes('▋')) {
+                const parts = child.split('▋');
+                return (
+                  <React.Fragment key={index}>
+                    {parts[0]}
+                    <span className="inline-block w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500 animate-pulse ml-0.5 align-[1px]" />
+                    {parts[1]}
+                  </React.Fragment>
+                );
+              }
+              return child;
+            });
+            return <p className={`mb-2 last:mb-0 min-h-[1.5em] ${isReasoning ? 'mb-0' : ''}`} {...props}>{newChildren}</p>;
+          }
+
+          return <p className={`mb-2 last:mb-0 min-h-[1.5em] ${isReasoning ? 'mb-0' : ''}`} {...props}>{children}</p>;
+        },
         a: ({ ...props }) => (
           <a
             className={`underline decoration-1 underline-offset-2 transition-colors font-medium ${
@@ -195,7 +229,7 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({ content, role }) 
         ),
       }}
     >
-      {content}
+      {displayContent}
     </ReactMarkdown>
   );
 };
