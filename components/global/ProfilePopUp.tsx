@@ -29,8 +29,8 @@ const ProfilePopUp = ({ user }: Props) => {
   };
   return (
     <>
-      <div className="fixed inset-0 z-20" onClick={() => toggleProfile()}></div>
-      <div className="absolute right-0 mt-3 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-30 animate-in fade-in slide-in-from-top-2 zoom-in-95 origin-top-right overflow-hidden">
+      <div className="fixed inset-0" onClick={() => toggleProfile()}></div>
+      <div className="absolute right-0 mt-3 w-full md:w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-130 animate-in fade-in slide-in-from-top-2 zoom-in-95 origin-top-right overflow-hidden">
         <div className="p-6 text-center border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
           <div className="relative inline-block group">
             <Image

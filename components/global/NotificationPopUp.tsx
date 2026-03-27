@@ -10,14 +10,14 @@ import { motion, AnimatePresence } from "framer-motion";
 const NotificationPopUp = () => {
   const toggleNotifications = usePopStore((state) => state.toggleNotifications);
   const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
-  const { 
-    notifications, 
-    unreadCount, 
-    markAllAsRead, 
-    markAsRead, 
-    markAsUnread, 
-    deleteNotification, 
-    isLoading 
+  const {
+    notifications,
+    unreadCount,
+    markAllAsRead,
+    markAsRead,
+    markAsUnread,
+    deleteNotification,
+    isLoading,
   } = useNotifications();
 
   return (
@@ -34,7 +34,7 @@ const NotificationPopUp = () => {
         animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: -10 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[200] overflow-hidden origin-top-right"
+        className="absolute right-0 mt-2 w-full md:w-90 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-200 overflow-hidden origin-top-right"
       >
         <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800">
           <div>
