@@ -7,9 +7,14 @@ import {
   Send,
   X,
 } from "lucide-react";
-import React, { FC, useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import Disclaimer from "./Disclaimer";
 import { useRouter } from "nextjs-toploader/app";
+
+export interface ChatInputRef {
+  triggerFileUpload: (promptText: string) => void;
+}
+
 type ChatInputProps = {
   onSend: (
     text: string,
@@ -21,13 +26,12 @@ type ChatInputProps = {
   onHeightChange?: () => void;
 };
 
-const ChatInput: FC<ChatInputProps> = ({
+const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
   onSend,
-
   connectionStatus,
   isLoading,
   onHeightChange,
-}) => {
+}, ref) => {
   const [input, setInput] = useState("");
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -59,6 +63,15 @@ const ChatInput: FC<ChatInputProps> = ({
       }
     };
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    triggerFileUpload: (promptText: string) => {
+      setInput(promptText);
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+    }
+  }));
 
   const handleSendClick = () => {
     if (
@@ -314,6 +327,8 @@ const ChatInput: FC<ChatInputProps> = ({
       <Disclaimer />
     </div>
   );
-};
+});
+
+ChatInput.displayName = "ChatInput";
 
 export default ChatInput;
