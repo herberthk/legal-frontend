@@ -29,7 +29,7 @@ const Header: React.FC<Props> = ({ user }) => {
         {/* Mobile Menu Trigger */}
         <button
           onClick={toggleSidebar}
-          className="mr-3 p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden transition-colors"
+          className="mr-3 p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
           <Menu size={20} />
         </button>
