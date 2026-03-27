@@ -1,9 +1,16 @@
 "use client";
 
-import React from "react";
+import { useState, useEffect } from "react";
 import ChatInterface from "./ChatInterface";
 import ChatHistorySidebar from "./ChatHistorySidebar";
 import { useRouter } from "nextjs-toploader/app";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Menu, Plus } from "lucide-react";
 
 interface ChatContainerProps {
   serverChatId?: string | null;
@@ -19,8 +26,16 @@ const ChatContainer = ({
   serverSessions,
 }: ChatContainerProps) => {
   const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMounted(true);
+  }, []);
 
   const handleSelectChat = (chatId: string | null) => {
+    setIsMobileMenuOpen(false); // Close the mobile sidebar
     if (chatId === serverChatId) return; // Already on this chat
 
     if (chatId) {
@@ -35,9 +50,50 @@ const ChatContainer = ({
   const activeChatId = serverChatId || null;
 
   return (
-    <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden">
-      {/* Sidebar */}
-      <div className="hidden md:block h-full">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] w-full overflow-hidden">
+      {/* Mobile Top Header */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+        <div className="flex items-center space-x-3">
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <button
+                className="p-1.5 -ml-1 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors focus:outline-none"
+                aria-label="Toggle chat history sidebar"
+              >
+                <Menu size={22} className="shrink-0" />
+              </button>
+            </SheetTrigger>
+            {isMounted && (
+              <SheetContent
+                side="left"
+                className="p-0 w-[280px] sm:w-[320px] border-r border-slate-200 dark:border-slate-800"
+              >
+                <SheetTitle className="sr-only">Chat History</SheetTitle>
+                <ChatHistorySidebar
+                  activeChatId={activeChatId}
+                  onSelectChat={handleSelectChat}
+                  serverSessions={serverSessions}
+                />
+              </SheetContent>
+            )}
+          </Sheet>
+          <span className="font-semibold text-lg text-slate-800 dark:text-slate-100 tracking-tight">
+            Legal Adviser Chat
+          </span>
+        </div>
+
+        <button
+          onClick={() => handleSelectChat(null)}
+          className="p-1.5 -mr-1 text-slate-500 hover:text-orange-600 dark:text-slate-400 dark:hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded-lg transition-colors focus:outline-none flex items-center justify-center shrink-0"
+          title="New Chat"
+          aria-label="New chat"
+        >
+          <Plus size={22} />
+        </button>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <div className="hidden md:block h-full shrink-0">
         <ChatHistorySidebar
           activeChatId={activeChatId}
           onSelectChat={handleSelectChat}
@@ -46,7 +102,7 @@ const ChatContainer = ({
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 h-full min-w-0 flex flex-col">
+      <div className="flex-1 h-full min-w-0 flex flex-col relative z-0">
         <ChatInterface
           chatId={activeChatId}
           onChatCreated={(newId) => {

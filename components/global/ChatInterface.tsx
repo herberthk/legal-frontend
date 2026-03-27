@@ -1,5 +1,12 @@
 "use client";
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, FC } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  FC,
+} from "react";
 import { Scale, Sparkles } from "lucide-react";
 
 import { useAuthStore } from "@/store";
@@ -45,8 +52,14 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     setBillingError(msg);
     setBillingBannerVisible(true);
   }, []);
-  const dismissBillingBanner = useCallback(() => setBillingBannerVisible(false), []);
-  const dismissChatErrorBanner = useCallback(() => setChatErrorBannerVisible(false), []);
+  const dismissBillingBanner = useCallback(
+    () => setBillingBannerVisible(false),
+    [],
+  );
+  const dismissChatErrorBanner = useCallback(
+    () => setChatErrorBannerVisible(false),
+    [],
+  );
 
   // --- Input Focus State ---
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -488,7 +501,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       />
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 relative pt-8 md:pt-6">
+      <div className="flex-1 overflow-y-auto md:p-6 p-2 relative pt-8 md:pt-6">
         {/* Token/Time Usage Badge */}
         <ChatTokenUsageBadge
           textTokens={sessionStats.textTokens}
