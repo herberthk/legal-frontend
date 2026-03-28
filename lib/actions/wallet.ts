@@ -54,7 +54,11 @@ export async function processDeposit(
     return {
       success: true,
       message: "Deposit successful",
-      transaction,
+      transaction: {
+        ...transaction,
+        id: transactionRef.id,
+        createdAt: new Date().toISOString(),
+      },
       newBalance,
     };
   } catch (error) {

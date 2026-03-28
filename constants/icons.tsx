@@ -1,4 +1,5 @@
 import {
+  Bell,
   CreditCard,
   FileWarning,
   LayoutDashboard,
@@ -56,8 +57,16 @@ export const FileTextIcon = ({ size }: { size: number }) => (
   </svg>
 );
 
-export const sideBarItems = (role: Role) =>
-  role === "ADMIN"
+export const sideBarItems = (role: Role) => {
+  const globalItems = [
+    {
+      id: "/dashboard/notifications",
+      label: "Notifications",
+      icon: <Bell size={20} />,
+      href: "/dashboard/notifications",
+    },
+  ];
+  return role === "ADMIN"
     ? [
         {
           id: "/dashboard/admin",
@@ -71,6 +80,7 @@ export const sideBarItems = (role: Role) =>
           icon: <Users size={20} />,
           href: "/dashboard/admin/users",
         },
+        ...globalItems,
         {
           id: "/dashboard/admin/complaints",
           label: "User Complaints",
@@ -127,6 +137,7 @@ export const sideBarItems = (role: Role) =>
           icon: <CreditCard size={20} />,
           href: "/dashboard/user/billing",
         },
+        ...globalItems,
         {
           id: "/dashboard/user/help",
           label: "Help & Support",
@@ -140,3 +151,4 @@ export const sideBarItems = (role: Role) =>
           href: "/dashboard/user/settings",
         },
       ];
+};
