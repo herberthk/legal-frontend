@@ -1,9 +1,11 @@
+import { Timestamp } from "firebase-admin/firestore";
+
 declare global {
   interface Otp {
     id?: string;
     email: string;
     otpHash: string;
-    expiresAt: Date;
+    expiresAt: Timestamp;
     attempts: number;
   }
 }

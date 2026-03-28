@@ -3,6 +3,7 @@
 import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
 import { revalidatePath } from "next/cache";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Creates a new notification for a user.
@@ -14,16 +15,18 @@ export async function createNotification(
     message: string;
     type: NotificationType;
     url?: string;
-  }
+  },
 ) {
   try {
     const notificationRef = db.collection(COLLECTIONS.NOTIFICATIONS).doc();
-    const notification: AppNotification = {
-      id: notificationRef.id,
+    const notification: FirestoreWrite<
+      Omit<AppNotification, "id">,
+      "createdAt"
+    > = {
       userId,
       ...data,
       isRead: false,
-      createdAt: new Date().toISOString(),
+      createdAt: FieldValue.serverTimestamp(),
     };
 
     await notificationRef.set(notification);
@@ -44,7 +47,7 @@ export async function getNotifications(
     page?: number;
     pageSize?: number;
     filter?: "ALL" | "UNREAD" | "READ";
-  } = {}
+  } = {},
 ) {
   const { page = 1, pageSize = 10, filter = "ALL" } = options;
 
@@ -69,7 +72,13 @@ export async function getNotifications(
       .limit(pageSize)
       .get();
 
-    const notifications = snapshot.docs.map((doc) => doc.data() as AppNotification);
+    const notifications = snapshot.docs.map((doc) => ({
+      ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data().createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+    })) as AppNotification[];
 
     return {
       success: true,
@@ -97,7 +106,7 @@ export async function markAsRead(notificationId: string) {
       .collection(COLLECTIONS.NOTIFICATIONS)
       .doc(notificationId)
       .update({ isRead: true });
-    
+
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
@@ -154,10 +163,7 @@ export async function markAsUnread(notificationId: string) {
  */
 export async function deleteNotification(notificationId: string) {
   try {
-    await db
-      .collection(COLLECTIONS.NOTIFICATIONS)
-      .doc(notificationId)
-      .delete();
+    await db.collection(COLLECTIONS.NOTIFICATIONS).doc(notificationId).delete();
 
     revalidatePath("/dashboard");
     return { success: true };

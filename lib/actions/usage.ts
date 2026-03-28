@@ -7,6 +7,7 @@ import {
   COST_PER_VOICE_MINUTE,
 } from "@/constants";
 import { checkRootCollection } from "./utils";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Checks whether a user is allowed to send a message.
@@ -136,7 +137,7 @@ export const recordUsageAndDeduct = async (params: {
         sessionId,
         seconds,
         source,
-        createdAt: new Date().toISOString(),
+        createdAt: FieldValue.serverTimestamp(),
       });
 
       // Record negative transaction if user paid for processing
@@ -148,7 +149,7 @@ export const recordUsageAndDeduct = async (params: {
       //     type: type === "TEXT_RESPONSE" ? "TEXT_CHAT" : "VOICE_SESSION",
       //     description: type === "TEXT_RESPONSE" ? "AI Text Chat Processing" : "Voice Consultation Session",
       //     amount: -totalCost,
-      //     date: new Date().toISOString(),
+      //     createdAt: FieldValue.serverTimestamp(),
       //     details: type === "TEXT_RESPONSE" ? `${tokens} Tokens` : `${Math.ceil(seconds / 60)} Mins`,
       //   });
       // }
@@ -191,8 +192,8 @@ export const getUserUsage = async (
         totalSeconds: 0,
       };
     }
-    // console.log("userId", userId);
     const { start, end } = getDateRange(filter, customRange);
+
     // Check if collection exists
     const usageExists = await checkRootCollection(COLLECTIONS.USAGE);
     if (!usageExists) {
@@ -204,18 +205,26 @@ export const getUserUsage = async (
         totalSeconds: 0,
       };
     }
+
+    const { Timestamp } = await import("firebase-admin/firestore");
+    const startTimestamp = Timestamp.fromDate(new Date(start));
+    const endTimestamp = Timestamp.fromDate(new Date(end));
+
     const snapshot = await db
       .collection(COLLECTIONS.USAGE)
       .where("userId", "==", userId)
-      .where("createdAt", ">=", start)
-      .where("createdAt", "<=", end)
+      .where("createdAt", ">=", startTimestamp)
+      .where("createdAt", "<=", endTimestamp)
       .orderBy("createdAt", "desc")
       .limit(20)
       .get();
 
     const records: UsageRecord[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data().createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
     })) as UsageRecord[];
 
     const totalTokens = records.reduce((sum, r) => sum + r.tokens, 0);

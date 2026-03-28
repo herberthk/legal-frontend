@@ -5,6 +5,7 @@ import { db } from "@/firebase/admin";
 import { generateOTP, hashOTP, verifyOTP } from "@/utils/helpers";
 import { OTPEmail } from "@/components/global";
 import { COLLECTIONS } from "@/constants";
+import { Timestamp } from "firebase-admin/firestore";
 
 const SMTP_HOST = process.env.SMTP_HOST!;
 const SMTP_PORT = process.env.SMTP_PORT!;
@@ -35,7 +36,7 @@ export const sendOtp = async ({ id, email, name, type = "verify" }: Props) => {
   const otp = await generateOTP();
   const otpHash = await hashOTP(otp);
   // 15 minutes expiry
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  const expiresAt = Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000));
   try {
     const otpData: Otp = {
       email,
@@ -91,16 +92,9 @@ export const verifyOtp = async (email: string, otpInput: string) => {
       };
     }
 
-    const expiresAt =
-      data.expiresAt instanceof Date
-        ? data.expiresAt
-        : // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (data.expiresAt as any).toDate
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (data.expiresAt as any).toDate()
-          : new Date(data.expiresAt);
+    const expiresAt = data.expiresAt.toDate();
 
-    if (new Date() > expiresAt) {
+    if (expiresAt < new Date()) {
       await docRef.delete();
       return {
         success: false,

@@ -14,7 +14,7 @@ const SignupPage = () => {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("0123456789");
 
   const router = useRouter();
   const searchParams = useSearchParams();

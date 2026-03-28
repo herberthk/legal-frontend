@@ -11,9 +11,10 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Loader2,
 } from "lucide-react";
 import { getUserUsage } from "@/lib/actions";
+import { formatDate } from "@/lib";
+// import { formatDate } from "@/utils";
 
 const FILTER_OPTIONS: { label: string; value: UsageFilter }[] = [
   { label: "Today", value: "today" },
@@ -212,7 +213,10 @@ const UsageHistory = ({ userId }: Props) => {
         {loading ? (
           <div className="space-y-2 py-2">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-slate-50 dark:border-slate-800/50 animate-pulse">
+              <div
+                key={i}
+                className="flex items-center justify-between p-3 rounded-lg border border-slate-50 dark:border-slate-800/50 animate-pulse"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800"></div>
                   <div className="space-y-2">
@@ -257,12 +261,7 @@ const UsageHistory = ({ userId }: Props) => {
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
                     <Clock size={10} />
-                    {new Date(record.createdAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    <span className="opacity-50">•</span>
-                    {new Date(record.createdAt).toLocaleDateString()}
+                    {formatDate(record.createdAt)}
                   </div>
                 </div>
               </div>

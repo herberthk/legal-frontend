@@ -11,7 +11,7 @@ import {
   FileText,
   ExternalLink,
 } from "lucide-react";
-import { formatTime } from "@/lib/utils";
+import { formatDate, formatTime } from "@/lib/utils";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -139,14 +139,7 @@ const VoiceConsultations = ({
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
                           <Clock size={12} className="text-slate-400" />
-                          {new Date(session.date).toLocaleDateString(
-                            undefined,
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            },
-                          )}
+                          {formatDate(session.createdAt)}
                         </span>
                         <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
                         <span className="text-xs text-slate-500 font-medium">

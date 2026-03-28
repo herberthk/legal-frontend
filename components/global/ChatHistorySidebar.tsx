@@ -16,7 +16,7 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { updateChatSessionTitle, deleteChatSession } from "@/lib/actions/chat";
 import { toast } from "sonner";
-import { formatDate } from "@/utils";
+// import { formatDate } from "@/utils";
 import { db } from "@/firebase/client";
 import {
   collection,
@@ -27,6 +27,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { COLLECTIONS } from "@/constants";
+import { formatRelativeDate } from "@/utils";
 
 interface ChatHistorySidebarProps {
   activeChatId: string | null;
@@ -42,7 +43,7 @@ const ChatHistorySidebar = ({
 }: ChatHistorySidebarProps) => {
   const user = useAuthStore((state) => state.user);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [sessions, setSessions] = useState<any[]>(serverSessions || []);
+  const [sessions, setSessions] = useState<ChatSession[]>(serverSessions || []);
   const [isLoading, setIsLoading] = useState(!serverSessions);
   const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -72,7 +73,7 @@ const ChatHistorySidebar = ({
         const sessionData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }));
+        })) as ChatSession[];
         setSessions(sessionData);
         setIsLoading(false);
       },
@@ -249,7 +250,7 @@ const ChatHistorySidebar = ({
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-400 pl-5">
-                      {formatDate(session.updatedAt)}
+                      {formatRelativeDate(session.updatedAt)}
                     </span>
                   </button>
 

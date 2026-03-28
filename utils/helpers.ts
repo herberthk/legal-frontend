@@ -1,5 +1,7 @@
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import crypto from "crypto";
+import { formatDistanceToNow } from "date-fns";
+import { Timestamp } from "firebase-admin/firestore";
 
 export const generateOTP = async (length = 6): Promise<string> =>
   Math.floor(Math.random() * 10 ** length)
@@ -75,10 +77,23 @@ export const generateTxRef = (length = 8) => {
   return `TX_${result}`;
 };
 
-export const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const today = new Date();
+export const formatRelativeDate = (dateValue: string) => {
+  if (!dateValue) {
+    return new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 
+  const date = new Date(dateValue);
+  if (isNaN(date.getTime())) {
+    return new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  const today = new Date();
   if (date.toDateString() === today.toDateString()) {
     return `Today, ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   }
@@ -90,6 +105,28 @@ export const formatDate = (dateString: string) => {
   }
 
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
+};
+
+/**
+ * Returns a relative time string (e.g., "5 minutes ago") from various date formats.
+ */
+export const getRelativeTime = (dateValue: string) => {
+  if (!dateValue) {
+    return new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  const date = new Date(dateValue);
+  if (isNaN(date.getTime())) {
+    return new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return formatDistanceToNow(date, { addSuffix: true });
 };
 
 export const formatCost = (cost: number) => {

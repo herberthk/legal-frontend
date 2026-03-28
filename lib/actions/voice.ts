@@ -21,7 +21,13 @@ export const getVoiceSessions = async (params: {
   totalCount: number;
   totalPages: number;
 }> => {
-  const { userId, page = 1, limit = 10, filter = "last_week", searchQuery = "" } = params;
+  const {
+    userId,
+    page = 1,
+    limit = 10,
+    filter = "last_week",
+    searchQuery = "",
+  } = params;
 
   try {
     if (!userId) {
@@ -29,39 +35,50 @@ export const getVoiceSessions = async (params: {
     }
 
     const { start, end } = getDateRange(filter);
-    
+
     // Check if collection exists
-    const collectionExists = await checkRootCollection(COLLECTIONS.VOICE_SESSIONS);
+    const collectionExists = await checkRootCollection(
+      COLLECTIONS.VOICE_SESSIONS,
+    );
     if (!collectionExists) {
       return { success: true, sessions: [], totalCount: 0, totalPages: 0 };
     }
 
-    const query = db.collection(COLLECTIONS.VOICE_SESSIONS)
+    const { Timestamp } = await import("firebase-admin/firestore");
+    const startTimestamp = Timestamp.fromDate(new Date(start));
+    const endTimestamp = Timestamp.fromDate(new Date(end));
+
+    const query = db
+      .collection(COLLECTIONS.VOICE_SESSIONS)
       .where("userId", "==", userId)
-      .where("date", ">=", start)
-      .where("date", "<=", end)
-      .orderBy("date", "desc");
+      .where("createdAt", ">=", startTimestamp)
+      .where("createdAt", "<=", endTimestamp)
+      .orderBy("createdAt", "desc");
 
     // If no search query, we can use Firestore pagination efficiently
     // But since we are doing in-memory search filtering, we need to fetch all matching dates
     // ONLY if searchQuery is present. Otherwise, we limit here.
-    
+
     let allSessions: VoiceSession[] = [];
     let totalCount = 0;
 
     if (searchQuery) {
       const snapshot = await query.get();
       allSessions = snapshot.docs.map((doc) => ({
-        id: doc.id,
         ...doc.data(),
+        id: doc.id,
+        createdAt:
+          doc.data().createdAt?.toDate().toISOString() ||
+          new Date().toISOString(),
       })) as VoiceSession[];
 
       const queryLower = searchQuery.toLowerCase();
-      allSessions = allSessions.filter(s => 
-        (s.title || "").toLowerCase().includes(queryLower) || 
-        (s.summary || "").toLowerCase().includes(queryLower)
+      allSessions = allSessions.filter(
+        (s) =>
+          (s.title || "").toLowerCase().includes(queryLower) ||
+          (s.summary || "").toLowerCase().includes(queryLower),
       );
-      
+
       totalCount = allSessions.length;
       allSessions = allSessions.slice((page - 1) * limit, page * limit);
     } else {
@@ -74,10 +91,13 @@ export const getVoiceSessions = async (params: {
         .limit(limit)
         .offset((page - 1) * limit)
         .get();
-        
+
       allSessions = snapshot.docs.map((doc) => ({
-        id: doc.id,
         ...doc.data(),
+        id: doc.id,
+        createdAt:
+          doc.data().createdAt?.toDate().toISOString() ||
+          new Date().toISOString(),
       })) as VoiceSession[];
     }
 
@@ -98,11 +118,22 @@ export const getVoiceSessions = async (params: {
 /**
  * Gets a single voice session by ID.
  */
-export const getVoiceSessionById = async (sessionId: string): Promise<VoiceSession | null> => {
+export const getVoiceSessionById = async (
+  sessionId: string,
+): Promise<VoiceSession | null> => {
   try {
-    const doc = await db.collection(COLLECTIONS.VOICE_SESSIONS).doc(sessionId).get();
+    const doc = await db
+      .collection(COLLECTIONS.VOICE_SESSIONS)
+      .doc(sessionId)
+      .get();
     if (!doc.exists) return null;
-    return { id: doc.id, ...doc.data() } as VoiceSession;
+    return {
+      ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data()?.createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+    } as VoiceSession;
   } catch (error) {
     console.error("Error getting voice session by id:", error);
     return null;
@@ -142,7 +173,15 @@ function getDateRange(filter: UsageFilter): { start: string; end: string } {
     }
 
     case "month": {
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const monthStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+        0,
+        0,
+        0,
+        0,
+      );
       return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
     }
 

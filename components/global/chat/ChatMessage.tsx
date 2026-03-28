@@ -8,7 +8,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import type { UIMessage } from "ai";
-import MakdownFormater from "../../global/MakdownFormater";
+import MakdownFormater from "@/components/global/MakdownFormater";
 import {
   getMessageFile,
   getMessageReasoning,
@@ -16,7 +16,7 @@ import {
   isMessageStreaming,
   isReasoningStreaming,
   ThinkingBlock,
-} from "../../global/chat-hepers";
+} from "@/components/global/chat-hepers";
 
 interface ChatMessageProps {
   msg: UIMessage;

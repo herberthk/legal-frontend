@@ -1,6 +1,7 @@
 import { COLLECTIONS, COST_PER_THOUSAND_TOKENS } from "@/constants";
 import { db } from "@/firebase/client";
 import { clsx, type ClassValue } from "clsx";
+import { Timestamp } from "firebase-admin/firestore";
 import { doc, getDoc } from "firebase/firestore";
 import { twMerge } from "tailwind-merge";
 
@@ -45,6 +46,64 @@ export const formatTime = (seconds: number) => {
   return `${hrs.toString().padStart(2, "0")}:${mins
     .toString()
     .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+};
+
+/**
+ * Formats a date from various sources (ISO string, Firestore Timestamp, or Date object)
+ * to a human-readable format.
+ */
+export const formatDate = (date: string) => {
+  // In case the date is undefined, return the current date
+  if (!date) {
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date());
+  }
+
+  const d = new Date(date);
+  // In case the date is invalid, return the current date
+  if (isNaN(d.getTime())) {
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date());
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+};
+
+// Format firestore time
+export const formatFirestoreTime = (date: string) => {
+  if (!date)
+    return new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) {
+    return new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
 };
 
 /**

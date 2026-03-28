@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 import Link from "next/link";
 import { X, BellOff, CheckCheck } from "lucide-react";
 import { useAuthStore, usePopStore } from "@/store";
