@@ -130,7 +130,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
           id: m.id || generateId(),
           role: m.role,
           parts,
-          metadata: { createdAt: new Date(m.createdAt) },
+          metadata: { createdAt: m.createdAt },
         };
       });
       return { messages: historyMessages, tokens: totalTokens };
@@ -282,7 +282,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
               id: m.id || generateId(),
               role: m.role,
               parts,
-              metadata: { createdAt: new Date(m.createdAt) },
+              metadata: { createdAt: m.createdAt },
             };
           });
           setSessionStats((prev) => ({ ...prev, textTokens: totalTokens }));

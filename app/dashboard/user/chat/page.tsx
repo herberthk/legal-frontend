@@ -15,7 +15,7 @@ export default async function ChatPage() {
   return (
     <ChatContainer
       serverChatId={null}
-      serverMessages={null}
+      serverMessages={undefined}
       serverSessions={initialSessions}
     />
   );

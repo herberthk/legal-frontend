@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="voices.d.ts" />
 import "./email.d.ts";
+
 declare global {
   type SignInParams = {
     email: string;
@@ -54,7 +55,7 @@ declare global {
     id: string;
     role: "user" | "model";
     text: string;
-    timestamp: Date;
+    createdAt: string;
     isStreaming?: boolean;
     attachment?: {
       name: string;
@@ -72,10 +73,11 @@ declare global {
 
   type Transaction = {
     id: string;
+    userId: string;
     type: "TEXT_CHAT" | "VOICE_SESSION" | "DEPOSIT";
     description: string;
     amount: number; // Cost (negative) or Deposit (positive)
-    date: string;
+    createdAt: string;
     details: string; // e.g., "1.5k tokens" or "4m 20s"
     status: "pending" | "completed" | "failed";
     reference: string;
@@ -118,7 +120,7 @@ declare global {
   };
 
   type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ERROR";
-  
+
   type AppNotification = {
     id: string;
     userId: string;
@@ -145,7 +147,7 @@ declare global {
     id: string;
     userId: string;
     title: string;
-    date: string; // ISO string
+    createdAt: string;
     duration: number; // seconds
     audioUrl?: string; // Recording
     summary: string;
@@ -212,7 +214,7 @@ declare global {
     country: string;
     city: string;
     timezone: string;
-    timestamp: string;
+    createdAt: string;
     userAgent: string;
   };
 
@@ -225,8 +227,12 @@ declare global {
     chatId?: string | null;
     onChatCreated?: (chatId: string) => void;
     serverChatId?: string | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    serverMessages?: any[] | null;
+    serverMessages?: ChatMessageRecord[];
   }
+
+  // Generic utility — omit any fields and replace with FieldValue
+  type FirestoreWrite<T, K extends keyof T = never> = Omit<T, K> & {
+    [P in K]: FieldValue;
+  };
 }
 export {};

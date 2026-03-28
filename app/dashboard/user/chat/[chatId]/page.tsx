@@ -16,7 +16,7 @@ export default async function ChatPage(props: {
   if (!user) return null;
 
   // Load messages from the parallel result
-  let initialMessages = null;
+  let initialMessages = undefined;
   if (messagesResult.success && messagesResult.messages) {
     initialMessages = messagesResult.messages;
   }

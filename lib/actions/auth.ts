@@ -1,6 +1,7 @@
 "use server";
 
 import { auth, db } from "@/firebase/admin";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
 import { sendOtp } from "./email";
 import {
@@ -16,14 +17,14 @@ import {
 const SESSION_DURATION = 60 * 60 * 24 * 7;
 
 /**
- * Returns the ISO string for the next midnight (UTC)
+ * Returns the Timestamp for the next midnight (UTC)
  */
-function getNextMidnight(): string {
+function getNextMidnight(): Timestamp {
   const now = new Date();
   const next = new Date(now);
   next.setUTCDate(next.getUTCDate() + 1);
   next.setUTCHours(0, 0, 0, 0);
-  return next.toISOString();
+  return Timestamp.fromDate(next);
 }
 
 /**
@@ -68,7 +69,10 @@ export async function signUp(params: SignUpParams & { uid: string }) {
     }
 
     // Initialize user profile with default rewards and metadata
-    const newUser: Partial<User> = {
+    const newUser: FirestoreWrite<
+      Omit<User, "id">,
+      "createdAt" | "nextDailyReset"
+    > = {
       name,
       email,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0f172a&color=fff`,
@@ -81,7 +85,7 @@ export async function signUp(params: SignUpParams & { uid: string }) {
       freeTextTokens: 0,
       freeVoiceSeconds: FREE_WELCOME_VOICE_SECONDS,
       nextDailyReset: getNextMidnight(),
-      createdAt: new Date().toISOString(),
+      createdAt: FieldValue.serverTimestamp(),
     };
 
     await userDocRef.set(newUser);
@@ -164,6 +168,11 @@ export async function getCurrentUser(): Promise<User | null> {
     return {
       ...data,
       id: userSnapshot.id,
+      createdAt:
+        data?.createdAt?.toDate().toISOString() || new Date().toISOString(),
+      nextDailyReset:
+        data?.nextDailyReset?.toDate().toISOString() ||
+        new Date().toISOString(),
     } as User;
   } catch (error) {
     console.error("GetCurrentUser Error:", error);
@@ -311,7 +320,7 @@ export async function resetPasswordWithOtp(email: string, newPassword: string) {
  */
 export async function recordUserStats(
   userId: string,
-  stats: Omit<UserStats, "userId" | "ip" | "timestamp" | "country" | "city">,
+  stats: Omit<UserStats, "userId" | "ip" | "createdAt" | "country" | "city">,
 ) {
   const { headers } = await import("next/headers");
   const headerList = await headers();
@@ -343,7 +352,7 @@ export async function recordUserStats(
       ip,
       country,
       city,
-      timestamp: new Date().toISOString(),
+      createdAt: FieldValue.serverTimestamp(),
     });
     return { success: true };
   } catch (error) {

@@ -168,7 +168,7 @@ const UsageChart = () => {
           const recordDate = new Date(data.createdAt);
           const key = isHourly
             ? recordDate.getHours().toString().padStart(2, "0") + ":00"
-            : data.createdAt.split("T")[0];
+            : recordDate.toISOString().split("T")[0];
 
           if (dayMap[key]) {
             dayMap[key].cost += data.cost || 0;
@@ -306,7 +306,10 @@ const UsageChart = () => {
             <div className="flex items-end justify-between gap-4 h-64 px-2">
               {[40, 70, 45, 90, 65, 50, 80].map((h, i) => (
                 <div key={i} className="flex-1 space-y-2">
-                  <div className="w-full bg-slate-100 dark:bg-slate-700/50 rounded-t-lg transition-all duration-500 animate-pulse" style={{ height: `${h}%` }}></div>
+                  <div
+                    className="w-full bg-slate-100 dark:bg-slate-700/50 rounded-t-lg transition-all duration-500 animate-pulse"
+                    style={{ height: `${h}%` }}
+                  ></div>
                   <div className="h-2 w-full bg-slate-50 dark:bg-slate-800 rounded animate-pulse"></div>
                 </div>
               ))}

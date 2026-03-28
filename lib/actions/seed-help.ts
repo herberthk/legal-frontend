@@ -1,5 +1,6 @@
 import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Seeds initial help articles if the collection is empty.
@@ -10,27 +11,31 @@ export const seedHelpArticles = async () => {
     {
       title: "Getting Started with Voice Consultation",
       category: "Technical",
-      content: "To start a voice consultation, click on the 'Voice' menu item and ensure your microphone permissions are granted. We support both Native and AssemblyAI engines for maximum compatibility.",
+      content:
+        "To start a voice consultation, click on the 'Voice' menu item and ensure your microphone permissions are granted. We support both Native and AssemblyAI engines for maximum compatibility.",
       order: 1,
     },
     {
       title: "How to Request a Refund?",
       category: "Billing",
-      content: "If you were double-charged or encountered a technical error during a session, you can request a refund by creating a support ticket and attaching the Transaction ID.",
+      content:
+        "If you were double-charged or encountered a technical error during a session, you can request a refund by creating a support ticket and attaching the Transaction ID.",
       order: 2,
     },
     {
       title: "Daily Free Message Limits",
       category: "Usage",
-      content: "Every user receives 1,000 free tokens daily. These reset every 24 hours at midnight. Once exhausted, you'll need to use your paid balance.",
+      content:
+        "Every user receives 1,000 free tokens daily. These reset every 24 hours at midnight. Once exhausted, you'll need to use your paid balance.",
       order: 3,
     },
     {
       title: "Model Capabilities (Gemini 2.5)",
       category: "General",
-      content: "Our legal adviser uses Gemini 2.5 Flash for rapid, accurate responses. It excels at analyzing statutes, case law summaries, and drafting legal documents.",
+      content:
+        "Our legal adviser uses Gemini 2.5 Flash for rapid, accurate responses. It excels at analyzing statutes, case law summaries, and drafting legal documents.",
       order: 4,
-    }
+    },
   ];
 
   const colRef = db.collection(COLLECTIONS.HELP_ARTICLES);
@@ -44,7 +49,7 @@ export const seedHelpArticles = async () => {
       batch.set(docRef, {
         ...article,
         id: docRef.id,
-        createdAt: new Date().toISOString(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     });
     await batch.commit();

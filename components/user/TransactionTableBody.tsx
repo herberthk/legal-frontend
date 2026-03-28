@@ -9,6 +9,7 @@ import {
   CreditCard,
   Trash2,
 } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 interface TransactionTableBodyProps {
   transactions: Transaction[];
@@ -105,7 +106,7 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                 </div>
               </td>
               <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
-                {t.date}
+                {formatDate(t.createdAt)}
               </td>
               <td
                 className={`px-6 py-4 font-mono text-sm font-medium ${t.amount > 0 ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white"}`}

@@ -14,8 +14,8 @@ import { Menu, Plus } from "lucide-react";
 
 interface ChatContainerProps {
   serverChatId?: string | null;
-  serverMessages?: ChatMessageRecord[] | null;
-  serverSessions?: ChatSession[] | null;
+  serverMessages?: ChatMessageRecord[];
+  serverSessions?: ChatSession[];
 }
 
 const CHAT_BASE = "/dashboard/user/chat";

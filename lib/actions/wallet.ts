@@ -2,7 +2,7 @@
 
 import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import { generateTxRef } from "@/utils";
 import { createNotification } from "./notifications";
@@ -17,13 +17,12 @@ export async function processDeposit(
     const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
     const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
 
-    const transaction = {
-      id: transactionRef.id,
+    const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
       userId,
       type: "DEPOSIT",
       description: `Funds Deposit via ${method}`,
       amount: amount,
-      date: new Date().toISOString(),
+      createdAt: FieldValue.serverTimestamp(),
       details: details,
       reference: generateTxRef(),
       status: "pending",
@@ -98,7 +97,7 @@ export async function getUserTransactions(
           const end = new Date();
           end.setDate(end.getDate() - 1);
           end.setHours(23, 59, 59, 999);
-          query = query.where("date", "<=", end.toISOString());
+          query = query.where("createdAt", "<=", Timestamp.fromDate(end));
           break;
         case "last_week":
           start.setDate(start.getDate() - 7);
@@ -110,7 +109,7 @@ export async function getUserTransactions(
           break;
       }
 
-      query = query.where("date", ">=", start.toISOString());
+      query = query.where("createdAt", ">=", Timestamp.fromDate(start));
     }
 
     // Get total count for pagination metadata
@@ -118,12 +117,18 @@ export async function getUserTransactions(
     const totalCount = countSnapshot.data().count;
 
     const snapshot = await query
-      .orderBy("date", "desc")
+      .orderBy("createdAt", "desc")
       .offset((page - 1) * pageSize)
       .limit(pageSize)
       .get();
 
-    const transactions = snapshot.docs.map((doc) => doc.data());
+    const transactions = snapshot.docs.map((doc) => ({
+      ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data().createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+    })) as Transaction[];
 
     return {
       success: true,

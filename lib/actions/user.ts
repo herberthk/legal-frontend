@@ -2,6 +2,7 @@
 
 import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
+import { FieldValue } from "firebase-admin/firestore";
 
 /**
  * Updates the user's voice preference in Firestore
@@ -44,7 +45,7 @@ export async function updateUserProfile(
     const userDocRef = db.collection(COLLECTIONS.USERS).doc(userId);
     await userDocRef.update({
       ...profileData,
-      updatedAt: new Date().toISOString(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     return {

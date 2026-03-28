@@ -12,13 +12,12 @@ import { FieldValue } from "firebase-admin/firestore";
  */
 export const createChatSession = async (userId: string, title: string) => {
   try {
-    const now = new Date().toISOString();
     const sessionRef = db.collection(COLLECTIONS.CHAT_SESSIONS).doc();
     await sessionRef.set({
       userId,
       title: title.slice(0, 100), // Truncate to 100 chars
-      createdAt: now,
-      updatedAt: now,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
       messageCount: 0,
     });
 
@@ -45,7 +44,6 @@ export async function saveChatMessage(
   },
 ) {
   try {
-    const now = new Date().toISOString();
     const result = await db.runTransaction(async (transaction) => {
       const messageRef = db
         .collection(COLLECTIONS.CHAT_SESSIONS)
@@ -57,7 +55,7 @@ export async function saveChatMessage(
         sessionId,
         role: message.role,
         text: message.text,
-        createdAt: now,
+        createdAt: FieldValue.serverTimestamp(),
         tokenCount: message.tokenCount,
         ...(message.attachment && { attachment: message.attachment }),
       });
@@ -66,7 +64,7 @@ export async function saveChatMessage(
       transaction.update(
         db.collection(COLLECTIONS.CHAT_SESSIONS).doc(sessionId),
         {
-          updatedAt: now,
+          updatedAt: FieldValue.serverTimestamp(),
           messageCount: FieldValue.increment(1),
           // Only update the session title from the first user message
           ...(message.role === "user" &&
@@ -100,8 +98,14 @@ export async function getChatSessions(userId: string, limit = 20) {
       .get();
 
     const sessions: ChatSession[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data().createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+      updatedAt:
+        doc.data().updatedAt?.toDate().toISOString() ||
+        new Date().toISOString(),
     })) as ChatSession[];
 
     return { success: true, sessions };
@@ -125,8 +129,11 @@ export async function getChatMessages(sessionId: string) {
       .get();
 
     const messages: ChatMessageRecord[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
       ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data().createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
     })) as ChatMessageRecord[];
 
     return { success: true, messages };
@@ -161,13 +168,12 @@ export const saveChatSession = async ({
         sessionId,
         role: "assistant",
         text,
-        createdAt: new Date().toISOString(),
+        createdAt: FieldValue.serverTimestamp(),
         tokenCount: tokenCount ?? 0,
       });
 
-      const { FieldValue } = await import("firebase-admin/firestore");
       transaction.update(db.collection("chatSessions").doc(sessionId), {
-        updatedAt: new Date().toISOString(),
+        updatedAt: FieldValue.serverTimestamp(),
         messageCount: FieldValue.increment(1),
       });
     });
@@ -189,7 +195,7 @@ export const updateChatSessionTitle = async (
     const sessionRef = db.collection(COLLECTIONS.CHAT_SESSIONS).doc(sessionId);
     await sessionRef.update({
       title: title.slice(0, 100),
-      updatedAt: new Date().toISOString(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     return { success: true };
   } catch (error) {

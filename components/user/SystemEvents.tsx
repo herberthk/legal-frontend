@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store";
-import React from "react";
+import { formatDate } from "@/lib";
 
 const SystemEvents = () => {
   const tokenHistory = useAppStore((state) => state.tokenUsageHistory);
@@ -30,7 +30,7 @@ const SystemEvents = () => {
                 </p>
               </div>
               <span className="text-xs text-slate-400">
-                {new Date(rec.createdAt).toLocaleTimeString()}
+                {formatDate(rec.createdAt)}
               </span>
             </div>
           ))}

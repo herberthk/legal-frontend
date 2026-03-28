@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { HelpFAQ } from "./HelpFAQ";
 import { createSupportTicket } from "@/lib/actions/support";
+import { Timestamp } from "firebase-admin/firestore";
+import { formatDate } from "@/lib";
+// import { formatDate } from "@/utils";
 
 interface SupportPageProps {
   user: User;
@@ -182,9 +185,7 @@ const SupportPage: React.FC<SupportPageProps> = ({
                             #{ticket.id.slice(-6).toUpperCase()}
                           </span>
                           <span>•</span>
-                          <span>
-                            {new Date(ticket.createdAt).toLocaleDateString()}
-                          </span>
+                          <span>{formatDate(ticket.createdAt)}</span>
                         </div>
                       </div>
                     </div>

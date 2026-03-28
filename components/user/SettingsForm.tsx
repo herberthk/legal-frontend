@@ -7,7 +7,14 @@ import { User, Camera, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { updateUserProfile } from "@/lib/actions/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -65,7 +72,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
         <div className="flex-1">
           <Card className="border-none shadow-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden border border-slate-200/50 dark:border-slate-800/50">
             <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-indigo-500 via-purple-500 to-orange-500" />
-            
+
             <CardHeader className="pt-8">
               <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
                 Public profile
@@ -85,15 +92,15 @@ export default function SettingsForm({ user }: SettingsFormProps) {
                       {name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <label 
-                    htmlFor="avatar-upload" 
+                  <label
+                    htmlFor="avatar-upload"
                     className="absolute bottom-0 right-0 p-1.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:scale-110 transition-transform duration-200"
                   >
                     <Camera className="size-4 text-indigo-500" />
-                    <input 
-                      id="avatar-upload" 
-                      type="file" 
-                      className="hidden" 
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      className="hidden"
                       accept="image/*"
                       onChange={(e) => {
                         // Implement image upload logic here if needed
@@ -103,7 +110,9 @@ export default function SettingsForm({ user }: SettingsFormProps) {
                   </label>
                 </div>
                 <div className="flex-1 text-center sm:text-left">
-                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Profile Photo</h4>
+                  <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">
+                    Profile Photo
+                  </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[240px]">
                     Recommended: Square image, at least 400x400px.
                   </p>
@@ -134,36 +143,44 @@ export default function SettingsForm({ user }: SettingsFormProps) {
                     className="h-11 bg-slate-100/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-70"
                   />
                   <p className="text-[11px] text-slate-400">
-                    Email cannot be changed as it is linked to your account identity.
+                    Email cannot be changed as it is linked to your account
+                    identity.
                   </p>
                 </div>
 
                 <div className="space-y-2 pt-4">
-                   <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/20 flex gap-3">
-                      <AlertCircle className="size-5 text-amber-600 dark:text-amber-500 shrink-0" />
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-amber-900 dark:text-amber-400">Identity Verification</p>
-                        <p className="text-xs text-amber-800/70 dark:text-amber-500/60 leading-relaxed">
-                          Your display name is used across the platform for legal documents and AI interactions. Please ensure it is accurate.
-                        </p>
-                      </div>
-                   </div>
+                  <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/20 flex gap-3">
+                    <AlertCircle className="size-5 text-amber-600 dark:text-amber-500 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-amber-900 dark:text-amber-400">
+                        Identity Verification
+                      </p>
+                      <p className="text-xs text-amber-800/70 dark:text-amber-500/60 leading-relaxed">
+                        Your display name is used across the platform for legal
+                        documents and AI interactions. Please ensure it is
+                        accurate.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </form>
             </CardContent>
 
             <CardFooter className="bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-200/50 dark:border-slate-800/50 p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
               <p className="text-xs text-slate-500 dark:text-slate-400 order-2 sm:order-1">
-                Last updated: {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "Never"}
+                Last updated:{" "}
+                {user.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString()
+                  : "Never"}
               </p>
-              <Button 
+              <Button
                 onClick={handleUpdate}
                 disabled={isPending || name === user.name}
                 className={cn(
                   "order-1 sm:order-2 h-11 px-8 rounded-full font-semibold transition-all duration-300 shadow-lg",
-                  name !== user.name 
+                  name !== user.name
                     ? "bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-indigo-500/25"
-                    : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none"
+                    : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none",
                 )}
               >
                 {isPending ? (

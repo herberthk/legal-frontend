@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Info, CheckCircle, AlertTriangle, XCircle, Clock, Trash2, CheckCircle2, Circle } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { getRelativeTime } from "@/utils";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -78,9 +78,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         </p>
         <div className="flex items-center text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">
           <Clock size={10} className="mr-1" />
-          {formatDistanceToNow(new Date(notification.createdAt), {
-            addSuffix: true,
-          })}
+          {getRelativeTime(notification.createdAt)}
         </div>
       </div>
 
