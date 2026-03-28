@@ -13,7 +13,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { complaints as userComplaints } from "@/constants";
-import { formatDate } from "@/utils";
+import { formatDate } from "@/lib";
 
 interface SupportPageProps {
   user: User;
@@ -181,7 +181,9 @@ export const SupportPage: React.FC<SupportPageProps> = ({ user }) => {
                         </span>
                         <span>•</span>
                         <span>
-                          {mounted ? formatDate(complaint.createdAt) : "Loading..."}
+                          {mounted
+                            ? formatDate(complaint.createdAt)
+                            : "Loading..."}
                         </span>
                         <span>•</span>
                         <span className="uppercase font-medium tracking-wide">

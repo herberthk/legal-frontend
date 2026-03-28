@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -10,17 +10,10 @@ import {
   Legend,
 } from "recharts";
 import { useAuthStore, useThemeStore } from "@/store";
-import { db } from "@/firebase/client";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-} from "firebase/firestore";
-import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { Filter, Calendar, Activity } from "lucide-react";
 import CustomTooltip from "../global/modal/CustomTooltip";
+import { getUsageChartData } from "@/lib/actions/usage";
 
 const FILTER_OPTIONS: { label: string; value: UsageFilter }[] = [
   { label: "Today", value: "today" },
@@ -44,6 +37,7 @@ const UsageChart = () => {
 
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState<ChartDataItem[]>([]);
+  const [totalPeriodCost, setTotalPeriodCost] = useState(0);
   const [filter, setFilter] = useState<UsageFilter>("last_week");
   const [customRange, setCustomRange] = useState({ start: "", end: "" });
 
@@ -60,150 +54,31 @@ const UsageChart = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    // Determine date range based on filter
-    const now = new Date();
-    let start = new Date();
-    let end = new Date();
-    let isHourly = false;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const result = await getUsageChartData(
+          user.id,
+          filter,
+          { start: customRange.start, end: customRange.end },
+          new Date().getTimezoneOffset(),
+        );
 
-    switch (filter) {
-      case "today":
-        start.setHours(0, 0, 0, 0);
-        isHourly = true;
-        break;
-      case "yesterday":
-        start.setDate(start.getDate() - 1);
-        start.setHours(0, 0, 0, 0);
-        end.setDate(end.getDate() - 1);
-        end.setHours(23, 59, 59, 999);
-        isHourly = true;
-        break;
-      case "month":
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case "custom":
-        if (customRange.start && customRange.end) {
-          start = new Date(customRange.start);
-          end = new Date(customRange.end);
-          end.setHours(23, 59, 59, 999);
-        } else {
-          // Fallback to last 7 days if custom range not set
-          start.setDate(start.getDate() - 6);
-          start.setHours(0, 0, 0, 0);
-          // Don't set loading true if it's just a fallback
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setLoading(false);
-          return;
+        if (result.success) {
+          setChartData(result.chartData);
+          setTotalPeriodCost(result.totalPeriodCost ?? 0);
         }
-        break;
-      case "last_week":
-      default:
-        start.setDate(start.getDate() - 6);
-        start.setHours(0, 0, 0, 0);
-        break;
-    }
-
-    const q = query(
-      collection(db, COLLECTIONS.USAGE),
-      where("userId", "==", user.id),
-      where("createdAt", ">=", start.toISOString()),
-      where("createdAt", "<=", end.toISOString()),
-      orderBy("createdAt", "asc"),
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const dayMap: Record<
-          string,
-          {
-            name: string;
-            text: number;
-            voice: number;
-            cost: number;
-            sortKey: number;
-          }
-        > = {};
-
-        if (isHourly) {
-          // Initialize 24 hours
-          for (let i = 0; i < 24; i++) {
-            const hour = i.toString().padStart(2, "0") + ":00";
-            dayMap[hour] = {
-              name: hour,
-              text: 0,
-              voice: 0,
-              cost: 0,
-              sortKey: i,
-            };
-          }
-        } else {
-          // Initialize days in range
-          const daysDiff = Math.ceil(
-            (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-          );
-          const iterations = Math.min(daysDiff + 1, 31); // Cap at 31 days
-
-          for (let i = 0; i < iterations; i++) {
-            const d = new Date(start);
-            d.setDate(d.getDate() + i);
-            const key = d.toISOString().split("T")[0];
-            const label = d.toLocaleDateString(undefined, {
-              month: iterations > 10 ? "numeric" : undefined,
-              day: "numeric",
-              weekday: iterations <= 10 ? "short" : undefined,
-            });
-            dayMap[key] = {
-              name: label,
-              text: 0,
-              voice: 0,
-              cost: 0,
-              sortKey: d.getTime(),
-            };
-          }
-        }
-
-        snapshot.docs.forEach((doc) => {
-          const data = doc.data() as UsageRecord;
-          const recordDate = new Date(data.createdAt);
-          const key = isHourly
-            ? recordDate.getHours().toString().padStart(2, "0") + ":00"
-            : recordDate.toISOString().split("T")[0];
-
-          if (dayMap[key]) {
-            dayMap[key].cost += data.cost || 0;
-            if (data.type === "TEXT_RESPONSE") {
-              dayMap[key].text += data.tokens || 0;
-            } else if (data.type === "VOICE_SESSION") {
-              dayMap[key].voice += (data.seconds || 0) / 60;
-            }
-          }
-        });
-
-        const formattedData = Object.values(dayMap)
-          .sort((a, b) => a.sortKey - b.sortKey)
-          .map(({ name, text, voice, cost }) => ({
-            name,
-            text,
-            voice: parseFloat(voice.toFixed(2)),
-            cost: parseFloat(cost.toFixed(4)),
-          }));
-
-        setChartData(formattedData);
+      } catch (error) {
+        console.error("Error fetching chart data:", error);
+      } finally {
         setLoading(false);
-      },
-      (error) => {
-        console.error("Usage chart listener error:", error);
-        setLoading(false);
-      },
-    );
+      }
+    };
 
-    return () => unsubscribe();
+    fetchData();
   }, [user?.id, filter, customRange.start, customRange.end]);
 
-  const totalPeriodCost = useMemo(() => {
-    return chartData.reduce((sum, item) => sum + item.cost, 0);
-  }, [chartData]);
+
 
   return (
     <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 min-h-[480px] flex flex-col">
@@ -354,6 +229,9 @@ const UsageChart = () => {
                   tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
+                  tickFormatter={(v: number) =>
+                    v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                  }
                 />
                 <YAxis
                   yAxisId="right"
@@ -362,6 +240,19 @@ const UsageChart = () => {
                   tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
+                  tickFormatter={(v: number) => `${v.toFixed(1)}m`}
+                  label={{
+                    value: "Mins",
+                    angle: 90,
+                    position: "insideRight",
+                    offset: 10,
+                    style: {
+                      fill: isDark ? "#94a3b8" : "#64748b",
+                      fontSize: 9,
+                      fontWeight: 600,
+                      textAnchor: "middle",
+                    },
+                  }}
                 />
                 <Tooltip
                   cursor={{

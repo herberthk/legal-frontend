@@ -115,7 +115,7 @@ export async function POST(req: Request) {
     }
 
     const result = streamText({
-      model: google("gemini-2.5-flash"),
+      model: google("gemini-3-flash-preview"),
       system: BASE_SYSTEM_INSTRUCTION,
       providerOptions: {
         google: {

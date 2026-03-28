@@ -245,65 +245,238 @@ export const getUserUsage = async (
 };
 
 /**
+ * Gets aggregated usage data specifically for the Usage Flow chart.
+ */
+export const getUsageChartData = async (
+  userId: string,
+  filter: UsageFilter = "last_week",
+  customRange?: { start: string; end: string },
+  timezoneOffset: number = 0,
+): Promise<{
+  success: boolean;
+  chartData: { name: string; text: number; voice: number; cost: number }[];
+  totalPeriodCost: number;
+}> => {
+  try {
+    if (!userId) {
+      return { success: false, chartData: [], totalPeriodCost: 0 };
+    }
+
+    const { start: startStr, end: endStr } = getDateRange(filter, customRange, timezoneOffset);
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    const isHourly = filter === "today" || filter === "yesterday";
+
+    const { Timestamp } = await import("firebase-admin/firestore");
+    const startTimestamp = Timestamp.fromDate(start);
+    const endTimestamp = Timestamp.fromDate(end);
+
+    const snapshot = await db
+      .collection(COLLECTIONS.USAGE)
+      .where("userId", "==", userId)
+      .where("createdAt", ">=", startTimestamp)
+      .where("createdAt", "<=", endTimestamp)
+      .orderBy("createdAt", "asc")
+      .get();
+
+    const dayMap: Record<
+      string,
+      {
+        name: string;
+        text: number;
+        voice: number;
+        cost: number;
+        sortKey: number;
+      }
+    > = {};
+
+    if (isHourly) {
+      // Initialize 24 hours
+      for (let i = 0; i < 24; i++) {
+        const hour = i.toString().padStart(2, "0") + ":00";
+        dayMap[hour] = {
+          name: hour,
+          text: 0,
+          voice: 0,
+          cost: 0,
+          sortKey: i,
+        };
+      }
+    } else {
+      // Initialize days using the user's LOCAL calendar dates, not UTC dates.
+      // timezoneOffset = UTC − local (mins); to get local time: UTC − offset.
+      const daysDiff = Math.ceil(
+        (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const iterations = Math.min(daysDiff + 1, 31);
+
+      for (let i = 0; i < iterations; i++) {
+        const utcInstant = new Date(
+          start.getTime() + i * 24 * 60 * 60 * 1000,
+        );
+        // Shift to local time to extract the correct local date string
+        const localInstant = new Date(
+          utcInstant.getTime() - timezoneOffset * 60 * 1000,
+        );
+        const key = localInstant.toISOString().split("T")[0];
+        // Force UTC in toLocaleDateString so server locale never skews the label
+        const labelDate = new Date(key + "T00:00:00Z");
+        const label = labelDate.toLocaleDateString("en-US", {
+          month: iterations > 10 ? "numeric" : undefined,
+          day: "numeric",
+          weekday: iterations <= 10 ? "short" : undefined,
+          timeZone: "UTC",
+        });
+        dayMap[key] = {
+          name: label,
+          text: 0,
+          voice: 0,
+          cost: 0,
+          sortKey: utcInstant.getTime(),
+        };
+      }
+    }
+
+    snapshot.docs.forEach((doc) => {
+      const rawData = doc.data();
+      const createdAt = rawData.createdAt?.toDate() || new Date();
+
+      // Shift each record's UTC timestamp to the user's local time so bucketing
+      // reflects their clock (e.g. 10:00 EAT, not 07:00 UTC).
+      const localCreatedAt = new Date(
+        createdAt.getTime() - timezoneOffset * 60 * 1000,
+      );
+
+      const key = isHourly
+        ? localCreatedAt.getUTCHours().toString().padStart(2, "0") + ":00"
+        : localCreatedAt.toISOString().split("T")[0];
+
+      if (dayMap[key]) {
+        const cost = rawData.cost || 0;
+        dayMap[key].cost += cost;
+
+        const type = rawData.type as "TEXT_RESPONSE" | "VOICE_SESSION";
+        if (type === "TEXT_RESPONSE") {
+          dayMap[key].text += rawData.tokens || 0;
+        } else if (type === "VOICE_SESSION") {
+          dayMap[key].voice += (rawData.seconds || 0) / 60;
+        }
+      }
+    });
+
+    const chartData = Object.values(dayMap)
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ name, text, voice, cost }) => ({
+        name,
+        text,
+        voice: parseFloat(voice.toFixed(2)),
+        cost: parseFloat(cost.toFixed(4)),
+      }));
+
+    const totalPeriodCost = chartData.reduce((sum, item) => sum + item.cost, 0);
+
+    return { success: true, chartData, totalPeriodCost };
+  } catch (error) {
+    console.error("Error getting usage chart data:", error);
+    return { success: false, chartData: [], totalPeriodCost: 0 };
+  }
+};
+
+/**
  * Converts a UsageFilter preset into a { start, end } date range.
+ *
+ * All boundaries are anchored to the **user's local midnight**, not UTC.
+ * The client passes timezoneOffset = new Date().getTimezoneOffset():
+ *   - EAT (UTC+3)  → −180
+ *   - EST (UTC−5)  → +300
+ *
+ * Without this, a Vercel/UTC server would treat "yesterday" as
+ * UTC March 27, missing all records the user created on their local
+ * March 28 (which are stored as UTC timestamps ≥ 00:00 UTC March 28).
  */
 function getDateRange(
   filter: UsageFilter,
   customRange?: { start: string; end: string },
+  timezoneOffset: number = 0,
 ): { start: string; end: string } {
   const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
 
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
+  // Step 1: Express "now" in the user's local wall-clock time, represented
+  // as if it were UTC. E.g. 21:55 UTC for EAT user → 00:55 "UTC" (Mar 29).
+  // timezoneOffset = UTC − local  ⟹  local = UTC − offset
+  const localNow = new Date(now.getTime() - timezoneOffset * 60 * 1000);
+
+  // Step 2: Truncate to local midnight (in the shifted representation)
+  const localMidnightRep = new Date(localNow);
+  localMidnightRep.setUTCHours(0, 0, 0, 0);
+
+  // Step 3: Shift back to a real UTC instant that equals local midnight
+  const localTodayStart = new Date(
+    localMidnightRep.getTime() + timezoneOffset * 60 * 1000,
+  );
+  const localTodayEnd = new Date(
+    localTodayStart.getTime() + 24 * 60 * 60 * 1000 - 1,
+  );
 
   switch (filter) {
     case "today":
-      return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
+      return {
+        start: localTodayStart.toISOString(),
+        end: localTodayEnd.toISOString(),
+      };
 
     case "yesterday": {
-      const yesterdayStart = new Date(todayStart);
-      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-      const yesterdayEnd = new Date(todayStart);
-      yesterdayEnd.setMilliseconds(-1);
-      return {
-        start: yesterdayStart.toISOString(),
-        end: yesterdayEnd.toISOString(),
-      };
+      const yStart = new Date(
+        localTodayStart.getTime() - 24 * 60 * 60 * 1000,
+      );
+      const yEnd = new Date(localTodayStart.getTime() - 1);
+      return { start: yStart.toISOString(), end: yEnd.toISOString() };
     }
 
     case "last_week": {
-      const weekStart = new Date(todayStart);
-      weekStart.setDate(weekStart.getDate() - 7);
-      return { start: weekStart.toISOString(), end: todayEnd.toISOString() };
+      const wStart = new Date(
+        localTodayStart.getTime() - 7 * 24 * 60 * 60 * 1000,
+      );
+      return { start: wStart.toISOString(), end: localTodayEnd.toISOString() };
     }
 
     case "month": {
-      const monthStart = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        1,
-        0,
-        0,
-        0,
-        0,
+      // 1st of the current local month at local midnight
+      const localMonthStartRep = new Date(
+        Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), 1),
       );
-      return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
+      const mStart = new Date(
+        localMonthStartRep.getTime() + timezoneOffset * 60 * 1000,
+      );
+      return { start: mStart.toISOString(), end: localTodayEnd.toISOString() };
     }
 
     case "custom": {
-      if (customRange) {
-        return {
-          start: new Date(customRange.start).toISOString(),
-          end: new Date(customRange.end + "T23:59:59.999Z").toISOString(),
-        };
+      if (customRange?.start && customRange?.end) {
+        // Date inputs are local YYYY-MM-DD strings; anchor them to local
+        // midnight and end-of-day in the user's timezone.
+        const csUTC = new Date(
+          new Date(customRange.start + "T00:00:00Z").getTime() +
+            timezoneOffset * 60 * 1000,
+        );
+        const ceUTC = new Date(
+          new Date(customRange.end + "T00:00:00Z").getTime() +
+            timezoneOffset * 60 * 1000 +
+            24 * 60 * 60 * 1000 -
+            1,
+        );
+        return { start: csUTC.toISOString(), end: ceUTC.toISOString() };
       }
-      // Fallback to today
-      return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
+      return {
+        start: localTodayStart.toISOString(),
+        end: localTodayEnd.toISOString(),
+      };
     }
 
     default:
-      return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
+      return {
+        start: localTodayStart.toISOString(),
+        end: localTodayEnd.toISOString(),
+      };
   }
 }
