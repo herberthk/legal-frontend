@@ -1,7 +1,9 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 type MarkdownFormatterProps = {
   content: string;
   role: "user" | "assistant" | "system" | "data";
@@ -20,7 +22,8 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
       components={{
         p: ({ children, ...props }) => {
           // Check if children contains our cursor marker

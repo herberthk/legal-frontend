@@ -2,9 +2,7 @@ import ChatContainer from "@/components/global/ChatContainer";
 import { getChatMessages, getChatSessions } from "@/lib/actions/chat";
 import { getCurrentUser } from "@/lib/actions/auth";
 
-export default async function ChatPage(props: {
-  params: Promise<{ chatId: string }>;
-}) {
+const ChatPage = async (props: { params: Promise<{ chatId: string }> }) => {
   const { chatId } = await props.params;
 
   // Parallelize user fetch and message fetch (messages don't depend on user ID)
@@ -26,7 +24,7 @@ export default async function ChatPage(props: {
   // Load sidebar sessions (depends on user.id)
   let initialSessions: ChatSession[] = [];
   const sessionsResult = await getChatSessions(user.id);
-  if (sessionsResult.success && sessionsResult.sessions) {
+  if (sessionsResult.success && sessionsResult.sessions.length > 0) {
     initialSessions = sessionsResult.sessions;
   }
 
@@ -38,4 +36,6 @@ export default async function ChatPage(props: {
       serverHasMore={serverHasMore}
     />
   );
-}
+};
+
+export default ChatPage;
