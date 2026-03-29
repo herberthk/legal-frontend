@@ -1,6 +1,6 @@
 import { google, GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, UIMessage } from "ai";
-import { BASE_SYSTEM_INSTRUCTION } from "@/constants";
+import { LEGAL_ADVISER_SYSTEM_INSTRUCTION } from "@/constants";
 import {
   getAuthenticatedUserId,
   recordUsageAndDeduct,
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: google("gemini-3-flash-preview"),
-      system: BASE_SYSTEM_INSTRUCTION,
+      system: LEGAL_ADVISER_SYSTEM_INSTRUCTION,
       providerOptions: {
         google: {
           thinkingConfig: {
