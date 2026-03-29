@@ -262,7 +262,11 @@ export const getUsageChartData = async (
       return { success: false, chartData: [], totalPeriodCost: 0 };
     }
 
-    const { start: startStr, end: endStr } = getDateRange(filter, customRange, timezoneOffset);
+    const { start: startStr, end: endStr } = getDateRange(
+      filter,
+      customRange,
+      timezoneOffset,
+    );
     const start = new Date(startStr);
     const end = new Date(endStr);
     const isHourly = filter === "today" || filter === "yesterday";
@@ -311,9 +315,7 @@ export const getUsageChartData = async (
       const iterations = Math.min(daysDiff + 1, 31);
 
       for (let i = 0; i < iterations; i++) {
-        const utcInstant = new Date(
-          start.getTime() + i * 24 * 60 * 60 * 1000,
-        );
+        const utcInstant = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
         // Shift to local time to extract the correct local date string
         const localInstant = new Date(
           utcInstant.getTime() - timezoneOffset * 60 * 1000,
@@ -426,9 +428,7 @@ function getDateRange(
       };
 
     case "yesterday": {
-      const yStart = new Date(
-        localTodayStart.getTime() - 24 * 60 * 60 * 1000,
-      );
+      const yStart = new Date(localTodayStart.getTime() - 24 * 60 * 60 * 1000);
       const yEnd = new Date(localTodayStart.getTime() - 1);
       return { start: yStart.toISOString(), end: yEnd.toISOString() };
     }
