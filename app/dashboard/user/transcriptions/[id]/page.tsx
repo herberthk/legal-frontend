@@ -51,7 +51,7 @@ const SessionDetailPage = async ({ params }: PageProps) => {
     <div className="p-4 md:p-8 space-y-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header Navigation */}
       <div className="flex items-center justify-between">
-        <Link href="/dashboard/user/transcription">
+        <Link href="/dashboard/user/transcriptions">
           <Button
             variant="ghost"
             className="group flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl px-4 py-2"

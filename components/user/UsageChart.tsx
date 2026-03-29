@@ -78,8 +78,6 @@ const UsageChart = () => {
     fetchData();
   }, [user?.id, filter, customRange.start, customRange.end]);
 
-
-
   return (
     <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 min-h-[480px] flex flex-col">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
