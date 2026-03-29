@@ -17,8 +17,10 @@ export default async function ChatPage(props: {
 
   // Load messages from the parallel result
   let initialMessages = undefined;
+  let serverHasMore = false;
   if (messagesResult.success && messagesResult.messages) {
     initialMessages = messagesResult.messages;
+    serverHasMore = messagesResult.hasMore ?? false;
   }
 
   // Load sidebar sessions (depends on user.id)
@@ -33,6 +35,7 @@ export default async function ChatPage(props: {
       serverChatId={chatId}
       serverMessages={initialMessages}
       serverSessions={initialSessions}
+      serverHasMore={serverHasMore}
     />
   );
 }

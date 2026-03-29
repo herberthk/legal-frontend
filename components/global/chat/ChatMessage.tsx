@@ -163,16 +163,29 @@ export const ChatMessage = memo(
             </div>
           )}
           <span className="text-xs text-slate-400 dark:text-slate-500 mt-2 mx-1">
-            {(
-              msg.metadata as { createdAt?: Date } | undefined
-            )?.createdAt?.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }) ??
-              new Date().toLocaleTimeString([], {
+            {(() => {
+              const raw = (
+                msg.metadata as { createdAt?: unknown } | undefined
+              )?.createdAt;
+              let date: Date | null = null;
+              if (raw instanceof Date) {
+                date = raw;
+              } else if (
+                raw &&
+                typeof raw === "object" &&
+                typeof (raw as { toDate?: unknown }).toDate === "function"
+              ) {
+                // Firestore Timestamp
+                date = (raw as { toDate: () => Date }).toDate();
+              } else if (typeof raw === "string" || typeof raw === "number") {
+                const parsed = new Date(raw);
+                if (!isNaN(parsed.getTime())) date = parsed;
+              }
+              return (date ?? new Date()).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
-              })}
+              });
+            })()}
           </span>
         </div>
       </div>

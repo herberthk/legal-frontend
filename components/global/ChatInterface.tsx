@@ -7,7 +7,7 @@ import React, {
   useCallback,
   FC,
 } from "react";
-import { Scale, Sparkles } from "lucide-react";
+import { Scale, Sparkles, Loader2 } from "lucide-react";
 
 import { useAuthStore } from "@/store";
 import { useChat } from "@ai-sdk/react";
@@ -28,6 +28,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
   onChatCreated,
   serverChatId,
   serverMessages,
+  serverHasMore,
 }) => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
@@ -37,6 +38,10 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     chatId || null,
   );
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
+  // Infinite scroll state
+  const [hasMore, setHasMore] = useState(serverHasMore ?? false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // --- Connectivity State ---
   const [connectionStatus, setConnectionStatus] =
@@ -139,6 +144,26 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only directly on mount so that it populates initial messages synchronously
 
+  /** Helper: convert a raw ChatMessageRecord into a UIMessage */
+  const toUIMessage = useCallback((m: ChatMessageRecord): UIMessage => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parts: any[] = [{ type: "text", text: m.text }];
+    if (m.attachment) {
+      parts.push({
+        type: "file",
+        mediaType: m.attachment.type,
+        filename: m.attachment.name,
+        url: m.attachment.url || "",
+      });
+    }
+    return {
+      id: m.id || generateId(),
+      role: m.role,
+      parts,
+      metadata: { createdAt: m.createdAt },
+    };
+  }, []);
+
   // --- Token Stats State (Session) ---
   const [sessionStats, setSessionStats] = useState({
     textTokens: initialHistory.tokens,
@@ -217,6 +242,67 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount-only — initialHistory is stable (useMemo with [] deps)
 
+  // --- Infinite Scroll: load older messages on scroll-up ---
+  const loadOlderMessages = useCallback(async () => {
+    if (!chatSessionId || isLoadingMore || !hasMore) return;
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    setIsLoadingMore(true);
+    // Snapshot scroll metrics BEFORE prepending so we can restore position
+    const prevScrollHeight = container.scrollHeight;
+
+    try {
+      // Use the id of the topmost visible message as the cursor
+      setMessages((prev) => {
+        const oldestId = prev[0]?.id;
+        if (!oldestId) return prev;
+
+        // Fire the fetch; result applied asynchronously below
+        getChatMessages(chatSessionId, 10, oldestId).then((result) => {
+          if (result.success && result.messages && result.messages.length > 0) {
+            const older: UIMessage[] = result.messages.map(toUIMessage);
+            setMessages((current) => [...older, ...current]);
+            setHasMore(result.hasMore ?? false);
+
+            // Restore scroll position so the view doesn't jump
+            requestAnimationFrame(() => {
+              if (container) {
+                container.scrollTop =
+                  container.scrollHeight - prevScrollHeight;
+              }
+            });
+          } else {
+            setHasMore(false);
+          }
+          setIsLoadingMore(false);
+        });
+
+        return prev; // Return unchanged — the real update comes from the .then()
+      });
+    } catch (err) {
+      console.error("Failed to load older messages:", err);
+      setIsLoadingMore(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatSessionId, hasMore, isLoadingMore, toUIMessage]);
+
+  // Attach scroll listener to the messages container
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const onScroll = () => {
+      if (container.scrollTop < 80 && hasMore && !isLoadingMore) {
+        loadOlderMessages();
+      }
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [hasMore, isLoadingMore, loadOlderMessages]);
+
   // --- Fetch Chat History ---
   // Only needed when navigating to a chat that was NOT server-side prefetched
   // (e.g. switching chats via the sidebar after initial load). When useChat
@@ -252,6 +338,10 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
           0,
         );
         setSessionStats((prev) => ({ ...prev, textTokens: totalTokens }));
+        // Seed hasMore from the page prop
+        if (typeof serverHasMore === "boolean") {
+          setHasMore(serverHasMore);
+        }
 
         // If there are messages, we don't need to do anything else as they
         // were already seeded via useLayoutEffect + setMessages.
@@ -268,28 +358,15 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
           let totalTokens = 0;
           const historyMessages: UIMessage[] = result.messages.map((m) => {
             totalTokens += m.tokenCount || 0;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const parts: any[] = [{ type: "text", text: m.text }];
-            if (m.attachment) {
-              parts.push({
-                type: "file",
-                mediaType: m.attachment.type,
-                filename: m.attachment.name,
-                url: m.attachment.url || "",
-              });
-            }
-            return {
-              id: m.id || generateId(),
-              role: m.role,
-              parts,
-              metadata: { createdAt: m.createdAt },
-            };
+            return toUIMessage(m);
           });
           setSessionStats((prev) => ({ ...prev, textTokens: totalTokens }));
           setMessages(historyMessages);
+          setHasMore(result.hasMore ?? false);
         } else {
           setMessages([]);
           setSessionStats({ textTokens: 0, voiceSeconds: 0 });
+          setHasMore(false);
         }
       } catch (err) {
         console.error("Failed to load history:", err);
@@ -501,7 +578,10 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       />
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto md:p-6 p-2 relative pt-8 md:pt-6">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto md:p-6 p-2 relative pt-8 md:pt-6"
+      >
         {/* Token/Time Usage Badge */}
         <ChatTokenUsageBadge
           textTokens={sessionStats.textTokens}
@@ -520,6 +600,26 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
                 }
               }}
             />
+          )}
+
+          {/* ── LOAD OLDER MESSAGES INDICATOR ── */}
+          {isLoadingMore && (
+            <div className="flex justify-center py-3">
+              <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                <Loader2 size={14} className="animate-spin" />
+                Loading older messages…
+              </div>
+            </div>
+          )}
+          {!isLoadingMore && hasMore && (
+            <div className="flex justify-center py-2">
+              <button
+                onClick={loadOlderMessages}
+                className="text-xs text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
+              >
+                Load older messages
+              </button>
+            </div>
           )}
 
           {/* ── STANDARD CHAT MESSAGE LOOP ── */}

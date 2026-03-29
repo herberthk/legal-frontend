@@ -228,6 +228,7 @@ declare global {
     onChatCreated?: (chatId: string) => void;
     serverChatId?: string | null;
     serverMessages?: ChatMessageRecord[];
+    serverHasMore?: boolean;
   }
 
   // Generic utility — omit any fields and replace with FieldValue

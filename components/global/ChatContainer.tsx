@@ -16,6 +16,7 @@ interface ChatContainerProps {
   serverChatId?: string | null;
   serverMessages?: ChatMessageRecord[];
   serverSessions?: ChatSession[];
+  serverHasMore?: boolean;
 }
 
 const CHAT_BASE = "/dashboard/user/chat";
@@ -24,6 +25,7 @@ const ChatContainer = ({
   serverChatId,
   serverMessages,
   serverSessions,
+  serverHasMore,
 }: ChatContainerProps) => {
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -112,6 +114,7 @@ const ChatContainer = ({
           }}
           serverChatId={serverChatId}
           serverMessages={serverMessages}
+          serverHasMore={serverHasMore}
         />
       </div>
     </div>
