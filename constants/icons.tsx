@@ -57,8 +57,15 @@ export const FileTextIcon = ({ size }: { size: number }) => (
   </svg>
 );
 
-export const sideBarItems = (role: Role) => {
-  const globalItems = [
+type MenuItems = {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  href: string;
+  subItems?: Omit<MenuItems, "subItems" | "icon">[];
+};
+export const sideBarItems = (role: Role): MenuItems[] => {
+  const globalItems: MenuItems[] = [
     {
       id: "/dashboard/notifications",
       label: "Notifications",
