@@ -100,7 +100,7 @@ const SessionDetailPage = async ({ params }: PageProps) => {
               <div className="flex items-center gap-2 text-slate-500">
                 <Calendar size={16} />
                 <span className="text-sm font-medium">
-                  {new Date(session.date).toLocaleDateString(undefined, {
+                  {new Date(session.createdAt).toLocaleDateString(undefined, {
                     dateStyle: "long",
                   })}
                 </span>

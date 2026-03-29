@@ -398,11 +398,12 @@ const GlobalSidebar = ({ user }: Props) => {
             animate="show"
           >
             <SidebarMenu>
-              {navlinks.map((link) => {
-                const hasSubItems = link.subItems && link.subItems.length > 0;
+              {navlinks?.map((link) => {
+                const hasSubItems =
+                  link?.subItems && link?.subItems?.length > 0;
                 const isParentActive =
                   pathname === link.id ||
-                  link.subItems?.some(
+                  link?.subItems?.some(
                     (sub: { id: string }) => pathname === sub.id,
                   );
 
