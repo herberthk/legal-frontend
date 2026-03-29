@@ -5,3 +5,4 @@ export * from "./dammy";
 export * from "./collection";
 export * from "./gemini";
 export * from "./constants";
+export * from "./prompt";
