@@ -366,7 +366,7 @@ export const getUsageChartData = async (
         name,
         text,
         voice: parseFloat(voice.toFixed(2)),
-        cost: parseFloat(cost.toFixed(4)),
+        cost: parseFloat((cost / 100).toFixed(2)),
       }));
 
     const totalPeriodCost = chartData.reduce((sum, item) => sum + item.cost, 0);
