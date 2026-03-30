@@ -19,7 +19,15 @@ const AssemblyAIVoiceConnection = dynamic(
   },
 );
 
-const VoiceSessionManager = () => {
+interface VoiceSessionManagerProps {
+  freeVoiceSeconds: number;
+  balance: number;
+}
+
+const VoiceSessionManager: React.FC<VoiceSessionManagerProps> = ({
+  freeVoiceSeconds,
+  balance,
+}) => {
   const [hasNative, setHasNative] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -36,7 +44,17 @@ const VoiceSessionManager = () => {
     return <VoiceLoadingSkeleton />;
   }
 
-  return hasNative ? <NativeVoiceConnection /> : <AssemblyAIVoiceConnection />;
+  return hasNative ? (
+    <NativeVoiceConnection
+      freeVoiceSeconds={freeVoiceSeconds}
+      balance={balance}
+    />
+  ) : (
+    <AssemblyAIVoiceConnection
+      freeVoiceSeconds={freeVoiceSeconds}
+      balance={balance}
+    />
+  );
 };
 
 export default React.memo(VoiceSessionManager);
