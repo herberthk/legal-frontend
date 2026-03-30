@@ -104,7 +104,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   const currentConfig = statusConfig[wsStatus] || statusConfig.idle;
 
   const currentCostUSD = (duration * COST_PER_VOICE_SECOND_IN_CENTS) / 100;
-  const currentCostUGX = currentCostUSD * USD_TO_UGX_EXCHANGE_RATE;
+  const currentCostUGX = Math.round(currentCostUSD * USD_TO_UGX_EXCHANGE_RATE);
 
   const showFreeTime = duration < freeVoiceSeconds;
   const remainingFreeSeconds = Math.max(0, freeVoiceSeconds - duration);
