@@ -21,7 +21,14 @@ import {
   statusPalette,
   VoiceTimer,
   WaveBar,
+  formatTime,
 } from "./utils";
+import {
+  COST_PER_VOICE_SECOND_IN_CENTS,
+  USD_TO_UGX_EXCHANGE_RATE,
+} from "@/constants/constants";
+import { Wallet, Sparkles } from "lucide-react";
+import ExhastedBanner from "./ExhastedBanner";
 
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   wsStatus,
@@ -39,6 +46,8 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   listening,
   voiceName,
   userName,
+  freeVoiceSeconds,
+  isCreditExhausted,
 }) => {
   // ─── Derived UI Status ────────────────────────────────────────────────────
   const status: CallStatus = useMemo(() => {
@@ -94,6 +103,12 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
 
   const currentConfig = statusConfig[wsStatus] || statusConfig.idle;
 
+  const currentCostUSD = (duration * COST_PER_VOICE_SECOND_IN_CENTS) / 100;
+  const currentCostUGX = currentCostUSD * USD_TO_UGX_EXCHANGE_RATE;
+
+  const showFreeTime = duration < freeVoiceSeconds;
+  const remainingFreeSeconds = Math.max(0, freeVoiceSeconds - duration);
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#F8FAFC] dark:bg-[#0F172A] relative overflow-hidden transition-colors duration-500">
       {/* ── Ambient Glow ──────────────────────────────────────────────────── */}
@@ -145,8 +160,42 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
           </span>
         </div>
 
-        {/* Timer */}
-        <VoiceTimer duration={duration} isCallActive={isCallActive} />
+        {/* Timer & Credits */}
+        <div className="flex flex-col items-end space-y-2 z-20">
+          <VoiceTimer duration={duration} isCallActive={isCallActive} />
+
+          <AnimatePresence>
+            {isCallActive && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/30 dark:border-slate-700/30 shadow-sm flex items-center gap-2"
+              >
+                {showFreeTime ? (
+                  <>
+                    <Sparkles size={12} className="text-amber-500" />
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-tight">
+                      Free: {formatTime(remainingFreeSeconds)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Wallet size={12} className="text-emerald-500" />
+                    <div className="flex flex-col items-end leading-none">
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200">
+                        ${currentCostUSD.toFixed(3)}
+                      </span>
+                      <span className="text-[8px] text-slate-500 dark:text-slate-400">
+                        {currentCostUGX.toLocaleString()} UGX
+                      </span>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
 
       {/* ── Main Visualizer ───────────────────────────────────────────────── */}
@@ -625,6 +674,8 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
           </div>
         </motion.div>
       )}
+      {/* ── Credit Exhausted Banner ────────────────────────────────────────── */}
+      {isCreditExhausted && <ExhastedBanner />}
     </div>
   );
 };

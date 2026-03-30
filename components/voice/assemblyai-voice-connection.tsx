@@ -1,16 +1,31 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, memo } from "react"; // Added useMemo
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react"; // Added useMemo
 import { useVoiceSession, useAssemblyAITranscription } from "@/hooks";
 import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
+import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
 
-const AssemblyAIVoiceConnection = () => {
+interface AssemblyAIVoiceConnectionProps {
+  freeVoiceSeconds: number;
+  balance: number;
+}
+
+const AssemblyAIVoiceConnection: React.FC<AssemblyAIVoiceConnectionProps> = ({
+  freeVoiceSeconds,
+  balance,
+}) => {
   const userName = useAuthStore((state) => state.user?.name);
   const uid = useAuthStore((state) => state.user?.id);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+
+  const totalAllowedSeconds = useMemo(() => {
+    return freeVoiceSeconds + balance / COST_PER_VOICE_SECOND_IN_CENTS;
+  }, [freeVoiceSeconds, balance]);
+
+  const isCreditExhausted = duration >= totalAllowedSeconds;
   const voice = useAuthStore((state) => state.user?.voicePreference);
   const [activeTranscript, setActiveTranscript] =
     useState<AgentTranscript | null>(null);
@@ -31,14 +46,14 @@ const AssemblyAIVoiceConnection = () => {
     },
     onInterrupt: () => {
       setIsResponding(false);
-      reset();
+      resetRef.current();
     },
     onAudioDone: () => {
       setIsResponding(false);
     },
     onError: (msg) => {
       setIsResponding(false);
-      reset();
+      resetRef.current();
       setActiveTranscript({
         speaker: "system",
         text: `Error: ${msg}`,
@@ -47,6 +62,8 @@ const AssemblyAIVoiceConnection = () => {
     onDuration: (d) => setDuration(d),
     isAudioMuted,
   });
+
+  const resetRef = useRef<() => void>(() => {});
 
   const {
     transcript: aiTranscript,
@@ -66,12 +83,14 @@ const AssemblyAIVoiceConnection = () => {
           text: text,
         });
         send(text);
-        reset();
+        resetRef.current();
       },
       [send],
     ), // Dependencies for useCallback
     onError: (err) => console.error("[stt]", err),
   });
+
+  resetRef.current = reset;
 
   const computedWsStatus: VoiceSessionStatus = useMemo(() => {
     // Memoized status
@@ -107,12 +126,20 @@ const AssemblyAIVoiceConnection = () => {
       wsStatus === "connecting" ||
       wsStatus === "open" ||
       aiIsRecording ||
-      isSttConnecting
+      isSttConnecting ||
+      isCreditExhausted
     )
       return;
     await startAiStt();
     connect();
-  }, [wsStatus, aiIsRecording, isSttConnecting, startAiStt, connect]);
+  }, [
+    wsStatus,
+    aiIsRecording,
+    isSttConnecting,
+    startAiStt,
+    connect,
+    isCreditExhausted,
+  ]);
 
   const handleEndCall = useCallback(async () => {
     disconnect();
@@ -123,6 +150,12 @@ const AssemblyAIVoiceConnection = () => {
     });
     reset();
   }, [disconnect, stopAiStt, reset]);
+
+  useEffect(() => {
+    if (isCreditExhausted && wsStatus === "open") {
+      handleEndCall();
+    }
+  }, [isCreditExhausted, wsStatus, handleEndCall]);
 
   // Handle Microphone Mute (AssemblyAI)
   // useEffect(() => {
@@ -152,6 +185,8 @@ const AssemblyAIVoiceConnection = () => {
       userName={userName}
       listening={aiIsRecording}
       voiceName={voice}
+      freeVoiceSeconds={freeVoiceSeconds}
+      isCreditExhausted={isCreditExhausted}
     />
   );
 };

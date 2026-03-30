@@ -1,19 +1,40 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
 import { useVoiceSession } from "@/hooks";
 import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
+import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
 
-const NativeVoiceConnection = () => {
+interface NativeVoiceConnectionProps {
+  freeVoiceSeconds: number;
+  balance: number;
+}
+
+const NativeVoiceConnection: React.FC<NativeVoiceConnectionProps> = ({
+  freeVoiceSeconds,
+  balance,
+}) => {
   const userName = useAuthStore((state) => state.user?.name);
   const userId = useAuthStore((state) => state.user?.id);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+
+  const totalAllowedSeconds = useMemo(() => {
+    return freeVoiceSeconds + balance / COST_PER_VOICE_SECOND_IN_CENTS;
+  }, [freeVoiceSeconds, balance]);
+
+  const isCreditExhausted = duration >= totalAllowedSeconds;
   const voice = useAuthStore((state) => state.user?.voicePreference);
   const [activeTranscript, setActiveTranscript] =
     useState<AgentTranscript | null>(null);
@@ -95,10 +116,11 @@ const NativeVoiceConnection = () => {
   }, [finalTranscript, wsStatus, send, resetTranscript]);
 
   const handleStartCall = useCallback(async () => {
-    if (wsStatus === "connecting" || wsStatus === "open") return;
+    if (wsStatus === "connecting" || wsStatus === "open" || isCreditExhausted)
+      return;
     connect();
     SpeechRecognition.startListening({ continuous: true, language: "en-US" });
-  }, [connect, wsStatus]);
+  }, [connect, wsStatus, isCreditExhausted]);
 
   const handleEndCall = useCallback(async () => {
     disconnect();
@@ -108,6 +130,13 @@ const NativeVoiceConnection = () => {
       text: "You ended the call.",
     });
   }, [disconnect]);
+
+  useEffect(() => {
+    if (isCreditExhausted && wsStatus === "open") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleEndCall();
+    }
+  }, [isCreditExhausted, wsStatus, handleEndCall]);
 
   useEffect(() => {
     console.log("connection status", wsStatus);
@@ -130,6 +159,8 @@ const NativeVoiceConnection = () => {
       userName={userName}
       listening={listening}
       voiceName={voice}
+      freeVoiceSeconds={freeVoiceSeconds}
+      isCreditExhausted={isCreditExhausted}
     />
   );
 };

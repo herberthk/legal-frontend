@@ -102,6 +102,8 @@ declare global {
     userName?: string;
     listening: boolean; // Engine specific listening state
     voiceName?: string;
+    freeVoiceSeconds: number;
+    isCreditExhausted: boolean;
   }
 
   type VoicePasona = {

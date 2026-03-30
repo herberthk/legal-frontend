@@ -3,8 +3,8 @@
 import { db } from "@/firebase/admin";
 import {
   COLLECTIONS,
-  COST_PER_THOUSAND_TOKENS,
-  COST_PER_VOICE_MINUTE,
+  COST_PER_THOUSAND_TOKENS_IN_CENTS,
+  COST_PER_VOICE_SECOND_IN_CENTS,
 } from "@/constants";
 import { checkRootCollection } from "./utils";
 import { FieldValue } from "firebase-admin/firestore";
@@ -32,7 +32,7 @@ export const checkUserCanSend = async (
 
     // Check if user has any available resources
     const hasFreeTokens = user.freeTextTokens > 10;
-    const hasPaidBalance = user.balance > COST_PER_THOUSAND_TOKENS;
+    const hasPaidBalance = user.balance > COST_PER_THOUSAND_TOKENS_IN_CENTS;
     const hasWelcomeTokens = user.welcomeTextTokens > 10;
 
     if (hasFreeTokens || hasPaidBalance || hasWelcomeTokens) {
@@ -47,6 +47,31 @@ export const checkUserCanSend = async (
   } catch (error) {
     console.error("Error checking user send permission:", error);
     return { canSend: false, reason: "An error occurred. Please try again." };
+  }
+};
+
+export const checkUserInfo = async (
+  userId: string,
+): Promise<{
+  user: User | null;
+}> => {
+  try {
+    const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+    if (!userDoc.exists) {
+      return { user: null };
+    }
+
+    const user = {
+      ...userDoc.data(),
+      id: userDoc.id,
+      createdAt: userDoc.data()?.createdAt?.toDate().toISOString(),
+      nextDailyReset: userDoc.data()?.nextDailyReset?.toDate().toISOString(),
+    } as User;
+
+    return { user };
+  } catch (error) {
+    console.error("Error checking user send permission:", error);
+    return { user: null };
   }
 };
 
@@ -96,7 +121,7 @@ export const recordUsageAndDeduct = async (params: {
         } else {
           // No free tokens left — deduct from paid balance
           const tokensInThousand = tokens / 1000;
-          const cost = tokensInThousand * COST_PER_THOUSAND_TOKENS;
+          const cost = tokensInThousand * COST_PER_THOUSAND_TOKENS_IN_CENTS;
           balance = Math.max(0, balance - cost);
           totalCost = cost;
           source = "paid";
@@ -110,8 +135,7 @@ export const recordUsageAndDeduct = async (params: {
           source = "free";
         } else {
           // No free seconds left — deduct from paid balance
-          const minutes = seconds / 60;
-          const cost = minutes * COST_PER_VOICE_MINUTE;
+          const cost = seconds * COST_PER_VOICE_SECOND_IN_CENTS;
           balance = Math.max(0, balance - cost);
           totalCost = cost;
           source = "paid";
