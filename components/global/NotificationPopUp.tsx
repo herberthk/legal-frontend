@@ -6,12 +6,15 @@ import { useNotifications } from "@/hooks";
 import NotificationItem from "./NotificationItem";
 import { motion, AnimatePresence } from "framer-motion";
 
-const NotificationPopUp = () => {
+type Props = {
+  unreadCount: number;
+};
+
+const NotificationPopUp = ({ unreadCount }: Props) => {
   const toggleNotifications = usePopStore((state) => state.toggleNotifications);
   const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
   const {
     notifications,
-    unreadCount,
     markAllAsRead,
     markAsRead,
     markAsUnread,
@@ -105,15 +108,17 @@ const NotificationPopUp = () => {
         </div>
 
         {/* Footer Link */}
-        <div className="p-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-center">
-          <Link
-            href="/dashboard/notifications"
-            onClick={toggleNotifications}
-            className={`text-xs font-bold uppercase tracking-widest hover:underline flex items-center justify-center gap-2 ${isAdmin ? "text-indigo-600 dark:text-indigo-400" : "text-orange-600 dark:text-orange-400"}`}
-          >
-            View all notifications
-          </Link>
-        </div>
+        {notifications.length > 4 && (
+          <div className="p-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-center">
+            <Link
+              href="/dashboard/notifications"
+              onClick={toggleNotifications}
+              className={`text-xs font-bold uppercase tracking-widest hover:underline flex items-center justify-center gap-2 ${isAdmin ? "text-indigo-600 dark:text-indigo-400" : "text-orange-600 dark:text-orange-400"}`}
+            >
+              View all notifications
+            </Link>
+          </div>
+        )}
       </motion.div>
     </>
   );

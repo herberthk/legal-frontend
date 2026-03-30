@@ -1,11 +1,7 @@
 "use server";
 
 import { db } from "@/firebase/admin";
-import {
-  COLLECTIONS,
-  COST_PER_THOUSAND_TOKENS_IN_CENTS,
-  COST_PER_VOICE_SECOND_IN_CENTS,
-} from "@/constants";
+import { COLLECTIONS, COST_PER_THOUSAND_TOKENS_IN_CENTS } from "@/constants";
 import { checkRootCollection } from "./utils";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -90,7 +86,13 @@ export const recordUsageAndDeduct = async (params: {
   sessionId: string;
   seconds?: number;
 }) => {
-  const { userId, type, tokens = 0, sessionId, seconds = 0 } = params;
+  const {
+    userId,
+    type = "TEXT_RESPONSE",
+    tokens = 0,
+    sessionId,
+    seconds = 0,
+  } = params;
 
   try {
     const result = await db.runTransaction(async (transaction) => {
@@ -106,40 +108,23 @@ export const recordUsageAndDeduct = async (params: {
       let totalCost = 0;
       let freeTokens = user.freeTextTokens;
       let balance = user.balance;
-      let freeSeconds = user.freeVoiceSeconds;
       let welcomeTextTokens = user.welcomeTextTokens;
 
-      if (type === "TEXT_RESPONSE") {
-        if (welcomeTextTokens > 0) {
-          // Deduct exclusively from free token quota first
-          welcomeTextTokens = Math.max(0, welcomeTextTokens - tokens);
-          source = "welcome";
-        } else if (freeTokens > 0 && welcomeTextTokens === 0) {
-          // Deduct exclusively from free token quota first
-          freeTokens = Math.max(0, freeTokens - tokens);
-          source = "free";
-        } else {
-          // No free tokens left — deduct from paid balance
-          const tokensInThousand = tokens / 1000;
-          const cost = tokensInThousand * COST_PER_THOUSAND_TOKENS_IN_CENTS;
-          balance = Math.max(0, balance - cost);
-          totalCost = cost;
-          source = "paid";
-        }
-      }
-
-      if (type === "VOICE_SESSION") {
-        if (freeSeconds > 0) {
-          // Deduct exclusively from free voice quota first
-          freeSeconds = Math.max(0, freeSeconds - seconds);
-          source = "free";
-        } else {
-          // No free seconds left — deduct from paid balance
-          const cost = seconds * COST_PER_VOICE_SECOND_IN_CENTS;
-          balance = Math.max(0, balance - cost);
-          totalCost = cost;
-          source = "paid";
-        }
+      if (welcomeTextTokens > 0) {
+        // Deduct exclusively from free token quota first
+        welcomeTextTokens = Math.max(0, welcomeTextTokens - tokens);
+        source = "welcome";
+      } else if (freeTokens > 0 && welcomeTextTokens === 0) {
+        // Deduct exclusively from free token quota first
+        freeTokens = Math.max(0, freeTokens - tokens);
+        source = "free";
+      } else {
+        // No free tokens left — deduct from paid balance
+        const tokensInThousand = tokens / 1000;
+        const cost = tokensInThousand * COST_PER_THOUSAND_TOKENS_IN_CENTS;
+        balance = Math.max(0, balance - cost);
+        totalCost = cost;
+        source = "paid";
       }
 
       // Update user document
@@ -147,7 +132,6 @@ export const recordUsageAndDeduct = async (params: {
         freeTextTokens: freeTokens,
         balance,
         welcomeTextTokens,
-        freeVoiceSeconds: freeSeconds,
         totalSpent: (user.totalSpent || 0) + totalCost,
       });
 
@@ -163,20 +147,6 @@ export const recordUsageAndDeduct = async (params: {
         source,
         createdAt: FieldValue.serverTimestamp(),
       });
-
-      // Record negative transaction if user paid for processing
-      // if (totalCost > 0) {
-      //   const txRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
-      //   transaction.set(txRef, {
-      //     id: txRef.id,
-      //     userId,
-      //     type: type === "TEXT_RESPONSE" ? "TEXT_CHAT" : "VOICE_SESSION",
-      //     description: type === "TEXT_RESPONSE" ? "AI Text Chat Processing" : "Voice Consultation Session",
-      //     amount: -totalCost,
-      //     createdAt: FieldValue.serverTimestamp(),
-      //     details: type === "TEXT_RESPONSE" ? `${tokens} Tokens` : `${Math.ceil(seconds / 60)} Mins`,
-      //   });
-      // }
 
       return { cost: totalCost };
     });

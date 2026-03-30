@@ -1,12 +1,14 @@
 "use client";
 import { useAuthStore, usePopStore, useThemeStore } from "@/store";
-import { useNotifications } from "@/hooks";
 import { Moon, Sun, Bell, ChevronDown, Menu } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import NotificationPopUp from "./NotificationPopUp";
 import ProfilePopUp from "./ProfilePopUp";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
+import { db } from "@/firebase/client";
+import { onSnapshot, where, query, collection } from "firebase/firestore";
 
 type Props = {
   user: User;
@@ -18,9 +20,25 @@ const Header: React.FC<Props> = ({ user }) => {
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const showNotifications = usePopStore((state) => state.showNotifications);
   const toggleNotifications = usePopStore((state) => state.toggleNotifications);
-  const { unreadCount } = useNotifications();
   const showProfile = usePopStore((state) => state.showProfile);
   const toggleProfile = usePopStore((state) => state.toggleProfile);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Perform firestore realtime listener for unread notifications filter for unread and get the count
+
+  useEffect(() => {
+    const unreadQuery = query(
+      collection(db, "notifications"),
+      where("userId", "==", user.id),
+      where("isRead", "==", false),
+    );
+
+    const unsubscribe = onSnapshot(unreadQuery, (snap) => {
+      setUnreadCount(snap.size); // snap.size = count of matching docs
+    });
+
+    return unsubscribe;
+  }, [user.id]);
 
   // console.log("avatar", user.avatar);
   return (
@@ -89,7 +107,9 @@ const Header: React.FC<Props> = ({ user }) => {
           </motion.button>
 
           <AnimatePresence>
-            {showNotifications && <NotificationPopUp />}
+            {showNotifications && (
+              <NotificationPopUp unreadCount={unreadCount} />
+            )}
           </AnimatePresence>
         </div>
 

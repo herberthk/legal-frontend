@@ -21,7 +21,7 @@ export async function processDeposit(
       userId,
       type: "DEPOSIT",
       description: `Funds Deposit via ${method}`,
-      amount: amount,
+      amount: amount * 100,
       createdAt: FieldValue.serverTimestamp(),
       details: details,
       reference: generateTxRef(),
@@ -32,7 +32,7 @@ export async function processDeposit(
     const batch = db.batch();
 
     batch.update(userRef, {
-      balance: FieldValue.increment(amount),
+      balance: FieldValue.increment(amount * 100),
     });
 
     batch.set(transactionRef, transaction);
@@ -49,7 +49,7 @@ export async function processDeposit(
 
     // Fetch the latest balance
     const userDoc = await userRef.get();
-    const newBalance = userDoc.data()?.balance || 0;
+    const newBalance = (userDoc.data()?.balance as number) || 0;
     revalidatePath("/dashboard/user/billing");
     return {
       success: true,

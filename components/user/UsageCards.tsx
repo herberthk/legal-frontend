@@ -35,9 +35,11 @@ const UsageCards: FC<Prop> = ({ user }) => {
   // Text: $0.027 per 1000 tokens
   // Voice: $0.08 per minute
   const potentialTokens = Math.floor(
-    (user?.balance / COST_PER_THOUSAND_TOKENS) * 1000,
+    ((user?.balance || 0) / 100 / COST_PER_THOUSAND_TOKENS) * 1000,
   );
-  const potentialVoiceMins = Math.floor(user?.balance / COST_PER_VOICE_MINUTE);
+  const potentialVoiceMins = Math.floor(
+    (user?.balance || 0) / 100 / COST_PER_VOICE_MINUTE,
+  );
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Main Balance */}
@@ -53,12 +55,18 @@ const UsageCards: FC<Prop> = ({ user }) => {
         </p>
         <div className="flex flex-col">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-            ${user?.balance ? user?.balance.toFixed(2) : "0.00"}
+            $
+            {(user?.balance || 0) / 100
+              ? ((user?.balance || 0) / 100).toFixed(2)
+              : "0.00"}
           </h2>
           <p className="text-sm md:text-base font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
             USh{" "}
-            {user?.balance
-              ? (user?.balance * USD_TO_UGX_EXCHANGE_RATE).toLocaleString()
+            {user?.balance || 0
+              ? (
+                  ((user?.balance || 0) / 100) *
+                  USD_TO_UGX_EXCHANGE_RATE
+                ).toLocaleString()
               : "0"}
           </p>
         </div>
@@ -143,12 +151,13 @@ const UsageCards: FC<Prop> = ({ user }) => {
                   <span>Current Wallet Balance</span>
                   <div className="text-right">
                     <p className="font-mono font-bold text-slate-900 dark:text-white">
-                      ${user?.balance.toFixed(2)}
+                      ${((user?.balance || 0) / 100).toFixed(2)}
                     </p>
                     <p className="text-[10px] text-slate-500 font-medium">
                       USh{" "}
                       {(
-                        user?.balance * USD_TO_UGX_EXCHANGE_RATE
+                        ((user?.balance || 0) / 100) *
+                        USD_TO_UGX_EXCHANGE_RATE
                       ).toLocaleString()}
                     </p>
                   </div>
@@ -276,12 +285,13 @@ const UsageCards: FC<Prop> = ({ user }) => {
                   <span>Balance</span>
                   <div className="text-right">
                     <p className="font-mono font-bold text-slate-900 dark:text-white">
-                      ${user?.balance.toFixed(2)}
+                      ${((user?.balance || 0) / 100).toFixed(2)}
                     </p>
                     <p className="text-[10px] text-slate-500 font-medium">
                       USh{" "}
                       {(
-                        user?.balance * USD_TO_UGX_EXCHANGE_RATE
+                        ((user?.balance || 0) / 100) *
+                        USD_TO_UGX_EXCHANGE_RATE
                       ).toLocaleString()}
                     </p>
                   </div>

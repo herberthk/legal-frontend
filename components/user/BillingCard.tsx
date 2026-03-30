@@ -14,6 +14,7 @@ import Cards from "react-credit-cards-2";
 import { z } from "zod";
 import { processDeposit } from "@/lib/actions/wallet";
 import { toast } from "sonner";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
 interface BillingCardProps {
   user: User;
@@ -149,9 +150,13 @@ const BillingCard: React.FC<BillingCardProps> = ({ user }) => {
             <p className="text-slate-500 dark:text-slate-400 font-medium mb-2">
               Available Balance
             </p>
-            <h2 className="text-5xl font-bold tracking-tight mb-6 text-slate-900 dark:text-white">
-              ${balance.toFixed(2)}
+            <h2 className="text-5xl font-bold tracking-tight mb-2 text-slate-900 dark:text-white">
+              ${(balance / 100).toFixed(2)}
             </h2>
+            <p className="text-lg text-slate-500 font-medium mb-6">
+              USh{" "}
+              {((balance / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString()}
+            </p>
             <div className="flex space-x-3">
               <button
                 onClick={() => setIsAddingFunds(true)}

@@ -1,7 +1,16 @@
 "use client";
 
 import React from "react";
-import { Info, CheckCircle, AlertTriangle, XCircle, Clock, Trash2, CheckCircle2, Circle } from "lucide-react";
+import {
+  Info,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Clock,
+  Trash2,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
 import { getRelativeTime } from "@/utils";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -86,7 +95,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       <div className="absolute top-4 right-4 flex items-center gap-1 opacity-10 sm:opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-slate-800/80 rounded-full p-1 sm:p-0">
         {notification.isRead ? (
           <button
-            onClick={(e) => handleAction(e, () => onMarkUnread?.(notification.id))}
+            onClick={(e) =>
+              handleAction(e, () => onMarkUnread?.(notification.id))
+            }
             className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
             title="Mark as unread"
           >
@@ -94,7 +105,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           </button>
         ) : (
           <button
-            onClick={(e) => handleAction(e, () => onMarkRead?.(notification.id))}
+            onClick={(e) =>
+              handleAction(e, () => onMarkRead?.(notification.id))
+            }
             className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-emerald-500 transition-colors"
             title="Mark as read"
           >
@@ -123,7 +136,11 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   if (notification.url) {
     return (
-      <Link href={notification.url} className="block">
+      <Link
+        href={notification.url}
+        onClick={() => onMarkRead?.(notification.id)}
+        className="block"
+      >
         {Content}
       </Link>
     );

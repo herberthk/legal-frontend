@@ -172,3 +172,35 @@ export async function deleteNotification(notificationId: string) {
     return { success: false, error: "Failed to delete notification" };
   }
 }
+
+/**
+ * Gets the latest five unread notifications for a user.
+ */
+export const getLatestUnreadNotifications = async (userId: string) => {
+  try {
+    const snapshot = await db
+      .collection(COLLECTIONS.NOTIFICATIONS)
+      .where("userId", "==", userId)
+      .where("isRead", "==", false)
+      .orderBy("createdAt", "desc")
+      .limit(5)
+      .get();
+
+    return {
+      success: true,
+      notifications: snapshot.docs.map((doc) => ({
+        ...doc.data(),
+        id: doc.id,
+        createdAt:
+          doc.data().createdAt?.toDate().toISOString() ||
+          new Date().toISOString(),
+      })) as AppNotification[],
+    };
+  } catch (error) {
+    console.error("Error fetching unread notification count:", error);
+    return {
+      success: false,
+      notifications: [],
+    };
+  }
+};
