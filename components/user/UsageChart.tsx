@@ -240,7 +240,7 @@ const UsageChart = () => {
                   tickLine={false}
                   tickFormatter={(v: number) => `${v.toFixed(1)}m`}
                   label={{
-                    value: "Mins",
+                    value: "Duration",
                     angle: 90,
                     position: "insideRight",
                     offset: 10,
@@ -282,7 +282,7 @@ const UsageChart = () => {
                   yAxisId="right"
                   type="monotone"
                   dataKey="voice"
-                  name="Voice (Mins)"
+                  name="Voice (Duration)"
                   stroke="#f4511e"
                   strokeWidth={3}
                   fillOpacity={1}

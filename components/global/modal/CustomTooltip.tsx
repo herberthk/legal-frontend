@@ -7,6 +7,14 @@ type TooltipProps = {
   label: string;
 };
 
+const formatDuration = (minutes: number): string => {
+  const seconds = Math.round(minutes * 60);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+};
+
 const CustomTooltip: FC<TooltipProps> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -47,7 +55,9 @@ const CustomTooltip: FC<TooltipProps> = ({ active, payload, label }) => {
                   {item.name}
                 </p>
                 <p className="text-[10px] text-slate-900 dark:text-white">
-                  {item.value.toLocaleString()}
+                  {item.dataKey === "voice"
+                    ? formatDuration(item.value)
+                    : item.value.toLocaleString()}
                 </p>
               </div>
             );
