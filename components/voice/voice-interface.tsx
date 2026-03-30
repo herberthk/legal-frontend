@@ -1,34 +1,18 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useThemeStore } from "@/store/theme";
-import {
-  Mic,
-  MicOff,
-  PhoneOff,
-  Volume2,
-  VolumeX,
-  Radio,
-  BrainCircuit,
-  AlertCircle,
-  RefreshCcw,
-} from "lucide-react";
-import {
-  getStatusText,
-  OrbRing,
-  statusConfig,
-  statusPalette,
-  VoiceTimer,
-  WaveBar,
-  formatTime,
-} from "./utils";
+import AmbientGlow from "./interface/AmbientGlow";
+import VoiceHeader from "./interface/VoiceHeader";
+import VoiceVisualizer from "./interface/VoiceVisualizer";
+import TranscriptPanel from "./interface/TranscriptPanel";
+import VoiceControls from "./interface/VoiceControls";
+import { statusConfig, statusPalette } from "./utils";
 import {
   COST_PER_VOICE_SECOND_IN_CENTS,
   USD_TO_UGX_EXCHANGE_RATE,
 } from "@/constants/constants";
-import { Wallet, Sparkles } from "lucide-react";
 import ExhastedBanner from "./ExhastedBanner";
+import { useThemeStore } from "@/store";
 
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   wsStatus,
@@ -112,565 +96,61 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#F8FAFC] dark:bg-[#0F172A] relative overflow-hidden transition-colors duration-500">
       {/* ── Ambient Glow ──────────────────────────────────────────────────── */}
-      <motion.div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
-        style={{
-          filter: isDark ? "blur(100px)" : "blur(80px)",
-          width: isDark ? 600 : 500,
-          height: isDark ? 600 : 500,
-        }}
-        animate={{
-          backgroundColor: glowColor + (isDark ? "55" : "88"),
-          scale: isAudioActive ? [1, 1.18, 1] : 0.75,
-          opacity: isAudioActive ? glowOpacityActive : glowOpacity * 0.4,
-        }}
-        transition={{
-          backgroundColor: { duration: 0.6 },
-          scale: isAudioActive
-            ? { duration: 3, repeat: Infinity, ease: "easeInOut" }
-            : { duration: 1.2 },
-          opacity: isAudioActive
-            ? { duration: 3, repeat: Infinity, ease: "easeInOut" }
-            : { duration: 1.2 },
-        }}
+      <AmbientGlow
+        isDark={isDark}
+        isAudioActive={isAudioActive}
+        glowColor={glowColor}
+        glowOpacityActive={glowOpacityActive}
+        glowOpacity={glowOpacity}
       />
 
       {/* ── Top Header ────────────────────────────────────────────────────── */}
-      <motion.div
-        className="shrink-0 flex justify-between items-center p-4 sm:p-6 z-20 relative"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-      >
-        {/* Connection Status */}
-        <div className="flex items-center space-x-2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-white/50 dark:border-slate-700/50 shadow-lg dark:shadow-slate-950/50">
-          <div className="relative flex h-2 w-2 sm:h-3 sm:w-3">
-            <motion.span
-              className={`absolute inline-flex h-full w-full rounded-full ${currentConfig.dot}`}
-              animate={{ scale: [1, 1.8, 1], opacity: [0.8, 0, 0.8] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
-            />
-            <span
-              className={`relative inline-flex rounded-full h-full w-full ${currentConfig.color}`}
-            />
-          </div>
-          <span className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2">
-            <Radio size={12} className="sm:w-3.5 sm:h-3.5" />
-            {currentConfig.label}
-          </span>
-        </div>
-
-        {/* Timer & Credits */}
-        <div className="flex items-center space-x-3 z-20">
-          <AnimatePresence>
-            {isCallActive && (
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/30 dark:border-slate-700/30 shadow-sm flex items-center gap-2 h-fit"
-              >
-                {!showFreeTime && (
-                  <div className="flex flex-col items-center leading-tight min-w-[70px] sm:min-w-[85px] tabular-nums">
-                    <span className="text-base font-bold text-indigo-500 dark:text-indigo-400 tracking-tight">
-                      ${currentCostUSD.toFixed(4)}
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      {currentCostUGX.toLocaleString()} UGX
-                    </span>
-                  </div>
-                )}
-                {showFreeTime && (
-                  <div className="flex items-center gap-1.5 min-w-[65px] sm:min-w-[80px] justify-end tabular-nums">
-                    <Sparkles size={13} className="text-amber-500 shrink-0" />
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-tight whitespace-nowrap">
-                      {formatTime(remainingFreeSeconds)}
-                    </span>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <VoiceTimer duration={duration} isCallActive={isCallActive} />
-        </div>
-      </motion.div>
+      <VoiceHeader
+        currentConfig={currentConfig}
+        isCallActive={isCallActive}
+        showFreeTime={showFreeTime}
+        currentCostUSD={currentCostUSD}
+        currentCostUGX={currentCostUGX}
+        remainingFreeSeconds={remainingFreeSeconds}
+        duration={duration}
+      />
 
       {/* ── Main Visualizer ───────────────────────────────────────────────── */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center z-0 pt-16 pb-64 lg:pb-72 pointer-events-none">
-        {/* Status Text */}
-        <AnimatePresence mode="wait">
-          {wsStatus === "open" && (
-            <motion.div
-              key={status}
-              className="flex flex-col items-center mb-6 pointer-events-auto text-center px-4"
-              initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -12, filter: "blur(6px)" }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-            >
-              <h2
-                className={`text-xl sm:text-2xl font-bold ${palette.text} transition-colors duration-300`}
-              >
-                {getStatusText(status, wsStatus, voiceName)}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 h-5 italic">
-                {status === "speaking"
-                  ? "is responding..."
-                  : status === "listening"
-                    ? "Speak clearly into your microphone"
-                    : ""}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <VoiceVisualizer
+        status={status}
+        wsStatus={wsStatus}
+        effectiveStatus={effectiveStatus}
+        palette={palette}
+        ringColor={ringColor}
+        glowColor={glowColor}
+        isDark={isDark}
+        isAudioActive={isAudioActive}
+        voiceName={voiceName}
+        onStart={onStart}
+      />
 
-        {/* Orb + Rings */}
-        <div className="relative w-48 h-48 sm:w-72 sm:h-72 flex items-center justify-center pointer-events-auto">
-          {/* Outer Dashed Spinner */}
-          <OrbRing
-            color={ringColor}
-            size={280}
-            status={status}
-            dashed
-            opacity={0.25}
-          />
-
-          {/* Mid Pulse Ring */}
-          <OrbRing
-            color={ringColor}
-            size={230}
-            status={status}
-            delay={0.1}
-            opacity={isDark ? 0.35 : 0.5}
-          />
-
-          {/* Inner Pulse Ring */}
-          <OrbRing
-            color={ringColor}
-            size={180}
-            status={status}
-            delay={0.2}
-            opacity={isDark ? 0.5 : 0.7}
-          />
-
-          {/* Center Orb */}
-          <motion.div
-            className="relative z-10 w-24 h-24 sm:w-36 sm:h-36 rounded-full flex items-center justify-center overflow-hidden shadow-2xl cursor-pointer"
-            style={{
-              background: `linear-gradient(135deg, ${palette.orbFrom}, ${palette.orbTo})`,
-              boxShadow: `0 0 ${isDark ? 60 : 45}px ${isDark ? 8 : 16}px ${glowColor}${isDark ? "40" : "75"}, inset 0 2px 10px rgba(255,255,255,0.3)`,
-            }}
-            animate={{
-              scale:
-                status === "speaking"
-                  ? [1, 1.04, 1]
-                  : status === "listening"
-                    ? [1, 1.02, 1]
-                    : 1,
-              filter:
-                status === "idle" || status === "muted"
-                  ? "saturate(0.3) brightness(0.8)"
-                  : "saturate(1.2) brightness(1.05)",
-            }}
-            transition={{
-              scale: {
-                duration: status === "speaking" ? 1.5 : 1.2,
-                repeat: isAudioActive ? Infinity : 0,
-                ease: "easeInOut",
-              },
-              filter: { duration: 0.5 },
-              background: { duration: 0.6 },
-            }}
-            whileHover={!isCallActive ? { scale: 1.05 } : undefined}
-            whileTap={!isCallActive ? { scale: 0.97 } : undefined}
-          >
-            {/* Inner highlight */}
-            <div className="absolute inset-0 bg-white/10 dark:bg-white/5 pointer-events-none rounded-full blur-sm -translate-y-1/2 -translate-x-1/4 scale-75" />
-
-            <AnimatePresence mode="wait">
-              {/* Processing */}
-              {status === "processing" && (
-                <motion.div
-                  key="processing"
-                  className="absolute inset-0 flex items-center justify-center"
-                  initial={{ opacity: 0, rotate: -90 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  exit={{ opacity: 0, rotate: 90 }}
-                  transition={{ duration: 0.35 }}
-                >
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                  >
-                    <BrainCircuit className="w-8 h-8 sm:w-12 sm:h-12 text-white" />
-                  </motion.div>
-                </motion.div>
-              )}
-
-              {/* Speaking */}
-              {status === "speaking" && (
-                <motion.div
-                  key="speaking"
-                  className="absolute inset-0 flex items-center justify-center"
-                  initial={{ opacity: 0, scale: 0.7 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.7 }}
-                  transition={{ duration: 0.35 }}
-                >
-                  <motion.div
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  >
-                    <BrainCircuit className="w-10 h-10 sm:w-14 sm:h-14 text-white" />
-                  </motion.div>
-                </motion.div>
-              )}
-
-              {/* Listening — animated waveform bars */}
-              {status === "listening" && (
-                <motion.div
-                  key="listening"
-                  className="absolute inset-0 flex items-center justify-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex gap-0.5 sm:gap-1 items-center justify-center h-8 sm:h-10">
-                    <WaveBar delay={0} heights={[8, 24, 8]} />
-                    <WaveBar delay={0.15} heights={[20, 36, 20]} />
-                    <WaveBar delay={0.05} heights={[14, 30, 14]} />
-                    <WaveBar delay={0.2} heights={[10, 20, 10]} />
-                    <WaveBar delay={0.1} heights={[18, 32, 18]} />
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Muted */}
-              {status === "muted" && (
-                <motion.div
-                  key="muted"
-                  className="absolute inset-0 flex items-center justify-center"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <MicOff className="w-8 h-8 sm:w-12 sm:h-12 text-white/70" />
-                </motion.div>
-              )}
-
-              {/* Disconnected / Closed */}
-              {status === "closed" && (
-                <motion.button
-                  key="closed"
-                  onClick={onStart}
-                  className="absolute inset-0 flex flex-col items-center justify-center text-white"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <RefreshCcw className="w-10 h-10 sm:w-14 sm:h-14 mb-1" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">
-                    Restart
-                  </span>
-                </motion.button>
-              )}
-
-              {/* Startup/Error Button Logic */}
-              {(status === "idle" || effectiveStatus === "error") &&
-                status !== "closed" && (
-                  <motion.button
-                    key={
-                      effectiveStatus === "error" ? "retry-btn" : "start-btn"
-                    }
-                    onClick={onStart}
-                    className="absolute inset-0 flex flex-col items-center justify-center text-white"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    disabled={wsStatus === "connecting"}
-                  >
-                    <motion.div
-                      animate={
-                        wsStatus === "connecting"
-                          ? { rotate: 360 }
-                          : { rotate: 0 }
-                      }
-                      transition={
-                        wsStatus === "connecting"
-                          ? { duration: 2, repeat: Infinity, ease: "linear" }
-                          : {}
-                      }
-                    >
-                      {effectiveStatus === "error" ? (
-                        <AlertCircle className="w-10 h-10 sm:w-14 sm:h-14" />
-                      ) : wsStatus === "connecting" ? (
-                        <Radio className="w-10 h-10 sm:w-14 sm:h-14 opacity-50" />
-                      ) : (
-                        <Mic className="w-10 h-10 sm:w-14 sm:h-14" />
-                      )}
-                    </motion.div>
-                  </motion.button>
-                )}
-            </AnimatePresence>
-          </motion.div>
-        </div>
-
-        {/* ── Guidance Labels (Below Orb) ─────────────────────────────────── */}
-        <div className="h-10 mt-8">
-          <AnimatePresence>
-            {wsStatus !== "open" && (
-              <motion.div
-                key={wsStatus}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="flex flex-col items-center gap-1"
-              >
-                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                  {wsStatus === "idle" && "Click Mic to Start"}
-                  {wsStatus === "connecting" && "Establishing Secure Line..."}
-                  {wsStatus === "closed" && "Session Ended"}
-                  {wsStatus === "error" && "Connection Interrupted"}
-                </p>
-                {wsStatus === "error" && (
-                  <p className="text-xs text-red-500/70 font-medium">
-                    Please check your network and try again
-                  </p>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* ── Live Transcript Panel (Only visible when connected) ───────────── */}
-      {wsStatus === "open" && (
-        <div className="absolute bottom-26 left-0 w-full px-4 flex justify-center z-10 pointer-events-none">
-          <motion.div
-            className="w-full max-w-2xl sm:max-w-3xl bg-transparent rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col pointer-events-auto"
-            style={{ minHeight: "9rem" }}
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            layout
-            transition={{ layout: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } }}
-          >
-            <div className="flex-1 p-6 sm:p-10 flex items-center justify-center relative">
-              <AnimatePresence mode="wait">
-                {/* Processing */}
-                {status === "processing" && (
-                  <motion.div
-                    key="proc-panel"
-                    className="flex flex-col items-center justify-center"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {/* <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-inner mb-4 sm:mb-6">
-                      <BrainCircuit
-                        size={28}
-                        className="sm:w-8 sm:h-8"
-                        strokeWidth={1.5}
-                      />
-                    </div> */}
-                    <div className="flex items-end gap-1.5">
-                      {[0, 0.15, 0.3].map((delay, i) => (
-                        <motion.span
-                          key={i}
-                          className="w-2 sm:w-3 h-2 sm:h-3 bg-indigo-500 rounded-full"
-                          animate={{ y: [0, -8, 0], opacity: [0.5, 1, 0.5] }}
-                          transition={{
-                            duration: 0.8,
-                            repeat: Infinity,
-                            delay,
-                            ease: "easeInOut",
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span className="mt-4 text-[10px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">
-                      Thinking...
-                    </span>
-                  </motion.div>
-                )}
-
-                {/* Transcript */}
-                {status !== "processing" && getDisplayText() && (
-                  <motion.div
-                    key={`${activeTranscript?.speaker ?? "none"}-${status}`}
-                    className="flex flex-col items-center text-center max-w-2xl w-full"
-                    initial={{ opacity: 0, y: 16, filter: "blur(2px)" }}
-                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, y: -16, filter: "blur(2px)" }}
-                    transition={{ duration: 0.45, ease: "easeOut" }}
-                  >
-                    <span
-                      className={`text-xs sm:text-[11px] font-bold uppercase tracking-[0.2em] mb-3 ${palette.text}`}
-                    >
-                      {status === "listening" && currentTranscript
-                        ? userName || "You"
-                        : activeTranscript?.speaker === "ai"
-                          ? voiceName || "Legal Adviser"
-                          : userName || "You"}
-                    </span>
-                    <p className="text-xs italic font-light text-slate-800 dark:text-slate-100 leading-relaxed">
-                      {getDisplayText()}
-                    </p>
-                  </motion.div>
-                )}
-
-                {/* Empty State / Listening Prompt */}
-                {status !== "processing" && !getDisplayText() && (
-                  <motion.div
-                    key="listening-prompt"
-                    className="flex flex-col items-center text-center"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.45 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <p className="text-sm font-medium text-slate-500 uppercase tracking-widest">
-                      Awaiting Neural Connection...
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      {/* ── Live Transcript Panel ────────────────────────────────────────── */}
+      <TranscriptPanel
+        wsStatus={wsStatus}
+        status={status}
+        getDisplayText={getDisplayText}
+        userName={userName}
+        voiceName={voiceName}
+        activeTranscript={activeTranscript}
+        currentTranscript={currentTranscript}
+        palette={palette}
+      />
 
       {/* ── Floating Controls ─────────────────────────────────────────────── */}
-      {wsStatus === "open" && (
-        <motion.div
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 w-fit"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-        >
-          <div className="flex items-center gap-3 sm:gap-6 bg-transparent backdrop-blur-2xl px-6 py-3 rounded-full shadow-[0_16px_48px_-8px_rgba(0,0,0,0.3)] dark:shadow-[0_16px_48px_-8px_rgba(0,0,0,0.6)]">
-            {/* Toggle Mic */}
-            <motion.button
-              onClick={() => setIsMuted(!isMuted)}
-              className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full shadow-sm ${
-                isMuted
-                  ? "bg-slate-200 dark:bg-slate-800 text-slate-500"
-                  : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200"
-              }`}
-              title={isMuted ? "Unmute Microphone" : "Mute Microphone"}
-              disabled={wsStatus !== "open"}
-              whileHover={wsStatus === "open" ? { scale: 1.12 } : undefined}
-              whileTap={wsStatus === "open" ? { scale: 0.92 } : undefined}
-              animate={{
-                opacity: wsStatus !== "open" ? 0.45 : 1,
-                // backgroundColor: isMuted ? "#e2e8f0" : "#ffffff",
-              }}
-              transition={{ duration: 0.2 }}
-            >
-              <AnimatePresence mode="wait">
-                {isMuted ? (
-                  <motion.div
-                    key="micoff"
-                    initial={{ rotate: -30, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 30, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <MicOff size={18} className="sm:w-[22px]" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="micon"
-                    initial={{ rotate: 30, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: -30, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Mic size={18} className="sm:w-[22px]" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
+      <VoiceControls
+        wsStatus={wsStatus}
+        isMuted={isMuted}
+        setIsMuted={setIsMuted}
+        isAudioMuted={isAudioMuted}
+        setIsAudioMuted={setIsAudioMuted}
+        onEnd={onEnd}
+      />
 
-            {/* End Call */}
-            <motion.button
-              onClick={onEnd}
-              className={`w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-full shadow-lg ${
-                wsStatus !== "open"
-                  ? "bg-slate-200 dark:bg-slate-800 text-slate-400"
-                  : "bg-red-500 text-white shadow-red-500/40"
-              }`}
-              title="End Call"
-              disabled={wsStatus !== "open"}
-              whileHover={
-                wsStatus === "open" ? { scale: 1.1, rotate: 15 } : undefined
-              }
-              whileTap={
-                wsStatus === "open" ? { scale: 0.9, rotate: -10 } : undefined
-              }
-              animate={{ opacity: wsStatus !== "open" ? 0.45 : 1 }}
-              transition={{ duration: 0.2 }}
-            >
-              <PhoneOff size={24} className="sm:w-[28px]" />
-            </motion.button>
-
-            {/* Toggle Audio */}
-            <motion.button
-              onClick={() => setIsAudioMuted(!isAudioMuted)}
-              className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full shadow-sm ${
-                isAudioMuted
-                  ? "bg-slate-200 dark:bg-slate-800 text-slate-500"
-                  : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200"
-              }`}
-              title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
-              disabled={wsStatus !== "open"}
-              whileHover={wsStatus === "open" ? { scale: 1.12 } : undefined}
-              whileTap={wsStatus === "open" ? { scale: 0.92 } : undefined}
-              animate={{ opacity: wsStatus !== "open" ? 0.45 : 1 }}
-              transition={{ duration: 0.2 }}
-            >
-              <AnimatePresence mode="wait">
-                {isAudioMuted ? (
-                  <motion.div
-                    key="voloff"
-                    initial={{ scale: 0.7, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.7, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <VolumeX size={18} className="sm:w-[22px]" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="volon"
-                    initial={{ scale: 0.7, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.7, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Volume2 size={18} className="sm:w-[22px]" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
-          </div>
-        </motion.div>
-      )}
       {/* ── Credit Exhausted Banner ────────────────────────────────────────── */}
       {isCreditExhausted && <ExhastedBanner />}
     </div>
