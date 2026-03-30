@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
 interface TransactionTableBodyProps {
   transactions: Transaction[];
@@ -111,8 +112,10 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
               <td
                 className={`px-6 py-4 font-mono text-sm font-medium ${t.amount > 0 ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white"}`}
               >
-                {t.amount > 0 ? "+" : ""}
-                {parseFloat(t.amount.toString()).toFixed(2)}
+                {t.amount > 0 ? "+" : ""}$
+                {parseFloat((t.amount / 100).toString()).toFixed(2)} (UGX{" "}
+                {((t.amount / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString()}
+                )
               </td>
               <td className="px-6 py-4 text-right">
                 <button

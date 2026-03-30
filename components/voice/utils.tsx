@@ -230,7 +230,7 @@ export const formatTime = (seconds: number) => {
 export const VoiceTimer = React.memo(
   ({ duration, isCallActive }: { duration: number; isCallActive: boolean }) => (
     <motion.div
-      className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-white/50 dark:border-slate-700/50 shadow-lg dark:shadow-slate-950/50 font-mono text-base sm:text-lg font-bold text-slate-800 dark:text-white min-w-[80px] sm:min-w-[100px] text-center"
+      className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-white/50 dark:border-slate-700/50 shadow-lg dark:shadow-slate-950/50 font-mono text-base sm:text-lg font-bold text-slate-800 dark:text-white min-w-[124px] sm:min-w-[145px] text-center tabular-nums"
       animate={{ opacity: isCallActive ? 1 : 0.5 }}
     >
       {formatTime(duration)}
