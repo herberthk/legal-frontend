@@ -129,7 +129,8 @@ export const getRelativeTime = (dateValue: string) => {
   return formatDistanceToNow(date, { addSuffix: true });
 };
 
-export const formatCost = (cost: number) => {
-  const ugxCost = Math.round(cost * USD_TO_UGX_EXCHANGE_RATE);
-  return `$${cost.toFixed(2)} (UGX ${ugxCost.toLocaleString()})`;
+export const formatCost = (costInCents: number) => {
+  const costInDollars = costInCents / 100;
+  const ugxCost = Math.round(costInDollars * USD_TO_UGX_EXCHANGE_RATE);
+  return `$${costInDollars.toFixed(2)} (UGX ${ugxCost.toLocaleString()})`;
 };

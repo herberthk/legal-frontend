@@ -1,7 +1,6 @@
 import { COLLECTIONS, COST_PER_THOUSAND_TOKENS } from "@/constants";
 import { db } from "@/firebase/client";
 import { clsx, type ClassValue } from "clsx";
-import { Timestamp } from "firebase-admin/firestore";
 import { doc, getDoc } from "firebase/firestore";
 import { twMerge } from "tailwind-merge";
 
