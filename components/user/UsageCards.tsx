@@ -63,9 +63,8 @@ const UsageCards: FC<Prop> = ({ user }) => {
           <p className="text-sm md:text-base font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
             USh{" "}
             {user?.balance || 0
-              ? (
-                  ((user?.balance || 0) / 100) *
-                  USD_TO_UGX_EXCHANGE_RATE
+              ? Math.round(
+                  ((user?.balance || 0) / 100) * USD_TO_UGX_EXCHANGE_RATE,
                 ).toLocaleString()
               : "0"}
           </p>
@@ -155,9 +154,8 @@ const UsageCards: FC<Prop> = ({ user }) => {
                     </p>
                     <p className="text-[10px] text-slate-500 font-medium">
                       USh{" "}
-                      {(
-                        ((user?.balance || 0) / 100) *
-                        USD_TO_UGX_EXCHANGE_RATE
+                      {Math.round(
+                        ((user?.balance || 0) / 100) * USD_TO_UGX_EXCHANGE_RATE,
                       ).toLocaleString()}
                     </p>
                   </div>
@@ -289,9 +287,8 @@ const UsageCards: FC<Prop> = ({ user }) => {
                     </p>
                     <p className="text-[10px] text-slate-500 font-medium">
                       USh{" "}
-                      {(
-                        ((user?.balance || 0) / 100) *
-                        USD_TO_UGX_EXCHANGE_RATE
+                      {Math.round(
+                        ((user?.balance || 0) / 100) * USD_TO_UGX_EXCHANGE_RATE,
                       ).toLocaleString()}
                     </p>
                   </div>

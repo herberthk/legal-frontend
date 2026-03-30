@@ -153,9 +153,11 @@ const BillingCard: React.FC<BillingCardProps> = ({ user }) => {
             <h2 className="text-5xl font-bold tracking-tight mb-2 text-slate-900 dark:text-white">
               ${(balance / 100).toFixed(2)}
             </h2>
-            <p className="text-lg text-slate-500 font-medium mb-6">
+            <p className="text-lg ml-2 text-slate-500 font-medium mb-6">
               USh{" "}
-              {((balance / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString()}
+              {Math.round(
+                (balance / 100) * USD_TO_UGX_EXCHANGE_RATE,
+              ).toLocaleString()}
             </p>
             <div className="flex space-x-3">
               <button
