@@ -133,6 +133,12 @@ export const sideBarItems = (role: Role): MenuItems[] => {
           ],
         },
         {
+          id: "/dashboard/user/transcribe",
+          label: "Transcribe",
+          icon: <FileTextIcon size={20} />,
+          href: "/dashboard/user/transcribe",
+        },
+        {
           id: "/dashboard/user/transactions",
           label: "Transactions",
           icon: <CreditCard size={20} />,
