@@ -30,46 +30,43 @@ export function EditorView({
   return (
     <motion.div
       key="editor"
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="h-[calc(100vh-12rem)]"
+      exit={{ opacity: 0, y: -30 }}
+      className="flex flex-col h-full min-h-[85vh] w-full max-w-[1500px] mx-auto"
     >
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2 bg-white rounded-full p-1.5 border border-[#1a1a1a]/10 shadow-sm">
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 mb-8 px-2">
+
+        <div className="flex items-center gap-2 bg-white dark:bg-[#0a0a0a] rounded-2xl p-1.5 border border-indigo-500/10 dark:border-indigo-400/10 shadow-xl shadow-indigo-500/5">
           <button
             onClick={() => setStatus("editing")}
-            className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${status === "editing" ? "bg-[#1a1a1a] text-[#f5f2ed] shadow-md scale-[1.02]" : "text-[#1a1a1a]/60 hover:text-[#1a1a1a] hover:bg-[#1a1a1a]/5"}`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${status === "editing" ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-500/30" : "text-indigo-900/40 dark:text-indigo-100/40 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"}`}
           >
-            <div className="flex items-center gap-2">
-              <Edit3 className="w-4 h-4" />
-              Edit
-            </div>
+            <Edit3 className="w-4 h-4" />
+            Edit Transcription
           </button>
           <button
             onClick={() => setStatus("previewing")}
-            className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${status === "previewing" ? "bg-[#1a1a1a] text-[#f5f2ed] shadow-md scale-[1.02]" : "text-[#1a1a1a]/60 hover:text-[#1a1a1a] hover:bg-[#1a1a1a]/5"}`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${status === "previewing" ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-500/30" : "text-indigo-900/40 dark:text-indigo-100/40 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"}`}
           >
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Preview
-            </div>
+            <FileText className="w-4 h-4" />
+            Final Preview
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           {status === "previewing" && (
             <>
               <button
                 onClick={onShowReference}
-                className="px-6 py-2.5 rounded-full bg-white border border-[#1a1a1a]/10 text-[#1a1a1a] font-medium hover:bg-[#f5f2ed] transition-all duration-300 flex items-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white dark:bg-[#0a0a0a] border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-100 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-all duration-300 shadow-sm border-b-4 active:border-b-0 active:translate-y-1"
               >
                 <FileImage className="w-4 h-4" />
-                View Original
+                Original
               </button>
               <button
                 onClick={onDownload}
-                className="px-6 py-2.5 rounded-full bg-[#1a1a1a] text-[#f5f2ed] font-medium hover:bg-[#1a1a1a]/90 transition-all duration-300 flex items-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-orange-600 text-white font-bold hover:bg-orange-700 transition-all duration-300 shadow-lg shadow-orange-500/20 active:scale-95 active:translate-y-1 border-b-4 border-orange-800"
               >
                 <Download className="w-4 h-4" />
                 Download PDF
@@ -79,45 +76,45 @@ export function EditorView({
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-xl border border-[#1a1a1a]/10 h-full overflow-hidden flex transition-shadow duration-500 hover:shadow-2xl">
-        {/* Left side: Original Document Reference */}
+      <div className="bg-white dark:bg-[#0a0a0a] rounded-[2.5rem] shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 flex-1 overflow-hidden flex flex-col md:flex-row transition-shadow duration-500">
+        {/* Responsive Side: Original Document Reference */}
         {previewUrl && status === "editing" && (
-          <div className="w-1/3 border-r border-[#1a1a1a]/10 bg-[#f5f2ed]/50 p-6 overflow-y-auto flex flex-col">
-            <div className="sticky top-0 pb-4 mb-4 border-b border-[#1a1a1a]/10 flex items-center gap-2 text-[#1a1a1a]/60 bg-[#f5f2ed]/50 backdrop-blur-sm z-10">
-              <FileImage className="w-4 h-4" />
-              <span className="text-xs font-mono uppercase tracking-wider">
-                Original Reference
-              </span>
+          <div className="w-full md:w-[35%] border-b md:border-b-0 md:border-r border-indigo-500/10 dark:border-indigo-400/10 bg-indigo-50/20 dark:bg-indigo-950/10 p-6 flex flex-col min-h-[300px] md:min-h-0">
+            <div className="sticky top-0 pb-4 mb-4 border-b border-indigo-500/10 dark:border-indigo-400/10 flex items-center gap-2 text-indigo-900/60 dark:text-indigo-100/60 z-10 font-bold text-xs uppercase tracking-widest">
+              <FileImage className="w-4 h-4 text-orange-500" />
+              Source Document
             </div>
             {file?.type === "application/pdf" ? (
               <iframe
                 src={`${previewUrl}#toolbar=0`}
-                className="w-full flex-1 min-h-[500px] rounded-xl border border-[#1a1a1a]/10 shadow-md bg-white transition-shadow hover:shadow-lg"
+                className="w-full flex-1 rounded-2xl border border-indigo-200 dark:border-indigo-900 shadow-inner bg-white dark:bg-black/20"
               />
             ) : (
-              <div className="relative w-full h-[500px] rounded-xl border border-[#1a1a1a]/10 shadow-md overflow-hidden bg-white">
+              <div className="relative w-full h-full min-h-[300px] rounded-2xl border border-indigo-200 dark:border-indigo-900 shadow-xl overflow-hidden bg-white/50 dark:bg-black/20 backdrop-blur-sm group">
                 <Image
                   src={previewUrl}
                   alt="Reference"
                   fill
                   style={{ objectFit: "contain" }}
                   unoptimized
-                  className="transition-shadow hover:shadow-lg"
+                  className="transition-transform duration-700 group-hover:scale-105"
                 />
               </div>
             )}
           </div>
         )}
 
-        {/* Right side: Editor or Preview */}
+        {/* Responsive Main: Editor or Preview */}
         <div
-          className={`flex-1 flex flex-col overflow-hidden bg-[#f5f2ed]/30 items-center overflow-y-auto p-8`}
+          className={`flex-1 flex flex-col overflow-hidden bg-white/20 dark:bg-black/40 items-center overflow-y-auto p-4 md:p-8`}
         >
-          <TiptapEditor
-            content={transcription}
-            onChange={setTranscription}
-            readOnly={status === "previewing"}
-          />
+          <div className="w-full max-w-4xl min-h-full">
+            <TiptapEditor
+              content={transcription}
+              onChange={setTranscription}
+              readOnly={status === "previewing"}
+            />
+          </div>
         </div>
       </div>
     </motion.div>
