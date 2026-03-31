@@ -185,7 +185,6 @@
 /* Custom styles to match PDF output exactly */
 .pdf-preview-styles {
   font-family: "Times New Roman", Times, serif;
-  color: #1a1a1a;
   text-align: justify;
 }
 

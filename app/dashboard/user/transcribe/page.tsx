@@ -33,10 +33,10 @@ const Transcribe = () => {
   const [showReferenceModal, setShowReferenceModal] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-indigo-50/5 dark:bg-[#050505] transition-colors duration-500">
       <TranscribeHeader status={status} hasFile={!!file} onReset={reset} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-12">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16">
         <AnimatePresence mode="wait">
           {/* Upload Stage */}
           {status === "idle" && !file && (
@@ -45,31 +45,36 @@ const Transcribe = () => {
 
           {/* Processing/Options Stage */}
           {(status === "processing" || (status === "idle" && file)) && (
-            <ProcessingStep
-              key="processing"
-              status={status}
-              file={file}
-              previewUrl={previewUrl}
-              formatMode={formatMode}
-              setFormatMode={setFormatMode}
-              processDocument={processDocument}
-              error={error}
-            />
+            <div
+              key="processing-container"
+              className="h-full flex items-center justify-center"
+            >
+              <ProcessingStep
+                status={status}
+                file={file}
+                previewUrl={previewUrl}
+                formatMode={formatMode}
+                setFormatMode={setFormatMode}
+                processDocument={processDocument}
+                error={error}
+              />
+            </div>
           )}
 
           {/* Editing/Previewing Stage */}
           {(status === "editing" || status === "previewing") && (
-            <EditorView
-              key="editor"
-              status={status}
-              setStatus={setStatus}
-              transcription={transcription}
-              setTranscription={setTranscription}
-              previewUrl={previewUrl}
-              file={file}
-              onShowReference={() => setShowReferenceModal(true)}
-              onDownload={downloadPdf}
-            />
+            <div key="editor-container" className="h-full min-h-[700px]">
+              <EditorView
+                status={status}
+                setStatus={setStatus}
+                transcription={transcription}
+                setTranscription={setTranscription}
+                previewUrl={previewUrl}
+                file={file}
+                onShowReference={() => setShowReferenceModal(true)}
+                onDownload={downloadPdf}
+              />
+            </div>
           )}
         </AnimatePresence>
       </main>

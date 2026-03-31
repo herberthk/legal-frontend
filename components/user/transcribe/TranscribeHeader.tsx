@@ -11,18 +11,18 @@ interface TranscribeHeaderProps {
 
 export function TranscribeHeader({ status, hasFile, onReset }: TranscribeHeaderProps) {
   return (
-    <header className="border-b border-[#1a1a1a]/10 bg-white/50 backdrop-blur-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#1a1a1a] flex items-center justify-center text-[#f5f2ed]">
-            <FileText className="w-5 h-5" />
+    <header className="border-b border-indigo-500/10 dark:border-indigo-400/10 bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-xl sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 rotate-3 transition-transform hover:rotate-0">
+            <FileText className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-serif text-2xl font-bold tracking-tight">
+            <h1 className="font-serif text-2xl font-bold tracking-tight text-indigo-950 dark:text-indigo-50">
               Scribe
             </h1>
-            <p className="text-xs font-mono uppercase tracking-widest text-[#1a1a1a]/60">
-              Document Digitizer
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-orange-600 dark:text-orange-400 font-bold">
+              Premium Digitizer
             </p>
           </div>
         </div>
@@ -31,7 +31,7 @@ export function TranscribeHeader({ status, hasFile, onReset }: TranscribeHeaderP
           {(status !== "idle" || hasFile) && (
             <button
               onClick={onReset}
-              className="text-sm font-medium hover:text-[#1a1a1a]/70 transition-colors px-4 py-2 rounded-full hover:bg-[#1a1a1a]/5"
+              className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-orange-600 dark:hover:text-orange-400 transition-all duration-300 px-5 py-2.5 rounded-full hover:bg-orange-50 dark:hover:bg-orange-950/30 border border-transparent hover:border-orange-200 dark:hover:border-orange-900"
             >
               Start Over
             </button>
@@ -39,5 +39,6 @@ export function TranscribeHeader({ status, hasFile, onReset }: TranscribeHeaderP
         </div>
       </div>
     </header>
+
   );
 }
