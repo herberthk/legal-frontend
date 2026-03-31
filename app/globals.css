@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 @variant dark (&:is(.dark *));
@@ -163,8 +164,13 @@
 }
 
 @keyframes flash {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .animate-gradient-x {
@@ -174,4 +180,65 @@
 
 .animate-flash {
   animation: flash 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Custom styles to match PDF output exactly */
+.pdf-preview-styles {
+  font-family: "Times New Roman", Times, serif;
+  color: #1a1a1a;
+  text-align: justify;
+}
+
+.pdf-preview-styles h1 {
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+  font-size: 24px;
+  margin-bottom: 28px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.pdf-preview-styles h2 {
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+  font-size: 16px;
+  margin-top: 21px;
+  margin-bottom: 11.2px;
+}
+
+.pdf-preview-styles h3 {
+  font-family: "Times New Roman", Times, serif;
+  font-weight: bold;
+  font-size: 14px;
+  margin-top: 14px;
+  margin-bottom: 8.4px;
+}
+
+.pdf-preview-styles p {
+  margin-bottom: 14px;
+  text-align: justify;
+}
+
+.pdf-preview-styles ul,
+.pdf-preview-styles ol {
+  margin-bottom: 14px;
+  padding-left: 20px;
+  list-style-type: disc;
+}
+
+.pdf-preview-styles ol {
+  list-style-type: decimal;
+}
+
+.pdf-preview-styles li {
+  margin-bottom: 7px;
+}
+
+.pdf-preview-styles strong {
+  font-weight: bold;
+}
+
+.pdf-preview-styles em {
+  font-style: italic;
 }
