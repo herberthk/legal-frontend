@@ -12,6 +12,7 @@ import { UploadZone } from "@/components/user/transcribe/UploadZone";
 import { ProcessingStep } from "@/components/user/transcribe/ProcessingStep";
 import { EditorView } from "@/components/user/transcribe/EditorView";
 import { ReferenceModal } from "@/components/user/transcribe/ReferenceModal";
+import { PdfSettingsModal } from "@/components/user/transcribe/PdfSettingsModal";
 
 const Transcribe = () => {
   const {
@@ -28,10 +29,20 @@ const Transcribe = () => {
     processDocument,
     downloadPdf,
     reset,
+    setShowPageNumbers,
+    setPageNumberPosition,
+    setDocumentTitle,
+    setHeaderText,
+    setFooterText,
+    headerText,
+    footerText,
+    showPageNumbers,
+    pageNumberPosition,
+    documentTitle,
   } = useDocumentTranscribe();
 
   const [showReferenceModal, setShowReferenceModal] = useState(false);
-
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   return (
     <div className="min-h-screen flex flex-col bg-indigo-50/5 dark:bg-slate-900 transition-colors duration-500">
       <TranscribeHeader status={status} hasFile={!!file} onReset={reset} />
@@ -73,6 +84,7 @@ const Transcribe = () => {
                 file={file}
                 onShowReference={() => setShowReferenceModal(true)}
                 onDownload={downloadPdf}
+                setShowSettingsModal={setShowSettingsModal}
               />
             </div>
           )}
@@ -85,6 +97,23 @@ const Transcribe = () => {
         previewUrl={previewUrl}
         file={file}
       />
+
+      {/* Settings modal */}
+      {showSettingsModal && (
+        <PdfSettingsModal
+          setShowSettingsModal={setShowSettingsModal}
+          documentTitle={documentTitle}
+          setDocumentTitle={setDocumentTitle}
+          headerText={headerText}
+          setHeaderText={setHeaderText}
+          footerText={footerText}
+          setFooterText={setFooterText}
+          showPageNumbers={showPageNumbers}
+          setShowPageNumbers={setShowPageNumbers}
+          pageNumberPosition={pageNumberPosition}
+          setPageNumberPosition={setPageNumberPosition}
+        />
+      )}
     </div>
   );
 };

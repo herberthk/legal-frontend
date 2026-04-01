@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Edit3, FileText, FileImage, Download } from "lucide-react";
+import { Edit3, FileText, FileImage, Download, Settings } from "lucide-react";
 import Image from "next/image";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
 import { TranscribeStatus } from "@/hooks/use-document-transcribe";
@@ -15,6 +15,7 @@ interface EditorViewProps {
   file: File | null;
   onShowReference: () => void;
   onDownload: () => void;
+  setShowSettingsModal: (show: boolean) => void;
 }
 
 export function EditorView({
@@ -26,6 +27,7 @@ export function EditorView({
   file,
   onShowReference,
   onDownload,
+  setShowSettingsModal,
 }: EditorViewProps) {
   return (
     <motion.div
@@ -62,6 +64,14 @@ export function EditorView({
               >
                 <FileImage className="w-4 h-4" />
                 Original
+              </button>
+
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="p-2.5 rounded-full bg-white border border-[#1a1a1a]/10 text-[#1a1a1a]/60 hover:text-[#1a1a1a] hover:bg-[#f5f2ed] transition-all duration-300 shadow-sm hover:shadow-md"
+                title="PDF Settings"
+              >
+                <Settings className="w-4 h-4" />
               </button>
               <button
                 onClick={onDownload}
