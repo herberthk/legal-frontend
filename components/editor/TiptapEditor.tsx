@@ -63,14 +63,18 @@ const MenuBar = ({ editor }: { editor: any }) => {
 
       <div className="flex items-center gap-1 px-2 border-r border-indigo-500/10 dark:border-indigo-400/10">
         <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 1 }).run()
+          }
           className={`p-2 rounded-lg hover:bg-indigo-500/10 dark:hover:bg-indigo-400/10 transition-all ${editor.isActive("heading", { level: 1 }) ? "bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400" : "text-indigo-950/40 dark:text-indigo-100/40"}`}
           title="Heading 1"
         >
           <Heading1 className="w-4 h-4" />
         </button>
         <button
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run()
+          }
           className={`p-2 rounded-lg hover:bg-indigo-500/10 dark:hover:bg-indigo-400/10 transition-all ${editor.isActive("heading", { level: 2 }) ? "bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400" : "text-indigo-950/40 dark:text-indigo-100/40"}`}
           title="Heading 2"
         >
@@ -128,7 +132,8 @@ export function TiptapEditor({
     },
     editorProps: {
       attributes: {
-        class: "pdf-preview-styles focus:outline-none min-h-full transition-colors",
+        class:
+          "pdf-preview-styles focus:outline-none min-h-full transition-colors",
         style: "color: inherit;", // Ensure it inherits the foreground color
       },
     },
@@ -142,7 +147,7 @@ export function TiptapEditor({
 
   return (
     <div
-      className={`flex flex-col w-full max-w-5xl mx-auto shadow-2xl rounded-2xl overflow-hidden bg-white dark:bg-[#0a0a0a] border border-indigo-500/10 dark:border-indigo-400/10 h-full transition-all group`}
+      className={`flex flex-col w-full max-w-5xl mx-auto shadow-2xl rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-indigo-500/10 dark:border-indigo-400/10 h-full transition-all group`}
     >
       {!readOnly && <MenuBar editor={editor} />}
       <div
@@ -153,9 +158,11 @@ export function TiptapEditor({
           lineHeight: 1.6,
         }}
       >
-        <EditorContent editor={editor} className="h-full min-h-[600px] text-indigo-950 dark:text-indigo-50" />
+        <EditorContent
+          editor={editor}
+          className="h-full min-h-[600px] text-indigo-950 dark:text-indigo-50 p-5"
+        />
       </div>
     </div>
   );
 }
-

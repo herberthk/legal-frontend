@@ -26,16 +26,16 @@ export function ReferenceModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-indigo-950/40 dark:bg-black/60 backdrop-blur-md z-50 transition-colors"
+            className="fixed inset-0 bg-indigo-950/40 dark:bg-slate-900 backdrop-blur-md z-50 transition-colors"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 40, rotateX: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 40, rotateX: 10 }}
             transition={{ type: "spring", damping: 20, stiffness: 100 }}
-            className="fixed top-[5%] bottom-[5%] left-[4%] right-[4%] md:left-[8%] md:right-[8%] bg-white dark:bg-[#0a0a0a] rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] border border-indigo-500/20 dark:border-indigo-400/10 z-50 overflow-hidden flex flex-col"
+            className="fixed top-[5%] bottom-[5%] left-[4%] right-[4%] md:left-[8%] md:right-[8%] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] border border-indigo-500/20 dark:border-indigo-400/10 z-50 overflow-hidden flex flex-col"
           >
-            <div className="flex items-center justify-between p-6 md:p-8 border-b border-indigo-500/10 dark:border-indigo-400/10 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl">
+            <div className="flex items-center justify-between p-6 md:p-8 border-b border-indigo-500/10 dark:border-indigo-400/10 bg-white/80 dark:bg-slate-900 backdrop-blur-xl">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 shadow-inner">
                   <FileImage className="w-6 h-6" />
@@ -51,13 +51,13 @@ export function ReferenceModal({
               </div>
               <button
                 onClick={onClose}
-                className="w-12 h-12 rounded-2xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-950/40 hover:bg-orange-500 dark:hover:bg-orange-600 transition-all duration-300 text-indigo-600 dark:text-indigo-400 hover:text-white group border border-indigo-100 dark:border-indigo-800/50 hover:scale-105 active:scale-95 shadow-sm"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center bg-indigo-50 dark:bg-slate-900 hover:bg-orange-500 dark:hover:bg-orange-600 transition-all duration-300 text-indigo-600 dark:text-indigo-400 hover:text-white group border border-indigo-100 dark:border-indigo-800/50 hover:scale-105 active:scale-95 shadow-sm"
               >
                 <X className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-auto p-6 md:p-10 bg-indigo-50/30 dark:bg-black/40 flex justify-center items-start">
+            <div className="flex-1 overflow-auto p-6 md:p-10 bg-indigo-50/30 dark:bg-slate-900 flex justify-center items-start">
               {file?.type === "application/pdf" ? (
                 <iframe
                   src={`${previewUrl}#toolbar=0`}
@@ -80,6 +80,5 @@ export function ReferenceModal({
         </>
       )}
     </AnimatePresence>
-
   );
 }
