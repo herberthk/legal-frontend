@@ -129,7 +129,7 @@ const EditorSelect = memo(
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 py-2 z-[60] max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in duration-200">
+          <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 py-2 z-60 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in duration-200">
             {options.map((option) => (
               <button
                 key={option.value}
