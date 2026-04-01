@@ -1,9 +1,20 @@
-import { useState, useCallback, useMemo, Dispatch, SetStateAction } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  Dispatch,
+  SetStateAction,
+} from "react";
 import { GoogleGenAI } from "@google/genai";
 import { pdf } from "@react-pdf/renderer";
 import { PDFDocument } from "@/components/editor/PDFDocument";
 
-export type TranscribeStatus = "idle" | "processing" | "editing" | "previewing" | "error";
+export type TranscribeStatus =
+  | "idle"
+  | "processing"
+  | "editing"
+  | "previewing"
+  | "error";
 export type FormatMode = "professional" | "original";
 
 interface UseDocumentTranscribeReturn {
@@ -102,7 +113,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
             `Transcribe all text from this document (both typed and handwritten) exactly as it appears. Maintain the original structure, line breaks, and formatting as closely as possible. Do not add any new headings or correct errors unless they are completely illegible.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash", // Assuming this is the desired stable version or keep as is
+        model: "gemini-2.5-flash",
         contents: {
           parts: [
             {
@@ -199,7 +210,15 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
         `Failed to generate PDF: ${err?.message || "Unknown rendering error"}. Please check if the transcription contains unsupported characters.`,
       );
     }
-  }, [transcription, documentTitle, file, headerText, footerText, showPageNumbers, pageNumberPosition]);
+  }, [
+    transcription,
+    documentTitle,
+    file,
+    headerText,
+    footerText,
+    showPageNumbers,
+    pageNumberPosition,
+  ]);
 
   const reset = useCallback(() => {
     setFile(null);
@@ -209,48 +228,51 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     setError(null);
   }, []);
 
-  return useMemo(() => ({
-    file,
-    previewUrl,
-    status,
-    transcription,
-    formatMode,
-    error,
-    setFile,
-    setPreviewUrl,
-    setStatus,
-    setTranscription,
-    setFormatMode,
-    setError,
-    handleDrop,
-    processDocument,
-    downloadPdf,
-    reset,
-    setHeaderText,
-    setFooterText,
-    setShowPageNumbers,
-    setPageNumberPosition,
-    setDocumentTitle,
-    headerText,
-    footerText,
-    showPageNumbers,
-    pageNumberPosition,
-    documentTitle,
-  }), [
-    file,
-    previewUrl,
-    status,
-    transcription,
-    formatMode,
-    error,
-    handleDrop,
-    processDocument,
-    downloadPdf,
-    reset,
-    headerText,
-    footerText,
-    showPageNumbers,
-    pageNumberPosition,
-    documentTitle,
-  ]);
+  return useMemo(
+    () => ({
+      file,
+      previewUrl,
+      status,
+      transcription,
+      formatMode,
+      error,
+      setFile,
+      setPreviewUrl,
+      setStatus,
+      setTranscription,
+      setFormatMode,
+      setError,
+      handleDrop,
+      processDocument,
+      downloadPdf,
+      reset,
+      setHeaderText,
+      setFooterText,
+      setShowPageNumbers,
+      setPageNumberPosition,
+      setDocumentTitle,
+      headerText,
+      footerText,
+      showPageNumbers,
+      pageNumberPosition,
+      documentTitle,
+    }),
+    [
+      file,
+      previewUrl,
+      status,
+      transcription,
+      formatMode,
+      error,
+      handleDrop,
+      processDocument,
+      downloadPdf,
+      reset,
+      headerText,
+      footerText,
+      showPageNumbers,
+      pageNumberPosition,
+      documentTitle,
+    ],
+  );
 };
