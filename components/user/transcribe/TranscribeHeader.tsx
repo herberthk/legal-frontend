@@ -9,9 +9,13 @@ interface TranscribeHeaderProps {
   onReset: () => void;
 }
 
-export function TranscribeHeader({ status, hasFile, onReset }: TranscribeHeaderProps) {
+export function TranscribeHeader({
+  status,
+  hasFile,
+  onReset,
+}: TranscribeHeaderProps) {
   return (
-    <header className="border-b border-indigo-500/10 dark:border-indigo-400/10 bg-white/70 dark:bg-[#0a0a0a]/70 backdrop-blur-xl sticky top-0 z-50">
+    <header className="border-b border-indigo-500/10 dark:border-indigo-400/10 bg-white/70 dark:bg-slate-900 backdrop-blur-xl sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 rotate-3 transition-transform hover:rotate-0">
@@ -39,6 +43,5 @@ export function TranscribeHeader({ status, hasFile, onReset }: TranscribeHeaderP
         </div>
       </div>
     </header>
-
   );
 }

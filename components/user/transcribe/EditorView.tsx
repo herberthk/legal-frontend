@@ -36,8 +36,7 @@ export function EditorView({
       className="flex flex-col h-full min-h-[85vh] w-full max-w-[1500px] mx-auto"
     >
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6 mb-8 px-2">
-
-        <div className="flex items-center gap-2 bg-white dark:bg-[#0a0a0a] rounded-2xl p-1.5 border border-indigo-500/10 dark:border-indigo-400/10 shadow-xl shadow-indigo-500/5">
+        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-2xl p-1.5 border border-indigo-500/10 dark:border-indigo-400/10 shadow-xl shadow-indigo-500/5">
           <button
             onClick={() => setStatus("editing")}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${status === "editing" ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-500/30" : "text-indigo-900/40 dark:text-indigo-100/40 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"}`}
@@ -76,10 +75,10 @@ export function EditorView({
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#0a0a0a] rounded-[2.5rem] shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 flex-1 overflow-hidden flex flex-col md:flex-row transition-shadow duration-500">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 flex-1 overflow-hidden flex flex-col md:flex-row transition-shadow duration-500">
         {/* Responsive Side: Original Document Reference */}
         {previewUrl && status === "editing" && (
-          <div className="w-full md:w-[35%] border-b md:border-b-0 md:border-r border-indigo-500/10 dark:border-indigo-400/10 bg-indigo-50/20 dark:bg-indigo-950/10 p-6 flex flex-col min-h-[300px] md:min-h-0">
+          <div className="w-full md:w-[35%] border-b md:border-b-0 md:border-r border-indigo-500/10 dark:border-indigo-400/10 bg-indigo-50/20 dark:bg-slate-900 p-6 flex flex-col min-h-[300px] md:min-h-0">
             <div className="sticky top-0 pb-4 mb-4 border-b border-indigo-500/10 dark:border-indigo-400/10 flex items-center gap-2 text-indigo-900/60 dark:text-indigo-100/60 z-10 font-bold text-xs uppercase tracking-widest">
               <FileImage className="w-4 h-4 text-orange-500" />
               Source Document
@@ -87,7 +86,7 @@ export function EditorView({
             {file?.type === "application/pdf" ? (
               <iframe
                 src={`${previewUrl}#toolbar=0`}
-                className="w-full flex-1 rounded-2xl border border-indigo-200 dark:border-indigo-900 shadow-inner bg-white dark:bg-black/20"
+                className="w-full flex-1 rounded-2xl border border-indigo-200 dark:border-indigo-900 shadow-inner bg-white dark:bg-slate-900"
               />
             ) : (
               <div className="relative w-full h-full min-h-[300px] rounded-2xl border border-indigo-200 dark:border-indigo-900 shadow-xl overflow-hidden bg-white/50 dark:bg-black/20 backdrop-blur-sm group">
@@ -106,7 +105,7 @@ export function EditorView({
 
         {/* Responsive Main: Editor or Preview */}
         <div
-          className={`flex-1 flex flex-col overflow-hidden bg-white/20 dark:bg-black/40 items-center overflow-y-auto p-4 md:p-8`}
+          className={`flex-1 flex flex-col overflow-hidden bg-white/20 dark:bg-slate-900 items-center overflow-y-auto p-4`}
         >
           <div className="w-full max-w-4xl min-h-full">
             <TiptapEditor

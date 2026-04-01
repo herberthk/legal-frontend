@@ -32,11 +32,9 @@ export function ProcessingStep({
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="max-w-[1400px] mx-auto w-full"
     >
-      <div className="bg-white dark:bg-[#0a0a0a] rounded-[3rem] p-8 md:p-14 shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 overflow-hidden relative">
+      <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 md:p-14 shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 overflow-hidden relative">
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-20 items-stretch relative z-10">
           <div className="w-full lg:w-3/5 aspect-3/4 rounded-[2rem] overflow-hidden bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 relative shadow-inner">
-
-
             {previewUrl && (
               <div className="relative w-full h-full">
                 <Image
@@ -79,16 +77,13 @@ export function ProcessingStep({
 
           <div className="w-full lg:w-2/5 flex flex-col justify-center py-4">
             {status === "processing" ? (
-
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="flex flex-col items-center justify-center text-center space-y-10 py-10"
               >
                 <div className="relative w-32 h-32 flex items-center justify-center">
-                  <motion.div 
-                    className="absolute inset-0 border-[3px] border-indigo-500/10 rounded-full" 
-                  />
+                  <motion.div className="absolute inset-0 border-[3px] border-indigo-500/10 rounded-full" />
                   <motion.div
                     className="absolute inset-0 border-[3px] border-orange-500 rounded-full border-t-transparent border-l-transparent"
                     animate={{ rotate: 360 }}
@@ -127,7 +122,9 @@ export function ProcessingStep({
                   </h3>
                   <p className="text-indigo-900/60 dark:text-indigo-100/60 text-lg leading-relaxed">
                     Analyzing handwritten patterns <br />
-                    <span className="text-orange-600 dark:text-orange-400 font-medium">Applying AI formatting</span>
+                    <span className="text-orange-600 dark:text-orange-400 font-medium">
+                      Applying AI formatting
+                    </span>
                   </p>
                 </div>
               </motion.div>
@@ -176,7 +173,9 @@ export function ProcessingStep({
                         className="mt-1.5 w-5 h-5 accent-orange-600 cursor-pointer"
                       />
                       <div className="relative z-10">
-                        <p className={`font-bold text-xl mb-1 transition-colors ${formatMode === opt.id ? "text-orange-700 dark:text-orange-400" : "text-indigo-950 dark:text-indigo-100"}`}>
+                        <p
+                          className={`font-bold text-xl mb-1 transition-colors ${formatMode === opt.id ? "text-orange-700 dark:text-orange-400" : "text-indigo-950 dark:text-indigo-100"}`}
+                        >
                           {opt.title}
                         </p>
                         <p className="text-sm text-indigo-900/60 dark:text-indigo-100/50 leading-relaxed font-medium">
@@ -184,9 +183,9 @@ export function ProcessingStep({
                         </p>
                       </div>
                       {formatMode === opt.id && (
-                        <motion.div 
+                        <motion.div
                           layoutId="active-bg"
-                          className="absolute inset-0 bg-linear-to-r from-orange-100/20 to-transparent dark:from-orange-500/10 opacity-50" 
+                          className="absolute inset-0 bg-linear-to-r from-orange-100/20 to-transparent dark:from-orange-500/10 opacity-50"
                         />
                       )}
                     </label>
@@ -217,6 +216,5 @@ export function ProcessingStep({
         </div>
       </div>
     </motion.div>
-
   );
 }
