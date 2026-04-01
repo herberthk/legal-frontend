@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, Dispatch, SetStateAction } from "react";
 import { GoogleGenAI } from "@google/genai";
 import { pdf } from "@react-pdf/renderer";
 import { PDFDocument } from "@/components/editor/PDFDocument";
@@ -25,6 +25,25 @@ interface UseDocumentTranscribeReturn {
   processDocument: () => Promise<void>;
   downloadPdf: () => Promise<void>;
   reset: () => void;
+  setShowPageNumbers: Dispatch<SetStateAction<boolean>>;
+  setPageNumberPosition: Dispatch<
+    SetStateAction<
+      | "bottom-center"
+      | "bottom-right"
+      | "bottom-left"
+      | "top-center"
+      | "top-right"
+      | "top-left"
+    >
+  >;
+  setDocumentTitle: Dispatch<SetStateAction<string>>;
+  setHeaderText: Dispatch<SetStateAction<string>>;
+  setFooterText: Dispatch<SetStateAction<string>>;
+  documentTitle: string;
+  headerText: string;
+  footerText: string;
+  showPageNumbers: boolean;
+  pageNumberPosition: string;
 }
 
 export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
@@ -34,6 +53,18 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
   const [transcription, setTranscription] = useState("");
   const [formatMode, setFormatMode] = useState<FormatMode>("professional");
   const [error, setError] = useState<string | null>(null);
+  const [showPageNumbers, setShowPageNumbers] = useState<boolean>(true);
+  const [pageNumberPosition, setPageNumberPosition] = useState<
+    | "bottom-center"
+    | "bottom-right"
+    | "bottom-left"
+    | "top-center"
+    | "top-right"
+    | "top-left"
+  >("bottom-center");
+  const [documentTitle, setDocumentTitle] = useState("");
+  const [headerText, setHeaderText] = useState<string>("");
+  const [footerText, setFooterText] = useState<string>("");
 
   const handleDrop = useCallback((acceptedFiles: File[]) => {
     const selectedFile = acceptedFiles[0];
@@ -74,31 +105,52 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inlineData: {
-                  data: base64Data,
-                  mimeType: file.type,
-                },
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: file.type,
               },
-              { text: prompt },
-            ],
-          },
-        ],
+            },
+            { text: prompt },
+          ],
+        },
       });
 
       if (response.text) {
         setTranscription(response.text);
+
+        // Extract title from first heading (markdown or simple HTML)
+        const headingMatch =
+          response.text.match(/^#\s+(.+)$/m) ||
+          response.text.match(/<h1[^>]*>(.*?)<\/h1>/i);
+        if (headingMatch && headingMatch[1]) {
+          const cleanTitle = headingMatch[1].replace(/<[^>]*>?/gm, "").trim();
+          setDocumentTitle(cleanTitle);
+        } else {
+          setDocumentTitle(
+            file?.name?.replace(/\.[^/.]+$/, "") || "Untitled Document",
+          );
+        }
+
         setStatus("editing");
       } else {
         throw new Error("Failed to generate transcription.");
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      console.error("--- Document Processing Error ---", err);
+      console.error("--- Document Processing Error ---");
+      console.error("Error Name:", err?.name);
+      console.error("Error Message:", err?.message);
+      console.error("Stack Trace:", err?.stack);
+      console.error("Context:", {
+        fileName: file?.name,
+        fileType: file?.type,
+        fileSize: file?.size,
+        formatMode,
+      });
+      console.error("---------------------------------");
 
       let userMessage =
         "An unexpected error occurred while processing the document. Please try again.";
@@ -126,19 +178,38 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
   const downloadPdf = async () => {
     try {
       const blob = await pdf(
-        <PDFDocument content={transcription} filename={file?.name} />,
+        <PDFDocument
+          content={transcription}
+          filename={documentTitle || file?.name}
+          headerText={headerText || undefined}
+          footerText={footerText || undefined}
+          showPageNumbers={showPageNumbers}
+          pageNumberPosition={pageNumberPosition}
+        />,
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `scribe-document-${Date.now()}.pdf`;
+      const safeTitle = (documentTitle || file?.name || "document")
+        .replace(/[^a-z0-9]/gi, "_")
+        .toLowerCase();
+      link.download = `scribe-${safeTitle}-${Date.now()}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      console.error("--- PDF Generation Error ---", err);
+      console.error("--- PDF Generation Error ---");
+      console.error("Error Name:", err?.name);
+      console.error("Error Message:", err?.message);
+      console.error("Stack Trace:", err?.stack);
+      console.error("Context:", {
+        transcriptionLength: transcription?.length,
+        filename: file?.name,
+      });
+      console.error("----------------------------");
+
       setError(
         `Failed to generate PDF: ${err?.message || "Unknown rendering error"}. Please check if the transcription contains unsupported characters.`,
       );
@@ -170,5 +241,15 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     processDocument,
     downloadPdf,
     reset,
+    setHeaderText,
+    setFooterText,
+    setShowPageNumbers,
+    setPageNumberPosition,
+    setDocumentTitle,
+    headerText,
+    footerText,
+    showPageNumbers,
+    pageNumberPosition,
+    documentTitle,
   };
 };

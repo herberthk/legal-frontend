@@ -191,38 +191,38 @@
 .pdf-preview-styles h1 {
   font-family: "Times New Roman", Times, serif;
   font-weight: bold;
-  font-size: 24px;
-  margin-bottom: 28px;
+  font-size: 24pt;
+  margin-bottom: 28pt;
   text-align: center;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1pt;
 }
 
 .pdf-preview-styles h2 {
   font-family: "Times New Roman", Times, serif;
   font-weight: bold;
-  font-size: 16px;
-  margin-top: 21px;
-  margin-bottom: 11.2px;
+  font-size: 16pt;
+  margin-top: 21pt;
+  margin-bottom: 11.2pt;
 }
 
 .pdf-preview-styles h3 {
   font-family: "Times New Roman", Times, serif;
   font-weight: bold;
-  font-size: 14px;
-  margin-top: 14px;
-  margin-bottom: 8.4px;
+  font-size: 14pt;
+  margin-top: 14pt;
+  margin-bottom: 8.4pt;
 }
 
 .pdf-preview-styles p {
-  margin-bottom: 14px;
+  margin-bottom: 14pt;
   text-align: justify;
 }
 
 .pdf-preview-styles ul,
 .pdf-preview-styles ol {
-  margin-bottom: 14px;
-  padding-left: 20px;
+  margin-bottom: 14pt;
+  padding-left: 20pt;
   list-style-type: disc;
 }
 
@@ -231,7 +231,7 @@
 }
 
 .pdf-preview-styles li {
-  margin-bottom: 7px;
+  margin-bottom: 7pt;
 }
 
 .pdf-preview-styles strong {

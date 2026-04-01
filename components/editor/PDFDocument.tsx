@@ -1,11 +1,33 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  StyleSheet,
+  Link,
+} from "@react-pdf/renderer";
 
 export const PDFDocument = ({
   content,
   filename,
+  headerText,
+  footerText,
+  showPageNumbers = true,
+  pageNumberPosition = "bottom-center",
 }: {
   content: string;
   filename?: string;
+  headerText?: string;
+  footerText?: string;
+  showPageNumbers?: boolean;
+  pageNumberPosition?:
+    | "bottom-center"
+    | "bottom-right"
+    | "bottom-left"
+    | "top-center"
+    | "top-right"
+    | "top-left"
+    | string;
 }) => {
   // Hardcoded default settings
   const settings = {
@@ -13,42 +35,13 @@ export const PDFDocument = ({
     lineSpacing: 1.6,
     fontSize: 14,
   };
-  // Simple parser to handle basic markdown-like structure
-  const paragraphs = content.split("\n\n").filter(Boolean);
   const currentDate = new Date().toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
-  const renderInlineMarkdown = (text: string) => {
-    const parts = text.split(/(\*\*\*.*?\*\*\*|\*\*.*?\*\*|\*.*?\*|_.*?_)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith("***") && part.endsWith("***")) {
-        return (
-          <Text key={index} style={{ fontFamily: "Times-BoldItalic" }}>
-            {part.slice(3, -3)}
-          </Text>
-        );
-      } else if (part.startsWith("**") && part.endsWith("**")) {
-        return (
-          <Text key={index} style={{ fontFamily: "Times-Bold" }}>
-            {part.slice(2, -2)}
-          </Text>
-        );
-      } else if (
-        (part.startsWith("*") && part.endsWith("*")) ||
-        (part.startsWith("_") && part.endsWith("_"))
-      ) {
-        return (
-          <Text key={index} style={{ fontFamily: "Times-Italic" }}>
-            {part.slice(1, -1)}
-          </Text>
-        );
-      }
-      return <Text key={index}>{part}</Text>;
-    });
-  };
+  const defaultHeader = `${filename ? `${filename}` : "Digitized Document"} | ${currentDate}`;
 
   const dynamicStyles = StyleSheet.create({
     page: {
@@ -125,68 +118,288 @@ export const PDFDocument = ({
     },
   });
 
+  const getPageNumberStyle = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const base: any = {
+      position: "absolute",
+      fontSize: 9,
+      fontFamily: "Helvetica",
+      color: "#666666",
+      left: settings.margin,
+      right: settings.margin,
+    };
+
+    if (pageNumberPosition.startsWith("top")) {
+      base.top = 15;
+    } else {
+      base.bottom = 15;
+    }
+
+    if (pageNumberPosition.endsWith("left")) {
+      base.textAlign = "left";
+    } else if (pageNumberPosition.endsWith("right")) {
+      base.textAlign = "right";
+    } else {
+      base.textAlign = "center";
+    }
+
+    return base;
+  };
+
+  const renderHTML = (htmlContent: string) => {
+    if (typeof window === "undefined") {
+      return <Text>{htmlContent.replace(/<[^>]*>?/gm, "")}</Text>;
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, "text/html");
+    let keyCounter = 0;
+
+    const parseNode = (
+      node: ChildNode,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      inheritedStyles: any = {},
+      listContext?: { type: "ul" | "ol"; index: number },
+    ): React.ReactNode => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent;
+        if (!text) return null;
+        return (
+          <Text key={keyCounter++} style={inheritedStyles}>
+            {text}
+          </Text>
+        );
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        const tagName = el.tagName.toLowerCase();
+        const newStyles = { ...inheritedStyles };
+
+        // Handle inline styles
+        const fontFamily = el.style.fontFamily;
+        const fontSize = el.style.fontSize;
+        const textAlign = el.style.textAlign;
+
+        if (fontFamily) {
+          const family = fontFamily.toLowerCase();
+          const isBold = newStyles.fontFamily?.includes("Bold");
+          const isItalic =
+            newStyles.fontFamily?.includes("Italic") ||
+            newStyles.fontFamily?.includes("Oblique");
+
+          if (family.includes("times") || family.includes("serif")) {
+            newStyles.fontFamily =
+              isBold && isItalic
+                ? "Times-BoldItalic"
+                : isBold
+                  ? "Times-Bold"
+                  : isItalic
+                    ? "Times-Italic"
+                    : "Times-Roman";
+          } else if (family.includes("courier") || family.includes("mono")) {
+            newStyles.fontFamily =
+              isBold && isItalic
+                ? "Courier-BoldOblique"
+                : isBold
+                  ? "Courier-Bold"
+                  : isItalic
+                    ? "Courier-Oblique"
+                    : "Courier";
+          } else {
+            newStyles.fontFamily =
+              isBold && isItalic
+                ? "Helvetica-BoldOblique"
+                : isBold
+                  ? "Helvetica-Bold"
+                  : isItalic
+                    ? "Helvetica-Oblique"
+                    : "Helvetica";
+          }
+        }
+
+        if (fontSize) {
+          const parsedSize = parseInt(fontSize);
+          if (!isNaN(parsedSize)) {
+            newStyles.fontSize = parsedSize;
+          }
+        }
+
+        if (textAlign) {
+          newStyles.textAlign = textAlign;
+        }
+
+        // Handle tags
+        if (tagName === "strong" || tagName === "b") {
+          if (newStyles.fontFamily?.startsWith("Courier")) {
+            newStyles.fontFamily = newStyles.fontFamily.includes("Oblique")
+              ? "Courier-BoldOblique"
+              : "Courier-Bold";
+          } else if (newStyles.fontFamily?.startsWith("Helvetica")) {
+            newStyles.fontFamily = newStyles.fontFamily.includes("Oblique")
+              ? "Helvetica-BoldOblique"
+              : "Helvetica-Bold";
+          } else {
+            newStyles.fontFamily = newStyles.fontFamily?.includes("Italic")
+              ? "Times-BoldItalic"
+              : "Times-Bold";
+          }
+        } else if (tagName === "em" || tagName === "i") {
+          if (newStyles.fontFamily?.startsWith("Courier")) {
+            newStyles.fontFamily = newStyles.fontFamily.includes("Bold")
+              ? "Courier-BoldOblique"
+              : "Courier-Oblique";
+          } else if (newStyles.fontFamily?.startsWith("Helvetica")) {
+            newStyles.fontFamily = newStyles.fontFamily.includes("Bold")
+              ? "Helvetica-BoldOblique"
+              : "Helvetica-Oblique";
+          } else {
+            newStyles.fontFamily = newStyles.fontFamily?.includes("Bold")
+              ? "Times-BoldItalic"
+              : "Times-Italic";
+          }
+        } else if (
+          tagName === "s" ||
+          tagName === "strike" ||
+          tagName === "del"
+        ) {
+          newStyles.textDecoration = "line-through";
+        }
+
+        if (tagName === "ul" || tagName === "ol") {
+          let liIndex = 1;
+          const children = Array.from(node.childNodes).map((child) => {
+            if (
+              child.nodeType === Node.ELEMENT_NODE &&
+              (child as HTMLElement).tagName.toLowerCase() === "li"
+            ) {
+              return parseNode(child, newStyles, {
+                type: tagName as "ul" | "ol",
+                index: liIndex++,
+              });
+            }
+            return parseNode(child, newStyles);
+          });
+          return (
+            <View
+              key={keyCounter++}
+              style={{ marginBottom: settings.fontSize }}
+            >
+              {children}
+            </View>
+          );
+        }
+
+        const children = Array.from(node.childNodes).map((child) =>
+          parseNode(child, newStyles),
+        );
+
+        if (tagName === "p") {
+          return (
+            <Text
+              key={keyCounter++}
+              style={[dynamicStyles.paragraph, newStyles]}
+            >
+              {children}
+            </Text>
+          );
+        } else if (tagName === "h1") {
+          return (
+            <Text key={keyCounter++} style={[dynamicStyles.title, newStyles]}>
+              {children}
+            </Text>
+          );
+        } else if (tagName === "h2") {
+          return (
+            <Text key={keyCounter++} style={[dynamicStyles.h2, newStyles]}>
+              {children}
+            </Text>
+          );
+        } else if (tagName === "h3") {
+          return (
+            <Text key={keyCounter++} style={[dynamicStyles.h3, newStyles]}>
+              {children}
+            </Text>
+          );
+        } else if (tagName === "li") {
+          const prefix =
+            listContext?.type === "ol" ? `${listContext.index}.` : "•";
+          return (
+            <View key={keyCounter++} style={dynamicStyles.listItem}>
+              <Text style={dynamicStyles.bulletPoint}>{prefix}</Text>
+              <Text style={[dynamicStyles.listItemContent, newStyles]}>
+                {children}
+              </Text>
+            </View>
+          );
+        } else if (tagName === "a") {
+          const href = el.getAttribute("href");
+          return (
+            <Link
+              key={keyCounter++}
+              src={href || ""}
+              style={[
+                newStyles,
+                { color: "blue", textDecoration: "underline" },
+              ]}
+            >
+              {children}
+            </Link>
+          );
+        } else if (
+          tagName === "span" ||
+          tagName === "strong" ||
+          tagName === "em" ||
+          tagName === "s" ||
+          tagName === "strike" ||
+          tagName === "del"
+        ) {
+          return (
+            <Text key={keyCounter++} style={newStyles}>
+              {children}
+            </Text>
+          );
+        } else {
+          // Fallback for other elements (like div)
+          return (
+            <View key={keyCounter++} style={newStyles}>
+              {children}
+            </View>
+          );
+        }
+      }
+      return null;
+    };
+
+    return Array.from(doc.body.childNodes).map((child) => parseNode(child));
+  };
+
   return (
-    <Document>
+    <Document title={filename || "Digitized Document"}>
       <Page size="A4" style={dynamicStyles.page}>
         {/* Fixed Header */}
         <Text style={dynamicStyles.headerText} fixed>
-          {filename ? `Document: ${filename}` : "Digitized Document"} |{" "}
-          {currentDate}
+          {headerText !== undefined ? headerText : defaultHeader}
         </Text>
 
         {/* Content */}
-        {paragraphs.map((p, i) => {
-          if (p.startsWith("# ")) {
-            return (
-              <Text key={i} style={dynamicStyles.title}>
-                {renderInlineMarkdown(p.replace("# ", ""))}
-              </Text>
-            );
-          }
-          if (p.startsWith("## ")) {
-            return (
-              <Text key={i} style={dynamicStyles.h2}>
-                {renderInlineMarkdown(p.replace("## ", ""))}
-              </Text>
-            );
-          }
-          if (p.startsWith("### ")) {
-            return (
-              <Text key={i} style={dynamicStyles.h3}>
-                {renderInlineMarkdown(p.replace("### ", ""))}
-              </Text>
-            );
-          }
-          if (p.startsWith("- ") || p.startsWith("* ")) {
-            const listItems = p.split("\n").filter(Boolean);
-            return (
-              <View key={i} style={{ marginBottom: settings.fontSize }}>
-                {listItems.map((item, j) => (
-                  <View key={j} style={dynamicStyles.listItem}>
-                    <Text style={dynamicStyles.bulletPoint}>•</Text>
-                    <Text style={dynamicStyles.listItemContent}>
-                      {renderInlineMarkdown(item.replace(/^[-*]\s/, ""))}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            );
-          }
-          return (
-            <Text key={i} style={dynamicStyles.paragraph}>
-              {renderInlineMarkdown(p)}
-            </Text>
-          );
-        })}
+        {renderHTML(content)}
 
         {/* Fixed Footer */}
-        <Text
-          style={dynamicStyles.footerText}
-          render={({ pageNumber, totalPages }) =>
-            `Page ${pageNumber} of ${totalPages}`
-          }
-          fixed
-        />
+        {footerText && (
+          <Text style={dynamicStyles.footerText} fixed>
+            {footerText}
+          </Text>
+        )}
+
+        {/* Page Numbers */}
+        {showPageNumbers && (
+          <Text
+            style={getPageNumberStyle()}
+            render={({ pageNumber, totalPages }) =>
+              `Page ${pageNumber} of ${totalPages}`
+            }
+            fixed
+          />
+        )}
       </Page>
     </Document>
   );
