@@ -1,6 +1,7 @@
 import {
   Bell,
   CreditCard,
+  FileText,
   FileWarning,
   LayoutDashboard,
   LifeBuoy,
@@ -135,7 +136,7 @@ export const sideBarItems = (role: Role): MenuItems[] => {
         {
           id: "/dashboard/user/transcribe",
           label: "Transcribe",
-          icon: <FileTextIcon size={20} />,
+          icon: <FileText size={20} />,
           href: "/dashboard/user/transcribe",
         },
         {
