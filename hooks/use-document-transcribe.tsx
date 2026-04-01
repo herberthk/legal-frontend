@@ -1,11 +1,9 @@
-"use client";
-
-import { useState, useCallback, Dispatch, SetStateAction } from "react";
+import { useState, useCallback, useMemo, Dispatch, SetStateAction } from "react";
 import { GoogleGenAI } from "@google/genai";
 import { pdf } from "@react-pdf/renderer";
 import { PDFDocument } from "@/components/editor/PDFDocument";
 
-export type TranscribeStatus = "idle" | "processing" | "editing" | "previewing";
+export type TranscribeStatus = "idle" | "processing" | "editing" | "previewing" | "error";
 export type FormatMode = "professional" | "original";
 
 interface UseDocumentTranscribeReturn {
@@ -77,7 +75,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     }
   }, []);
 
-  const processDocument = async () => {
+  const processDocument = useCallback(async () => {
     if (!file) return;
 
     setStatus("processing");
@@ -104,7 +102,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
             `Transcribe all text from this document (both typed and handwritten) exactly as it appears. Maintain the original structure, line breaks, and formatting as closely as possible. Do not add any new headings or correct errors unless they are completely illegible.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash", // Assuming this is the desired stable version or keep as is
         contents: {
           parts: [
             {
@@ -141,16 +139,12 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("--- Document Processing Error ---");
-      console.error("Error Name:", err?.name);
-      console.error("Error Message:", err?.message);
-      console.error("Stack Trace:", err?.stack);
       console.error("Context:", {
         fileName: file?.name,
         fileType: file?.type,
         fileSize: file?.size,
         formatMode,
       });
-      console.error("---------------------------------");
 
       let userMessage =
         "An unexpected error occurred while processing the document. Please try again.";
@@ -173,9 +167,9 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       setError(userMessage);
       setStatus("idle");
     }
-  };
+  }, [file, formatMode]);
 
-  const downloadPdf = async () => {
+  const downloadPdf = useCallback(async () => {
     try {
       const blob = await pdf(
         <PDFDocument
@@ -201,20 +195,11 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("--- PDF Generation Error ---");
-      console.error("Error Name:", err?.name);
-      console.error("Error Message:", err?.message);
-      console.error("Stack Trace:", err?.stack);
-      console.error("Context:", {
-        transcriptionLength: transcription?.length,
-        filename: file?.name,
-      });
-      console.error("----------------------------");
-
       setError(
         `Failed to generate PDF: ${err?.message || "Unknown rendering error"}. Please check if the transcription contains unsupported characters.`,
       );
     }
-  };
+  }, [transcription, documentTitle, file, headerText, footerText, showPageNumbers, pageNumberPosition]);
 
   const reset = useCallback(() => {
     setFile(null);
@@ -224,7 +209,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     setError(null);
   }, []);
 
-  return {
+  return useMemo(() => ({
     file,
     previewUrl,
     status,
@@ -251,5 +236,21 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     showPageNumbers,
     pageNumberPosition,
     documentTitle,
-  };
+  }), [
+    file,
+    previewUrl,
+    status,
+    transcription,
+    formatMode,
+    error,
+    handleDrop,
+    processDocument,
+    downloadPdf,
+    reset,
+    headerText,
+    footerText,
+    showPageNumbers,
+    pageNumberPosition,
+    documentTitle,
+  ]);
 };
