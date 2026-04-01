@@ -14,7 +14,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { sideBarItems } from "@/constants";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 import {
   Sidebar,
@@ -47,69 +47,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import React from "react";
 
-type Props = {
-  user: User;
-};
-
-// Animation Variants
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05,
-      delayChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, x: -10 },
-  show: {
-    opacity: 1,
-    x: 0,
-    transition: { type: "spring", stiffness: 300, damping: 24 },
-  },
-};
-
-const navItemVariants: Variants = {
-  initial: {
-    x: 0,
-    scale: 1,
-    boxShadow: "0 0 0px 0px rgba(255, 69, 0, 0)",
-    backgroundColor: "transparent",
-  },
-  hover: {
-    x: 4,
-    scale: 1.02,
-    boxShadow: "0 0 20px 5px rgba(255, 69, 0, 0.35)",
-    backgroundColor: "rgba(255, 69, 0, 0.05)",
-    transition: { type: "spring", stiffness: 400, damping: 25 },
-  },
-  active: {
-    x: 4,
-    scale: 1.02,
-    // boxShadow: "0 0 20px 6px rgba(255, 69, 0, 0.45)",
-    transition: { type: "spring", stiffness: 400, damping: 25 },
-  },
-  tap: {
-    scale: 0.98,
-    // boxShadow: "0 0 8px 2px rgba(255, 69, 0, 0.2)",
-  },
-};
-
-const floatingVariants: Variants = {
-  initial: { y: 0 },
-  animate: {
-    y: [0, -4, 0],
-    transition: {
-      duration: 3,
-      repeat: Infinity,
-      ease: "easeInOut",
-    },
-  },
-};
-
+// Types
 interface SidebarSubItem {
   id: string;
   label: string;
@@ -119,36 +57,116 @@ interface SidebarSubItem {
 interface SidebarLink {
   id: string;
   label: string;
-  icon: React.ReactNode;
   href: string;
+  icon: React.ReactNode;
   subItems?: SidebarSubItem[];
 }
+
+type Props = {
+  user: User | null;
+};
+
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.04,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, x: -12, scale: 0.95 },
+  show: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 350, damping: 25 },
+  },
+};
+
+const navItemVariants: Variants = {
+  initial: {
+    x: 0,
+    scale: 1,
+  },
+  hover: {
+    x: 6,
+    scale: 1.02,
+    // boxShadow: "0 0 20px 5px rgba(255, 69, 0, 0.35)",
+    // backgroundColor: "rgba(255, 69, 0, 0.05)",
+    // border: "1px solid rgba(255, 69, 0, 0.35)",
+    color: "rgba(255, 69, 0, 0.95)",
+    transition: { type: "spring", stiffness: 400, damping: 25 },
+  },
+  active: {
+    x: 4,
+    scale: 1.02,
+    // boxShadow: "0 0 20px 6px rgba(255, 69, 0, 0.45)",
+    transition: { type: "spring", stiffness: 400, damping: 25 },
+  },
+  tap: {
+    scale: 0.97,
+    x: 2,
+  },
+};
+
+const iconVariants: Variants = {
+  initial: { scale: 1, rotate: 0 },
+  hover: {
+    scale: 1.15,
+    rotate: 5,
+    transition: { type: "spring", stiffness: 400, damping: 10 },
+  },
+  active: {
+    scale: 1.1,
+    rotate: 0,
+  },
+};
+
+const floatingVariants: Variants = {
+  initial: { y: 0, filter: "drop-shadow(0 0 0px rgba(99, 102, 241, 0))" },
+  animate: {
+    y: [0, -4, 0],
+    filter: [
+      "drop-shadow(0 4px 6px rgba(99, 102, 241, 0.1))",
+      "drop-shadow(0 10px 15px rgba(99, 102, 241, 0.3))",
+      "drop-shadow(0 4px 6px rgba(99, 102, 241, 0.1))",
+    ],
+    transition: {
+      duration: 4,
+      repeat: Infinity,
+      ease: "easeInOut",
+    },
+  },
+};
 
 const CollapsibleMenu = ({
   link,
   pathname,
-  itemVariants,
   setOpenMobile,
-  MotionLink,
+  isAdmin,
 }: {
   link: SidebarLink;
   pathname: string;
-  itemVariants: Variants;
   setOpenMobile: (open: boolean) => void;
-  MotionLink: React.ElementType;
+  isAdmin: boolean;
 }) => {
-  const isParentActive =
-    pathname === link.id ||
-    link.subItems?.some((sub: SidebarSubItem) => pathname.startsWith(sub.id));
+  const isChildActive = useMemo(
+    () => link.subItems?.some((sub) => pathname.startsWith(sub.id)),
+    [link.subItems, pathname],
+  );
 
+  const isParentActive = pathname === link.href || isChildActive;
   const [isOpen, setIsOpen] = useState(isParentActive);
 
-  // Sync open state when path changes to a child
-  React.useEffect(() => {
-    if (isParentActive) {
-      setIsOpen(true);
-    }
-  }, [isParentActive]);
+  // Sync state if path changes externally to a child
+  if (isParentActive && !isOpen) {
+    setIsOpen(true);
+  }
 
   return (
     <SidebarMenuItem>
@@ -161,61 +179,102 @@ const CollapsibleMenu = ({
           <CollapsibleTrigger asChild>
             <SidebarMenuButton
               tooltip={link.label}
-              isActive={pathname === link.id}
               className={cn(
-                "transition-all duration-300",
-                pathname === link.id &&
-                  "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
+                "relative flex items-center w-full gap-3 px-3 py-2.5 my-1 rounded-xl transition-all duration-300 group hover:bg-slate-100/50 dark:hover:bg-slate-800/40",
+                isParentActive
+                  ? "text-slate-900 dark:text-white font-bold"
+                  : "text-slate-500 dark:text-slate-400 font-medium",
               )}
             >
+              <AnimatePresence mode="wait">
+                {isParentActive && (
+                  <motion.div
+                    layoutId="sidebar-active-pill"
+                    className={cn(
+                      "absolute inset-0 rounded-xl z-0 shadow-lg",
+                      isAdmin
+                        ? "bg-linear-to-r from-indigo-600/10 to-indigo-600/5 dark:from-indigo-500/20 dark:to-indigo-500/10 border-l-4 border-indigo-600 dark:border-indigo-500"
+                        : "bg-linear-to-r from-orange-600/10 to-orange-600/5 dark:from-orange-500/20 dark:to-orange-500/10 border-l-4 border-orange-600 dark:border-orange-500",
+                    )}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
+                )}
+              </AnimatePresence>
+
               <motion.div
-                className="flex items-center w-full gap-2 py-1.5 my-2"
+                className="relative z-10 flex items-center w-full gap-3"
                 variants={navItemVariants}
-                animate={pathname === link.id ? "active" : "initial"}
-                // whileHover="hover"
+                whileHover="hover"
                 whileTap="tap"
               >
-                {link.icon}
-                <span>{link.label}</span>
-                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                <motion.div
+                  variants={iconVariants}
+                  animate={isParentActive ? "active" : "initial"}
+                  className={cn(
+                    isParentActive &&
+                      (isAdmin
+                        ? "text-indigo-600 dark:text-indigo-400"
+                        : "text-orange-600 dark:text-orange-400"),
+                  )}
+                >
+                  {link.icon}
+                </motion.div>
+                <span className="flex-1 text-sm">{link.label}</span>
+                <ChevronRight
+                  className={cn(
+                    "ml-auto w-4 h-4 transition-transform duration-300",
+                    isOpen ? "rotate-90" : "opacity-40",
+                  )}
+                />
               </motion.div>
             </SidebarMenuButton>
           </CollapsibleTrigger>
-          <CollapsibleContent forceMount>
+
+          <CollapsibleContent asChild forceMount>
             <AnimatePresence initial={false}>
               {isOpen && (
                 <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  style={{ overflow: "hidden" }}
+                  initial={{ height: 0, opacity: 0, x: -10 }}
+                  animate={{ height: "auto", opacity: 1, x: 0 }}
+                  exit={{ height: 0, opacity: 0, x: -10 }}
+                  transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                  className="overflow-hidden"
                 >
-                  <SidebarMenuSub>
-                    {link.subItems?.map((sub: SidebarSubItem) => (
+                  <SidebarMenuSub className="ml-4 pl-4 border-l border-slate-200 dark:border-slate-800 space-y-1 my-1">
+                    {link.subItems?.map((sub) => (
                       <SidebarMenuSubItem key={sub.id}>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={pathname.startsWith(sub.id)}
-                          className="transition-all duration-300"
-                        >
-                          <MotionLink
+                        <SidebarMenuSubButton asChild>
+                          <Link
                             href={sub.href}
                             onClick={() => setOpenMobile(false)}
                             className={cn(
-                              "flex items-center w-full gap-2 px-2 py-1.5 rounded-lg transition-all duration-300",
-                              pathname.startsWith(sub.id) &&
-                                "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
+                              "relative flex items-center w-full gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-300 group overflow-hidden",
+                              pathname.startsWith(sub.id)
+                                ? "text-indigo-600 dark:text-indigo-400 font-bold"
+                                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:translate-x-1",
                             )}
-                            variants={navItemVariants}
-                            animate={
-                              pathname.startsWith(sub.id) ? "active" : "initial"
-                            }
-                            whileHover="hover"
-                            whileTap="tap"
                           >
-                            <span>{sub.label}</span>
-                          </MotionLink>
+                            <AnimatePresence mode="wait">
+                              {pathname.startsWith(sub.id) && (
+                                <motion.div
+                                  layoutId="sub-active-pill"
+                                  className={cn(
+                                    "absolute inset-0 z-0 shadow-sm",
+                                    isAdmin
+                                      ? "bg-indigo-500/5 dark:bg-indigo-400/10"
+                                      : "bg-orange-500/5 dark:bg-orange-400/10",
+                                  )}
+                                  initial={{ opacity: 0, scale: 0.9 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  exit={{ opacity: 0, scale: 0.9 }}
+                                />
+                              )}
+                            </AnimatePresence>
+                            <span className="relative z-10">{sub.label}</span>
+                          </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}
@@ -233,16 +292,9 @@ const CollapsibleMenu = ({
 const GlobalSidebar = ({ user }: Props) => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
-
-  type ExtendedUser = typeof user & {
-    name?: string;
-    email?: string;
-    displayName?: string;
-    photoURL?: string;
-  };
-  const extendedUser = user as ExtendedUser;
 
   const clearUser = useAuthStore((state) => state.clearUser);
   const isAdmin = user?.role === "ADMIN";
@@ -252,41 +304,40 @@ const GlobalSidebar = ({ user }: Props) => {
   const onLogout = async () => {
     try {
       await firebaseSignOut(auth);
-      await signOut(); // Server action to delete cookie
+      await signOut();
       clearUser();
       router.push("/login");
     } catch (error) {
       console.error("Logout Error:", error);
     }
   };
-  const navlinks = sideBarItems(user?.role);
 
+  const navlinks = useMemo(
+    () => sideBarItems(user?.role || "USER") as SidebarLink[],
+    [user?.role],
+  );
   const setUser = useAuthStore((state) => state.setUser);
+
   useEffect(() => {
     if (user) {
       setUser(user);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, setUser]);
 
   const pathname = usePathname();
-  const MotionLink = motion(Link);
+  const userName = user?.name || "User";
+  const userEmail = user?.email || "";
 
-  // Custom user fallback
-  const userName = extendedUser?.name || extendedUser?.displayName || "";
-  const userEmail = extendedUser?.email || "";
+  const sidebarBg = isAdmin
+    ? "bg-linear-to-b! from-white! via-indigo-50/20! to-white! dark:from-slate-950! dark:via-indigo-950/20! dark:to-slate-950! border-r border-indigo-500/10 dark:border-indigo-400/5 backdrop-blur-xl"
+    : "bg-linear-to-b! from-white! via-orange-50/20! to-white! dark:from-slate-950! dark:via-orange-950/20! dark:to-slate-950! border-r border-orange-500/10 dark:border-orange-400/5 backdrop-blur-xl";
 
   if (!mounted) {
     return (
       <Sidebar
         collapsible="icon"
         variant="sidebar"
-        className={cn(
-          "transition-colors duration-200",
-          isAdmin
-            ? "bg-linear-to-b! via-indigo-50/50! from-indigo-50/50! to-white! dark:from-indigo-500/70! dark:to-slate-900! border-slate-200! dark:border-slate-800!"
-            : "bg-linear-to-b! from-amber-200! to-white! dark:from-slate-900! dark:via-indigo-900! dark:to-slate-900! border-slate-200! dark:border-slate-800!",
-        )}
+        className={cn("transition-colors duration-200", sidebarBg)}
       />
     );
   }
@@ -295,156 +346,132 @@ const GlobalSidebar = ({ user }: Props) => {
     <Sidebar
       collapsible="icon"
       variant="sidebar"
-      className={
-        isAdmin
-          ? "bg-linear-to-b! via-indigo-50/50! from-indigo-50/50! to-white! dark:from-indigo-500/70! dark:to-slate-900! border-slate-200! dark:border-slate-800!"
-          : "bg-linear-to-b! from-amber-200! to-white! dark:from-slate-900! dark:via-indigo-900! dark:to-slate-900! border-slate-200! dark:border-slate-800!"
-      }
+      className={cn("transition-colors duration-300", sidebarBg)}
     >
-      <SidebarHeader>
+      <SidebarHeader className="py-6 px-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <motion.div
-                    variants={floatingVariants}
-                    initial="initial"
-                    animate="animate"
+            <SidebarMenuButton size="lg" className="hover:bg-transparent">
+              <motion.div
+                variants={floatingVariants}
+                initial="initial"
+                animate="animate"
+                whileHover={{ scale: 1.1, rotate: 12 }}
+                className={cn(
+                  "flex aspect-square size-10 items-center justify-center rounded-xl text-white shadow-2xl shrink-0 transition-all duration-300",
+                  isAdmin
+                    ? "bg-linear-to-br from-indigo-500 to-indigo-700 shadow-indigo-500/30"
+                    : "bg-linear-to-br from-orange-400 to-orange-600 shadow-orange-500/30",
+                )}
+              >
+                {isAdmin ? (
+                  <Shield className="size-5" />
+                ) : (
+                  <Scale className="size-5" />
+                )}
+              </motion.div>
+              <div className="grid flex-1 text-left text-sm leading-tight ml-3 group-data-[collapsible=icon]:hidden">
+                <span className="truncate font-black dark:text-white text-slate-900 text-xl tracking-tight">
+                  {isAdmin ? "Admin" : "Legal"}
+                  <span
                     className={cn(
-                      "flex aspect-square size-8 items-center justify-center rounded-lg text-white shadow-lg transform transition-transform duration-500 hover:rotate-12 hover:scale-110 shrink-0",
+                      "ml-1 text-transparent bg-clip-text font-black",
                       isAdmin
-                        ? "bg-linear-to-br from-indigo-500 to-purple-600 shadow-indigo-500/20"
-                        : "bg-linear-to-br from-amber-500 to-orange-600 shadow-orange-500/20",
+                        ? "bg-linear-to-r from-indigo-500 to-purple-600"
+                        : "bg-linear-to-r from-orange-500 to-yellow-500",
                     )}
                   >
-                    {isAdmin ? (
-                      <Shield className="size-4" />
-                    ) : (
-                      <Scale className="size-4" />
-                    )}
-                  </motion.div>
-                  <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                    <span className="truncate font-bold dark:text-white text-slate-900 text-lg">
-                      {isAdmin ? "Admin" : "Legal"}
-                      <span
-                        className={cn(
-                          "ml-1 text-transparent bg-clip-text",
-                          isAdmin
-                            ? "bg-linear-to-r from-indigo-400 to-purple-500"
-                            : "bg-linear-to-r from-amber-400 to-orange-500",
-                        )}
-                      >
-                        {isAdmin ? " Panel" : " Adviser"}
-                      </span>
-                    </span>
-                  </div>
-                  {/* <ChevronsUpDown className="ml-auto size-4" /> */}
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              {/* <DropdownMenuContent
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                align="start"
-                side={isMobile ? "bottom" : "right"}
-                sideOffset={4}
-              >
-                <DropdownMenuLabel className="p-0 font-normal">
-                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <div
-                      className={cn(
-                        "flex aspect-square size-8 items-center justify-center rounded-lg text-white shadow-lg",
-                        isAdmin
-                          ? "bg-linear-to-br from-indigo-500 to-purple-600 shadow-indigo-500/20"
-                          : "bg-linear-to-br from-amber-500 to-orange-600 shadow-orange-500/20",
-                      )}
-                    >
-                      {isAdmin ? (
-                        <Shield className="size-4" />
-                      ) : (
-                        <Scale className="size-4" />
-                      )}
-                    </div>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-bold dark:text-white text-slate-900">
-                        {isAdmin ? "Admin" : "Legal"}
-                        <span
-                          className={cn(
-                            "ml-1 text-transparent bg-clip-text",
-                            isAdmin
-                              ? "bg-linear-to-r from-indigo-400 to-purple-500"
-                              : "bg-linear-to-r from-amber-400 to-orange-500",
-                          )}
-                        >
-                          {isAdmin ? " Panel" : " Adviser"}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </DropdownMenuLabel>
-              </DropdownMenuContent> */}
-            </DropdownMenu>
+                    {isAdmin ? "Panel" : "Adviser"}
+                  </span>
+                </span>
+              </div>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-3">
         <SidebarGroup>
           <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="show"
           >
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {navlinks?.map((link) => {
-                const hasSubItems =
-                  link?.subItems && link?.subItems?.length > 0;
-                const isParentActive =
-                  pathname === link.id ||
-                  link?.subItems?.some(
-                    (sub: { id: string }) => pathname === sub.id,
-                  );
-
-                if (hasSubItems) {
+                if (link.subItems && link.subItems.length > 0) {
                   return (
                     <CollapsibleMenu
-                      key={link.id}
-                      link={link as SidebarLink}
+                      key={link.href}
+                      link={link}
                       pathname={pathname}
-                      itemVariants={itemVariants}
                       setOpenMobile={setOpenMobile}
-                      MotionLink={MotionLink}
+                      isAdmin={isAdmin}
                     />
                   );
                 }
 
                 return (
-                  <SidebarMenuItem key={link.id}>
+                  <SidebarMenuItem key={link.href}>
                     <motion.div variants={itemVariants}>
                       <SidebarMenuButton
                         asChild
                         tooltip={link.label}
-                        isActive={isParentActive}
-                        className="transition-all duration-300"
+                        className={cn(
+                          "relative flex items-center w-full gap-3 px-3 py-2.5 my-1 rounded-xl transition-all duration-300 group hover:bg-slate-100/50 dark:hover:bg-slate-800/40",
+                          pathname === link.href
+                            ? "text-slate-900 dark:text-white font-bold"
+                            : "text-slate-500 dark:text-slate-400 font-medium",
+                        )}
                       >
-                        <MotionLink
+                        <Link
                           href={link.href}
                           onClick={() => setOpenMobile(false)}
-                          className={cn(
-                            "flex items-center w-full gap-2 px-2 py-1.5 rounded-sm transition-all duration-300",
-                            pathname === link.id &&
-                              "bg-linear-to-r from-indigo-600 to-orange-500 text-white! shadow-lg",
-                          )}
-                          variants={navItemVariants}
-                          animate={pathname === link.id ? "active" : "initial"}
-                          whileHover="hover"
-                          whileTap="tap"
                         >
-                          {link.icon}
-                          <span>{link.label}</span>
-                        </MotionLink>
+                          <AnimatePresence mode="wait">
+                            {pathname === link.href && (
+                              <motion.div
+                                layoutId="sidebar-active-pill"
+                                className={cn(
+                                  "absolute inset-0 rounded-xl z-0 shadow-lg",
+                                  isAdmin
+                                    ? "bg-linear-to-r from-indigo-600/10 to-indigo-600/5 dark:from-indigo-500/20 dark:to-indigo-500/10 border-l-4 border-indigo-600 dark:border-indigo-400"
+                                    : "bg-linear-to-r from-orange-600/10 to-orange-600/5 dark:from-orange-500/20 dark:to-orange-500/10 border-l-4 border-orange-600 dark:border-orange-400",
+                                )}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                transition={{
+                                  type: "spring",
+                                  stiffness: 300,
+                                  damping: 30,
+                                }}
+                              />
+                            )}
+                          </AnimatePresence>
+                          <motion.div
+                            className="relative z-10 flex items-center w-full gap-3"
+                            variants={navItemVariants}
+                            whileHover="hover"
+                            whileTap="tap"
+                          >
+                            <motion.div
+                              variants={iconVariants}
+                              animate={
+                                pathname === link.href ? "active" : "initial"
+                              }
+                              className={cn(
+                                pathname === link.href &&
+                                  (isAdmin
+                                    ? "text-indigo-600 dark:text-indigo-500"
+                                    : "text-orange-600 dark:text-orange-500"),
+                              )}
+                            >
+                              {link.icon}
+                            </motion.div>
+                            <span className="text-sm">{link.label}</span>
+                          </motion.div>
+                        </Link>
                       </SidebarMenuButton>
                     </motion.div>
                   </SidebarMenuItem>
@@ -455,71 +482,70 @@ const GlobalSidebar = ({ user }: Props) => {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="py-6 px-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  className="rounded-2xl bg-white/50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/50 transition-all duration-300 hover:shadow-xl group"
                 >
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage
-                      src={extendedUser?.photoURL || ""}
-                      alt={userName}
-                    />
-                    <AvatarFallback
-                      className={cn(
-                        "rounded-lg text-white font-bold",
-                        isAdmin ? "bg-indigo-600" : "bg-orange-500",
-                      )}
-                    >
-                      {userName.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{userName}</span>
-                    <span className="truncate text-xs">{userEmail}</span>
-                  </div>
-                  <ChevronsUpDown className="ml-auto size-4" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                side={isMobile ? "bottom" : "right"}
-                align="end"
-                sideOffset={4}
-              >
-                <DropdownMenuLabel className="p-0 font-normal">
-                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage
-                        src={extendedUser?.photoURL || ""}
-                        alt={userName}
-                      />
+                  <div className="relative">
+                    <Avatar className="h-10 w-10 rounded-xl shadow-lg transition-transform duration-300 group-hover:scale-105">
+                      <AvatarImage src={user?.avatar || ""} alt={userName} />
                       <AvatarFallback
                         className={cn(
-                          "rounded-lg text-white font-bold",
-                          isAdmin ? "bg-indigo-600" : "bg-orange-500",
+                          "rounded-xl text-white font-black",
+                          isAdmin
+                            ? "bg-indigo-600 shadow-indigo-500/20"
+                            : "bg-orange-500 shadow-orange-500/20",
                         )}
                       >
                         {userName.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">{userName}</span>
-                      <span className="truncate text-xs">{userEmail}</span>
-                    </div>
+                    <div
+                      className={cn(
+                        "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm",
+                        isAdmin ? "bg-indigo-500" : "bg-orange-500",
+                      )}
+                    />
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight ml-3 group-data-[collapsible=icon]:hidden">
+                    <span className="truncate font-bold text-slate-900 dark:text-white">
+                      {userName}
+                    </span>
+                    <span className="truncate text-[10px] opacity-60 uppercase tracking-tighter font-black">
+                      {isAdmin ? "Administrator" : "Legal Professional"}
+                    </span>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4 opacity-40" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-56 rounded-2xl p-2 shadow-2xl border-indigo-500/10 dark:border-indigo-400/10"
+                side={isMobile ? "bottom" : "right"}
+                align="end"
+                sideOffset={8}
+              >
+                <DropdownMenuLabel className="p-3 font-normal">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-black text-slate-900 dark:text-white leading-none">
+                      {userName}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {userEmail}
+                    </p>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator className="opacity-50" />
                 <DropdownMenuItem
                   onClick={onLogout}
-                  className="cursor-pointer text-red-500 focus:text-red-500"
+                  className="cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-950/30 rounded-xl py-2.5 px-3 transition-colors duration-200"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
+                  <LogOut className="mr-3 h-4 w-4" />
+                  <span className="font-bold">Sign out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
