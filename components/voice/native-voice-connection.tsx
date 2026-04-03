@@ -42,7 +42,8 @@ const NativeVoiceConnection: React.FC<NativeVoiceConnectionProps> = ({
   const [isResponding, setIsResponding] = useState(false);
 
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
-    url: `ws://localhost:8000?uid=${userId}`,
+    // url: `ws://localhost:8000?uid=${userId}`,
+    url: `wss://legal-server.onrender.com?uid=${userId}`,
     onText: (delta) => {
       setActiveTranscript((prev) => {
         const nextText = (prev?.speaker === "ai" ? prev.text : "") + delta;

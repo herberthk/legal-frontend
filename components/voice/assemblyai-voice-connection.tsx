@@ -34,7 +34,8 @@ const AssemblyAIVoiceConnection: React.FC<AssemblyAIVoiceConnectionProps> = ({
   const [isResponding, setIsResponding] = useState(false);
 
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
-    url: `ws://localhost:8000?uid=${uid}`,
+    // url: `ws://localhost:8000?uid=${uid}`,
+    url: `wss://legal-server.onrender.com?uid=${uid}`,
     onText: (delta) => {
       setActiveTranscript((prev) => {
         const nextText = (prev?.speaker === "ai" ? prev.text : "") + delta;
