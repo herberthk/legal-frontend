@@ -87,7 +87,7 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
                       ? voiceName || "Legal Adviser"
                       : userName || "You"}
                 </span>
-                <p className="text-sm italic font-light text-slate-800 dark:text-slate-100 leading-relaxed">
+                <p className="text-xs italic font-light text-slate-800 dark:text-slate-100 leading-relaxed">
                   {getDisplayText()}
                 </p>
               </motion.div>
