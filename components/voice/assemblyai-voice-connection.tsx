@@ -32,10 +32,13 @@ const AssemblyAIVoiceConnection: React.FC<AssemblyAIVoiceConnectionProps> = ({
 
   // llmText state removed
   const [isResponding, setIsResponding] = useState(false);
+  const REMOTE_WEBSOCKET_SERVER = process.env.NEXT_PUBLIC_WEBSOCKET_SERVER;
 
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
-    // url: `ws://localhost:8000?uid=${uid}`,
-    url: `wss://legal-server.onrender.com?uid=${uid}`,
+    url:
+      typeof window !== "undefined" && window.location.hostname === "localhost"
+        ? `ws://localhost:8000?uid=${uid}`
+        : `wss://${REMOTE_WEBSOCKET_SERVER}?uid=${uid}`,
     onText: (delta) => {
       setActiveTranscript((prev) => {
         const nextText = (prev?.speaker === "ai" ? prev.text : "") + delta;

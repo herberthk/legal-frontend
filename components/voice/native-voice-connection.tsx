@@ -41,9 +41,13 @@ const NativeVoiceConnection: React.FC<NativeVoiceConnectionProps> = ({
 
   const [isResponding, setIsResponding] = useState(false);
 
+  const REMOTE_WEBSOCKET_SERVER = process.env.NEXT_PUBLIC_WEBSOCKET_SERVER;
+
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
-    // url: `ws://localhost:8000?uid=${userId}`,
-    url: `wss://legal-server.onrender.com?uid=${userId}`,
+    url:
+      typeof window !== "undefined" && window.location.hostname === "localhost"
+        ? `ws://localhost:8000?uid=${userId}`
+        : `wss://${REMOTE_WEBSOCKET_SERVER}?uid=${userId}`,
     onText: (delta) => {
       setActiveTranscript((prev) => {
         const nextText = (prev?.speaker === "ai" ? prev.text : "") + delta;
