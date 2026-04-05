@@ -7,7 +7,6 @@ import { AnimatePresence } from "framer-motion";
 import { useDocumentTranscribe } from "@/hooks/use-document-transcribe";
 
 // Components
-import { TranscribeHeader } from "@/components/user/transcribe/TranscribeHeader";
 import { UploadZone } from "@/components/user/transcribe/UploadZone";
 import { ProcessingStep } from "@/components/user/transcribe/ProcessingStep";
 import { EditorView } from "@/components/user/transcribe/EditorView";
@@ -45,7 +44,6 @@ const Transcribe = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   return (
     <div className="min-h-screen flex flex-col bg-indigo-50/5 dark:bg-slate-900 transition-colors duration-500">
-      <TranscribeHeader status={status} hasFile={!!file} onReset={reset} />
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16">
         <AnimatePresence mode="wait">
@@ -67,6 +65,7 @@ const Transcribe = () => {
                 formatMode={formatMode}
                 setFormatMode={setFormatMode}
                 processDocument={processDocument}
+                onReset={reset}
                 error={error}
               />
             </div>
@@ -84,6 +83,7 @@ const Transcribe = () => {
                 file={file}
                 onShowReference={() => setShowReferenceModal(true)}
                 onDownload={downloadPdf}
+                onReset={reset}
                 setShowSettingsModal={setShowSettingsModal}
               />
             </div>

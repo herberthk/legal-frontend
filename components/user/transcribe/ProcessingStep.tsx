@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FileImage, FileText, ArrowRight } from "lucide-react";
+import { FileImage, FileText, ArrowRight, RotateCcw } from "lucide-react";
 import Image from "next/image";
 import { TranscribeStatus, FormatMode } from "@/hooks/use-document-transcribe";
 
@@ -12,6 +12,7 @@ interface ProcessingStepProps {
   formatMode: FormatMode;
   setFormatMode: (mode: FormatMode) => void;
   processDocument: () => Promise<void>;
+  onReset: () => void;
   error?: string | null;
 }
 
@@ -22,6 +23,7 @@ export function ProcessingStep({
   formatMode,
   setFormatMode,
   processDocument,
+  onReset,
   error,
 }: ProcessingStepProps) {
   return (
@@ -199,6 +201,14 @@ export function ProcessingStep({
                   <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
                   <span>Finalize Digitization</span>
                   <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                </button>
+
+                <button
+                  onClick={onReset}
+                  className="w-full mt-4 py-3 flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 font-bold transition-all duration-300 group"
+                >
+                  <RotateCcw className="w-4 h-4 group-hover:-rotate-45 transition-transform" />
+                  <span>Start Over / Choose Different File</span>
                 </button>
 
                 {error && (
