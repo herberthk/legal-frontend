@@ -27,6 +27,7 @@ interface ChartDataItem {
   name: string;
   text: number;
   voice: number;
+  document: number;
   cost: number;
 }
 
@@ -65,6 +66,7 @@ const UsageChart = () => {
         );
 
         if (result.success) {
+          // @ts-ignore - document field is added in the server action
           setChartData(result.chartData);
           setTotalPeriodCost(result.totalPeriodCost ?? 0);
         }
@@ -89,7 +91,7 @@ const UsageChart = () => {
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">
               Usage Flow
             </h3>
-            <p className="text-xs text-slate-500">Text vs Voice Usage</p>
+            <p className="text-xs text-slate-500">Multimodal Usage Tracking</p>
           </div>
         </div>
 
@@ -113,7 +115,7 @@ const UsageChart = () => {
 
       <div className="mb-1 flex items-center justify-between">
         <div className="flex items-start gap-2">
-          <div className="text-xs text-slate-400 font-medium mt-1 uppercase">
+          <div className="text-xs text-slate-400 font-bold mt-1 tracking-wide">
             Period Total Cost:
           </div>
           <div className="flex gap-2">
@@ -135,7 +137,7 @@ const UsageChart = () => {
       {filter === "custom" && (
         <div className="flex items-end gap-3 mb-6 p-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-100 dark:border-slate-700 animate-in slide-in-from-top-2 duration-300">
           <div className="flex-1">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 px-1">
+            <label className="block text-[10px] font-bold text-slate-500 tracking-wider mb-1 px-1">
               From
             </label>
             <div className="relative">
@@ -154,7 +156,7 @@ const UsageChart = () => {
             </div>
           </div>
           <div className="flex-1">
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 px-1">
+            <label className="block text-[10px] font-bold text-slate-500 tracking-wider mb-1 px-1">
               To
             </label>
             <div className="relative">
@@ -201,12 +203,16 @@ const UsageChart = () => {
               >
                 <defs>
                   <linearGradient id="colorText" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorVoice" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f4511e" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#f4511e" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorDoc" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ff9ff3" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ff9ff3" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
@@ -223,7 +229,7 @@ const UsageChart = () => {
                 <YAxis
                   yAxisId="left"
                   orientation="left"
-                  stroke="#3b82f6"
+                  stroke="#6366f1"
                   tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
@@ -240,7 +246,7 @@ const UsageChart = () => {
                   tickLine={false}
                   tickFormatter={(v: number) => `${v.toFixed(1)}m`}
                   label={{
-                    value: "Duration",
+                    value: "Voice Duration",
                     angle: 90,
                     position: "insideRight",
                     offset: 10,
@@ -271,11 +277,22 @@ const UsageChart = () => {
                   yAxisId="left"
                   type="monotone"
                   dataKey="text"
-                  name="Text (Tokens)"
-                  stroke="#3b82f6"
+                  name="Text Chat (Tokens)"
+                  stroke="#6366f1"
                   strokeWidth={3}
                   fillOpacity={1}
                   fill="url(#colorText)"
+                  animationDuration={1500}
+                />
+                <Area
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="document"
+                  name="Transcription (Tokens)"
+                  stroke="#ff9ff3"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorDoc)"
                   animationDuration={1500}
                 />
                 <Area
@@ -289,7 +306,6 @@ const UsageChart = () => {
                   fill="url(#colorVoice)"
                   animationDuration={1500}
                 />
-                {/* Hidden area to show cost in tooltip */}
                 <Area
                   yAxisId="left"
                   dataKey="cost"
