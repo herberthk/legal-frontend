@@ -28,8 +28,8 @@ const CustomTooltip: FC<TooltipProps> = ({ active, payload, label }) => {
               const usd = Number(item.value);
               const ugx = Math.round(usd * USD_TO_UGX_EXCHANGE_RATE);
               return (
-                <div key={item.name} className="flex  gap-2">
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                <div key={item.name} className="flex gap-2">
+                  <p className="text-[10px] font-bold text-slate-400 tracking-wider">
                     {item.name}:
                   </p>
                   <p className="text-[10px] text-rose-500 dark:text-rose-400 leading-tight">
@@ -43,7 +43,12 @@ const CustomTooltip: FC<TooltipProps> = ({ active, payload, label }) => {
             }
             if (item.dataKey === "cost" && item.stroke === "none") return null;
 
-            const color = item.dataKey === "text" ? "#3b82f6" : "#f4511e";
+            const color =
+              item.dataKey === "text"
+                ? "#6366f1"
+                : item.dataKey === "document"
+                  ? "#ff9ff3"
+                  : "#f4511e";
             return (
               <div key={item.name} className="flex items-center gap-2">
                 <div
@@ -51,7 +56,7 @@ const CustomTooltip: FC<TooltipProps> = ({ active, payload, label }) => {
                   style={{ backgroundColor: color }}
                 />
 
-                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                <p className="text-[10px] font-bold text-slate-400 tracking-wider">
                   {item.name}
                 </p>
                 <p className="text-[10px] text-slate-900 dark:text-white">

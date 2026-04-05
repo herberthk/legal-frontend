@@ -253,7 +253,13 @@ export const getUsageChartData = async (
   timezoneOffset: number = 0,
 ): Promise<{
   success: boolean;
-  chartData: { name: string; text: number; voice: number; cost: number }[];
+  chartData: {
+    name: string;
+    text: number;
+    voice: number;
+    document: number;
+    cost: number;
+  }[];
   totalPeriodCost: number;
 }> => {
   try {
@@ -288,6 +294,7 @@ export const getUsageChartData = async (
         name: string;
         text: number;
         voice: number;
+        document: number;
         cost: number;
         sortKey: number;
       }
@@ -301,13 +308,13 @@ export const getUsageChartData = async (
           name: hour,
           text: 0,
           voice: 0,
+          document: 0,
           cost: 0,
           sortKey: i,
         };
       }
     } else {
-      // Initialize days using the user's LOCAL calendar dates, not UTC dates.
-      // timezoneOffset = UTC − local (mins); to get local time: UTC − offset.
+      // Initialize days using the user's LOCAL calendar dates
       const daysDiff = Math.ceil(
         (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
       );
@@ -315,12 +322,10 @@ export const getUsageChartData = async (
 
       for (let i = 0; i < iterations; i++) {
         const utcInstant = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-        // Shift to local time to extract the correct local date string
         const localInstant = new Date(
           utcInstant.getTime() - timezoneOffset * 60 * 1000,
         );
         const key = localInstant.toISOString().split("T")[0];
-        // Force UTC in toLocaleDateString so server locale never skews the label
         const labelDate = new Date(key + "T00:00:00Z");
         const label = labelDate.toLocaleDateString("en-US", {
           month: iterations > 10 ? "numeric" : undefined,
@@ -332,6 +337,7 @@ export const getUsageChartData = async (
           name: label,
           text: 0,
           voice: 0,
+          document: 0,
           cost: 0,
           sortKey: utcInstant.getTime(),
         };
@@ -341,9 +347,6 @@ export const getUsageChartData = async (
     snapshot.docs.forEach((doc) => {
       const rawData = doc.data();
       const createdAt = rawData.createdAt?.toDate() || new Date();
-
-      // Shift each record's UTC timestamp to the user's local time so bucketing
-      // reflects their clock (e.g. 10:00 EAT, not 07:00 UTC).
       const localCreatedAt = new Date(
         createdAt.getTime() - timezoneOffset * 60 * 1000,
       );
@@ -357,8 +360,10 @@ export const getUsageChartData = async (
         dayMap[key].cost += cost;
 
         const type = rawData.type as UsageType;
-        if (type === "TEXT_RESPONSE" || type === "DOCUMENT_TRANSCRIPTION") {
+        if (type === "TEXT_RESPONSE") {
           dayMap[key].text += rawData.tokens || 0;
+        } else if (type === "DOCUMENT_TRANSCRIPTION") {
+          dayMap[key].document += rawData.tokens || 0;
         } else if (type === "VOICE_SESSION") {
           dayMap[key].voice += (rawData.seconds || 0) / 60;
         }
@@ -367,10 +372,11 @@ export const getUsageChartData = async (
 
     const chartData = Object.values(dayMap)
       .sort((a, b) => a.sortKey - b.sortKey)
-      .map(({ name, text, voice, cost }) => ({
+      .map(({ name, text, voice, document, cost }) => ({
         name,
         text,
         voice: parseFloat(voice.toFixed(2)),
+        document,
         cost: parseFloat((cost / 100).toFixed(2)),
       }));
 
