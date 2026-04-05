@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Edit3, FileText, FileImage, Download, Settings } from "lucide-react";
+import { Edit3, FileText, FileImage, Download, Settings, RotateCcw } from "lucide-react";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
 import { TranscribeStatus } from "@/hooks/use-document-transcribe";
 import { memo } from "react";
@@ -13,6 +13,7 @@ interface EditorViewProps {
   file: File | null;
   onShowReference: () => void;
   onDownload: () => void;
+  onReset: () => void;
   setShowSettingsModal: (show: boolean) => void;
 }
 
@@ -23,6 +24,7 @@ export const EditorView = memo(({
   setTranscription,
   onShowReference,
   onDownload,
+  onReset,
   setShowSettingsModal,
 }: EditorViewProps) => {
   return (
@@ -52,6 +54,15 @@ export const EditorView = memo(({
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
+          {/* Start Over Button - Professional and sleek */}
+          <button
+            onClick={onReset}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-all duration-300 shadow-sm border-b-4 active:border-b-0 active:translate-y-1"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Start Over
+          </button>
+
           {/* Original Document Button - Always available in both Edit and Preview */}
           <button
             onClick={onShowReference}
