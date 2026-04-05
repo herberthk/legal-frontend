@@ -8,6 +8,8 @@ import {
 import { GoogleGenAI } from "@google/genai";
 import { pdf } from "@react-pdf/renderer";
 import { PDFDocument } from "@/components/editor/PDFDocument";
+import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
+import { useAuthStore } from "@/store";
 
 export type TranscribeStatus =
   | "idle"
@@ -16,6 +18,7 @@ export type TranscribeStatus =
   | "previewing"
   | "error";
 export type FormatMode = "professional" | "original";
+export type TranscribeErrorType = "INSUFFICIENT_CREDITS" | "GENERAL";
 
 interface UseDocumentTranscribeReturn {
   file: File | null;
@@ -24,6 +27,7 @@ interface UseDocumentTranscribeReturn {
   transcription: string;
   formatMode: FormatMode;
   error: string | null;
+  errorType: TranscribeErrorType | null;
   setFile: (file: File | null) => void;
   setPreviewUrl: (url: string | null) => void;
   setStatus: (status: TranscribeStatus) => void;
@@ -62,6 +66,9 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
   const [transcription, setTranscription] = useState("");
   const [formatMode, setFormatMode] = useState<FormatMode>("professional");
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<TranscribeErrorType | null>(null);
+  const user = useAuthStore((state) => state.user);
+
   const [showPageNumbers, setShowPageNumbers] = useState<boolean>(true);
   const [pageNumberPosition, setPageNumberPosition] = useState<
     | "bottom-center"
@@ -83,16 +90,27 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       setStatus("idle");
       setTranscription("");
       setError(null);
+      setErrorType(null);
     }
   }, []);
 
   const processDocument = useCallback(async () => {
-    if (!file) return;
+    if (!file || !user?.id) return;
 
     setStatus("processing");
     setError(null);
+    setErrorType(null);
 
     try {
+      // 1. Credit Check
+      const { canSend, reason } = await checkUserCanSend(user.id);
+      if (!canSend) {
+        setError(reason || "Insufficient tokens to process this document.");
+        setErrorType("INSUFFICIENT_CREDITS");
+        setStatus("idle");
+        return;
+      }
+
       const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
       if (!apiKey) throw new Error("Gemini API key is missing.");
 
@@ -130,7 +148,16 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       if (response.text) {
         setTranscription(response.text);
 
-        // Extract title from first heading (markdown or simple HTML)
+        // 2. Record Usage
+        const totalTokens = response.usageMetadata?.totalTokenCount || 0;
+        await recordUsageAndDeduct({
+          userId: user.id,
+          type: "DOCUMENT_TRANSCRIPTION",
+          tokens: totalTokens,
+          sessionId: `doc-${file.name}-${Date.now()}`,
+        });
+
+        // Extract title from first heading
         const headingMatch =
           response.text.match(/^#\s+(.+)$/m) ||
           response.text.match(/<h1[^>]*>(.*?)<\/h1>/i);
@@ -150,27 +177,16 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("--- Document Processing Error ---");
-      console.error("Context:", {
-        fileName: file?.name,
-        fileType: file?.type,
-        fileSize: file?.size,
-        formatMode,
-      });
+      setErrorType("GENERAL");
 
       let userMessage =
         "An unexpected error occurred while processing the document. Please try again.";
       if (err?.message?.includes("API key")) {
         userMessage =
-          "Configuration Error: Gemini API key is missing or invalid. Please check your AI Studio secrets.";
-      } else if (
-        err?.message?.includes("fetch") ||
-        err?.message?.includes("network")
-      ) {
+          "Configuration Error: Gemini API key is missing or invalid.";
+      } else if (err?.status === 429) {
         userMessage =
-          "Network Error: Please check your internet connection and try again.";
-      } else if (err?.message?.includes("quota") || err?.status === 429) {
-        userMessage =
-          "Quota Exceeded: The AI service is currently busy or out of quota. Please try again later.";
+          "Quota Exceeded: The AI service is currently busy. Please try again later.";
       } else if (err?.message) {
         userMessage = `Processing Error: ${err.message}`;
       }
@@ -178,7 +194,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       setError(userMessage);
       setStatus("idle");
     }
-  }, [file, formatMode]);
+  }, [file, formatMode, user?.id]);
 
   const downloadPdf = useCallback(async () => {
     try {
@@ -226,6 +242,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     setStatus("idle");
     setTranscription("");
     setError(null);
+    setErrorType(null);
   }, []);
 
   return useMemo(
@@ -236,6 +253,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       transcription,
       formatMode,
       error,
+      errorType,
       setFile,
       setPreviewUrl,
       setStatus,
@@ -264,6 +282,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       transcription,
       formatMode,
       error,
+      errorType,
       handleDrop,
       processDocument,
       downloadPdf,

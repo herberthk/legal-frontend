@@ -186,11 +186,12 @@ declare global {
   };
 
   type UsageSource = "free" | "paid" | "welcome";
+  type UsageType = "TEXT_RESPONSE" | "VOICE_SESSION" | "DOCUMENT_TRANSCRIPTION";
   // --- Usage Tracking Types ---
   type UsageRecord = {
     id: string;
     userId: string;
-    type: "TEXT_RESPONSE" | "VOICE_SESSION";
+    type: UsageType;
     tokens: number;
     cost: number;
     seconds: number;

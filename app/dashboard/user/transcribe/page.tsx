@@ -21,6 +21,7 @@ const Transcribe = () => {
     transcription,
     formatMode,
     error,
+    errorType,
     setStatus,
     setTranscription,
     setFormatMode,
@@ -67,6 +68,7 @@ const Transcribe = () => {
                 processDocument={processDocument}
                 onReset={reset}
                 error={error}
+                errorType={errorType}
               />
             </div>
           )}
