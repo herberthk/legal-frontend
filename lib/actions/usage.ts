@@ -16,7 +16,7 @@ export const checkUserCanSend = async (
 ): Promise<{
   canSend: boolean;
   reason?: string;
-  user?: User;
+  user?: Omit<User, "createdAt" | "nextDailyReset">;
 }> => {
   try {
     const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
@@ -24,6 +24,10 @@ export const checkUserCanSend = async (
       return { canSend: false, reason: "User not found" };
     }
 
+    // check if user is active
+    if (userDoc.data()?.status !== "active") {
+      return { canSend: false, reason: "User is not active" };
+    }
     const user = { id: userDoc.id, ...userDoc.data() } as User;
 
     // Check if user has any available resources
@@ -32,7 +36,8 @@ export const checkUserCanSend = async (
     const hasWelcomeTokens = user.welcomeTextTokens > 10;
 
     if (hasFreeTokens || hasPaidBalance || hasWelcomeTokens) {
-      return { canSend: true, user };
+      const { createdAt, nextDailyReset, ...rest } = user;
+      return { canSend: true, user: rest };
     }
 
     return {
@@ -81,7 +86,7 @@ export const checkUserInfo = async (
  */
 export const recordUsageAndDeduct = async (params: {
   userId: string;
-  type: "TEXT_RESPONSE" | "VOICE_SESSION";
+  type: "TEXT_RESPONSE" | "VOICE_SESSION" | "DOCUMENT_TRANSCRIPTION";
   tokens?: number;
   sessionId: string;
   seconds?: number;
@@ -351,8 +356,8 @@ export const getUsageChartData = async (
         const cost = rawData.cost || 0;
         dayMap[key].cost += cost;
 
-        const type = rawData.type as "TEXT_RESPONSE" | "VOICE_SESSION";
-        if (type === "TEXT_RESPONSE") {
+        const type = rawData.type as UsageType;
+        if (type === "TEXT_RESPONSE" || type === "DOCUMENT_TRANSCRIPTION") {
           dayMap[key].text += rawData.tokens || 0;
         } else if (type === "VOICE_SESSION") {
           dayMap[key].voice += (rawData.seconds || 0) / 60;
