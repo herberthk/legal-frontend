@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import ThemeInitializer from "@/components/global/ThemeInitializer";
+import { ClerkProvider } from "@clerk/nextjs";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -55,12 +56,14 @@ const RootLayout = ({
         className={`${inter.className}bg-slate-50 dark:bg-slate-900 transition-colors duration-200`}
         suppressHydrationWarning
       >
-        <TooltipProvider>
-          <Toaster position="top-right" />
-          <ThemeInitializer />
-          <NextTopLoader />
-          {children}
-        </TooltipProvider>
+        <ClerkProvider>
+          <TooltipProvider>
+            <Toaster position="top-right" />
+            <ThemeInitializer />
+            <NextTopLoader />
+            {children}
+          </TooltipProvider>
+        </ClerkProvider>
       </body>
     </html>
   );
