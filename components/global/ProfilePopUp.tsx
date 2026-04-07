@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { signOut } from "@/lib";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/firebase/client";
-import Image from "next/image";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
 type Props = {
   user: User;
 };
@@ -33,13 +35,19 @@ const ProfilePopUp = ({ user }: Props) => {
       <div className="absolute right-0 mt-3 w-full md:w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-130 animate-in fade-in slide-in-from-top-2 zoom-in-95 origin-top-right overflow-hidden">
         <div className="p-6 text-center border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
           <div className="relative inline-block group">
-            <Image
-              src={user?.avatar}
-              alt={user?.name}
-              width={80}
-              height={80}
-              className="w-20 h-20 rounded-full mx-auto mb-3 ring-4 ring-white dark:ring-slate-700 shadow-md group-hover:scale-105 transition-transform duration-300"
-            />
+            <Avatar className="h-26 w-26 rounded-full shadow-lg transition-transform duration-300 group-hover:scale-105 mx-auto mb-3 ring-4 ring-orange-500 dark:ring-slate-700">
+              <AvatarImage src={user?.avatar || ""} alt={user?.name} />
+              <AvatarFallback
+                className={cn(
+                  "rounded-full text-white font-black",
+                  isAdmin
+                    ? "bg-indigo-600 shadow-indigo-500/20"
+                    : "bg-orange-500 shadow-orange-500/20",
+                )}
+              >
+                {user?.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <div
               className={`absolute bottom-3 right-0 w-5 h-5 rounded-full border-4 border-white dark:border-slate-800 ${user?.status === "active" ? "bg-green-500" : "bg-red-500"}`}
             ></div>
@@ -61,12 +69,14 @@ const ProfilePopUp = ({ user }: Props) => {
 
         <div className="p-2">
           <div className="px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors mb-1 group">
-            <p
-              className={`text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors ${isAdmin ? "group-hover:text-indigo-600" : "group-hover:text-orange-600"}`}
-            >
-              Account Settings
-            </p>
-            <p className="text-xs text-slate-400">Manage your subscription</p>
+            <Link href="/dashboard/user/settings">
+              <p
+                className={`text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors ${isAdmin ? "group-hover:text-indigo-600" : "group-hover:text-orange-600"}`}
+              >
+                Account Settings
+              </p>
+              <p className="text-xs text-slate-400">Manage your subscription</p>
+            </Link>
           </div>
 
           <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>

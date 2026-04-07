@@ -14,7 +14,10 @@ interface GoogleAuthButtonProps {
   returnTo?: string | null;
 }
 
-const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({ mode, returnTo }) => {
+const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
+  mode,
+  returnTo,
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -54,13 +57,16 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({ mode, returnTo }) =
         // 5. Update Local State & Redirect
         // For Google Auth, we might need a small delay to ensure Firestore is synced if it was a new user
         // But the signUp action handles creation synchronously.
-        
+
         // Fetch current user details to update store (or we could derive from Google user)
         // For simplicity and correctness, we'll let the next page load handle it or assume success
-        
-        toast.success(mode === "login" ? "Welcome back!" : "Account created successfully!", {
-          style: { background: "#10b981", color: "#fff" },
-        });
+
+        toast.success(
+          mode === "login" ? "Welcome back!" : "Account created successfully!",
+          {
+            style: { background: "#10b981", color: "#fff" },
+          },
+        );
 
         const redirectPath = returnTo || "/dashboard/user";
         router.push(redirectPath);
@@ -69,15 +75,18 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({ mode, returnTo }) =
       }
     } catch (error: unknown) {
       console.error("Google Auth Error:", error);
-      
+
       let errorMessage = "Failed to sign in with Google.";
-      
+
       if (error && typeof error === "object" && "code" in error) {
         const firebaseError = error as { code: string };
         if (firebaseError.code === "auth/popup-closed-by-user") {
           errorMessage = "Sign-in cancelled.";
-        } else if (firebaseError.code === "auth/account-exists-with-different-credential") {
-          errorMessage = "An account already exists with the same email address but different sign-in credentials.";
+        } else if (
+          firebaseError.code === "auth/account-exists-with-different-credential"
+        ) {
+          errorMessage =
+            "An account already exists with the same email address but different sign-in credentials.";
         }
       }
 
