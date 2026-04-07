@@ -5,6 +5,7 @@ import { useVoiceSession, useAssemblyAITranscription } from "@/hooks";
 import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
+import { logAnalyticsEvent } from "@/firebase/client";
 
 interface AssemblyAIVoiceConnectionProps {
   freeVoiceSeconds: number;
@@ -136,6 +137,7 @@ const AssemblyAIVoiceConnection: React.FC<AssemblyAIVoiceConnectionProps> = ({
       return;
     await startAiStt();
     connect();
+    logAnalyticsEvent("voice_call_start", { engine: "assemblyai" });
   }, [
     wsStatus,
     aiIsRecording,
@@ -148,12 +150,13 @@ const AssemblyAIVoiceConnection: React.FC<AssemblyAIVoiceConnectionProps> = ({
   const handleEndCall = useCallback(async () => {
     disconnect();
     await stopAiStt();
+    logAnalyticsEvent("voice_call_end", { engine: "assemblyai", duration });
     setActiveTranscript({
       speaker: "system",
       text: "Call ended by you",
     });
     reset();
-  }, [disconnect, stopAiStt, reset]);
+  }, [disconnect, stopAiStt, reset, duration]);
 
   useEffect(() => {
     if (isCreditExhausted && wsStatus === "open") {

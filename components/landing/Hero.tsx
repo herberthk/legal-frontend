@@ -3,9 +3,12 @@ import { fadeInUp, mockChatVariants, staggerContainer } from "@/constants";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, PlayCircle, Scale } from "lucide-react";
 import { usePopStore } from "@/store";
+import { logAnalyticsEvent } from "@/firebase/client";
+import { useRouter } from "next/navigation";
 
 const Hero = () => {
   const setShowDemo = usePopStore((state) => state.setShowDemo);
+  const router = useRouter();
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-4 overflow-hidden z-10">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
@@ -57,7 +60,10 @@ const Hero = () => {
                 boxShadow: "0 0 25px rgba(249, 115, 22, 0.5)",
               }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => {}}
+              onClick={() => {
+                logAnalyticsEvent("hero_start_consultation_click");
+                router.push("/login");
+              }}
               className="group px-8 py-4 rounded-xl bg-linear-to-r from-amber-500 to-orange-600 text-white font-bold text-lg shadow-lg shadow-orange-500/20 flex items-center justify-center space-x-2 transition-all relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
@@ -71,7 +77,10 @@ const Hero = () => {
                 borderColor: "#f97316",
               }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setShowDemo(true)}
+              onClick={() => {
+                logAnalyticsEvent("hero_watch_demo_click");
+                setShowDemo(true);
+              }}
               className="px-8 py-4 rounded-xl bg-white/50 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2"
             >
               <PlayCircle size={20} className="text-orange-500" />

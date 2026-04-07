@@ -6,6 +6,7 @@ import { cardEntrance, fadeInUp, staggerContainer } from "@/constants";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePopStore, useThemeStore } from "@/store";
+import { logAnalyticsEvent } from "@/firebase/client";
 import Faq from "@/components/landing/Faq";
 import Footer from "@/components/landing/Footer";
 import Pricing from "@/components/landing/Pricing";
@@ -52,7 +53,10 @@ const LandingPage = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="flex items-center space-x-2 group cursor-pointer"
-            onClick={() => router.push("/login")}
+            onClick={() => {
+              logAnalyticsEvent("navbar_logo_click");
+              router.push("/login");
+            }}
           >
             <div className="relative">
               <div className="absolute inset-0 bg-linear-to-r from-amber-500 to-orange-600 blur opacity-40 group-hover:opacity-70 transition-opacity rounded-xl"></div>
@@ -91,7 +95,7 @@ const LandingPage = () => {
             >
               {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
             </motion.button>
-            <Link href="/login">
+            <Link href="/login" onClick={() => logAnalyticsEvent("client_login_click")}>
               <motion.button
                 whileHover={{
                   scale: 1.05,
@@ -219,7 +223,9 @@ const LandingPage = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => {}}
+              onClick={() => {
+                logAnalyticsEvent("final_cta_click");
+              }}
               className="px-10 py-4 rounded-full bg-white text-indigo-700 font-bold text-lg shadow-[0_0_25px_rgba(255,255,255,0.4)] hover:shadow-[0_0_35px_rgba(255,255,255,0.6)] transition-all"
             >
               Get Started for Free
