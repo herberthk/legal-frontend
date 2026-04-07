@@ -14,6 +14,7 @@ import { useVoiceSession } from "@/hooks";
 import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
+import { logAnalyticsEvent } from "@/firebase/client";
 
 interface NativeVoiceConnectionProps {
   freeVoiceSeconds: number;
@@ -124,17 +125,19 @@ const NativeVoiceConnection: React.FC<NativeVoiceConnectionProps> = ({
     if (wsStatus === "connecting" || wsStatus === "open" || isCreditExhausted)
       return;
     connect();
+    logAnalyticsEvent("voice_call_start", { engine: "native" });
     SpeechRecognition.startListening({ continuous: true, language: "en-US" });
   }, [connect, wsStatus, isCreditExhausted]);
 
   const handleEndCall = useCallback(async () => {
     disconnect();
+    logAnalyticsEvent("voice_call_end", { engine: "native", duration });
     SpeechRecognition.stopListening();
     setActiveTranscript({
       speaker: "system",
       text: "You ended the call.",
     });
-  }, [disconnect]);
+  }, [disconnect, duration]);
 
   useEffect(() => {
     if (isCreditExhausted && wsStatus === "open") {

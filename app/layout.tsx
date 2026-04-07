@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import ThemeInitializer from "@/components/global/ThemeInitializer";
+import FirebaseAnalytics from "@/components/global/FirebaseAnalytics";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -56,6 +57,7 @@ const RootLayout = ({
         suppressHydrationWarning
       >
         <TooltipProvider>
+          <FirebaseAnalytics />
           <Toaster position="top-right" />
           <ThemeInitializer />
           <NextTopLoader />

@@ -1,13 +1,8 @@
-// lib/firebase.ts
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-// import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported, Analytics, logEvent } from "firebase/analytics";
 
-// If window is not defined, don't initialize Firebase
-if (typeof window === "undefined") {
-  console.log("Window is not defined, skipping Firebase initialization");
-}
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -22,9 +17,24 @@ const firebaseConfig = {
 const app =
   getApps().find((app) => app.name === "[DEFAULT]") ||
   initializeApp(firebaseConfig, "[DEFAULT]");
-// const app = initializeApp(firebaseConfig);
-// console.log("Apps", getApps());
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-// export const analytics = getAnalytics(app);
+
+// Safe Analytics initialization
+export const analyticsPromise: Promise<Analytics | null> = 
+  typeof window !== "undefined" 
+    ? isSupported().then(supported => supported ? getAnalytics(app) : null)
+    : Promise.resolve(null);
+
+export const logAnalyticsEvent = async (
+  eventName: string,
+  eventParams?: Record<string, string | number | boolean | undefined>
+) => {
+  const analytics = await analyticsPromise;
+  if (analytics) {
+    logEvent(analytics, eventName, eventParams);
+  }
+};
+
 export default app;

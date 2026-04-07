@@ -10,6 +10,7 @@ import {
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import Disclaimer from "./Disclaimer";
 import { useRouter } from "nextjs-toploader/app";
+import { logAnalyticsEvent } from "@/firebase/client";
 
 export interface ChatInputRef {
   triggerFileUpload: (promptText: string) => void;
@@ -84,6 +85,10 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     }
 
     onSend(input, pendingAttachment || undefined);
+    logAnalyticsEvent("send_message", { 
+      has_attachment: !!pendingAttachment,
+      attachment_type: pendingAttachment?.type || "none"
+    });
     setInput("");
     setPendingAttachment(null);
   };
@@ -157,12 +162,16 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(({
     };
 
     reader.readAsDataURL(file);
+    logAnalyticsEvent("pdf_upload_started", { file_name: file.name });
   };
 
   const activeFileName = pendingAttachment?.name || tempFileName;
 
   // --- Voice ---
-  const handleGoToVoice = () => router.push("/dashboard/user/voice");
+  const handleGoToVoice = () => {
+    logAnalyticsEvent("voice_consultation_click");
+    router.push("/dashboard/user/voice");
+  };
   return (
     <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors">
       <div className="max-w-4xl mx-auto">

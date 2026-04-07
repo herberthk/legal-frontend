@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "@/firebase/client";
+import { auth, db, logAnalyticsEvent } from "@/firebase/client";
 import { useAuthStore } from "@/store";
 import { getCurrentUser } from "@/lib/actions/auth";
 import {
@@ -19,9 +19,9 @@ export default function AuthProvider({
 }: {
   children: React.ReactNode;
 }) {
-  // const clearUser = useAuthStore((state) => state.clearUser);
   const setUser = useAuthStore((state) => state.setUser);
   const user = useAuthStore((state) => state.user);
+  const hasLoggedAnalytics = useRef(false);
 
   useEffect(() => {
     // 1. Initial hydration from server session to avoid flicker
@@ -29,12 +29,14 @@ export default function AuthProvider({
       const user = await getCurrentUser();
       if (user) {
         setUser(user);
+        if (!hasLoggedAnalytics.current) {
+          logAnalyticsEvent("login", { method: "session_hydration" });
+          hasLoggedAnalytics.current = true;
+        }
       }
     };
     hydrate();
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setUser]);
 
   useEffect(() => {
     if (!user) return;
@@ -50,9 +52,9 @@ export default function AuthProvider({
         if (snapshot.empty) {
           return;
         }
-        const user = snapshot.docs[0].data() as User;
-        console.log("Change detected", user);
-        setUser(user);
+        const userData = snapshot.docs[0].data() as User;
+        console.log("Change detected", userData);
+        setUser(userData);
       },
       (error) => {
         console.error("Firestore listener error:", error);
@@ -60,8 +62,7 @@ export default function AuthProvider({
     );
 
     return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, setUser]);
 
   return <>{children}</>;
 }
