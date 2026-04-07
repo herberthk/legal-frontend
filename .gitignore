@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Ignore service account
 legal-adviser-bd3f8-firebase-adminsdk-fbsvc-5a64d66b74.json
+
+# clerk configuration (can include secrets)
+/.clerk/

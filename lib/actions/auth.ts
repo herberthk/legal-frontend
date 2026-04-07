@@ -54,8 +54,8 @@ export async function setSessionCookie(idToken: string) {
  * @param params - Object containing uid, name, and email of new user
  * @returns Object with success status and message
  */
-export async function signUp(params: SignUpParams & { uid: string }) {
-  const { uid, name, email } = params;
+export async function signUp(params: SignUpParams & { uid: string; avatar?: string }) {
+  const { uid, name, email, avatar } = params;
   try {
     // Check for existing user document in Firestore
     const userDocRef = db.collection(COLLECTIONS.USERS).doc(uid);
@@ -63,7 +63,7 @@ export async function signUp(params: SignUpParams & { uid: string }) {
 
     if (userSnapshot.exists) {
       return {
-        success: false,
+        success: true, // If user exists, we consider this a successful "sync"
         message: "Profile already exists.",
       };
     }
@@ -73,9 +73,11 @@ export async function signUp(params: SignUpParams & { uid: string }) {
       Omit<User, "id">,
       "createdAt" | "nextDailyReset"
     > = {
-      name,
-      email,
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0f172a&color=fff`,
+      name: name || email.split("@")[0] || "User",
+      email: email.toLowerCase(),
+      avatar:
+        avatar ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email.split("@")[0] || "User")}&background=0f172a&color=fff`,
       role: "USER",
       balance: 0,
       totalSpent: 0,
@@ -95,15 +97,6 @@ export async function signUp(params: SignUpParams & { uid: string }) {
     };
   } catch (error: unknown) {
     console.error("Error creating user:", error);
-
-    // Handle Firebase specific errors
-    // @ts-ignore
-    if (error.code === "auth/email-already-exists") {
-      return {
-        success: false,
-        message: "This email is already in use",
-      };
-    }
 
     return {
       success: false,
