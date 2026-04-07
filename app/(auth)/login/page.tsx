@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Scale, Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import GoogleAuthButton from "@/components/auth/google-auth-button";
 import { signIn, getCurrentUser, recordUserStats } from "@/lib/actions/auth";
 import { useRouter } from "nextjs-toploader/app";
 import { useSearchParams } from "next/navigation";
@@ -108,6 +109,19 @@ const LoginPage = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <div className="w-full transition-all duration-300">
+          <GoogleAuthButton mode="login" returnTo={returnTo} />
+
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-700"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white dark:bg-slate-800 text-slate-500 text-xs font-medium uppercase tracking-wider">
+                Or continue with email
+              </span>
+            </div>
+          </div>
+
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
