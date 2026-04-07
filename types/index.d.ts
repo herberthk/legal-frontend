@@ -205,7 +205,6 @@ declare global {
   type UserStats = {
     id?: string;
     userId: string;
-    type: "LOGIN" | "SIGNUP" | "LOGOUT";
     browser: string;
     os: string;
     device: string; // Generic type (Mobile, Tablet, Desktop)
