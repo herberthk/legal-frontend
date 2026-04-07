@@ -53,7 +53,7 @@ const SignupPage = () => {
           // 4. Record Signup Statistics
           const stats = getDeviceStats();
           if (stats) {
-            recordUserStats(uid, { ...stats, type: "SIGNUP" });
+            recordUserStats(uid, { ...stats });
           }
           router.push(returnTo || "/dashboard/user");
         } else {
