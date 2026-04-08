@@ -21,11 +21,12 @@ export const ForgotPasswordForm = () => {
       if (result.success) {
         toast.success("Password reset code has been sent to your email.", {
           style: {
-            background: "green",
+            background: "#10b981",
+            color: "#fff",
           },
         });
         setTimeout(() => {
-          router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+          router.push(`/verify-otp?email=${btoa(email)}&type=reset`);
         }, 1500);
       } else {
         // @ts-ignore

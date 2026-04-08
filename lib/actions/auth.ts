@@ -54,7 +54,9 @@ export async function setSessionCookie(idToken: string) {
  * @param params - Object containing uid, name, and email of new user
  * @returns Object with success status and message
  */
-export async function signUp(params: SignUpParams & { uid: string; avatar?: string }) {
+export async function signUp(
+  params: SignUpParams & { uid: string; avatar?: string },
+) {
   const { uid, name, email, avatar } = params;
   try {
     // Check for existing user document in Firestore
@@ -101,6 +103,144 @@ export async function signUp(params: SignUpParams & { uid: string; avatar?: stri
     return {
       success: false,
       message: "Failed to create user profile. Please contact support.",
+    };
+  }
+}
+
+/**
+ * Initiates the signup process by sending an OTP and storing details temporarily.
+ */
+export async function initiateSignup(params: SignUpParams) {
+  const { name, email, password } = params;
+  try {
+    // 1. Check if user already exists in Firebase Auth
+    try {
+      await auth.getUserByEmail(email);
+      return {
+        success: false,
+        message: "An account with this email already exists. Please log in.",
+      };
+    } catch (authError: unknown) {
+      if ((authError as { code: string }).code !== "auth/user-not-found") {
+        throw authError;
+      }
+    }
+
+    // 2. Store in pending_signups
+    const pendingRef = db.collection(COLLECTIONS.PENDING_SIGNUPS).doc(email);
+    await pendingRef.set({
+      name,
+      email,
+      password, // Plain password stored temporarily (Secure server-side access only)
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    // 3. Send OTP
+    const otpsent = await sendOtp({
+      id: email,
+      email,
+      name,
+      type: "verify",
+    });
+
+    if (!otpsent) {
+      return {
+        success: false,
+        message: "Failed to send verification code. Please try again.",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Verification code sent to your email.",
+    };
+  } catch (error) {
+    console.error("InitiateSignup Error:", error);
+    return {
+      success: false,
+      message: "An error occurred. Please try again later.",
+    };
+  }
+}
+
+/**
+ * Completes the signup process after OTP verification.
+ */
+export async function completeSignup(email: string, otp: string) {
+  const { verifyOtp } = await import("./email");
+  try {
+    // 1. Verify OTP
+    const verification = await verifyOtp(email, otp);
+    if (!verification.success) {
+      return {
+        success: verification.success,
+        message: verification.message,
+        uid: "",
+        customToken: "",
+      };
+    }
+
+    // 2. Get pending data
+    const pendingRef = db.collection(COLLECTIONS.PENDING_SIGNUPS).doc(email);
+    const pendingSnap = await pendingRef.get();
+
+    if (!pendingSnap.exists) {
+      return {
+        success: false,
+        message: "Signup session expired. Please start over.",
+        uid: "",
+        customToken: "",
+      };
+    }
+
+    const { name, password } = pendingSnap.data()!;
+
+    // 3. Create user in Firebase Auth
+    const user = await auth.createUser({
+      email,
+      password,
+      displayName: name,
+      emailVerified: true, // We verified it via OTP
+    });
+
+    // 4. Create profile in Firestore
+    const profileResult = await signUp({
+      uid: user.uid,
+      name,
+      email,
+    });
+
+    // 5. Delete pending data
+    await pendingRef.delete();
+
+    if (!profileResult.success) {
+      return {
+        success: profileResult.success,
+        message: profileResult.message,
+        uid: "",
+        customToken: "",
+      };
+    }
+
+    // 6. Delete OTP document to prevent reuse
+    await db.collection(COLLECTIONS.OTP).doc(email).delete();
+
+    // 7. Generate Custom Token for seamless client-side login
+    const customToken = await auth.createCustomToken(user.uid);
+
+    return {
+      success: true,
+      message: "Account created successfully.",
+      uid: user.uid,
+      customToken,
+    };
+  } catch (error) {
+    console.error("CompleteSignup Error:", error);
+    return {
+      success: false,
+      message: "Verification failed. Please try again.",
+      uid: "",
+      customToken: "",
     };
   }
 }
@@ -351,5 +491,48 @@ export async function recordUserStats(
   } catch (error) {
     console.error("Error recording user stats:", error);
     return { success: false };
+  }
+}
+/**
+ * Resends an OTP for either a pending signup or a password reset.
+ * @param email - The user's email address
+ * @param type - The type of OTP flow ('signup' or 'reset')
+ */
+export async function resendOtpAction(email: string, type: "signup" | "reset") {
+  try {
+    if (type === "signup") {
+      const pendingRef = db.collection(COLLECTIONS.PENDING_SIGNUPS).doc(email);
+      const pendingSnap = await pendingRef.get();
+
+      if (!pendingSnap.exists) {
+        return {
+          success: false,
+          message: "Signup session expired. Please start over.",
+        };
+      }
+
+      const { name } = pendingSnap.data()!;
+      const otpsent = await sendOtp({
+        id: email,
+        email,
+        name,
+        type: "verify",
+      });
+
+      if (!otpsent) {
+        return { success: false, message: "Failed to resend code." };
+      }
+
+      return { success: true, message: "New verification code sent!" };
+    } else {
+      // For reset, we just reuse forgotPassword logic as it does exactly what we need
+      return await forgotPassword(email);
+    }
+  } catch (error) {
+    console.error("ResendOtpAction Error:", error);
+    return {
+      success: false,
+      message: "An error occurred while resending the code. Please try again.",
+    };
   }
 }

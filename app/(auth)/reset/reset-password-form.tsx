@@ -16,7 +16,18 @@ export const ResetPasswordForm = () => {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email");
+  const rawEmail = searchParams.get("email") || "";
+
+  // Safe Base64 decoding
+  const getDecodedEmail = (str: string) => {
+    try {
+      return atob(str);
+    } catch {
+      return str;
+    }
+  };
+
+  const email = getDecodedEmail(rawEmail);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +63,13 @@ export const ResetPasswordForm = () => {
     try {
       const result = await resetPasswordWithOtp(email, password);
       if (result.success) {
+        toast.success("Password reset successful! Logging you in...", {
+          style: {
+            background: "#10b981",
+            color: "#fff"
+          },
+        });
+        
         try {
           const userCredential = await signInWithEmailAndPassword(
             auth,
@@ -59,10 +77,21 @@ export const ResetPasswordForm = () => {
             password,
           );
           const idToken = await userCredential.user.getIdToken();
-          await signIn({ idToken });
-          router.push("/dashboard/user");
+          const sessionResult = await signIn({ idToken });
+          
+          if (sessionResult.success) {
+            router.push("/dashboard/user");
+          } else {
+            throw new Error(sessionResult.message);
+          }
         } catch (loginErr) {
-          console.log("Auto login error:", loginErr);
+          console.error("Auto login error:", loginErr);
+          toast.info("Password updated. Please log in manually.", {
+            style: {
+              background: "#3b82f6",
+              color: "#fff"
+            }
+          });
           setTimeout(() => {
             router.push("/login");
           }, 2000);
@@ -71,6 +100,7 @@ export const ResetPasswordForm = () => {
         toast.error(result.message, {
           style: {
             background: "#dc2626",
+            color: "#fff"
           },
         });
       }
@@ -79,6 +109,7 @@ export const ResetPasswordForm = () => {
       toast.error("Failed to reset password. Please try again.", {
         style: {
           background: "#dc2626",
+          color: "#fff"
         },
       });
     } finally {

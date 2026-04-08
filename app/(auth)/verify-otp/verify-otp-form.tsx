@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
 import { useSearchParams } from "next/navigation";
 import { verifyOtp } from "@/lib/actions/email";
-import { forgotPassword } from "@/lib/actions/auth";
+import {
+  completeSignup,
+  resendOtpAction,
+  signIn as setSession,
+} from "@/lib/actions/auth";
+import { auth } from "@/firebase/client";
+import { signInWithCustomToken } from "firebase/auth";
 import {
   InputOTP,
   InputOTPGroup,
@@ -27,7 +33,20 @@ export const VerifyOtpForm = () => {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
+  const rawEmail = searchParams.get("email") || "";
+
+  // Safe Base64 decoding
+  const getDecodedEmail = (str: string) => {
+    try {
+      return atob(str);
+    } catch {
+      return str;
+    }
+  };
+
+  const email = getDecodedEmail(rawEmail);
+  const type = (searchParams.get("type") as "signup" | "reset") || "reset";
+  const returnTo = searchParams.get("returnTo");
 
   useEffect(() => {
     // Rehydrate Zustand state explicitly as our store runs skipHydration
@@ -61,6 +80,7 @@ export const VerifyOtpForm = () => {
       toast.error("Email is missing. Please restart the process.", {
         style: {
           background: "#dc2626",
+          color: "#fff",
         },
       });
       return;
@@ -71,19 +91,24 @@ export const VerifyOtpForm = () => {
     setIsOTPinValid(false);
 
     try {
-      const result = await forgotPassword(email);
+      const result = await resendOtpAction(email, type);
       if (result.success) {
-        toast.success("A new verification code has been sent!", {
-          style: {
-            background: "green",
+        toast.success(
+          result.message || "A new verification code has been sent!",
+          {
+            style: {
+              background: "#10b981",
+              color: "#fff",
+            },
           },
-        });
+        );
         // Store the exact future expiration timestamp in Zustand
         updateResetTimer(Date.now() + 60 * 1000);
       } else {
         toast.error(result.message || "Failed to resend code.", {
           style: {
             background: "#dc2626",
+            color: "#fff",
           },
         });
       }
@@ -92,6 +117,7 @@ export const VerifyOtpForm = () => {
       toast.error("An unexpected error occurred. Please try again.", {
         style: {
           background: "#dc2626",
+          color: "#fff",
         },
       });
     } finally {
@@ -105,6 +131,7 @@ export const VerifyOtpForm = () => {
       toast.error("Email is missing. Please restart the process.", {
         style: {
           background: "#dc2626",
+          color: "#fff",
         },
       });
       return;
@@ -115,6 +142,7 @@ export const VerifyOtpForm = () => {
       toast.error("Please enter the 6-digit verification code.", {
         style: {
           background: "#dc2626",
+          color: "#fff",
         },
       });
       return;
@@ -123,32 +151,75 @@ export const VerifyOtpForm = () => {
     setLoading(true);
 
     try {
-      const result = await verifyOtp(email, otp);
-      if (result.success) {
-        toast.success("Verification successful! Redirecting...", {
-          style: {
-            background: "green",
-          },
-        });
-        setTimeout(() => {
-          router.push(`/reset?email=${encodeURIComponent(email)}`);
-        }, 1500);
+      if (type === "signup") {
+        const result = await completeSignup(email, otp);
+        if (result.success && result.customToken) {
+          // Sign in on client-side to get ID token
+          const userCredential = await signInWithCustomToken(
+            auth,
+            result.customToken,
+          );
+          const idToken = await userCredential.user.getIdToken();
+
+          // Establish server-side session
+          const sessionResult = await setSession({ idToken });
+
+          if (sessionResult.success) {
+            toast.success("Account verified! Welcome aboard.", {
+              style: {
+                background: "#10b981",
+                color: "#fff",
+              },
+            });
+            setTimeout(() => {
+              router.push(returnTo || "/dashboard/user");
+            }, 1000);
+          } else {
+            throw new Error(
+              sessionResult.message || "Session creation failed.",
+            );
+          }
+        } else {
+          toast.error(result.message || "Verification failed.", {
+            style: {
+              background: "#dc2626",
+              color: "#fff",
+            },
+          });
+          setIsOTPinValid(true);
+        }
       } else {
-        toast.error(result.message, {
-          style: {
-            background: "#dc2626",
-          },
-        });
-        setIsOTPinValid(true);
-        setTimeout(() => {
-          setOtp("");
-        }, 4000);
+        // Reset flows
+        const result = await verifyOtp(email, otp);
+        if (result.success) {
+          toast.success("Verification successful! Redirecting...", {
+            style: {
+              background: "#10b981",
+              color: "#fff",
+            },
+          });
+          setTimeout(() => {
+            router.push(`/reset?email=${rawEmail}`);
+          }, 1500);
+        } else {
+          toast.error(result.message, {
+            style: {
+              background: "#dc2626",
+              color: "#fff",
+            },
+          });
+          setIsOTPinValid(true);
+          setTimeout(() => {
+            setOtp("");
+          }, 4000);
+        }
       }
     } catch (err: unknown) {
       console.error("Verify OTP Error:", err);
       toast.error("An unexpected error occurred. Please try again.", {
         style: {
           background: "#dc2626",
+          color: "#fff",
         },
       });
     } finally {
@@ -203,7 +274,7 @@ export const VerifyOtpForm = () => {
 
         <button
           type="submit"
-          disabled={loading || otp.length !== 6}
+          disabled={loading || otp.length !== 6 || remaining > 0}
           className="w-full mt-8 flex justify-center py-4 px-4 rounded-2xl shadow-lg text-sm font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01] active:scale-95 bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/20"
         >
           {loading ? (
@@ -229,7 +300,7 @@ export const VerifyOtpForm = () => {
             type="button"
             onClick={handleResend}
             disabled={resendLoading || remaining > 0 || loading}
-            className="font-medium text-orange-600 dark:text-orange-500 hover:underline disabled:opacity-50 disabled:no-underline transition-colors"
+            className="font-medium text-orange-600 dark:text-orange-500 hover:underline disabled:opacity-50 disabled:no-underline transition-colors disabled:cursor-not-allowed"
           >
             {resendLoading
               ? "Sending..."

@@ -10,4 +10,5 @@ export const COLLECTIONS = {
   TRANSACTIONS: "transactions",
   NOTIFICATIONS: "notifications",
   VOICE_SESSIONS: "voiceSessions",
+  PENDING_SIGNUPS: "pendingSignups",
 } as const;
