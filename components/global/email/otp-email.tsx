@@ -88,7 +88,7 @@ export const OTPEmail = ({
               letterSpacing: "-0.5px",
             }}
           >
-            {type === "verify" ? "Verify Your Login" : "Reset your password"}
+            {type === "verify" ? "Verify Your Account" : "Reset your password"}
           </h1>
         </div>
 
@@ -114,10 +114,10 @@ export const OTPEmail = ({
             }}
           >
             {type === "verify"
-              ? `We received a request to verify your login to our payment gateway. Use the code
-            below to complete your verification`
-              : `We received a request to reset your password. Use the code
-            below to complete your verification process `}
+              ? `We received a request to verify your email for your Legal Adviser account. Use the code
+            below to complete your registration.`
+              : `We received a request to reset your password for your Legal Adviser account. Use the code
+            below to complete your verification process.`}
           </p>
 
           {/* OTP Box */}

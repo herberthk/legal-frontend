@@ -5,17 +5,14 @@ import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
 import { useSearchParams } from "next/navigation";
 import GoogleAuthButton from "@/components/auth/google-auth-button";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/firebase/client";
-import { signUp, signIn, recordUserStats } from "@/lib/actions/auth";
+import { initiateSignup } from "@/lib/actions/auth";
 import { toast } from "sonner";
-import { getDeviceStats } from "@/utils/device";
 
 const SignupPage = () => {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("0123456789");
+  const [password, setPassword] = useState("");
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,6 +24,7 @@ const SignupPage = () => {
       toast.error("All fields are required", {
         style: {
           background: "#dc2626",
+          color: "#fff",
         },
       });
       return;
@@ -34,69 +32,36 @@ const SignupPage = () => {
     setLoading(true);
 
     try {
-      // 1. Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const uid = userCredential.user.uid;
-      const idToken = await userCredential.user.getIdToken();
+      // 1. Initiate Signup via Server Action (Sends OTP)
+      const result = await initiateSignup({ name, email, password });
 
-      // 2. Initialize Firestore User Profile via Server Action
-      const profileResult = await signUp({ uid, name, email });
-
-      if (profileResult.success) {
-        // 3. Establish Server Session
-        const sessionResult = await signIn({ idToken });
-
-        if (sessionResult?.success) {
-          // 4. Record Signup Statistics
-          const stats = getDeviceStats();
-          if (stats) {
-            recordUserStats(uid, { ...stats });
-          }
-          router.push(returnTo || "/dashboard/user");
-        } else {
-          toast.error(
-            sessionResult?.message ||
-              "Profile created, but failed to start session. Please log in.",
-            {
-              style: {
-                background: "#dc2626",
-              },
-            },
-          );
-        }
-      } else {
-        toast.success(profileResult.message, {
+      if (result.success) {
+        toast.success(result.message, {
           style: {
-            background: "green",
+            background: "#10b981",
+            color: "#fff",
+          },
+        });
+        
+        // 2. Redirect to Verify OTP page
+        const verifyUrl = `/verify-otp?email=${btoa(email)}&type=signup${returnTo ? `&returnTo=${encodeURIComponent(returnTo)}` : ""}`;
+        router.push(verifyUrl);
+      } else {
+        toast.error(result.message, {
+          style: {
+            background: "#dc2626",
+            color: "#fff",
           },
         });
       }
     } catch (err: unknown) {
       console.error("Signup Error:", err);
-      const firebaseError = err as { code: string };
-      if (firebaseError.code === "auth/email-already-in-use") {
-        toast.error("This email is already in use.", {
-          style: {
-            background: "#dc2626",
-          },
-        });
-      } else if (firebaseError.code === "auth/weak-password") {
-        toast.error("Password should be at least 6 characters.", {
-          style: {
-            background: "#dc2626",
-          },
-        });
-      } else {
-        toast.error("An error occurred during signup. Please try again.", {
-          style: {
-            background: "#dc2626",
-          },
-        });
-      }
+      toast.error("An error occurred during signup. Please try again.", {
+        style: {
+          background: "#dc2626",
+          color: "#fff",
+        },
+      });
     } finally {
       setLoading(false);
     }
