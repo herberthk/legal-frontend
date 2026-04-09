@@ -41,6 +41,8 @@ const VoiceSelection = () => {
     },
     [setUser, user],
   );
+  const selectedVoice = user?.voicePreference || "Blake";
+  console.log("voice preference", selectedVoice);
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
       <div className="flex items-center gap-2 mb-4">
@@ -63,7 +65,7 @@ const VoiceSelection = () => {
             key={voice.id}
             onClick={() => updateVoice(voice.name)}
             className={`relative p-3 rounded-xl border text-left transition-all duration-300 hover:shadow-md ${
-              user?.voicePreference === voice.name
+              selectedVoice === voice.name
                 ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-500"
                 : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-orange-300 dark:hover:border-orange-700"
             }`}
@@ -78,7 +80,7 @@ const VoiceSelection = () => {
               >
                 {voice.gender}
               </span>
-              {user?.voicePreference === voice.name && (
+              {selectedVoice === voice.name && (
                 <Check
                   size={16}
                   className="text-orange-600 dark:text-orange-500"
