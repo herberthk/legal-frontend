@@ -507,8 +507,7 @@ const GlobalSidebar = ({ user }: Props) => {
                     </Avatar>
                     <div
                       className={cn(
-                        "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm",
-                        isAdmin ? "bg-indigo-500" : "bg-orange-500",
+                        "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm bg-green-500",
                       )}
                     />
                   </div>
