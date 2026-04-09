@@ -306,7 +306,9 @@ const CustomButton = React.forwardRef<HTMLButtonElement, CustomButtonProps>(
                 {leftIcon && (
                   <span className="flex items-center">{leftIcon}</span>
                 )}
-                <motion.span className="relative z-10">{children}</motion.span>
+                <motion.span className="relative z-10 dark:text-slate-100 text-slate-800">
+                  {children}
+                </motion.span>
                 {rightIcon && (
                   <span className="flex items-center">{rightIcon}</span>
                 )}

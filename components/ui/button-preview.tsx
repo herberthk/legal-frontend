@@ -196,6 +196,56 @@ export function ButtonPreview() {
               Left Accent
             </CustomButton>
           </div>
+
+          <div className="space-y-2">
+            <p className="text-sm text-slate-500">
+              Bilateral Borders (Requested)
+            </p>
+            <div className="flex gap-3">
+              <CustomButton
+                isLoading={true}
+                variant="transparent"
+                shape="rounded"
+                borderLeftWidth="4px"
+                borderLeftColor="#4f46e5"
+                borderRightWidth="4px"
+                borderRightColor="#ea580c"
+                className="bg-slate-100/50 dark:bg-slate-800/50"
+              >
+                Rounded button
+              </CustomButton>
+
+              <CustomButton
+                variant="transparent"
+                shape="pill"
+                borderLeftWidth="4px"
+                borderLeftColor="#4f46e5"
+                borderRightWidth="4px"
+                borderRightColor="#ea580c"
+                className="bg-slate-100/50 dark:bg-slate-800/50"
+                leftIcon={<Sparkles />}
+              >
+                Pill button
+              </CustomButton>
+
+              {/* <CustomButton
+                variant="transparent"
+                borderTopLeftRadius="20px"
+                borderBottomRightRadius="20px"
+                borderTopWidth="3px"
+                borderTopColor="#4f46e5"
+                borderLeftWidth="3px"
+                borderLeftColor="#ea580c"
+                borderBottomWidth="3px"
+                borderBottomColor="#ea580c"
+                borderRightWidth="3px"
+                borderRightColor="#4f46e5"
+                className="bg-slate-100/50 dark:bg-slate-800/50 min-w-[140px]"
+              >
+                Diagonal Custom
+              </CustomButton> */}
+            </div>
+          </div>
         </div>
       </section>
 
