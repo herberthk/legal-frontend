@@ -63,7 +63,7 @@ const ProfilePopUp = ({ user }: Props) => {
           >
             {isAdmin
               ? "ADMINISTRATOR"
-              : `Balance: $${user?.balance.toFixed(2)}`}
+              : `Balance: $${(user?.balance / 100).toFixed(2)}`}
           </div>
         </div>
 
