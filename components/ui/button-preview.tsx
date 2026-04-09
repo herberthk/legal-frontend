@@ -283,31 +283,64 @@ export function ButtonPreview() {
         </div>
       </section>
 
-      {/* Custom Extensibility Section */}
+      {/* Polymorphism & Sandbox Section */}
       <section className="space-y-6">
         <h2 className="text-xl font-semibold border-b pb-2">
-          Polymorphic Links (Next.js)
+          Polymorphism & Experimental Borders
         </h2>
         <div className="flex flex-wrap gap-4">
-          <CustomButton
-            component={Link}
-            href="/test/buttons"
-            variant="gradient-indigo"
-            hoverEffect="shine"
-            rightIcon={<ArrowRight />}
-          >
-            Link Component
-          </CustomButton>
+          <div className="space-y-2">
+            <p className="text-sm text-slate-500">Next.js Link (href req)</p>
+            <CustomButton
+              component={Link}
+              href="/test/buttons"
+              variant="gradient-indigo"
+              hoverEffect="shine"
+              rightIcon={<ArrowRight />}
+            >
+              Route Command
+            </CustomButton>
+          </div>
 
-          <CustomButton
-            component="a"
-            href="https://google.com"
-            target="_blank"
-            variant="outline"
-            hoverEffect="glow"
-          >
-            Standard Anchor Tag
-          </CustomButton>
+          <div className="space-y-2">
+            <p className="text-sm text-slate-500">Standard Anchor</p>
+            <CustomButton
+              component="a"
+              href="https://google.com"
+              target="_blank"
+              variant="outline"
+              hoverEffect="glow"
+            >
+              External Anchor
+            </CustomButton>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm text-slate-500">Primitive Div Node</p>
+            <CustomButton
+              component="div"
+              variant="transparent"
+              shadow="md"
+              hoverEffect="tilt"
+              className="cursor-default bg-slate-100 dark:bg-slate-800"
+            >
+              Wrapper Container Div
+            </CustomButton>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm text-slate-500">Animated Gradient Border</p>
+            <CustomButton
+              component="div"
+              variant="primary"
+              shape="pill"
+              borderAnimation
+              className="bg-slate-950 px-8 py-3 dark:bg-slate-950 font-medium whitespace-nowrap"
+              leftIcon={<Sparkles className="w-4 h-4 text-orange-400" />}
+            >
+              Rotating Border Showcase
+            </CustomButton>
+          </div>
         </div>
       </section>
 
