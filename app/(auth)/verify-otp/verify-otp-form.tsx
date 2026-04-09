@@ -21,6 +21,7 @@ import {
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { useAuthStore } from "@/store";
 import { toast } from "sonner";
+import { CustomButton } from "@/components/ui/custom-button";
 
 export const VerifyOtpForm = () => {
   const [loading, setLoading] = useState(false);
@@ -272,7 +273,7 @@ export const VerifyOtpForm = () => {
           </InputOTP>
         </div>
 
-        <button
+        {/* <button
           type="submit"
           disabled={loading || otp.length !== 6 || remaining > 0}
           className="w-full mt-8 flex justify-center py-4 px-4 rounded-2xl shadow-lg text-sm font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01] active:scale-95 bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/20"
@@ -285,7 +286,24 @@ export const VerifyOtpForm = () => {
               <KeyRound className="ml-2 w-4 h-4 transform group-hover:-translate-y-0.5 transition-transform" />
             </span>
           )}
-        </button>
+        </button> */}
+        <CustomButton
+          type="submit"
+          disabled={loading || otp.length !== 6 || remaining > 0}
+          isLoading={loading}
+          variant="transparent"
+          shape="pill"
+          borderLeftWidth="4px"
+          borderLeftColor="#4f46e5"
+          borderRightWidth="4px"
+          borderRightColor="#ea580c"
+          className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+          rightIcon={<KeyRound className="w-4 h-4" />}
+          hoverEffect="glow"
+          fullWidth
+        >
+          Verify Code
+        </CustomButton>
 
         <div className="flex items-center justify-between mt-4 text-sm px-1">
           {/* <Link

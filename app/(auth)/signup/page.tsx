@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldAlert, ShieldCheck, Eye, EyeOff, User } from "lucide-react";
+import { CustomButton } from "@/components/ui/custom-button";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -299,20 +300,23 @@ const SignupPage = () => {
               </AnimatePresence>
             </div>
 
-            <button
+            <CustomButton
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-4 px-4 rounded-2xl shadow-lg text-sm font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.01] active:scale-95 bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-500/20"
+              isLoading={loading}
+              variant="transparent"
+              shape="pill"
+              borderLeftWidth="4px"
+              borderLeftColor="#4f46e5"
+              borderRightWidth="4px"
+              borderRightColor="#ea580c"
+              className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+              rightIcon={<ArrowRight className="w-4 h-4" />}
+              hoverEffect="glow"
+              fullWidth
             >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <span className="flex items-center group">
-                  Create Account
-                  <ArrowRight className="ml-2 w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
-                </span>
-              )}
-            </button>
+              Create Account
+            </CustomButton>
           </form>
 
           <div className="mt-3">
