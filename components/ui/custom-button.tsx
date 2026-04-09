@@ -342,7 +342,7 @@ const CustomButtonInner = forwardRef(
         </AnimatePresence>
 
         {/* Animated Border Overlay */}
-        {borderAnimation && (
+        {(borderAnimation || isLoading) && (
           <div
             className="absolute inset-0 z-0 pointer-events-none"
             style={{
@@ -397,6 +397,7 @@ const CustomButtonInner = forwardRef(
           fullWidth,
         }),
         "perspective-500",
+        isLoading && "disabled:cursor-not-allowed",
         className,
       ),
       style: borderStyles,
