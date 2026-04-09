@@ -36,7 +36,7 @@ const NativeVoiceConnection: React.FC<NativeVoiceConnectionProps> = ({
   }, [freeVoiceSeconds, balance]);
 
   const isCreditExhausted = duration >= totalAllowedSeconds;
-  const voice = useAuthStore((state) => state.user?.voicePreference);
+  const voice = useAuthStore((state) => state.user?.voicePreference) || "Blake";
   const [activeTranscript, setActiveTranscript] =
     useState<AgentTranscript | null>(null);
 
