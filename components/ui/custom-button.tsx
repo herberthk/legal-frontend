@@ -200,6 +200,7 @@ export type CustomButtonBaseProps = {
   borderTopRightRadius?: string;
   borderBottomRightRadius?: string;
   borderBottomLeftRadius?: string;
+  borderAnimation?: boolean;
 };
 
 export type CustomButtonProps<T extends React.ElementType> =
@@ -243,6 +244,7 @@ const CustomButtonInner = forwardRef(
       borderTopRightRadius,
       borderBottomRightRadius,
       borderBottomLeftRadius,
+      borderAnimation,
       style,
       whileHover,
       whileTap,
@@ -254,7 +256,12 @@ const CustomButtonInner = forwardRef(
 
     // Runtime enforcement for href if it's likely a Link
     const dynamicProps = props as Record<string, unknown>;
-    if (component && component !== "button" && !dynamicProps.href) {
+    if (
+      component &&
+      component !== "button" &&
+      component !== "div" &&
+      !dynamicProps.href
+    ) {
       throw new Error(
         "CustomButton: The 'href' prop is required when using a custom component link.",
       );
@@ -333,6 +340,32 @@ const CustomButtonInner = forwardRef(
             )}
           </motion.div>
         </AnimatePresence>
+
+        {/* Animated Border Overlay */}
+        {borderAnimation && (
+          <div
+            className="absolute inset-0 z-0 pointer-events-none"
+            style={{
+              padding: "2px",
+              WebkitMask:
+                "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+              WebkitMaskComposite: "xor",
+              maskComposite: "exclude",
+              borderRadius: "inherit",
+              overflow: "hidden",
+            }}
+          >
+            <motion.div
+              className="absolute -inset-full"
+              style={{
+                background:
+                  "conic-gradient(from 0deg, transparent 60%, #4f46e5 85%, #ea580c 100%)",
+              }}
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
+            />
+          </div>
+        )}
 
         {/* Shine Effect Overlay */}
         {hoverEffect === "shine" && (
