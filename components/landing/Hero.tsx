@@ -5,6 +5,8 @@ import { ArrowRight, Check, PlayCircle, Scale } from "lucide-react";
 import { usePopStore } from "@/store";
 import { logAnalyticsEvent } from "@/firebase/client";
 import { useRouter } from "next/navigation";
+import { CustomButton } from "../ui/custom-button";
+import Link from "next/link";
 
 const Hero = () => {
   const setShowDemo = usePopStore((state) => state.setShowDemo);
@@ -53,39 +55,35 @@ const Hero = () => {
             variants={fadeInUp}
             className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4"
           >
-            <motion.button
-              whileHover={{
-                scale: 1.05,
-                gap: "12px",
-                boxShadow: "0 0 25px rgba(249, 115, 22, 0.5)",
-              }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                logAnalyticsEvent("hero_start_consultation_click");
-                router.push("/login");
-              }}
-              className="group px-8 py-4 rounded-xl bg-linear-to-r from-amber-500 to-orange-600 text-white font-bold text-lg shadow-lg shadow-orange-500/20 flex items-center justify-center space-x-2 transition-all relative overflow-hidden"
+            <CustomButton
+              component={Link}
+              href="/login"
+              variant="gradient-mixed"
+              size="lg"
+              hoverEffect="tilt"
+              shape="pill"
+              shadow="2xl"
+              rightIcon={<ArrowRight />}
+              className="px-8 h-14 text-lg font-bold"
             >
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              <span className="relative">Start Free Consultation</span>
-              <ArrowRight className="w-5 h-5 transition-transform relative" />
-            </motion.button>
-            <motion.button
-              whileHover={{
-                scale: 1.05,
-                backgroundColor: "rgba(255,255,255,0.05)",
-                borderColor: "#f97316",
-              }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                logAnalyticsEvent("hero_watch_demo_click");
-                setShowDemo(true);
-              }}
-              className="px-8 py-4 rounded-xl bg-white/50 dark:bg-white/5 backdrop-blur-md border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              Start Free Consultation
+            </CustomButton>
+
+            <CustomButton
+              size="lg"
+              hoverEffect="glow"
+              variant="transparent"
+              shape="rounded"
+              borderLeftWidth="4px"
+              borderLeftColor="#4f46e5"
+              borderRightWidth="4px"
+              borderRightColor="#ea580c"
+              leftIcon={<PlayCircle className="text-orange-500" />}
+              onClick={() => setShowDemo(true)}
+              className="px-8 h-14 rounded-xl text-lg font-bold bg-white/50 dark:bg-white/5 backdrop-blur-md"
             >
-              <PlayCircle size={20} className="text-orange-500" />
-              <span>Watch Demo</span>
-            </motion.button>
+              Watch Demo
+            </CustomButton>
           </motion.div>
 
           <motion.div

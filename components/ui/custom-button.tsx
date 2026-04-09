@@ -1,15 +1,38 @@
-import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
+import React, { forwardRef } from "react";
+import { cva } from "class-variance-authority";
 import {
   motion,
   AnimatePresence,
-  HTMLMotionProps,
   TargetAndTransition,
   MotionStyle,
   VariantLabels,
+  MotionProps,
 } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// --- Motion Component Cache ---
+const MotionButton = motion("button");
+const motionCache = new Map<
+  React.ElementType,
+  React.ComponentType<Record<string, unknown>>
+>();
+function getMotionComponent(
+  component: React.ElementType,
+): React.ComponentType<Record<string, unknown>> {
+  if (component === "button")
+    return MotionButton as unknown as React.ComponentType<
+      Record<string, unknown>
+    >;
+  let cached = motionCache.get(component);
+  if (!cached) {
+    cached = motion(
+      component as React.ComponentType,
+    ) as unknown as React.ComponentType<Record<string, unknown>>;
+    motionCache.set(component, cached);
+  }
+  return cached;
+}
 
 // --- Enums ---
 
@@ -148,10 +171,7 @@ const transitionVariants: Record<string, TransitionEffect> = {
 
 // --- Props ---
 
-export interface CustomButtonProps extends Omit<
-  HTMLMotionProps<"button">,
-  "variant" | "size"
-> {
+export type CustomButtonBaseProps = {
   variant?: ButtonVariant;
   size?: ButtonSize;
   shape?: ButtonShape;
@@ -180,10 +200,20 @@ export interface CustomButtonProps extends Omit<
   borderTopRightRadius?: string;
   borderBottomRightRadius?: string;
   borderBottomLeftRadius?: string;
-}
+};
 
-const CustomButton = React.forwardRef<HTMLButtonElement, CustomButtonProps>(
-  (
+export type CustomButtonProps<T extends React.ElementType> =
+  CustomButtonBaseProps & {
+    component?: T;
+  } & Omit<
+      React.ComponentPropsWithoutRef<T>,
+      keyof CustomButtonBaseProps | "component"
+    > &
+    MotionProps;
+
+// eslint-disable-next-line react/display-name
+const CustomButtonInner = forwardRef(
+  <T extends React.ElementType = "button">(
     {
       className,
       variant = "primary",
@@ -198,6 +228,7 @@ const CustomButton = React.forwardRef<HTMLButtonElement, CustomButtonProps>(
       animation = "none",
       transitionType = "none",
       hoverEffect = "scale",
+      component,
       borderTopWidth,
       borderRightWidth,
       borderBottomWidth,
@@ -216,9 +247,18 @@ const CustomButton = React.forwardRef<HTMLButtonElement, CustomButtonProps>(
       whileHover,
       whileTap,
       ...props
-    },
-    ref,
+    }: CustomButtonProps<T>,
+    ref: React.Ref<never>,
   ) => {
+    const Component = component || "button";
+
+    // Runtime enforcement for href if it's likely a Link
+    const dynamicProps = props as Record<string, unknown>;
+    if (component && component !== "button" && !dynamicProps.href) {
+      throw new Error(
+        "CustomButton: The 'href' prop is required when using a custom component link.",
+      );
+    }
     // Generate border-related styles
     const borderStyles: MotionStyle = {
       // Widths
@@ -264,29 +304,8 @@ const CustomButton = React.forwardRef<HTMLButtonElement, CustomButtonProps>(
       }
     };
 
-    return (
-      <motion.button
-        ref={ref}
-        className={cn(
-          buttonVariants({
-            variant,
-            size,
-            shape,
-            shadow,
-            fullWidth,
-          }),
-          "perspective-500", // For tilt effect
-          className,
-        )}
-        style={borderStyles}
-        animate={
-          animation !== "none" ? animationVariants[animation] : undefined
-        }
-        whileHover={getHoverStyles()}
-        whileTap={whileTap || { scale: 0.98 }}
-        disabled={isLoading || props.disabled}
-        {...props}
-      >
+    const componentContent = (
+      <>
         <AnimatePresence mode="wait">
           <motion.div
             key={isLoading ? "loading" : "content"}
@@ -306,9 +325,7 @@ const CustomButton = React.forwardRef<HTMLButtonElement, CustomButtonProps>(
                 {leftIcon && (
                   <span className="flex items-center">{leftIcon}</span>
                 )}
-                <motion.span className="relative z-10 dark:text-slate-100 text-slate-800">
-                  {children}
-                </motion.span>
+                <motion.span className="relative z-10">{children}</motion.span>
                 {rightIcon && (
                   <span className="flex items-center">{rightIcon}</span>
                 )}
@@ -334,11 +351,47 @@ const CustomButton = React.forwardRef<HTMLButtonElement, CustomButtonProps>(
             variant.toString().includes("gradient")) && (
             <div className="absolute inset-0 bg-linear-to-tr from-white/10 to-transparent pointer-events-none" />
           )}
-      </motion.button>
+      </>
+    );
+
+    const commonProps = {
+      className: cn(
+        buttonVariants({
+          variant,
+          size,
+          shape,
+          shadow,
+          fullWidth,
+        }),
+        "perspective-500",
+        className,
+      ),
+      style: borderStyles,
+      animate: animation !== "none" ? animationVariants[animation] : undefined,
+      whileHover: getHoverStyles(),
+      whileTap: whileTap || { scale: 0.98 },
+    };
+
+    const mergedProps = {
+      ...commonProps,
+      ...props,
+      disabled: isLoading || !!dynamicProps.disabled,
+    } as Record<string, unknown>;
+    mergedProps.ref = ref;
+
+    return React.createElement(
+      getMotionComponent(Component) as React.ElementType,
+      mergedProps,
+      componentContent,
     );
   },
-);
-
-CustomButton.displayName = "CustomButton";
+) as unknown as {
+  <T extends React.ElementType = "button">(
+    props: CustomButtonProps<T> & { ref?: React.Ref<never> },
+  ): React.ReactElement;
+  displayName: string;
+};
+CustomButtonInner.displayName = "CustomButton";
+const CustomButton = CustomButtonInner;
 
 export { CustomButton, buttonVariants };

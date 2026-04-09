@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CustomButton } from "./custom-button";
 import { Trash2, Sparkles, ArrowRight, Plus } from "lucide-react";
+import Link from "next/link";
 
 export function ButtonPreview() {
   const [isLoading, setIsLoading] = useState(false);
@@ -279,6 +280,34 @@ export function ButtonPreview() {
               Tilt Perspective
             </CustomButton>
           </div>
+        </div>
+      </section>
+
+      {/* Custom Extensibility Section */}
+      <section className="space-y-6">
+        <h2 className="text-xl font-semibold border-b pb-2">
+          Polymorphic Links (Next.js)
+        </h2>
+        <div className="flex flex-wrap gap-4">
+          <CustomButton
+            component={Link}
+            href="/test/buttons"
+            variant="gradient-indigo"
+            hoverEffect="shine"
+            rightIcon={<ArrowRight />}
+          >
+            Link Component
+          </CustomButton>
+
+          <CustomButton
+            component="a"
+            href="https://google.com"
+            target="_blank"
+            variant="outline"
+            hoverEffect="glow"
+          >
+            Standard Anchor Tag
+          </CustomButton>
         </div>
       </section>
 
