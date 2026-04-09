@@ -1,24 +1,20 @@
 "use client";
-import { Scale, Sun, Moon, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import DemoModal from "@/components/landing/demo";
 import { cardEntrance, fadeInUp, staggerContainer } from "@/constants";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { usePopStore, useThemeStore } from "@/store";
+import { usePopStore } from "@/store";
 import { logAnalyticsEvent } from "@/firebase/client";
 import Faq from "@/components/landing/Faq";
 import Footer from "@/components/landing/Footer";
 import Pricing from "@/components/landing/Pricing";
 import Features from "@/components/landing/Features";
 import Hero from "@/components/landing/Hero";
+import HomeNavBar from "@/components/landing/HomeNavBar";
 
 const LandingPage = () => {
   const showDemo = usePopStore((state) => state.showDemo);
   const { scrollYProgress } = useScroll();
-  const router = useRouter();
-  const theme = useThemeStore((state) => state.theme);
-  const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
   // Parallax Background Transforms
   const y1 = useTransform(scrollYProgress, [0, 1], [0, -150]);
@@ -42,75 +38,7 @@ const LandingPage = () => {
       </div>
 
       {/* Navbar */}
-      <motion.nav
-        initial={{ y: -100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 50, damping: 20 }}
-        className="fixed top-0 w-full z-50 bg-white/70 dark:bg-[#0B1120]/80 backdrop-blur-xl border-b border-white/20 dark:border-white/5 transition-all duration-300"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center space-x-2 group cursor-pointer"
-            onClick={() => {
-              logAnalyticsEvent("navbar_logo_click");
-              router.push("/login");
-            }}
-          >
-            <div className="relative">
-              <div className="absolute inset-0 bg-linear-to-r from-amber-500 to-orange-600 blur opacity-40 group-hover:opacity-70 transition-opacity rounded-xl"></div>
-              <div className="relative bg-linear-to-br from-amber-500 to-orange-600 p-2 rounded-xl shadow-lg border border-white/20">
-                <Scale className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <span className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              LegalAdviser
-              <span className="text-transparent bg-clip-text bg-linear-to-r from-amber-500 to-orange-600">
-                UG
-              </span>
-            </span>
-          </motion.div>
-
-          <div className="hidden md:flex items-center space-x-8">
-            {["Features", "Pricing", "FAQ"].map((item) => (
-              <Link
-                key={item}
-                href={`#${item.toLowerCase()}`}
-                className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-orange-600 dark:hover:text-orange-400 transition-colors relative group"
-              >
-                {item}
-                <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-linear-to-r from-amber-500 to-orange-600 transition-all duration-300 group-hover:w-full"></span>
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <motion.button
-              whileHover={{ rotate: 180, scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              transition={{ duration: 0.3 }}
-              onClick={toggleTheme}
-              className="p-2.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-white/10"
-            >
-              {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
-            </motion.button>
-            <Link href="/login" onClick={() => logAnalyticsEvent("client_login_click")}>
-              <motion.button
-                whileHover={{
-                  scale: 1.05,
-                  boxShadow: "0 0 20px rgba(249, 115, 22, 0.4)",
-                }}
-                whileTap={{ scale: 0.95 }}
-                className="hidden sm:flex px-6 py-2.5 rounded-full bg-slate-900 text-white font-bold text-sm shadow-xl transition-all border border-transparent hover:border-orange-500/50 dark:bg-linear-to-r dark:from-indigo-500 dark:to-purple-600 dark:hover:from-indigo-600 dark:hover:to-purple-700 dark:focus:ring-indigo-500"
-              >
-                Client Login
-              </motion.button>
-            </Link>
-          </div>
-        </div>
-      </motion.nav>
-
+      <HomeNavBar />
       {/* Hero Section */}
       <Hero />
 
