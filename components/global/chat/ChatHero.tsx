@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Scale, FileText, AlertTriangle, User as UserIcon } from "lucide-react";
+import Logo from "../Logo";
 
 interface ChatHeroProps {
   user: User | null;
@@ -9,13 +10,14 @@ interface ChatHeroProps {
 export const ChatHero = memo(({ user, onSuggestionClick }: ChatHeroProps) => {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500 pb-10 mt-auto mb-auto">
-      <div className="w-20 h-20 bg-linear-to-br from-orange-500 to-amber-600 rounded-3xl flex items-center justify-center shadow-xl mb-8 transform hover:scale-105 transition-transform duration-300">
-        <Scale
-          size={40}
-          className="text-white drop-shadow-md"
-          strokeWidth={1.5}
-        />
-      </div>
+      <Logo
+        size="lg"
+        shape="rounded"
+        showText={false}
+        className="mb-8"
+        iconClass="drop-shadow-md"
+        strokeWidth={1.5}
+      />
       <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
         Good{" "}
         {new Date().getHours() < 12
