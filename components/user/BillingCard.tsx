@@ -15,6 +15,7 @@ import { z } from "zod";
 import { processDeposit } from "@/lib/actions/wallet";
 import { toast } from "sonner";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import { CustomButton } from "../ui/custom-button";
 
 interface BillingCardProps {
   user: User;
@@ -160,16 +161,35 @@ const BillingCard: React.FC<BillingCardProps> = ({ user }) => {
               ).toLocaleString()}
             </p>
             <div className="flex space-x-3">
-              <button
+              <CustomButton
                 onClick={() => setIsAddingFunds(true)}
-                className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium shadow-lg shadow-orange-900/20 transition-all flex items-center space-x-2 active:scale-95 hover:scale-105"
+                variant="transparent"
+                shape="pill"
+                borderLeftWidth="4px"
+                borderLeftColor="#4f46e5"
+                borderRightWidth="4px"
+                borderRightColor="#ea580c"
+                className="bg-slate-100/50 dark:bg-slate-800/50"
+                leftIcon={<Plus size={18} />}
+                hoverEffect="glow"
               >
-                <Plus size={18} />
-                <span>Add Funds</span>
-              </button>
-              <button className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white rounded-lg font-medium backdrop-blur-sm transition-all border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/30">
+                Add Funds
+              </CustomButton>
+              {/* <button className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white rounded-lg font-medium backdrop-blur-sm transition-all border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/30">
                 Auto-Recharge
-              </button>
+              </button> */}
+              <CustomButton
+                variant="transparent"
+                shape="rounded"
+                borderLeftWidth="4px"
+                borderLeftColor="#4f46e5"
+                borderRightWidth="4px"
+                borderRightColor="#ea580c"
+                className="bg-slate-100/50 dark:bg-slate-800/50"
+                hoverEffect="glow"
+              >
+                Auto-Recharge
+              </CustomButton>
             </div>
           </div>
           <div className="text-right hidden sm:block">
@@ -457,34 +477,24 @@ const BillingCard: React.FC<BillingCardProps> = ({ user }) => {
             </div>
 
             <div className="p-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
-              <button
+              <CustomButton
                 onClick={handleAddFunds}
-                disabled={isProcessing}
-                className={`w-full py-4 text-white rounded-xl font-bold transition-all shadow-lg flex justify-center items-center gap-2
-                  ${
-                    paymentMethod === "mobile_money"
-                      ? "bg-orange-600 hover:bg-orange-700 shadow-orange-500/20 active:scale-[0.98]"
-                      : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 active:scale-[0.98]"
-                  }
-                  disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100
-                `}
+                isLoading={isProcessing}
+                variant="transparent"
+                shape="pill"
+                borderLeftWidth="4px"
+                borderLeftColor="#4f46e5"
+                borderRightWidth="4px"
+                borderRightColor="#ea580c"
+                className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+                leftIcon={<Wallet size={20} />}
+                hoverEffect="glow"
+                fullWidth
               >
-                {isProcessing ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin" />
-                    <span>Processing Payment...</span>
-                  </>
-                ) : (
-                  <>
-                    <Wallet size={20} />
-                    <span>
-                      {paymentMethod === "card"
-                        ? "Verify & Add Funds"
-                        : `Deposit $${depositAmount}`}
-                    </span>
-                  </>
-                )}
-              </button>
+                {paymentMethod === "card"
+                  ? "Verify & Add Funds"
+                  : `Deposit $${depositAmount}`}
+              </CustomButton>
             </div>
           </div>
         </div>

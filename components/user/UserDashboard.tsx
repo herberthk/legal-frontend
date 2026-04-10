@@ -10,6 +10,7 @@ import SystemEvents from "./SystemEvents";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { CustomButton } from "../ui/custom-button";
 
 // Dynamically import UsageChart (contains heavy Recharts)
 const UsageChart = dynamic(() => import("./UsageChart"), {
@@ -43,13 +44,22 @@ const UserDashboard: FC<Props> = ({ user, recentSessions }) => {
             Track your daily free credits and account balance.
           </p>
         </div>
-        <Link
+
+        <CustomButton
+          component={Link}
           href="/dashboard/user/billing"
-          className="w-full md:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg shadow-lg shadow-orange-500/20 transition-all hover:scale-105 active:scale-95"
+          variant="transparent"
+          shape="pill"
+          borderLeftWidth="4px"
+          borderLeftColor="#4f46e5"
+          borderRightWidth="4px"
+          borderRightColor="#ea580c"
+          className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+          rightIcon={<PlusCircle size={16} />}
+          hoverEffect="glow"
         >
-          <PlusCircle size={18} />
-          <span>Add Funds</span>
-        </Link>
+          Add Funds
+        </CustomButton>
       </div>
 
       {/* Balance & Usage Cards */}
