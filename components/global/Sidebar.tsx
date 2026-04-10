@@ -46,6 +46,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import React from "react";
+import Logo from "./Logo";
 
 // Types
 interface SidebarSubItem {
@@ -348,49 +349,17 @@ const GlobalSidebar = ({ user }: Props) => {
       variant="sidebar"
       className={cn("transition-colors duration-300", sidebarBg)}
     >
-      <SidebarHeader className="py-6 px-4">
+      <SidebarHeader className="py-6 border-b-2! border-slate-200! dark:border-slate-800!">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="hover:bg-transparent">
-              <motion.div
-                variants={floatingVariants}
-                initial="initial"
-                animate="animate"
-                whileHover={{ scale: 1.1, rotate: 12 }}
-                className={cn(
-                  "flex aspect-square size-10 items-center justify-center rounded-xl text-white shadow-2xl shrink-0 transition-all duration-300",
-                  isAdmin
-                    ? "bg-linear-to-br from-indigo-500 to-indigo-700 shadow-indigo-500/30"
-                    : "bg-linear-to-br from-orange-400 to-orange-600 shadow-orange-500/30",
-                )}
-              >
-                {isAdmin ? (
-                  <Shield className="size-5" />
-                ) : (
-                  <Scale className="size-5" />
-                )}
-              </motion.div>
-              <div className="grid flex-1 text-left text-sm leading-tight ml-3 group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-black dark:text-white text-slate-900 text-xl tracking-tight">
-                  {isAdmin ? "Admin" : "Legal"}
-                  <span
-                    className={cn(
-                      "ml-1 text-transparent bg-clip-text font-black",
-                      isAdmin
-                        ? "bg-linear-to-r from-indigo-500 to-purple-600"
-                        : "bg-linear-to-r from-orange-500 to-yellow-500",
-                    )}
-                  >
-                    {isAdmin ? "Panel" : "Adviser"}
-                  </span>
-                </span>
-              </div>
+              <Logo />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="px-3">
+      <SidebarContent>
         <SidebarGroup>
           <motion.div
             variants={containerVariants}
