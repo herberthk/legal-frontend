@@ -1,9 +1,10 @@
 import { useThemeStore } from "@/store";
 import { motion } from "framer-motion";
-import { Moon, Scale, Sparkles, Sun } from "lucide-react";
+import { Moon, Sparkles, Sun } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CustomButton } from "../ui/custom-button";
+import Logo from "../global/Logo";
 
 const HomeNavBar = () => {
   const router = useRouter();
@@ -23,18 +24,7 @@ const HomeNavBar = () => {
           className="flex items-center space-x-2 group cursor-pointer"
           onClick={() => router.push("/login")}
         >
-          <div className="relative">
-            <div className="absolute inset-0 bg-linear-to-r from-amber-500 to-orange-600 blur opacity-40 group-hover:opacity-70 transition-opacity rounded-xl"></div>
-            <div className="relative bg-linear-to-br from-amber-500 to-orange-600 p-2 rounded-xl shadow-lg border border-white/20">
-              <Scale className="w-6 h-6 text-white" />
-            </div>
-          </div>
-          <span className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            LegalAdviser
-            <span className="text-transparent bg-clip-text bg-linear-to-r from-amber-500 to-orange-600">
-              UG
-            </span>
-          </span>
+          <Logo />
         </motion.div>
 
         <div className="hidden md:flex items-center space-x-8">

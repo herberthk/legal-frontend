@@ -3,6 +3,7 @@ import React from "react";
 import { Scale } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import Logo from "@/components/global/Logo";
 
 export const AuthSidebar = () => {
   const pathname = usePathname();
@@ -53,16 +54,8 @@ export const AuthSidebar = () => {
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-orange-500/10 blur-[100px] rounded-full pointer-events-none transform -translate-x-1/4 translate-y-1/4" />
 
       <div className="relative z-10 mb-16">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-3 cursor-pointer group"
-        >
-          <div className="bg-linear-to-br from-indigo-500 to-indigo-700 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20 transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-6">
-            <Scale className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-xl font-bold text-white tracking-tight transition-all duration-300">
-            Legal<span className="text-indigo-400">Adviser</span>
-          </span>
+        <Link href="/">
+          <Logo />
         </Link>
       </div>
 
