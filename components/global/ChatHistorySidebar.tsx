@@ -28,6 +28,7 @@ import {
 } from "firebase/firestore";
 import { COLLECTIONS } from "@/constants";
 import { formatRelativeDate } from "@/utils";
+import { CustomButton } from "../ui/custom-button";
 
 interface ChatHistorySidebarProps {
   activeChatId: string | null;
@@ -159,13 +160,21 @@ const ChatHistorySidebar = ({
   return (
     <div className="w-64 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden transition-colors duration-200">
       <div className="p-4 border-b border-slate-200 dark:border-slate-800">
-        <button
+        <CustomButton
           onClick={() => onSelectChat(null)}
-          className="w-full flex items-center justify-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm font-medium text-sm"
+          variant="transparent"
+          shape="pill"
+          borderLeftWidth="4px"
+          borderLeftColor="#4f46e5"
+          borderRightWidth="4px"
+          borderRightColor="#ea580c"
+          className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+          rightIcon={<PlusCircle size={16} />}
+          hoverEffect="glow"
+          fullWidth
         >
-          <PlusCircle size={16} />
-          <span>New Chat</span>
-        </button>
+          New Chat
+        </CustomButton>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-1">
