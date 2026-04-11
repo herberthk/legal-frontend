@@ -1,11 +1,11 @@
-import ChatContainer from "@/components/global/ChatContainer";
-import { getChatMessages, getChatSessions } from "@/lib/actions/chat";
+import ChatInterfaceWrapper from "@/components/global/ChatInterfaceWrapper";
+import { getChatMessages } from "@/lib/actions/chat";
 import { getCurrentUser } from "@/lib/actions/auth";
 
 const ChatPage = async (props: { params: Promise<{ chatId: string }> }) => {
   const { chatId } = await props.params;
 
-  // Parallelize user fetch and message fetch (messages don't depend on user ID)
+  // Parallelize user fetch and message fetch
   const [user, messagesResult] = await Promise.all([
     getCurrentUser(),
     getChatMessages(chatId),
@@ -21,18 +21,11 @@ const ChatPage = async (props: { params: Promise<{ chatId: string }> }) => {
     serverHasMore = messagesResult.hasMore ?? false;
   }
 
-  // Load sidebar sessions (depends on user.id)
-  let initialSessions: ChatSession[] = [];
-  const sessionsResult = await getChatSessions(user.id);
-  if (sessionsResult.success && sessionsResult.sessions.length > 0) {
-    initialSessions = sessionsResult.sessions;
-  }
-
   return (
-    <ChatContainer
+    <ChatInterfaceWrapper
+      chatId={chatId}
       serverChatId={chatId}
       serverMessages={initialMessages}
-      serverSessions={initialSessions}
       serverHasMore={serverHasMore}
     />
   );

@@ -1,8 +1,12 @@
-import ChatContainer from "@/components/global/ChatContainer";
-import { getChatSessions } from "@/lib/actions/chat";
 import { getCurrentUser } from "@/lib/actions/auth";
+import { getChatSessions } from "@/lib/actions/chat";
+import ChatLayoutClient from "@/components/global/ChatLayoutClient";
 
-export default async function ChatPage() {
+export default async function ChatLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -13,10 +17,8 @@ export default async function ChatPage() {
   }
 
   return (
-    <ChatContainer
-      serverChatId={null}
-      serverMessages={undefined}
-      serverSessions={initialSessions}
-    />
+    <ChatLayoutClient serverSessions={initialSessions}>
+      {children}
+    </ChatLayoutClient>
   );
 }
