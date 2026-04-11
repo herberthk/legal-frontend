@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Scale, FileText, AlertTriangle, User as UserIcon } from "lucide-react";
-import Logo from "../Logo";
+import Logo from "@/components/global/Logo";
 
 interface ChatHeroProps {
   user: User | null;

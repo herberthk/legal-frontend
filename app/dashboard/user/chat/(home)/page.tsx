@@ -1,4 +1,4 @@
-import ChatInterfaceWrapper from "@/components/global/ChatInterfaceWrapper";
+import ChatInterfaceWrapper from "@/components/global/chat/ChatInterfaceWrapper";
 
 export default function ChatPage() {
   return (

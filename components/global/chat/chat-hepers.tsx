@@ -96,7 +96,9 @@ export const ThinkingBlock = ({
       <button
         onClick={() => !isStreaming && setUserCollapsed((c) => !c)}
         className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors ${
-          !isStreaming ? "hover:bg-slate-100/50 dark:hover:bg-slate-800/50 cursor-pointer" : "cursor-default"
+          !isStreaming
+            ? "hover:bg-slate-100/50 dark:hover:bg-slate-800/50 cursor-pointer"
+            : "cursor-default"
         }`}
       >
         <Sparkles
@@ -116,14 +118,23 @@ export const ThinkingBlock = ({
               <span
                 key={i}
                 className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-pulse"
-                style={{ animationDelay: `${i * 0.2}s`, animationDuration: "1s" }}
+                style={{
+                  animationDelay: `${i * 0.2}s`,
+                  animationDuration: "1s",
+                }}
               />
             ))}
           </span>
         ) : isOpen ? (
-          <ChevronDown size={14} className="shrink-0 text-slate-400 transition-transform duration-200" />
+          <ChevronDown
+            size={14}
+            className="shrink-0 text-slate-400 transition-transform duration-200"
+          />
         ) : (
-          <ChevronRight size={14} className="shrink-0 text-slate-400 transition-transform duration-200" />
+          <ChevronRight
+            size={14}
+            className="shrink-0 text-slate-400 transition-transform duration-200"
+          />
         )}
       </button>
 
@@ -140,11 +151,16 @@ export const ThinkingBlock = ({
             layout
           >
             <div className="px-4 pb-4 pt-1 border-t border-slate-200/50 dark:border-slate-800/50 relative">
-              <motion.div 
+              <motion.div
                 layout="position"
                 className="prose prose-sm dark:prose-invert max-w-none text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400 [&_p]:text-[12.5px] [&_p]:leading-relaxed [&_p]:text-slate-500 dark:[&_p]:text-slate-400 [&_p]:m-0 [&_p]:mb-2 [&_p:last-child]:mb-0"
               >
-                <MakdownFormater content={reasoning} role="assistant" isReasoning={true} isStreaming={isStreaming} />
+                <MakdownFormater
+                  content={reasoning}
+                  role="assistant"
+                  isReasoning={true}
+                  isStreaming={isStreaming}
+                />
               </motion.div>
             </div>
           </motion.div>

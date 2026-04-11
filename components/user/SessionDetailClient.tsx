@@ -4,7 +4,7 @@ import { FileText, Play, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
-import MarkdownFormatter from "@/components/global/MakdownFormater";
+import MarkdownFormatter from "@/components/global/chat/MakdownFormater";
 
 interface SessionDetailClientProps {
   session: VoiceSession;

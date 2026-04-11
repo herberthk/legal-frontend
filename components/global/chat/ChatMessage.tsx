@@ -8,7 +8,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import type { UIMessage } from "ai";
-import MakdownFormater from "@/components/global/MakdownFormater";
+import MakdownFormater from "@/components/global/chat/MakdownFormater";
 import {
   getMessageFile,
   getMessageReasoning,
@@ -16,7 +16,7 @@ import {
   isMessageStreaming,
   isReasoningStreaming,
   ThinkingBlock,
-} from "@/components/global/chat-hepers";
+} from "./chat-hepers";
 
 interface ChatMessageProps {
   msg: UIMessage;
@@ -164,9 +164,8 @@ export const ChatMessage = memo(
           )}
           <span className="text-xs text-slate-400 dark:text-slate-500 mt-2 mx-1">
             {(() => {
-              const raw = (
-                msg.metadata as { createdAt?: unknown } | undefined
-              )?.createdAt;
+              const raw = (msg.metadata as { createdAt?: unknown } | undefined)
+                ?.createdAt;
               let date: Date | null = null;
               if (raw instanceof Date) {
                 date = raw;

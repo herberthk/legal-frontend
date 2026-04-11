@@ -18,7 +18,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatCost } from "@/utils";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import MarkdownFormatter from "@/components/global/MakdownFormater";
+import MarkdownFormatter from "@/components/global/chat/MakdownFormater";
 
 interface VoiceConsultationsProps {
   isDashboard?: boolean;

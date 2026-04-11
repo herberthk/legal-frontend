@@ -28,7 +28,7 @@ import {
 } from "firebase/firestore";
 import { COLLECTIONS } from "@/constants";
 import { formatRelativeDate } from "@/utils";
-import { CustomButton } from "../ui/custom-button";
+import { CustomButton } from "../../ui/custom-button";
 
 interface ChatHistorySidebarProps {
   activeChatId: string | null;
@@ -157,7 +157,7 @@ const ChatHistorySidebar = ({
   };
   return (
     <div className="w-full md:w-64 shrink-0 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden transition-colors duration-200 md:border-r">
-      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 hidden md:block">
         <CustomButton
           onClick={() => onSelectChat(null)}
           variant="transparent"

@@ -1,4 +1,4 @@
-import ChatInterfaceWrapper from "@/components/global/ChatInterfaceWrapper";
+import ChatInterfaceWrapper from "@/components/global/chat/ChatInterfaceWrapper";
 import { getChatMessages } from "@/lib/actions/chat";
 import { getCurrentUser } from "@/lib/actions/auth";
 
