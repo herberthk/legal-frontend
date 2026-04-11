@@ -316,8 +316,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
               }
               rows={1}
               name="chat"
-              className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none max-h-32 text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors"
-              // style={{ minHeight: "40px" }}
+              className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none max-h-32 text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors min-h-[40px] md:min-h-[56px]"
             />
             <button
               onClick={handleSendClick}
