@@ -155,9 +155,8 @@ const ChatHistorySidebar = ({
       setShowDeleteConfirmId(null);
     }
   };
-  console.log("sessions", sessions);
   return (
-    <div className="w-64 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden transition-colors duration-200">
+    <div className="w-full md:w-64 shrink-0 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden transition-colors duration-200 md:border-r">
       <div className="p-4 border-b border-slate-200 dark:border-slate-800">
         <CustomButton
           onClick={() => onSelectChat(null)}
@@ -275,7 +274,7 @@ const ChatHistorySidebar = ({
                         hoveredSessionId === session.id ||
                         activeMenuId === session.id
                           ? "opacity-100"
-                          : "opacity-0"
+                          : "opacity-100 md:opacity-0"
                       }`}
                     >
                       <MoreVertical size={14} className="text-slate-500" />
