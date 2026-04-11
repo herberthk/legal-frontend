@@ -18,10 +18,10 @@ import { DefaultChatTransport, generateId } from "ai";
 import ChatInput, { ChatInputRef } from "./ChatInput";
 import { checkCanSend } from "@/lib";
 import { getMessageText } from "./chat-hepers";
-import { ChatHero } from "./chat/ChatHero";
-import { ChatMessage } from "./chat/ChatMessage";
-import { ChatStatusBanners } from "./chat/ChatStatusBanners";
-import { ChatTokenUsageBadge } from "./chat/ChatTokenUsageBadge";
+import { ChatHero } from "./ChatHero";
+import { ChatMessage } from "./ChatMessage";
+import { ChatStatusBanners } from "./ChatStatusBanners";
+import { ChatTokenUsageBadge } from "./ChatTokenUsageBadge";
 
 const ChatInterface: FC<ChatInterfaceProps> = ({
   chatId,
@@ -269,8 +269,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
             // Restore scroll position so the view doesn't jump
             requestAnimationFrame(() => {
               if (container) {
-                container.scrollTop =
-                  container.scrollHeight - prevScrollHeight;
+                container.scrollTop = container.scrollHeight - prevScrollHeight;
               }
             });
           } else {
@@ -285,7 +284,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       console.error("Failed to load older messages:", err);
       setIsLoadingMore(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatSessionId, hasMore, isLoadingMore, toUIMessage]);
 
   // Attach scroll listener to the messages container

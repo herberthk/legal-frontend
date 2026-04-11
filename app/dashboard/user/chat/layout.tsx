@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/actions/auth";
 import { getChatSessions } from "@/lib/actions/chat";
-import ChatLayoutClient from "@/components/global/ChatLayoutClient";
+import ChatLayoutClient from "@/components/global/chat/ChatLayoutClient";
 
 export default async function ChatLayout({
   children,
