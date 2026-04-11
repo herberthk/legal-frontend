@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import ChatInterface from "./ChatInterface";
 import ChatHistorySidebar from "./ChatHistorySidebar";
 import { useRouter } from "nextjs-toploader/app";
+import { useParams } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -12,22 +12,19 @@ import {
 } from "@/components/ui/sheet";
 import { Menu, Plus } from "lucide-react";
 
-interface ChatContainerProps {
-  serverChatId?: string | null;
-  serverMessages?: ChatMessageRecord[];
+interface ChatLayoutClientProps {
+  children: React.ReactNode;
   serverSessions?: ChatSession[];
-  serverHasMore?: boolean;
 }
 
 const CHAT_BASE = "/dashboard/user/chat";
 
-const ChatContainer = ({
-  serverChatId,
-  serverMessages,
+const ChatLayoutClient = ({
+  children,
   serverSessions,
-  serverHasMore,
-}: ChatContainerProps) => {
+}: ChatLayoutClientProps) => {
   const router = useRouter();
+  const params = useParams();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -36,9 +33,11 @@ const ChatContainer = ({
     setIsMounted(true);
   }, []);
 
+  const activeChatId = (params?.chatId as string) || null;
+
   const handleSelectChat = (chatId: string | null) => {
     setIsMobileMenuOpen(false); // Close the mobile sidebar
-    if (chatId === serverChatId) return; // Already on this chat
+    if (chatId === activeChatId) return; // Already on this chat
 
     if (chatId) {
       // Navigate to /dashboard/user/chat/[chatId]
@@ -48,8 +47,6 @@ const ChatContainer = ({
       router.push(CHAT_BASE);
     }
   };
-
-  const activeChatId = serverChatId || null;
 
   return (
     <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] w-full overflow-hidden">
@@ -105,20 +102,10 @@ const ChatContainer = ({
 
       {/* Main Chat Area */}
       <div className="flex-1 h-full min-w-0 flex flex-col relative z-0">
-        <ChatInterface
-          chatId={activeChatId}
-          onChatCreated={(newId) => {
-            if (newId !== activeChatId) {
-              handleSelectChat(newId);
-            }
-          }}
-          serverChatId={serverChatId}
-          serverMessages={serverMessages}
-          serverHasMore={serverHasMore}
-        />
+        {children}
       </div>
     </div>
   );
 };
 
-export default ChatContainer;
+export default ChatLayoutClient;

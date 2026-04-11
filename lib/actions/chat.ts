@@ -101,10 +101,10 @@ export async function getChatSessions(userId: string, limit = 20) {
       ...doc.data(),
       id: doc.id,
       createdAt:
-        doc.data().createdAt?.toDate().toISOString() ||
+        doc.data()?.createdAt?.toDate().toISOString() ||
         new Date().toISOString(),
       updatedAt:
-        doc.data().updatedAt?.toDate().toISOString() ||
+        doc.data()?.updatedAt?.toDate().toISOString() ||
         new Date().toISOString(),
     })) as ChatSession[];
 

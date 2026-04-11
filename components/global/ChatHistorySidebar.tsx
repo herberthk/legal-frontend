@@ -33,8 +33,7 @@ import { CustomButton } from "../ui/custom-button";
 interface ChatHistorySidebarProps {
   activeChatId: string | null;
   onSelectChat: (chatId: string | null) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  serverSessions?: any[] | null;
+  serverSessions?: ChatSession[];
 }
 
 const ChatHistorySidebar = ({
@@ -43,7 +42,7 @@ const ChatHistorySidebar = ({
   serverSessions,
 }: ChatHistorySidebarProps) => {
   const user = useAuthStore((state) => state.user);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const [sessions, setSessions] = useState<ChatSession[]>(serverSessions || []);
   const [isLoading, setIsLoading] = useState(!serverSessions);
   const [hoveredSessionId, setHoveredSessionId] = useState<string | null>(null);
@@ -156,7 +155,7 @@ const ChatHistorySidebar = ({
       setShowDeleteConfirmId(null);
     }
   };
-
+  console.log("sessions", sessions);
   return (
     <div className="w-64 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden transition-colors duration-200">
       <div className="p-4 border-b border-slate-200 dark:border-slate-800">
@@ -260,6 +259,7 @@ const ChatHistorySidebar = ({
                     </div>
                     <span className="text-[10px] text-slate-400 pl-5">
                       {formatRelativeDate(session.updatedAt)}
+                      {/* {JSON.stringify(session.updatedAt)} */}
                     </span>
                   </button>
 

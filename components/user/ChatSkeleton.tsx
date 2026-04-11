@@ -4,25 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const ChatSkeleton = () => {
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white dark:bg-slate-950">
-      {/* Sidebar Skeleton */}
-      <div className="w-64 border-r border-slate-100 dark:border-slate-800 flex flex-col">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-          <Skeleton className="h-10 w-full rounded-xl" />
-        </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="p-3 rounded-lg flex flex-col space-y-2">
-              <div className="flex items-center space-x-2">
-                <Skeleton className="h-4 w-4 rounded" />
-                <Skeleton className="h-4 w-32" />
-              </div>
-              <Skeleton className="h-3 w-16 ml-6" />
-            </div>
-          ))}
-        </div>
-      </div>
-
+    <div className="flex flex-col h-full w-full overflow-hidden bg-white dark:bg-slate-950">
       {/* Main Chat Area Skeleton */}
       <div className="flex-1 flex flex-col relative">
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">

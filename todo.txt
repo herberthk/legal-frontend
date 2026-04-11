@@ -1,1 +1,3 @@
 Handle billing well if the user had free minutes and then upgrade to a plan, the free minutes should be used up first before the plan minutes are used.
+
+Try to parse all date from UTC date to local time
