@@ -132,12 +132,6 @@ declare global {
     createdAt: string; // ISO Date string
   };
 
-  // type TokenUsageRecord = {
-  //   id: string;
-  //   timestamp: number; // Unix timestamp
-  //   unit: "TOKENS" | "SECONDS";
-  //   type: "TEXT_PROMPT" | "TEXT_RESPONSE" | "VOICE_SESSION";
-  // };
   type Transcript = {
     role: "user" | "AI";
     content: string;
@@ -147,7 +141,7 @@ declare global {
     id: string;
     userId: string;
     title: string;
-    createdAt: string;
+    createdAt: Timestamp; // ISO string
     duration: number; // seconds
     audioUrl?: string; // Recording
     summary: string;
@@ -156,6 +150,8 @@ declare global {
     sessionId: string;
   };
 
+  type VoiceSessionUsage = Omit<VoiceSession, "id">;
+
   type Theme = "light" | "dark";
 
   type ThemeState = {
@@ -163,6 +159,7 @@ declare global {
     toggleTheme: () => void;
     setTheme: (theme: Theme) => void;
   };
+
   type ConnectionStatus = "connected" | "reconnecting" | "offline";
 
   // --- Chat Persistence Types ---
