@@ -1,45 +1,25 @@
 {
   "version": 1,
   "skills": {
-    "clerk": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "912205692b6c1db07d6933f0584af27c6582484e5d6fac1c13fec4b6a963a528"
-    },
-    "clerk-custom-ui": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "9b968af359a75292dc8987f7b12cca0e97c1b66f6d674dab1c6a269b93887a4d"
-    },
-    "clerk-nextjs-patterns": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "57b557ba9ee0578b4b8f9aa3ee07459e211422cb0abe53d9bfb97a27cf9b6d9c"
-    },
-    "clerk-setup": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "790a6272ff39129de170a192cc1966bf84b3a4983b55e9e843b8f979aba56208"
-    },
-    "clerk-testing": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "3d9adf5f21d00c952d5bc63da971cd1b3767ed18ad3b6d60d9c2343a4339492c"
-    },
-    "clerk-webhooks": {
-      "source": "clerk/skills",
-      "sourceType": "github",
-      "computedHash": "4abf889859805f49af3bff8ccfb3a5d195453a5ee0315365821468c74c62d96a"
-    },
     "deploy-to-vercel": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "d2b5bcc7c09fdb649129ffc7dd7b647ec1b155736974b974292675afd588cb39"
+      "computedHash": "03e0eaaa9bf13ba1e7ffa387f5893de6f324c0868c627001f179395a8feaa7c9"
+    },
+    "developing-genkit-dart": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "aa92490e4db5038730c629477ad968796f329040433625cf9b7bb13e26a859e3"
+    },
+    "developing-genkit-go": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "b415d3697f81c182cbe3f560b09479b41d3c4dba1331c25231b95a56f212f7b8"
     },
     "developing-genkit-js": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
-      "computedHash": "9e7c6e9a448b3649c3d3a060996f251954dbc1a80a11ce66ee911137aa6dc0a2"
+      "computedHash": "2fa9adb27f7cfc4635decebea65222cd56e36b5de34781f7862be888504c04f4"
     },
     "firebase-ai-logic": {
       "source": "firebase/agent-skills",
@@ -54,12 +34,12 @@
     "firebase-auth-basics": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
-      "computedHash": "df411eb125374de6086edd38dd739769088b60945052060aec1f57f934be3e27"
+      "computedHash": "ff79d278c0968f297d60f37532c32fd3b8bd9aad9c64b9f354585c701e80112a"
     },
     "firebase-basics": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
-      "computedHash": "e7514db8c19e18237ac78a1b21456d7a736b3695def70cc10f16e0a528324e17"
+      "computedHash": "97e5107e2eb84b20572e848102e5f97bd596ac69a2c4aafccda6ba99fadb3bbc"
     },
     "firebase-data-connect": {
       "source": "firebase/agent-skills",
@@ -69,12 +49,12 @@
     "firebase-firestore-enterprise-native-mode": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
-      "computedHash": "492369ab2bc95f385d6663381dbcdbd7c3d75d714cd8eda7b924411d0f461305"
+      "computedHash": "528bd602aa93a4409842a4e6f9888b8438521953253b0a629aeaf10603823bf9"
     },
     "firebase-firestore-standard": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
-      "computedHash": "433338142338ab05fe004adb37dce8ffbbcbce396303c8bd520ca2cc74f2da78"
+      "computedHash": "ab2332607f40ae408e9c56e177b02fad55e071bfac4c2035a16ce0787768953e"
     },
     "firebase-hosting-basics": {
       "source": "firebase/agent-skills",
@@ -86,20 +66,25 @@
       "sourceType": "github",
       "computedHash": "801ca0ebcf7fad9cc973fbab153a60a71d6f2506b15b43c154a4bffaeee2e7be"
     },
+    "firestore-security-rules-auditor": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "computedHash": "8b797ed45d9d171b3a88f4980d72fc4accd1257206c555f4935599f9b9fd7d28"
+    },
     "gemini-api-dev": {
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
-      "computedHash": "a1bc395530ba9116a4509e27321eaf7cc81c5f93aa80a4778ad6f915180b4f2c"
+      "computedHash": "a72a3164552bd1764bca52d33806f4578572af3c279611a5bda420b6a9ca68c4"
     },
     "gemini-interactions-api": {
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
-      "computedHash": "f0d51f45c0075be383a0891d239865223cab6cad63d88fde8f859e70c161ed34"
+      "computedHash": "a7017c7e4219aed7e8b6b81c4a6f8906490801b0c6e9c8189cd9721a0c55c845"
     },
     "gemini-live-api-dev": {
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
-      "computedHash": "ed5a34f05d0f162dd0a8b3609ed501f23576a91ab37440a46e5778f383ab79af"
+      "computedHash": "7d4e786684cf92386d22defc18cbebef87113046923e7931b4cdec4fffaaaea6"
     },
     "shadcn": {
       "source": "shadcn/ui",
@@ -111,20 +96,30 @@
       "sourceType": "github",
       "computedHash": "676d95536c3c4a64215535ff09128d6e8d5163eb3fc204ed2cfde61e87b5d892"
     },
+    "vercel-cli-with-tokens": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "1e1664e75dcab248050faac99db1aaef1456b7945266215ccbab68ddf85b2b79"
+    },
     "vercel-composition-patterns": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "f98931159fa9c7fed043bcd18a891a46dcf89ababa38df13a4c5b7b30dc0ce07"
+      "computedHash": "575757e3e25761c8c562d6e395d29f0b76c98b1273c0bd72d88e6ab1bc9c7d42"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "afeca00ac2f492d88fdd010e73d91719a5b57c564bb4a73325b0bd77e11323ab"
+      "computedHash": "43ca6c197f8ec13055079da7053232d477068b03ca443f9ac1bc819b95cdd432"
     },
     "vercel-react-native-skills": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "2e9088a7333666d8c2833b8ff58bd51b955501c42b4c7244f72b4cbf22dafcc4"
+      "computedHash": "41d24eafa7c3d82e270439808f7cfbc4d51aeb2d14f2809a2267c16275784d06"
+    },
+    "vercel-react-view-transitions": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "c8952fc9127fa0564d0cb71dccb4215a5608ac933b5831104f09173a97a46f85"
     },
     "vertex-ai-api-dev": {
       "source": "google-gemini/gemini-skills",
@@ -134,7 +129,7 @@
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
+      "computedHash": "f3bc47f890f42a44db1007ab390709ec368e4b8c089baee6b0007182236ac474"
     }
   }
 }
