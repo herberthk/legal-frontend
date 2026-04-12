@@ -11,12 +11,12 @@ import {
   FileText,
   ExternalLink,
 } from "lucide-react";
-import { formatDate, formatTime } from "@/lib/utils";
+import { formatTime } from "@/lib/utils";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { formatCost } from "@/utils";
+import { formatCost, formatUniversalDate } from "@/utils";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import MarkdownFormatter from "@/components/global/chat/MakdownFormater";
 
@@ -139,7 +139,7 @@ const VoiceConsultations = ({
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
                           <Clock size={12} className="text-slate-400" />
-                          {formatDate(session.createdAt)}
+                          {formatUniversalDate(session.createdAt)}
                         </span>
                         <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
                         <span className="text-xs text-slate-500 font-medium">

@@ -27,7 +27,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { COLLECTIONS } from "@/constants";
-import { formatRelativeDate } from "@/utils";
+import { formatRelativeDate, formatUniversalDate } from "@/utils";
 import { CustomButton } from "../../ui/custom-button";
 
 interface ChatHistorySidebarProps {
@@ -256,9 +256,8 @@ const ChatHistorySidebar = ({
                         {session.title || "New Conversation"}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 pl-5">
-                      {formatRelativeDate(session.updatedAt)}
-                      {/* {JSON.stringify(session.updatedAt)} */}
+                    <span className="text-[10px] text-slate-400 pl-5" suppressHydrationWarning>
+                      {formatUniversalDate(session.updatedAt)}
                     </span>
                   </button>
 

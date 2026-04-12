@@ -1,7 +1,14 @@
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import crypto from "crypto";
-import { formatDistanceToNow } from "date-fns";
-import { Timestamp } from "firebase-admin/firestore";
+import {
+  formatDistanceToNow,
+  isToday,
+  isYesterday,
+  isSameWeek,
+  isSameMonth,
+  isSameYear,
+  format,
+} from "date-fns";
 
 export const generateOTP = async (length = 6): Promise<string> =>
   Math.floor(Math.random() * 10 ** length)
@@ -133,4 +140,64 @@ export const formatCost = (costInCents: number) => {
   const costInDollars = costInCents / 100;
   const ugxCost = Math.round(costInDollars * USD_TO_UGX_EXCHANGE_RATE);
   return `$${costInDollars.toFixed(2)} (UGX ${ugxCost.toLocaleString()})`;
+};
+
+/**
+ * Universal function that converts a date to the user's timezone
+ * and formats it relatively.
+ */
+export const formatUniversalDate = (
+  dateValue: string | number | Date | { toDate: () => Date } | null | undefined,
+): string => {
+  let date: Date;
+
+  if (!dateValue) {
+    date = new Date();
+  } else if (dateValue instanceof Date) {
+    date = dateValue;
+  } else if (
+    typeof dateValue === "object" &&
+    "toDate" in dateValue &&
+    typeof dateValue.toDate === "function"
+  ) {
+    // Handle Firebase Timestamp
+    date = dateValue.toDate();
+  } else {
+    date = new Date(dateValue as string | number);
+  }
+
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    date = new Date();
+  }
+
+  const now = new Date();
+
+  // Today
+  if (isToday(date)) {
+    return `Today at ${format(date, "h:mm a")}`;
+  }
+
+  // Yesterday
+  if (isYesterday(date)) {
+    return `Yesterday at ${format(date, "hh:mm a")}`;
+  }
+
+  // Same week (weekStartsOn: 1 for Monday by default)
+  if (isSameWeek(date, now, { weekStartsOn: 1 })) {
+    return format(date, "EEEE, hh:mm a"); // e.g. "Monday, 06:43 PM"
+  }
+
+  // Same month
+  if (isSameMonth(date, now)) {
+    return format(date, "MMMM d, hh:mm a"); // e.g. "April 7, 06:43 PM"
+  }
+
+  // Same year but different month
+  if (isSameYear(date, now)) {
+    return format(date, "MMMM d, yyyy"); // e.g. "April 7, 2026"
+  }
+
+  // Previous years
+  return format(date, "MMMM d, yyyy"); // e.g. "April 7, 2026"
 };
