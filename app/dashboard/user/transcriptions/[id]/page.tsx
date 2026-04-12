@@ -9,10 +9,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/utils";
-import { formatCost } from "@/utils";
+import { formatCost, formatUniversalDate } from "@/utils";
 import { getVoiceSessionById } from "@/lib/actions/voice";
 import Link from "next/link";
-import SessionDetailClient from "../../../../../components/user/SessionDetailClient";
+import SessionDetailClient from "@/components/user/SessionDetailClient";
 import { Metadata } from "next";
 
 interface PageProps {
@@ -93,21 +93,19 @@ const SessionDetailPage = async ({ params }: PageProps) => {
               <Mic size={12} />
               Confirmed Session
             </div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white leading-tight tracking-tight">
+            <h1 className="text-xl font-black text-slate-900 dark:text-white leading-tight tracking-tight">
               {session.title}
             </h1>
             <div className="flex flex-wrap items-center gap-6">
               <div className="flex items-center gap-2 text-slate-500">
                 <Calendar size={16} />
-                <span className="text-sm font-medium">
-                  {new Date(session.createdAt).toLocaleDateString(undefined, {
-                    dateStyle: "long",
-                  })}
+                <span className="text-sm font-medium" suppressHydrationWarning>
+                  {formatUniversalDate(session.createdAt)}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-slate-500">
                 <Clock size={16} />
-                <span className="text-sm font-medium">
+                <span className="text-sm font-medium" suppressHydrationWarning>
                   {formatTime(session.duration)}
                 </span>
               </div>
