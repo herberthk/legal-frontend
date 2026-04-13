@@ -4,26 +4,22 @@ export const formatDate = (date: Date) => {
 };
 
 export const voices: VoicePasona[] = [
+  { id: "Zephyr", name: "Zephyr", gender: "Female", desc: "Bright & Helpful" },
+  { id: "Fenrir", name: "Fenrir", gender: "Male", desc: "Strong & Direct" },
   {
-    id: "Blake",
-    name: "Blake",
+    id: "Kore",
+    name: "Kore",
+    gender: "Female",
+    desc: "Balanced & Professional",
+  },
+
+  { id: "Puck", name: "Puck", gender: "Male", desc: "Calm & Reassuring" },
+  {
+    id: "Charon",
+    name: "Charon",
     gender: "Male",
-    desc: "Professional & Authoritative",
+    desc: "Deep & Authoritative",
   },
-  {
-    id: "Luna",
-    name: "Luna",
-    gender: "Female",
-    desc: "Calm & Relaxing",
-  },
-  { id: "Mark", name: "Mark", gender: "Male", desc: "Energetic & Expressive" },
-  {
-    id: "Wendy",
-    name: "Wendy",
-    gender: "Female",
-    desc: "Warm & Friendly",
-  },
-  { id: "Theodore", name: "Theodore", gender: "Male", desc: "Strong & Direct" },
 ];
 
 export const generateMockCards = (): PaymentMethod[] => [

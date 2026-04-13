@@ -84,7 +84,7 @@ export async function signUp(
       balance: 0,
       totalSpent: 0,
       status: "active",
-      voicePreference: "Blake",
+      voicePreference: "Zephyr",
       welcomeTextTokens: FREE_WELCOME_TEXT_TOKENS,
       freeTextTokens: 0,
       freeVoiceSeconds: FREE_WELCOME_VOICE_SECONDS,
