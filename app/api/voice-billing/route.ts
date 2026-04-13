@@ -33,9 +33,7 @@ export async function POST(req: Request) {
       user: userName || "User",
     });
 
-    // We can't use FieldValue.serverTimestamp() directly in the client type across the network,
-    // but recordVoiceSession handles its own admin creation. We just need to pass the usage object.
-    const usage = {
+    const usage: FirestoreWrite<VoiceSessionUsage, "createdAt"> = {
       userId,
       summary,
       transcripts: transcripts || [],

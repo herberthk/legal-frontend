@@ -47,7 +47,6 @@ declare global {
     duration: number;
     isResponding: boolean;
     activeTranscript: AgentTranscript | null;
-
     onStart: () => void;
     onEnd: () => void;
     isMuted: boolean;
