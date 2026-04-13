@@ -8,7 +8,6 @@ interface TranscriptPanelProps {
   userName?: string;
   voiceName?: string;
   activeTranscript: AgentTranscript | null;
-  currentTranscript: string;
   palette: { text: string };
 }
 
@@ -19,7 +18,6 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
   userName,
   voiceName,
   activeTranscript,
-  currentTranscript,
   palette,
 }) => {
   if (wsStatus !== "open") return null;
@@ -51,7 +49,7 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
                 <span
                   className={`text-xs sm:text-[11px] font-bold uppercase tracking-[0.2em] mb-3 ${palette.text}`}
                 >
-                  {status === "listening" && currentTranscript
+                  {status === "listening"
                     ? userName || "You"
                     : activeTranscript?.speaker === "ai"
                       ? voiceName || "Legal Adviser"

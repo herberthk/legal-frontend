@@ -24,8 +24,6 @@ export const useGeminiLive = ({
   const [isListening, setIsListening] = useState(false);
   const [activeTranscript, setActiveTranscript] =
     useState<AgentTranscript | null>(null);
-  const [currentTranscript, setCurrentTranscript] = useState("");
-
   const aiClientRef = useRef<GoogleGenAI | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const previousHandleRef = useRef<string | null>(null);
@@ -80,7 +78,6 @@ export const useGeminiLive = ({
         allTranscriptsRef.current.push({ role: "user", content: fullText });
       }
       userPartsRef.current = [];
-      setCurrentTranscript("");
     }
   }, []);
 
@@ -91,7 +88,6 @@ export const useGeminiLive = ({
         allTranscriptsRef.current.push({ role: "AI", content: fullText });
       }
       aiPartsRef.current = [];
-      setActiveTranscript(null);
     }
   }, []);
 
@@ -344,7 +340,6 @@ export const useGeminiLive = ({
               }
             }
 
-            // Input Transcription
             if (msg.serverContent?.inputTranscription) {
               const txt = msg.serverContent.inputTranscription.text;
               if (txt) {
@@ -352,8 +347,7 @@ export const useGeminiLive = ({
                 finalizeAITurn();
                 userPartsRef.current.push(txt);
                 const current = userPartsRef.current.join("");
-                setCurrentTranscript(current);
-                // Also update activeTranscript for unified UI display
+                // Use activeTranscript for unified UI display
                 setActiveTranscript({ speaker: "user", text: current });
               }
             }
@@ -447,6 +441,7 @@ export const useGeminiLive = ({
     setWsStatus("idle");
     setAudioStatus("idle");
     setIsListening(false);
+    setActiveTranscript(null);
   }, [stopAudio]);
 
   const toggleMicMute = useCallback((muted: boolean) => {
@@ -492,7 +487,6 @@ export const useGeminiLive = ({
     audioStatus,
     isListening,
     activeTranscript,
-    currentTranscript,
     connect: connectToGemini,
     disconnect: disconnectFromGemini,
     toggleMicMute,

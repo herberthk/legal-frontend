@@ -31,12 +31,10 @@ export const summarizeConversation = async ({
     };
   }
 
-  // 1. Title: Content of the 2nd user message (if available)
+  // 1. Title: Content of the first user message (if available)
   const userMessages = transcripts.filter((t) => t.role === "user");
   let title = "New Consultation";
-  if (userMessages.length >= 2) {
-    title = userMessages[1]!.content;
-  } else if (userMessages.length === 1) {
+  if (userMessages.length >= 1) {
     title = userMessages[0]!.content;
   }
 

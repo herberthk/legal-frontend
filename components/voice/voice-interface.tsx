@@ -20,7 +20,6 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   duration,
   isResponding,
   activeTranscript,
-  currentTranscript,
   onStart,
   onEnd,
   isMuted,
@@ -53,7 +52,6 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   const effectiveStatus: CallStatus | "error" = useMemo(() => {
     return wsStatus === "error" && status === "idle" ? "error" : status;
   }, [wsStatus, status]);
-
   const palette = statusPalette[effectiveStatus];
 
   // Use the app's zustand theme store as the single source of truth
@@ -73,10 +71,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     }, [effectiveStatus, theme]);
 
   const getDisplayText = () => {
-    // Return the text from the current active speaker (user or AI)
-    if (activeTranscript?.text) return activeTranscript.text;
-    // Fallback for live user transcription if activeTranscript isn't set yet
-    return currentTranscript || "";
+    return activeTranscript?.text || "";
   };
 
   const isCallActive = wsStatus === "open";
@@ -134,7 +129,6 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         userName={userName}
         voiceName={voiceName}
         activeTranscript={activeTranscript}
-        currentTranscript={currentTranscript}
         palette={palette}
       />
 
