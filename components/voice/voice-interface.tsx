@@ -73,13 +73,10 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     }, [effectiveStatus, theme]);
 
   const getDisplayText = () => {
-    if (status === "listening") {
-      return currentTranscript || activeTranscript?.text || "";
-    }
-    if (status === "speaking" || status === "processing") {
-      return activeTranscript?.speaker === "ai" ? activeTranscript.text : "";
-    }
-    return activeTranscript?.text || "";
+    // Return the text from the current active speaker (user or AI)
+    if (activeTranscript?.text) return activeTranscript.text;
+    // Fallback for live user transcription if activeTranscript isn't set yet
+    return currentTranscript || "";
   };
 
   const isCallActive = wsStatus === "open";

@@ -38,40 +38,10 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
         <div className="flex-1 p-6 sm:p-10 flex items-center justify-center relative">
           <AnimatePresence mode="wait">
             {/* Processing */}
-            {status === "processing" && (
-              <motion.div
-                key="proc-panel"
-                className="flex flex-col items-center justify-center"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="flex items-end gap-1.5">
-                  {[0, 0.15, 0.3].map((delay, i) => (
-                    <motion.span
-                      key={i}
-                      className="w-2 sm:w-3 h-2 sm:h-3 bg-indigo-500 rounded-full"
-                      animate={{ y: [0, -8, 0], opacity: [0.5, 1, 0.5] }}
-                      transition={{
-                        duration: 0.8,
-                        repeat: Infinity,
-                        delay,
-                        ease: "easeInOut",
-                      }}
-                    />
-                  ))}
-                </div>
-                <span className="mt-4 text-[10px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">
-                  Thinking...
-                </span>
-              </motion.div>
-            )}
-
             {/* Transcript */}
-            {status !== "processing" && getDisplayText() && (
+            {getDisplayText() && (
               <motion.div
-                key={`${activeTranscript?.speaker ?? "none"}-${status}`}
+                key={activeTranscript?.speaker === "ai" ? "ai" : "user"}
                 className="flex flex-col items-center text-center max-w-2xl w-full"
                 initial={{ opacity: 0, y: 16, filter: "blur(2px)" }}
                 animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
@@ -94,7 +64,7 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
             )}
 
             {/* Empty State / Listening Prompt */}
-            {status !== "processing" && !getDisplayText() && (
+            {!getDisplayText() && (
               <motion.div
                 key="listening-prompt"
                 className="flex flex-col items-center text-center"
