@@ -36,7 +36,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     audioStatus,
     isListening,
     activeTranscript,
-    currentTranscript,
     connect,
     disconnect,
     toggleMicMute,
@@ -171,7 +170,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       duration={duration}
       isResponding={isResponding}
       activeTranscript={activeTranscript}
-      currentTranscript={currentTranscript}
       onStart={handleStartCall}
       onEnd={handleEndCall}
       isMuted={isMuted}

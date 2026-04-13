@@ -47,7 +47,6 @@ declare global {
     duration: number;
     isResponding: boolean;
     activeTranscript: AgentTranscript | null;
-    currentTranscript: string; // Live transcript from STT
 
     onStart: () => void;
     onEnd: () => void;
