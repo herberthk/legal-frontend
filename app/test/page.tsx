@@ -66,7 +66,7 @@ function NativeVoicePage() {
   const [isResponding, setIsResponding] = useState(false);
   const [usertranscript, setUsertranscript] = useState("");
   const [duration, setDuration] = useState<number>(0);
-  const voice: Voice = "Blake";
+  const voice: Voice = "Zephyr";
   const { wsStatus, audioStatus, connect, disconnect, send } = useVoiceSession({
     url: `ws://localhost:8000?voice=${voice}`,
     onText: (delta) => setLlmText((prev) => prev + delta),

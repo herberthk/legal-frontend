@@ -31,6 +31,11 @@ export const useGeminiLive = ({
   const previousHandleRef = useRef<string | null>(null);
   const isDisconnectingRef = useRef(false);
 
+  // Memory efficient accumulation
+  const userPartsRef = useRef<string[]>([]);
+  const aiPartsRef = useRef<string[]>([]);
+  const allTranscriptsRef = useRef<Transcript[]>([]);
+
   // Audio Processing Contexts
   const audioCtxRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -38,11 +43,6 @@ export const useGeminiLive = ({
   const nextStartTimeRef = useRef<number>(0);
   const activeSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const masterGainRef = useRef<GainNode | null>(null);
-
-  // Buffer to accumulate user input transcripts
-  const inputTranscriptBufferRef = useRef("");
-  // Array to trace conversation transcripts for billing/history
-  const allTranscriptsRef = useRef<Transcript[]>([]);
 
   // Token cache
   const ephemeralTokenRef = useRef<{ token: string; expiresAt: number } | null>(
@@ -71,6 +71,28 @@ export const useGeminiLive = ({
       expiresAt: Date.now() + 25 * 60 * 1000,
     };
     return data.token;
+  }, []);
+
+  const finalizeUserTurn = useCallback(() => {
+    if (userPartsRef.current.length > 0) {
+      const fullText = userPartsRef.current.join("").trim();
+      if (fullText) {
+        allTranscriptsRef.current.push({ role: "user", content: fullText });
+      }
+      userPartsRef.current = [];
+      setCurrentTranscript("");
+    }
+  }, []);
+
+  const finalizeAITurn = useCallback(() => {
+    if (aiPartsRef.current.length > 0) {
+      const fullText = aiPartsRef.current.join("").trim();
+      if (fullText) {
+        allTranscriptsRef.current.push({ role: "AI", content: fullText });
+      }
+      aiPartsRef.current = [];
+      setActiveTranscript(null);
+    }
   }, []);
 
   const getOrCreateAudioCtx = useCallback((sampleRate: number) => {
@@ -214,7 +236,7 @@ export const useGeminiLive = ({
 
       const token = await getEphemeralToken();
 
-      console.log("Token:", token);
+      // console.log("Token:", token);
       aiClientRef.current = new GoogleGenAI({
         apiKey: token,
         apiVersion: "v1alpha",
@@ -292,6 +314,8 @@ export const useGeminiLive = ({
             // Handle audio interruption
             if (msg.serverContent?.interrupted) {
               console.log("[gemini-live] Interrupted!");
+              finalizeAITurn();
+              finalizeUserTurn();
               stopAudio();
             }
 
@@ -323,42 +347,35 @@ export const useGeminiLive = ({
             // Input Transcription
             if (msg.serverContent?.inputTranscription) {
               const txt = msg.serverContent.inputTranscription.text;
-              inputTranscriptBufferRef.current += txt;
-              setCurrentTranscript(inputTranscriptBufferRef.current);
+              if (txt) {
+                // If AI was speaking, finalize its turn before starting user output
+                finalizeAITurn();
+                userPartsRef.current.push(txt);
+                const current = userPartsRef.current.join("");
+                setCurrentTranscript(current);
+                // Also update activeTranscript for unified UI display
+                setActiveTranscript({ speaker: "user", text: current });
+              }
             }
 
             // Output Transcription
             if (msg.serverContent?.outputTranscription) {
               const txt = msg.serverContent.outputTranscription.text;
-              setActiveTranscript((prev) => {
-                const prevText = prev?.speaker === "ai" ? prev.text : "";
-                return {
+              if (txt) {
+                // If User was speaking, finalize its turn before starting AI output
+                finalizeUserTurn();
+                aiPartsRef.current.push(txt);
+                const current = aiPartsRef.current.join("");
+                setActiveTranscript({
                   speaker: "ai",
-                  text: prevText + txt,
-                };
-              });
+                  text: current,
+                });
+              }
             }
 
             if (msg.serverContent?.turnComplete) {
-              if (inputTranscriptBufferRef.current.trim().length > 0) {
-                allTranscriptsRef.current.push({
-                  role: "user",
-                  content: inputTranscriptBufferRef.current.trim(),
-                });
-                inputTranscriptBufferRef.current = "";
-                setCurrentTranscript("");
-              }
-
-              // Try to get AI transcript via `activeTranscript` from last output
-              setActiveTranscript((prev) => {
-                if (prev?.speaker === "ai" && prev.text.trim().length > 0) {
-                  allTranscriptsRef.current.push({
-                    role: "AI",
-                    content: prev.text.trim(),
-                  });
-                }
-                return prev;
-              });
+              finalizeUserTurn();
+              finalizeAITurn();
             }
           },
           onerror: (err) => {
@@ -387,11 +404,13 @@ export const useGeminiLive = ({
   }, [
     wsStatus,
     getOrCreateAudioCtx,
-    userName,
-    voicePreference,
     getEphemeralToken,
-    schedulePCMChunk,
+    voicePreference,
+    userName,
+    finalizeAITurn,
+    finalizeUserTurn,
     stopAudio,
+    schedulePCMChunk,
   ]);
 
   const disconnectFromGemini = useCallback(async () => {
@@ -456,8 +475,11 @@ export const useGeminiLive = ({
   }, []);
 
   const getTranscripts = useCallback(() => {
+    // Ensure any active turn is flushed to the results before returning
+    finalizeUserTurn();
+    finalizeAITurn();
     return allTranscriptsRef.current;
-  }, []);
+  }, [finalizeUserTurn, finalizeAITurn]);
 
   useEffect(() => {
     return () => {
