@@ -1,67 +1,23 @@
 declare global {
   type Voice =
-    | "Blake"
-    | "Luna"
-    | "Dennis"
-    | "Sarah"
-    | "Hana"
-    | "Mark"
-    | "Hades"
-    | "Theodore"
-    | "Abby"
-    | "Alex"
-    | "Amina"
-    | "Ashley"
-    | "Brian"
-    | "Callum"
-    | "Carter"
-    | "Celeste"
-    | "Chloe"
-    | "Claire"
-    | "Craig"
-    | "Darlene"
-    | "Deborah"
-    | "Derek"
-    | "Edward"
-    | "Elliot"
-    | "Ethan"
-    | "Evan"
-    | "Evelyn"
-    | "Gareth"
-    | "Graham"
-    | "Grant"
-    | "Hamish"
-    | "Hank"
-    | "Jake"
-    | "James"
-    | "Jason"
-    | "Jessica"
-    | "Kayla"
-    | "Kelsey"
-    | "Lauren"
-    | "Liam"
-    | "Loretta"
-    | "Malcolm"
-    | "Marlene"
-    | "Miranda"
-    | "Mortimer"
-    | "Nate"
-    | "Oliver"
-    | "Pippa"
-    | "Pixie"
-    | "Ronald"
-    | "Rupert"
-    | "Serena"
-    | "Simon"
-    | "Snik"
-    | "Tessa"
-    | "Timothy"
-    | "Tyler"
-    | "Veronica"
-    | "Victor"
-    | "Victoria"
-    | "Vinny"
-    | "Wendy";
+    // --- Original & Standard Voices ---
+    | "Puck" // Conversational, friendly (The Default)
+    | "Charon" // Deep, authoritative, resonant
+    | "Kore" // Neutral, professional, calm
+    | "Fenrir" // Warm, approachable, robust
+    | "Aoede" // Bright, clear, expressive
+    | "Zephyr" // Bright, clear, expressive
+
+    // --- Expanded & Artistic Voices ---
+    | "Terra" // Grounded and soothing
+    | "Lyra" // Melodic and gentle
+    | "Orion" // Steady and confident
+    | "Ursa" // Conversational and warm
+    | "Nova" // Modern, versatile, and energetic
+
+    // --- Specialized/Experimental (Model Specific) ---
+    | "Pegasus" // Often seen in high-fidelity 3.1 preview tiers
+    | "Hydra"; // Multi-tonal experimental voice
 
   type VoiceSessionStatus =
     | "idle" // not connected

@@ -7,17 +7,21 @@ class PCMProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.buffer = [];
-    this.bufferSize = 2048; // Buffer ~128ms at 16k
+    // At 16kHz, 20ms is 320 samples, 40ms is 640 samples
+    this.bufferSize = 640; 
     
     // VAD Parameters (Tuned for Effectiveness)
-    this.vadThreshold = 0.005; // Lowered for better sensitivity (was 0.008)
-    this.vadReleaseMs = 800;   // Increased to prevent cutting off short pauses (was 600)
-    this.sampleRate = 16000;   // Assumed processing rate
+    this.vadThreshold = 0.005; // Lowered for better sensitivity
+    this.vadReleaseMs = 800;   // Increased to prevent cutting off short pauses
+    this.sampleRateOut = 16000;
     
     this.isSpeaking = false;
     this.silenceFrameCount = 0;
-    // Calculate frames to wait: (SampleRate * ms) / 1000 / 128_samples_per_render_quantum
-    this.releaseFrames = Math.ceil((this.sampleRate * this.vadReleaseMs) / 1000 / 128); 
+    
+    // We expect the browser's context to be 48000Hz or 44100Hz usually
+    // This value will be replaced dynamically on init or we just assume sampleRate globally
+    // Actually, in AudioWorkletGlobalScope, sampleRate is available globally.
+    this.releaseFrames = Math.ceil((sampleRate * this.vadReleaseMs) / 1000 / 128); 
   }
 
   process(inputs, outputs, parameters) {
@@ -25,7 +29,7 @@ class PCMProcessor extends AudioWorkletProcessor {
     if (input && input.length > 0) {
       const channelData = input[0];
       
-      // 1. Calculate RMS (Volume Energy)
+      // 1. Calculate RMS (Volume Energy) using original sample rate
       let sum = 0;
       for (let i = 0; i < channelData.length; i++) {
         sum += channelData[i] * channelData[i];
@@ -45,29 +49,46 @@ class PCMProcessor extends AudioWorkletProcessor {
         }
       }
 
-      // 3. Buffer Data (Always buffer to calculate volume, but gate sending)
-      for (let i = 0; i < channelData.length; i++) {
-        this.buffer.push(channelData[i]);
+      // 3. Resample & Buffer
+      // Simple linear interpolation downsampling (maintaining 16kHz)
+      const ratio = sampleRate / this.sampleRateOut;
+      let ratioIdx = 0;
+      
+      while (ratioIdx < channelData.length) {
+        const i1 = Math.floor(ratioIdx);
+        const i2 = Math.min(i1 + 1, channelData.length - 1);
+        const fraction = ratioIdx - i1;
+        const val = channelData[i1] + fraction * (channelData[i2] - channelData[i1]);
+        
+        // Convert to Int16
+        const intVal = Math.max(-1, Math.min(1, val));
+        this.buffer.push(intVal < 0 ? intVal * 0x8000 : intVal * 0x7FFF);
+        
+        ratioIdx += ratio;
       }
 
-      // 4. Send Chunk
-      if (this.buffer.length >= this.bufferSize) {
-        const chunk = new Float32Array(this.buffer);
+      // 4. Send Chunks when buffer fills
+      while (this.buffer.length >= this.bufferSize) {
+        const chunk = this.buffer.splice(0, this.bufferSize);
         
         // Calculate chunk RMS for UI
         let chunkSum = 0;
         for (let i = 0; i < chunk.length; i++) {
-          chunkSum += chunk[i] * chunk[i];
+          const sampleFloat = chunk[i] / 0x8000;
+          chunkSum += sampleFloat * sampleFloat;
         }
         const chunkRms = Math.sqrt(chunkSum / chunk.length);
 
-        this.port.postMessage({
-          pcm: chunk,
-          volume: chunkRms,
-          isSpeaking: this.isSpeaking // Send VAD status
-        });
-        
-        this.buffer = [];
+        const int16Array = new Int16Array(chunk);
+
+        this.port.postMessage(
+          {
+            pcm: int16Array.buffer,
+            volume: chunkRms,
+            isSpeaking: this.isSpeaking // Send VAD status
+          },
+          [int16Array.buffer] // Transfer the buffer to avoid copying
+        );
       }
     }
     return true;

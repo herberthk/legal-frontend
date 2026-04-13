@@ -141,7 +141,7 @@ declare global {
     id: string;
     userId: string;
     title: string;
-    createdAt: Timestamp; // ISO string
+    createdAt: string; // ISO string
     duration: number; // seconds
     audioUrl?: string; // Recording
     summary: string;
