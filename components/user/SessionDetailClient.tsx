@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
 import MarkdownFormatter from "@/components/global/chat/MakdownFormater";
+import { CustomButton } from "../ui/custom-button";
 
 interface SessionDetailClientProps {
   session: VoiceSession;
@@ -32,10 +33,19 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
             )}
           </div>
           <div className="pt-6 border-t border-slate-800">
-            <Button className="w-full dark:bg-slate-100 dark:text-slate-900 bg-slate-800 text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-100 rounded-xl font-bold flex items-center gap-2 transition-all">
-              <Download size={18} />
-              Export Summary
-            </Button>
+            <CustomButton
+              variant="transparent"
+              shape="rounded"
+              borderLeftWidth="4px"
+              borderLeftColor="#4f46e5"
+              borderRightWidth="4px"
+              borderRightColor="#ea580c"
+              className="bg-slate-100/50 dark:bg-slate-800/50"
+              leftIcon={<Download size={16} />}
+              hoverEffect="glow"
+            >
+              Export Conversation
+            </CustomButton>
           </div>
         </section>
 
