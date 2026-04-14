@@ -306,6 +306,8 @@ export async function getCurrentUser(): Promise<User | null> {
       nextDailyReset:
         data?.nextDailyReset?.toDate().toISOString() ||
         new Date().toISOString(),
+      updatedAt:
+        data?.updatedAt?.toDate().toISOString() || new Date().toISOString(),
     } as User;
   } catch (error) {
     console.error("GetCurrentUser Error:", error);

@@ -54,7 +54,7 @@ const UserDashboard: FC<Props> = ({ user, recentSessions }) => {
           borderLeftColor="#4f46e5"
           borderRightWidth="4px"
           borderRightColor="#ea580c"
-          className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+          className="bg-slate-100/50 dark:bg-slate-800/50"
           rightIcon={<PlusCircle size={16} />}
           hoverEffect="glow"
         >
