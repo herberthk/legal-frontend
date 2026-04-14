@@ -23,10 +23,10 @@ export async function GET() {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Set token to expire in 30 minutes, allowing 2 minutes to establish a new session
-    const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    // Set token to expire in 60 minutes, allowing 5 minutes to establish a new session
+    const expireTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const newSessionExpireTime = new Date(
-      Date.now() + 2 * 60 * 1000,
+      Date.now() + 5 * 60 * 1000,
     ).toISOString();
 
     const token = await ai.authTokens.create({

@@ -31,6 +31,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   userName,
   freeVoiceSeconds,
   isCreditExhausted,
+  remainingSeconds,
 }) => {
   // ─── Derived UI Status ────────────────────────────────────────────────────
   const status: CallStatus = useMemo(() => {
@@ -84,6 +85,15 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
 
   const showFreeTime = duration < freeVoiceSeconds;
   const remainingFreeSeconds = Math.max(0, freeVoiceSeconds - duration);
+
+  const formatTime = (s: number) => {
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const isNearingLimit = remainingSeconds < 300 && wsStatus === "open"; // 5 minutes
+  const isCriticalLimit = remainingSeconds < 60; // 1 minute
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#F8FAFC] dark:bg-[#0F172A] relative overflow-hidden transition-colors duration-500">
@@ -141,6 +151,22 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         setIsAudioMuted={setIsAudioMuted}
         onEnd={onEnd}
       />
+
+      {/* ── Session Limit Warning Banner ──────────────────────────────────── */}
+      {isNearingLimit && !isCreditExhausted && (
+        <div 
+          className={`absolute top-24 left-1/2 -translate-x-1/2 z-50 px-6 py-2 rounded-full border shadow-2xl transition-all duration-500 flex items-center gap-3 backdrop-blur-xl ${
+            isCriticalLimit 
+              ? "bg-red-500/90 border-red-400 text-white animate-pulse" 
+              : "bg-amber-500/90 border-amber-400 text-white"
+          }`}
+        >
+          <div className="w-2 h-2 rounded-full bg-white animate-ping" />
+          <span className="text-xs font-bold uppercase tracking-widest whitespace-nowrap">
+            Session ending in {formatTime(remainingSeconds)}
+          </span>
+        </div>
+      )}
 
       {/* ── Credit Exhausted Banner ────────────────────────────────────────── */}
       {isCreditExhausted && <ExhastedBanner />}

@@ -7,15 +7,27 @@ import {
 } from "@google/genai";
 import { LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION } from "@/constants/prompt";
 import { WORKLET_CODE } from "@/constants/gemini";
+import { db } from "@/firebase/client";
+import { COLLECTIONS } from "@/constants";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  arrayUnion,
+  serverTimestamp,
+} from "firebase/firestore";
 
 const WORKLET_URL = `data:text/javascript;charset=utf-8,${encodeURIComponent(WORKLET_CODE)}`;
 
 export interface UseGeminiLiveOptions {
+  userId: string;
   userName: string;
   voicePreference: string;
 }
 
 export const useGeminiLive = ({
+  userId,
   userName,
   voicePreference,
 }: UseGeminiLiveOptions) => {
@@ -24,10 +36,15 @@ export const useGeminiLive = ({
   const [isListening, setIsListening] = useState(false);
   const [activeTranscript, setActiveTranscript] =
     useState<AgentTranscript | null>(null);
+  const [duration, setDuration] = useState(0);
   const aiClientRef = useRef<GoogleGenAI | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const previousHandleRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
   const isDisconnectingRef = useRef(false);
+  const isSyncingRef = useRef(false);
+  const reconnectAttemptsRef = useRef(0);
+  const MAX_RECONNECT_ATTEMPTS = 5;
 
   // Memory efficient accumulation
   const userPartsRef = useRef<string[]>([]);
@@ -90,6 +107,54 @@ export const useGeminiLive = ({
       aiPartsRef.current = [];
     }
   }, []);
+
+  const syncTranscriptsToBuffer = useCallback(
+    async (currentDuration: number) => {
+      if (isSyncingRef.current || allTranscriptsRef.current.length === 0)
+        return;
+
+      try {
+        isSyncingRef.current = true;
+        const transcriptsToSync = [...allTranscriptsRef.current];
+
+        const bufferRef = doc(
+          db,
+          COLLECTIONS.VOICE_SESSION_BUFFERS,
+          sessionIdRef.current,
+        );
+        const snapshot = await getDoc(bufferRef);
+
+        if (!snapshot.exists()) {
+          await setDoc(bufferRef, {
+            sessionId: sessionIdRef.current,
+            userId,
+            userName,
+            voicePreference,
+            duration: currentDuration,
+            transcripts: transcriptsToSync,
+            updatedAt: serverTimestamp(),
+            status: "active",
+          });
+        } else {
+          await updateDoc(bufferRef, {
+            transcripts: arrayUnion(...transcriptsToSync),
+            duration: currentDuration,
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        // Success! Clear the client memory for THESE specific transcripts
+        allTranscriptsRef.current = allTranscriptsRef.current.slice(
+          transcriptsToSync.length,
+        );
+      } catch (error) {
+        console.error("[gemini-live] Sync failed:", error);
+      } finally {
+        isSyncingRef.current = false;
+      }
+    },
+    [userId, userName, voicePreference],
+  );
 
   const getOrCreateAudioCtx = useCallback((sampleRate: number) => {
     if (
@@ -212,6 +277,9 @@ export const useGeminiLive = ({
 
       // Initialize audio context to get mic input
       const ctx = getOrCreateAudioCtx(24000); // 24kHz output
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -275,6 +343,7 @@ export const useGeminiLive = ({
             console.log("[gemini-live] open");
             setWsStatus("open");
             setActiveTranscript({ speaker: "system", text: "Ready." });
+            reconnectAttemptsRef.current = 0; // Reset retry counter on success
 
             // Attach mic input handler
             processor.port.onmessage = (e) => {
@@ -323,9 +392,16 @@ export const useGeminiLive = ({
             // End of goAway signal / graceful stop needed
             if (msg.goAway) {
               console.log(
-                "[gemini-live] Received GoAway. Reconnecting gracefully shortly if needed.",
+                "[gemini-live] Received GoAway. Reconnecting gracefully...",
               );
-              // For a more robust app, handle graceful reconnect here.
+              // We'll let the onclose handler trigger the reconnection
+              // but we store the intent
+              if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+                // We'll reconnect in onclose or here if idle
+                if (audioStatus === "idle") {
+                  sessionRef.current?.close();
+                }
+              }
             }
 
             // Process parts
@@ -383,6 +459,21 @@ export const useGeminiLive = ({
           onclose: (ev) => {
             console.log("[gemini-live] Closed:", ev);
             setWsStatus("closed");
+
+            // Auto-reconnect if not explicitly disconnecting
+            if (
+              !isDisconnectingRef.current &&
+              reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS
+            ) {
+              const delay = Math.min(
+                1000 * Math.pow(2, reconnectAttemptsRef.current),
+                10000,
+              );
+              reconnectAttemptsRef.current++;
+              setTimeout(() => {
+                if (!isDisconnectingRef.current) connectToGemini();
+              }, delay);
+            }
           },
         },
       });
@@ -404,6 +495,7 @@ export const useGeminiLive = ({
     finalizeAITurn,
     finalizeUserTurn,
     stopAudio,
+    audioStatus,
     schedulePCMChunk,
   ]);
 
@@ -477,16 +569,36 @@ export const useGeminiLive = ({
   }, [finalizeUserTurn, finalizeAITurn]);
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      if (wsStatus === "open") {
+        setDuration((prev) => {
+          const next = prev + 1;
+          // Sync every 10 seconds
+          if (next % 10 === 0) {
+            syncTranscriptsToBuffer(next);
+          }
+          // Cap at 1 hour (3600s)
+          if (next >= 3600) {
+            disconnectFromGemini();
+          }
+          return next;
+        });
+      }
+    }, 1000);
     return () => {
+      clearInterval(interval);
       disconnectFromGemini();
     };
-  }, [disconnectFromGemini]);
+  }, [disconnectFromGemini, wsStatus, syncTranscriptsToBuffer]);
 
   return {
     wsStatus,
     audioStatus,
     isListening,
     activeTranscript,
+    duration,
+    remainingSeconds: Math.max(0, 3600 - duration),
+    sessionId: sessionIdRef.current,
     connect: connectToGemini,
     disconnect: disconnectFromGemini,
     toggleMicMute,

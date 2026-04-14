@@ -44,7 +44,7 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
               leftIcon={<Download size={16} />}
               hoverEffect="glow"
             >
-              Export Conversation
+              Export conversation
             </CustomButton>
           </div>
         </section>

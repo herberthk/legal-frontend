@@ -21,31 +21,33 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const voicePreference =
     useAuthStore((state) => state.user?.voicePreference) || "Zephyr";
 
-  const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
-
-  const totalAllowedSeconds = useMemo(() => {
-    return freeVoiceSeconds + balance / COST_PER_VOICE_SECOND_IN_CENTS;
-  }, [freeVoiceSeconds, balance]);
-
-  const isCreditExhausted = duration >= totalAllowedSeconds;
 
   const {
     wsStatus,
     audioStatus,
     isListening,
     activeTranscript,
+    duration,
+    remainingSeconds,
+    sessionId,
     connect,
     disconnect,
     toggleMicMute,
     toggleAudioMute,
     getTranscripts,
   } = useGeminiLive({
+    userId: userId || "",
     userName: userName || "User",
     voicePreference: voicePreference,
   });
 
+  const totalAllowedSeconds = useMemo(() => {
+    return freeVoiceSeconds + balance / COST_PER_VOICE_SECOND_IN_CENTS;
+  }, [freeVoiceSeconds, balance]);
+
+  const isCreditExhausted = duration >= totalAllowedSeconds;
   const isResponding = audioStatus === "playing" || wsStatus === "connecting";
 
   // Handle Muting logic via the hook directly
@@ -57,34 +59,22 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     toggleAudioMute(isAudioMuted);
   }, [isAudioMuted, toggleAudioMute]);
 
-  // Duration Timer
+  // Combined Sync logic for SESSION storage (billing recovery)
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (wsStatus === "open") {
-      interval = setInterval(() => {
-        setDuration((prev) => {
-          const newDuration = prev + 1;
-
-          // Resilient billing: Save to sessionStorage every 5 seconds
-          if (newDuration % 5 === 0 && userId) {
-            sessionStorage.setItem(
-              "voice_sessionState",
-              JSON.stringify({
-                userId,
-                duration: newDuration,
-                voicePreference,
-                userName,
-                timestamp: Date.now(),
-              }),
-            );
-          }
-
-          return newDuration;
-        });
-      }, 1000);
+    if (wsStatus === "open" && duration > 0 && duration % 5 === 0 && userId) {
+      sessionStorage.setItem(
+        "voice_sessionState",
+        JSON.stringify({
+          userId,
+          sessionId,
+          duration,
+          voicePreference,
+          userName,
+          timestamp: Date.now(),
+        }),
+      );
     }
-    return () => clearInterval(interval);
-  }, [wsStatus, userId, voicePreference, userName]);
+  }, [duration, wsStatus, userId, voicePreference, userName, sessionId]);
 
   // Fallback billing beacon on unmount/tab close
   useEffect(() => {
@@ -92,7 +82,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       if (wsStatus === "open" && duration > 0) {
         const payload = {
           userId,
-          sessionId: `sess_${Date.now()}`,
+          sessionId,
           duration,
           transcripts: getTranscripts(),
           voicePreference,
@@ -107,14 +97,13 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [wsStatus, duration, userId, getTranscripts, voicePreference, userName]);
+  }, [wsStatus, duration, userId, getTranscripts, voicePreference, userName, sessionId]);
 
   const handleStartCall = useCallback(async () => {
     if (wsStatus === "connecting" || wsStatus === "open" || isCreditExhausted)
       return;
 
-    // Reset duration for new call
-    setDuration(0);
+    // Reset session storage for new call
     sessionStorage.removeItem("voice_sessionState");
 
     await connect();
@@ -135,7 +124,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId,
-            sessionId: `sess_${Date.now()}`,
+            sessionId,
             duration,
             transcripts: getTranscripts(),
             voicePreference,
@@ -155,6 +144,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     voicePreference,
     userName,
     wsStatus,
+    sessionId,
   ]);
 
   useEffect(() => {
@@ -168,6 +158,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       wsStatus={wsStatus}
       audioStatus={audioStatus}
       duration={duration}
+      remainingSeconds={remainingSeconds}
       isResponding={isResponding}
       activeTranscript={activeTranscript}
       onStart={handleStartCall}
