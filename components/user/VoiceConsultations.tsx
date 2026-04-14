@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { formatCost, formatUniversalDate } from "@/utils";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import MarkdownFormatter from "@/components/global/chat/MakdownFormater";
+import { CustomButton } from "../ui/custom-button";
 
 interface VoiceConsultationsProps {
   isDashboard?: boolean;
@@ -186,15 +187,21 @@ const VoiceConsultations = ({
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-center gap-3">
-                          <Link
+                          <CustomButton
+                            component={Link}
                             href={`/dashboard/user/transcriptions/${session.id}`}
-                            className="w-full sm:w-auto"
+                            variant="transparent"
+                            shape="rounded"
+                            borderLeftWidth="4px"
+                            borderLeftColor="#4f46e5"
+                            borderRightWidth="4px"
+                            borderRightColor="#ea580c"
+                            className="bg-slate-100/50 dark:bg-slate-800/50"
+                            leftIcon={<ExternalLink size={16} />}
+                            hoverEffect="glow"
                           >
-                            <Button className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl px-6 py-2 h-11 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/10 dark:shadow-none">
-                              <ExternalLink size={16} />
-                              View Detailed Info
-                            </Button>
-                          </Link>
+                            View Detail
+                          </CustomButton>
 
                           <div className="flex-1" />
 
