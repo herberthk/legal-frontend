@@ -18,6 +18,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatUniversalDate } from "@/utils";
+import { CustomButton } from "../ui/custom-button";
 
 interface SettingsFormProps {
   user: User;
@@ -33,14 +35,22 @@ export default function SettingsForm({ user }: SettingsFormProps) {
     e.preventDefault();
 
     if (!name.trim()) {
-      toast.error("Name cannot be empty");
+      toast.error("Name cannot be empty", {
+        style: {
+          background: "red",
+        },
+      });
       return;
     }
 
     startTransition(async () => {
       const result = await updateUserProfile({ name, avatar }, user.id);
       if (result.success) {
-        toast.success(result.message);
+        toast.success(result.message, {
+          style: {
+            background: "green",
+          },
+        });
         router.refresh();
       } else {
         toast.error(result.message);
@@ -169,32 +179,24 @@ export default function SettingsForm({ user }: SettingsFormProps) {
             <CardFooter className="bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-200/50 dark:border-slate-800/50 p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
               <p className="text-xs text-slate-500 dark:text-slate-400 order-2 sm:order-1">
                 Last updated:{" "}
-                {user.createdAt
-                  ? new Date(user.createdAt).toLocaleDateString()
-                  : "Never"}
+                {user.updatedAt ? formatUniversalDate(user.updatedAt) : "Never"}
               </p>
-              <Button
+              <CustomButton
                 onClick={handleUpdate}
+                isLoading={isPending}
                 disabled={isPending || name === user.name}
-                className={cn(
-                  "order-1 sm:order-2 h-11 px-8 rounded-full font-semibold transition-all duration-300 shadow-lg",
-                  name !== user.name
-                    ? "bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-indigo-500/25"
-                    : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none",
-                )}
+                variant="transparent"
+                shape="rounded"
+                borderLeftWidth="4px"
+                borderLeftColor="#4f46e5"
+                borderRightWidth="4px"
+                borderRightColor="#ea580c"
+                className="bg-slate-100/50 dark:bg-slate-800/50 uppercase order-1 sm:order-2"
+                leftIcon={<CheckCircle2 size={16} />}
+                hoverEffect="glow"
               >
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 size-4" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
+                Update
+              </CustomButton>
             </CardFooter>
           </Card>
         </div>

@@ -40,6 +40,7 @@ declare global {
     freeVoiceSeconds: number; // One-time welcome bonus (300s = 5mins)
     nextDailyReset: string; // ISO Date string — next reset time
     createdAt: string; // ISO Date string
+    updatedAt?: string;
   };
 
   type PaymentMethod = {

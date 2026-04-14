@@ -199,6 +199,7 @@ const VoiceConsultations = ({
                             className="bg-slate-100/50 dark:bg-slate-800/50"
                             leftIcon={<ExternalLink size={16} />}
                             hoverEffect="glow"
+                            size="sm"
                           >
                             View Detail
                           </CustomButton>
@@ -224,20 +225,26 @@ const VoiceConsultations = ({
             ))}
 
             {isDashboard ? (
-              <div className="mt-6 flex justify-center">
-                <Link href="/dashboard/user/transcription">
-                  <Button
-                    variant="outline"
-                    className="group border-2 border-slate-100 dark:border-slate-700/50 hover:border-orange-500 hover:text-orange-500 rounded-2xl px-8 h-12 transition-all duration-300 flex items-center gap-2 font-bold"
+              currentSessions.length > 5 && (
+                <div className="mt-6 flex justify-center">
+                  <CustomButton
+                    component={Link}
+                    href="/dashboard/user/transcriptions"
+                    variant="transparent"
+                    shape="rounded"
+                    size="sm"
+                    borderLeftWidth="4px"
+                    borderLeftColor="#4f46e5"
+                    borderRightWidth="4px"
+                    borderRightColor="#ea580c"
+                    className="bg-slate-100/50 dark:bg-slate-800/50"
+                    rightIcon={<ChevronRight size={18} />}
+                    hoverEffect="glow"
                   >
                     View All Sessions
-                    <ChevronRight
-                      size={18}
-                      className="group-hover:translate-x-1 transition-transform"
-                    />
-                  </Button>
-                </Link>
-              </div>
+                  </CustomButton>
+                </div>
+              )
             ) : (
               <div className="mt-8 flex items-center justify-between bg-slate-50 dark:bg-slate-900/30 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
                 <p className="text-sm font-medium text-slate-500">

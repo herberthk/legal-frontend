@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react";
-import { getRelativeTime } from "@/utils";
+import { formatUniversalDate, getRelativeTime } from "@/utils";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -85,9 +85,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">
           {notification.message}
         </p>
-        <div className="flex items-center text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">
+        <div className="flex items-center text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-wider">
           <Clock size={10} className="mr-1" />
-          {getRelativeTime(notification.createdAt)}
+          {formatUniversalDate(notification.createdAt)}
         </div>
       </div>
 
