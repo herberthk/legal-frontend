@@ -46,6 +46,7 @@ declare global {
     audioStatus: VoiceAudioStatus;
     duration: number;
     isResponding: boolean;
+    remainingSeconds: number;
     activeTranscript: AgentTranscript | null;
     onStart: () => void;
     onEnd: () => void;
