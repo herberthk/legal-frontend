@@ -79,11 +79,14 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (wsStatus === "open" && duration > 0) {
+        // Snapshot with .slice() for the same reason as handleEndCall:
+        // prevents a concurrent buffer-sync from mutating the array after we
+        // hand it to JSON.stringify inside the Blob constructor.
         const payload = {
           userId,
           sessionId,
           duration,
-          transcripts: getTranscripts(),
+          transcripts: getTranscripts().slice(),
           voicePreference,
           userName,
         };
@@ -120,6 +123,15 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const handleEndCall = useCallback(async () => {
     if (wsStatus === "closed" || wsStatus === "idle") return;
 
+    // Snapshot transcripts BEFORE disconnecting.
+    // getTranscripts() calls finalizeUserTurn() + finalizeAITurn() internally,
+    // flushing any segments still sitting in userPartsRef / aiPartsRef into
+    // allTranscriptsRef before isDisconnectingRef is set to true (which would
+    // prevent those parts from ever being finalized).
+    // We .slice() to take a stable shallow copy so concurrent buffer-sync
+    // operations cannot mutate the array while the fetch payload is built.
+    const capturedTranscripts = getTranscripts().slice();
+
     await disconnect();
     logAnalyticsEvent("voice_call_end", { engine: "gemini_live", duration });
 
@@ -133,7 +145,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
             userId,
             sessionId,
             duration,
-            transcripts: getTranscripts(),
+            transcripts: capturedTranscripts,
             voicePreference,
             userName,
           }),

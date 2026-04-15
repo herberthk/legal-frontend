@@ -15,7 +15,6 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  arrayUnion,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -102,8 +101,15 @@ export const useGeminiLive = ({
             status: "active",
           });
         } else {
+          // Read existing transcripts and append new ones manually.
+          // arrayUnion would silently deduplicate identical objects (e.g. user says
+          // "Yes" or "Okay" twice), which causes real data loss for short repeated
+          // user turns. Manual concatenation preserves every turn.
+          const existingTranscripts = Array.isArray(snapshot.data()?.transcripts)
+            ? (snapshot.data()!.transcripts as Transcript[])
+            : [];
           await updateDoc(bufferRef, {
-            transcripts: arrayUnion(...syncingTranscriptsRef.current),
+            transcripts: [...existingTranscripts, ...syncingTranscriptsRef.current],
             duration: currentDuration,
             updatedAt: serverTimestamp(),
           });
@@ -489,6 +495,13 @@ export const useGeminiLive = ({
   ]);
 
   const disconnectFromGemini = useCallback(async () => {
+    // Flush any in-progress user/AI transcript segments into allTranscriptsRef
+    // BEFORE setting the disconnecting flag. This ensures that partial turns
+    // accumulated in userPartsRef/aiPartsRef are not silently dropped when
+    // the message handler starts ignoring new events.
+    finalizeUserTurn();
+    finalizeAITurn();
+
     isDisconnectingRef.current = true;
 
     stopAudio();
@@ -523,7 +536,7 @@ export const useGeminiLive = ({
     setAudioStatus("idle");
     setIsListening(false);
     setActiveTranscript(null);
-  }, [stopAudio]);
+  }, [stopAudio, finalizeUserTurn, finalizeAITurn]);
 
   const toggleMicMute = useCallback((muted: boolean) => {
     if (mediaStreamRef.current) {
