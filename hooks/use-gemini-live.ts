@@ -6,7 +6,6 @@ import {
   Session,
 } from "@google/genai";
 import { LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION } from "@/constants/prompt";
-import { WORKLET_CODE } from "@/constants/gemini";
 
 import { db } from "@/firebase/client";
 import { COLLECTIONS } from "@/constants";
@@ -17,8 +16,6 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-
-const WORKLET_URL = `data:text/javascript;charset=utf-8,${encodeURIComponent(WORKLET_CODE)}`;
 
 export interface UseGeminiLiveOptions {
   userName: string;
@@ -58,8 +55,7 @@ export const useGeminiLive = ({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<AudioWorkletNode | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
-  const activeSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const playerNodeRef = useRef<AudioWorkletNode | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
 
   // Token cache
@@ -105,11 +101,16 @@ export const useGeminiLive = ({
           // arrayUnion would silently deduplicate identical objects (e.g. user says
           // "Yes" or "Okay" twice), which causes real data loss for short repeated
           // user turns. Manual concatenation preserves every turn.
-          const existingTranscripts = Array.isArray(snapshot.data()?.transcripts)
+          const existingTranscripts = Array.isArray(
+            snapshot.data()?.transcripts,
+          )
             ? (snapshot.data()!.transcripts as Transcript[])
             : [];
           await updateDoc(bufferRef, {
-            transcripts: [...existingTranscripts, ...syncingTranscriptsRef.current],
+            transcripts: [
+              ...existingTranscripts,
+              ...syncingTranscriptsRef.current,
+            ],
             duration: currentDuration,
             updatedAt: serverTimestamp(),
           });
@@ -205,87 +206,36 @@ export const useGeminiLive = ({
     gainNode.connect(ctx.destination);
     masterGainRef.current = gainNode;
 
-    nextStartTimeRef.current = ctx.currentTime;
     return ctx;
   }, []);
 
   const schedulePCMChunk = useCallback((base64Data: string) => {
-    const ctx = audioCtxRef.current;
-    if (!ctx || ctx.state === "closed") return;
-    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    const player = playerNodeRef.current;
+    if (!player) return;
 
-    // Decode Base64 to binary buffer
+    // Resume context if suspended (e.g. autoplay policy)
+    const ctx = audioCtxRef.current;
+    if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+
+    // Decode Base64 → binary → ArrayBuffer, then transfer to player worklet.
+    // The ring-buffer worklet handles Int16→Float32 conversion internally and
+    // plays samples from a continuous buffer — no chunk boundaries, no clicks.
     const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    // Convert LINEAR16 to Float32
-    const int16 = new Int16Array(bytes.buffer);
-    const float32 = new Float32Array(int16.length);
-    const SCALING_FACTOR = 1 / 0x8000;
-
-    for (let i = 0; i < int16.length; i++) {
-      float32[i] = int16[i] * SCALING_FACTOR;
-    }
-
-    // 5ms fade-in/out to remove click artifacts at chunk seams
-    // At 24kHz, 120 samples is 5ms
-    const fade = Math.min(120, Math.floor(float32.length * 0.1));
-    for (let i = 0; i < fade; i++) {
-      const g = i / fade;
-      float32[i] *= g;
-      float32[float32.length - 1 - i] *= g;
-    }
-
-    const buffer = ctx.createBuffer(1, float32.length, ctx.sampleRate);
-    buffer.copyToChannel(float32, 0);
-
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-
-    if (masterGainRef.current) {
-      source.connect(masterGainRef.current);
-    } else {
-      source.connect(ctx.destination);
-    }
-
-    // Gapless playback scheduling
-    if (nextStartTimeRef.current < ctx.currentTime) {
-      nextStartTimeRef.current = ctx.currentTime;
-    }
-
-    source.start(nextStartTimeRef.current);
-    nextStartTimeRef.current += buffer.duration;
-
-    activeSourcesRef.current.add(source);
+    // Zero-copy transfer to audio thread
+    player.port.postMessage(bytes.buffer, [bytes.buffer]);
     setAudioStatus("playing");
-
-    source.onended = () => {
-      activeSourcesRef.current.delete(source);
-      const now = audioCtxRef.current?.currentTime ?? 0;
-      if (nextStartTimeRef.current <= now + 0.05) {
-        setAudioStatus("done");
-      }
-    };
   }, []);
 
   const stopAudio = useCallback(() => {
-    for (const src of activeSourcesRef.current) {
-      try {
-        src.stop(0);
-        src.disconnect();
-      } catch {
-        // Ignore already stopped/disconnected contexts
-      }
-    }
-    activeSourcesRef.current.clear();
-
-    // We do NOT close the AudioContext here, just clear the queued sources
-    // so it's ready for the next chunks.
-    if (audioCtxRef.current) {
-      nextStartTimeRef.current = audioCtxRef.current.currentTime;
+    // Tell the player worklet to flush its ring buffer immediately
+    if (playerNodeRef.current) {
+      playerNodeRef.current.port.postMessage({ command: "endOfAudio" });
     }
     setAudioStatus("idle");
   }, []);
@@ -310,12 +260,30 @@ export const useGeminiLive = ({
       });
       mediaStreamRef.current = stream;
 
-      await ctx.audioWorklet.addModule(WORKLET_URL);
+      // Load worklets from proper file URLs (not data: URIs).
+      // Firefox does NOT support data: URIs for audioWorklet.addModule().
+      await Promise.all([
+        ctx.audioWorklet.addModule("/js/pcm-processor.js"),
+        ctx.audioWorklet.addModule("/js/pcm-player-processor.js"),
+      ]);
+
       const source = ctx.createMediaStreamSource(stream);
       const processor = new AudioWorkletNode(ctx, "pcm-processor", {
         channelCount: 1,
       });
       processorRef.current = processor;
+
+      // Create the ring-buffer player node for click-free audio output
+      const playerNode = new AudioWorkletNode(ctx, "pcm-player-processor");
+      playerNode.connect(masterGainRef.current || ctx.destination);
+      playerNodeRef.current = playerNode;
+
+      // Listen for buffer-drain notifications from the player worklet
+      playerNode.port.onmessage = (e) => {
+        if (e.data?.type === "bufferEmpty") {
+          setAudioStatus("done");
+        }
+      };
 
       const token = await getEphemeralToken();
 
@@ -509,6 +477,11 @@ export const useGeminiLive = ({
     if (processorRef.current) {
       processorRef.current.disconnect();
       processorRef.current = null;
+    }
+
+    if (playerNodeRef.current) {
+      playerNodeRef.current.disconnect();
+      playerNodeRef.current = null;
     }
 
     if (mediaStreamRef.current) {
