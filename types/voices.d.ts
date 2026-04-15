@@ -59,6 +59,16 @@ declare global {
     voiceName?: string;
     freeVoiceSeconds: number;
     isCreditExhausted: boolean;
+    /**
+     * True while the recorder worker is assembling + encoding the WAV.
+     * Used to show a "Preparing download…" overlay after the call ends.
+     */
+    isEncoding: boolean;
+    /**
+     * Encoding progress 0–100. Drives the progress bar in the download overlay.
+     * Only meaningful when isEncoding = true.
+     */
+    encodingProgress: number;
   }
 
   type VoicePasona = {

@@ -9,6 +9,23 @@ interface VoiceControlsProps {
   isAudioMuted: boolean;
   setIsAudioMuted: (muted: boolean) => void;
   onEnd: () => void;
+  /**
+   * True while the call is active AND the recorder worker is ingesting audio.
+   * Drives the pulsing REC badge. Becomes false the moment the call ends
+   * (before encoding starts), so there is no overlap with the encoding overlay.
+   */
+  isRecording: boolean;
+  /**
+   * True while the worker is assembling + encoding the WAV after the call.
+   * Used here to hide the controls entirely (replaced by the encoding overlay
+   * in voice-interface.tsx).
+   */
+  isEncoding: boolean;
+  /**
+   * 0–100 encoding progress. Reserved for future use in controls (e.g. a
+   * compact inline progress indicator if the full overlay is dismissed).
+   */
+  encodingProgress: number;
 }
 
 const VoiceControls: React.FC<VoiceControlsProps> = ({
@@ -18,8 +35,14 @@ const VoiceControls: React.FC<VoiceControlsProps> = ({
   isAudioMuted,
   setIsAudioMuted,
   onEnd,
+  isRecording,
+  isEncoding,
+  // encodingProgress kept for future use (compact inline bar)
+  encodingProgress: _encodingProgress,
 }) => {
-  if (wsStatus !== "open") return null;
+  // Hide the entire control bar while the encoding overlay is showing —
+  // the overlay is the primary interaction surface at that point.
+  if (wsStatus !== "open" && !isEncoding) return null;
 
   return (
     <motion.div
@@ -28,6 +51,35 @@ const VoiceControls: React.FC<VoiceControlsProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
     >
+      {/* ── REC Badge ───────────────────────────────────────────────────────────
+          Pulsing red dot + "REC" label shown above the control bar while the
+          call is active and audio is being recorded into IndexedDB.
+
+          Design decision: placed ABOVE the controls (not inside) so it doesn't
+          interfere with the mic/end/audio button hit targets on small screens.
+
+          The badge disappears automatically when the call ends (isRecording
+          flips to false in gemini-voice-connection before isEncoding flips),
+          giving a clean visual handoff to the encoding overlay.
+      */}
+      <AnimatePresence>
+        {isRecording && (
+          <motion.div
+            key="rec-badge"
+            initial={{ opacity: 0, scale: 0.8, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 6 }}
+            transition={{ duration: 0.25 }}
+            className="flex justify-center mb-2"
+          >
+            <div className="flex items-center gap-1.5 bg-black/50 backdrop-blur-md border border-red-500/40 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-lg shadow-red-500/20">
+              {/* Pulsing dot — CSS animation, no JS timer */}
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              REC
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="flex items-center gap-3 sm:gap-6 bg-transparent backdrop-blur-2xl px-6 py-3 rounded-full shadow-[0_16px_48px_-8px_rgba(0,0,0,0.3)] dark:shadow-[0_16px_48px_-8px_rgba(0,0,0,0.6)]">
         {/* Toggle Mic */}
         <motion.button
