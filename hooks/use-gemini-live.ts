@@ -21,12 +21,31 @@ export interface UseGeminiLiveOptions {
   userName: string;
   voicePreference: string;
   userId: string;
+
+  /**
+   * Called with each user-microphone PCM chunk (Int16 ArrayBuffer, 16 kHz).
+   * The buffer is transferred (zero-copy) AFTER the Gemini SDK has finished
+   * reading it for sendRealtimeInput — so no additional allocations here.
+   * `timestamp` is ms since session start (Date.now() - sessionStart).
+   */
+  onUserAudioChunk?: (buffer: ArrayBuffer, timestamp: number) => void;
+
+  /**
+   * Called with each Gemini AI PCM chunk (Int16 ArrayBuffer, 24 kHz).
+   * This buffer is a COPY of the data sent to the player worklet — we cannot
+   * share the same buffer between two transferable targets, so one slice is
+   * unavoidable. The copy is ~4 KB per chunk.
+   * `timestamp` is ms since session start.
+   */
+  onAIAudioChunk?: (buffer: ArrayBuffer, timestamp: number) => void;
 }
 
 export const useGeminiLive = ({
   userName,
   voicePreference,
   userId,
+  onUserAudioChunk,
+  onAIAudioChunk,
 }: UseGeminiLiveOptions) => {
   const [wsStatus, setWsStatus] = useState<VoiceSessionStatus>("idle");
   const [audioStatus, setAudioStatus] = useState<VoiceAudioStatus>("idle");
@@ -62,6 +81,24 @@ export const useGeminiLive = ({
   const ephemeralTokenRef = useRef<{ token: string; expiresAt: number } | null>(
     null,
   );
+
+  // ── Recorder callback refs ────────────────────────────────────────────────
+  // Stored as refs so that the hot-path callbacks (processor.port.onmessage
+  // and schedulePCMChunk) always see the latest function reference without
+  // appearing in their useCallback dependency arrays. This prevents the
+  // entire connectToGemini callback from being recreated whenever the parent
+  // re-renders — which would cause the session to restart unexpectedly.
+  const onUserAudioChunkRef = useRef(onUserAudioChunk);
+  const onAIAudioChunkRef   = useRef(onAIAudioChunk);
+  useEffect(() => { onUserAudioChunkRef.current = onUserAudioChunk; }, [onUserAudioChunk]);
+  useEffect(() => { onAIAudioChunkRef.current   = onAIAudioChunk;   }, [onAIAudioChunk]);
+
+  /**
+   * Wall-clock ms of when the WebSocket 'open' event fired.
+   * Used to compute per-chunk timestamps as (Date.now() - sessionStartRef.current).
+   * Reset each time connectToGemini runs.
+   */
+  const sessionStartRef = useRef<number>(0);
 
   const syncSessionToBuffer = useCallback(
     async (currentDuration: number) => {
@@ -227,7 +264,25 @@ export const useGeminiLive = ({
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    // Zero-copy transfer to audio thread
+    // ── Recorder interception (AI audio) ─────────────────────────────────────
+    // IMPORTANT: We need two consumers for this data:
+    //   1. The player worklet  — receives `bytes.buffer` via a transferable.
+    //   2. The recorder worker — needs its own copy because transferring to
+    //      the player DETACHES the buffer (byteLength → 0).
+    //
+    // Decision: `Uint8Array.prototype.slice()` creates a new ArrayBuffer copy
+    // (~4 KB per chunk). This is the one unavoidable allocation in the hot path.
+    // We cannot use SharedArrayBuffer because it requires COOP/COEP headers
+    // which add significant server-config complexity.
+    //
+    // We create the copy BEFORE the player transfer so `bytes` is still intact.
+    if (onAIAudioChunkRef.current) {
+      const recordBuf = bytes.slice().buffer; // copy for recorder
+      const ts = Date.now() - sessionStartRef.current;
+      onAIAudioChunkRef.current(recordBuf, ts);
+    }
+
+    // Zero-copy transfer to audio thread (bytes.buffer is detached after this)
     player.port.postMessage(bytes.buffer, [bytes.buffer]);
     setAudioStatus("playing");
   }, []);
@@ -331,6 +386,11 @@ export const useGeminiLive = ({
             setWsStatus("open");
             setActiveTranscript({ speaker: "system", text: "Ready." });
             reconnectAttemptsRef.current = 0; // Reset retry counter on success
+
+            // Record session start time for chunk timestamps.
+            // All subsequent chunk timestamps are (Date.now() - sessionStartRef.current).
+            sessionStartRef.current = Date.now();
+
             // Attach mic input handler
             processor.port.onmessage = (e) => {
               if (isDisconnectingRef.current) return;
@@ -339,7 +399,12 @@ export const useGeminiLive = ({
               setIsListening(isSpeaking);
 
               if (sessionRef.current) {
-                // pcm is an ArrayBuffer (Int16) from the worklet
+                // pcm is an ArrayBuffer (Int16 @ 16 kHz) transferred from the
+                // pcm-processor worklet. At this point the main thread owns it.
+
+                // Build base64 for Gemini. This reads `pcm` but does NOT
+                // transfer/detach it — the Gemini SDK receives a string, not
+                // the buffer. So `pcm` stays valid after sendRealtimeInput.
                 const uint8Array = new Uint8Array(pcm);
                 let binaryStr = "";
                 for (let i = 0; i < uint8Array.length; i++) {
@@ -353,6 +418,24 @@ export const useGeminiLive = ({
                     mimeType: "audio/pcm;rate=16000",
                   },
                 });
+
+                // ── Recorder interception (user audio) ────────────────────────
+                // NOW transfer `pcm` to the recorder worker.
+                // This is zero-copy: we transfer ownership of the ArrayBuffer
+                // that was handed to us from the worklet. After this line, `pcm`
+                // is detached on the main thread — but we already finished using
+                // it for the Gemini sendRealtimeInput above, so this is safe.
+                //
+                // We only record chunks while the user is actually speaking
+                // (isSpeaking from VAD) to avoid storing silence in IDB and
+                // bloating the WAV file with dead air during listening pauses.
+                // Note: we still send all audio to Gemini (including non-speaking
+                // frames) so Gemini's own VAD functions correctly.
+                if (onUserAudioChunkRef.current && isSpeaking) {
+                  const ts = Date.now() - sessionStartRef.current;
+                  onUserAudioChunkRef.current(pcm, ts);
+                  // `pcm` buffer is now detached — do not use it below this line
+                }
               }
             };
 

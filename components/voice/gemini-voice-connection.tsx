@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useGeminiLive } from "@/hooks/use-gemini-live";
+import { useConversationRecorder } from "@/hooks/use-conversation-recorder";
 import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
@@ -16,10 +17,23 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   freeVoiceSeconds,
   balance,
 }) => {
-  const userName = useAuthStore((state) => state.user?.name);
-  const userId = useAuthStore((state) => state.user?.id);
+  const userName       = useAuthStore((state) => state.user?.name);
+  const userId         = useAuthStore((state) => state.user?.id);
   const voicePreference =
     useAuthStore((state) => state.user?.voicePreference) || "Zephyr";
+
+  // ── Conversation Recorder ────────────────────────────────────────────────────
+  // The recorder hook spawns a persistent Worker backed by IndexedDB.
+  // Audio chunks are routed here from useGeminiLive via the onUserAudioChunk
+  // / onAIAudioChunk callbacks below.
+  const {
+    startSession,
+    addUserChunk,
+    addAIChunk,
+    finalizeRecording,
+    isEncoding,
+    encodingProgress,
+  } = useConversationRecorder();
 
   const {
     wsStatus,
@@ -38,6 +52,11 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     userId: userId || "",
     userName: userName || "User",
     voicePreference: voicePreference,
+    // Forward audio chunks to the recorder worker.
+    // These callbacks are stable refs in the hook so they never trigger
+    // connectToGemini to rebuild its internal closure.
+    onUserAudioChunk: addUserChunk,
+    onAIAudioChunk:   addAIChunk,
   });
 
   const totalAllowedSeconds = useMemo(() => {
@@ -116,9 +135,14 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // Reset duration for new call
     sessionStorage.removeItem("voice_sessionState");
 
+    // Initialize the recorder for this session BEFORE connecting so the
+    // worker's IDB is open and ready to accept the very first audio chunks
+    // that arrive milliseconds after the WebSocket handshake.
+    startSession(sessionId);
+
     await connect();
     logAnalyticsEvent("voice_call_start", { engine: "gemini_live" });
-  }, [connect, wsStatus, isCreditExhausted]);
+  }, [connect, wsStatus, isCreditExhausted, startSession, sessionId]);
 
   const handleEndCall = useCallback(async () => {
     if (wsStatus === "closed" || wsStatus === "idle") return;
@@ -155,6 +179,16 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         console.error("Failed to submit billing", err);
       }
     }
+
+    // ── Trigger WAV download ────────────────────────────────────────────────
+    // Called AFTER billing to avoid delaying the billing POST.
+    // finalizeRecording() instructs the worker to:
+    //   1. Drain its IDB write queue (waits for any in-flight chunk writes).
+    //   2. Read + assemble all chunks.
+    //   3. Encode WAV and post the Blob back.
+    // The hook's onmessage handler then auto-downloads the file.
+    // isEncoding becomes true immediately so the UI can show a spinner.
+    finalizeRecording();
   }, [
     disconnect,
     duration,
@@ -164,6 +198,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     userName,
     wsStatus,
     sessionId,
+    finalizeRecording,
   ]);
 
   useEffect(() => {
@@ -191,6 +226,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       voiceName={voicePreference}
       freeVoiceSeconds={freeVoiceSeconds}
       isCreditExhausted={isCreditExhausted}
+      isEncoding={isEncoding}
+      encodingProgress={encodingProgress}
     />
   );
 };

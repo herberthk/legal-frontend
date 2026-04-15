@@ -13,6 +13,7 @@ import {
 } from "@/constants/constants";
 import ExhastedBanner from "./ExhastedBanner";
 import { useThemeStore } from "@/store";
+import Recorder from "./Recording";
 
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   wsStatus,
@@ -32,6 +33,10 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   freeVoiceSeconds,
   isCreditExhausted,
   remainingSeconds,
+  // Recording state from the conversation recorder hook.
+  // isEncoding = true while the worker assembles + encodes the WAV after the call.
+  isEncoding,
+  encodingProgress,
 }) => {
   // ─── Derived UI Status ────────────────────────────────────────────────────
   const status: CallStatus = useMemo(() => {
@@ -142,6 +147,9 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       />
 
       {/* ── Floating Controls ─────────────────────────────────────────────── */}
+      {/* isRecording = call is open AND encoder is not yet running.
+          Encoder starts the moment the call ends, so the REC dot stops
+          showing as soon as the encoding overlay takes over. */}
       <VoiceControls
         wsStatus={wsStatus}
         isMuted={isMuted}
@@ -149,6 +157,9 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         isAudioMuted={isAudioMuted}
         setIsAudioMuted={setIsAudioMuted}
         onEnd={onEnd}
+        isRecording={wsStatus === "open" && !isEncoding}
+        isEncoding={isEncoding}
+        encodingProgress={encodingProgress}
       />
 
       {/* ── Session Limit Warning Banner ──────────────────────────────────── */}
@@ -168,6 +179,12 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       )}
       {/* ── Credit Exhausted Banner ────────────────────────────────────────── */}
       {isCreditExhausted && <ExhastedBanner />}
+
+      {/* ── WAV Encoding Overlay ───────────────────────────────────────────────
+          Shown after the call ends while the recorder worker assembles and
+          encodes the conversation WAV in the background.
+      */}
+      {isEncoding && <Recorder encodingProgress={encodingProgress} />}
     </div>
   );
 };
