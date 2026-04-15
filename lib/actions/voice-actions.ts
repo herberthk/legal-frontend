@@ -191,17 +191,66 @@ export const recordVoiceSession = async ({
   usage: FirestoreWrite<VoiceSessionUsage, "createdAt">;
 }) => {
   try {
+    const finalUsage = { ...usage };
+
+    // Fetch temporary buffer to reconstruct complete session state
+    if (usage.sessionId) {
+      const bufferRef = db
+        .collection(COLLECTIONS.VOICE_SESSION_BUFFERS)
+        .doc(usage.sessionId);
+      const bufferSnap = await bufferRef.get();
+
+      if (bufferSnap.exists) {
+        const bufferData = bufferSnap.data();
+        if (bufferData) {
+          // Prevent underbilling by taking the max duration
+          const clientDuration = usage.duration || 0;
+          const bufferDuration = bufferData.duration || 0;
+          finalUsage.duration = Math.max(clientDuration, bufferDuration);
+
+          if (finalUsage.duration > clientDuration) {
+            const { COST_PER_VOICE_SECOND_IN_CENTS } =
+              await import("@/constants");
+            finalUsage.cost =
+              finalUsage.duration * COST_PER_VOICE_SECOND_IN_CENTS;
+          }
+
+          // Merge transcripts because the client clears them from memory after every sync
+          const bufferTranscripts = Array.isArray(bufferData.transcripts)
+            ? bufferData.transcripts
+            : [];
+          const clientTranscripts = Array.isArray(usage.transcripts)
+            ? usage.transcripts
+            : [];
+          finalUsage.transcripts = [...bufferTranscripts, ...clientTranscripts];
+
+          // Overwrite title and summary with complete context
+          if (bufferTranscripts.length > 0) {
+            const { summarizeConversation } =
+              await import("@/lib/actions/voice-actions");
+            const { title, summary } = await summarizeConversation({
+              transcripts: finalUsage.transcripts,
+              instructor: bufferData.voicePreference || "Zephyr",
+              user: bufferData.userName || "User",
+            });
+            finalUsage.title = title;
+            finalUsage.summary = summary;
+          }
+        }
+      }
+    }
+
     const voiceSessionRef = db.collection(COLLECTIONS.VOICE_SESSIONS).doc();
     await voiceSessionRef.set({
-      ...usage,
+      ...finalUsage,
     });
 
     // record usage and deduct from user balance
     await recordVoiceUsageAndDeduct({
-      userId: usage.userId,
+      userId: finalUsage.userId,
       type: "VOICE_SESSION",
-      seconds: usage.duration,
-      sessionId: usage.sessionId,
+      seconds: finalUsage.duration,
+      sessionId: finalUsage.sessionId,
     });
 
     // Send notification to user
@@ -211,6 +260,17 @@ export const recordVoiceSession = async ({
       type: "SUCCESS",
       url: `/dashboard/user/transcriptions/${voiceSessionRef.id}`,
     });
+
+    // Delete from temporary buffer after successful save
+    if (usage.sessionId) {
+      const bufferRef = db
+        .collection(COLLECTIONS.VOICE_SESSION_BUFFERS)
+        .doc(usage.sessionId);
+      await bufferRef.delete().catch((err) => {
+        console.error("Failed to delete temporary buffer", err);
+      });
+    }
+
     return voiceSessionRef.id;
   } catch (error) {
     console.error("Error recording voice session usage:", error);

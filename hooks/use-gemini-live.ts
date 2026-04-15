@@ -8,16 +8,29 @@ import {
 import { LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION } from "@/constants/prompt";
 import { WORKLET_CODE } from "@/constants/gemini";
 
+import { db } from "@/firebase/client";
+import { COLLECTIONS } from "@/constants";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  arrayUnion,
+  serverTimestamp,
+} from "firebase/firestore";
+
 const WORKLET_URL = `data:text/javascript;charset=utf-8,${encodeURIComponent(WORKLET_CODE)}`;
 
 export interface UseGeminiLiveOptions {
   userName: string;
   voicePreference: string;
+  userId: string;
 }
 
 export const useGeminiLive = ({
   userName,
   voicePreference,
+  userId,
 }: UseGeminiLiveOptions) => {
   const [wsStatus, setWsStatus] = useState<VoiceSessionStatus>("idle");
   const [audioStatus, setAudioStatus] = useState<VoiceAudioStatus>("idle");
@@ -28,11 +41,19 @@ export const useGeminiLive = ({
   const sessionRef = useRef<Session | null>(null);
   const previousHandleRef = useRef<string | null>(null);
   const isDisconnectingRef = useRef(false);
+  const [duration, setDuration] = useState(0);
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
+  const isSyncingRef = useRef(false);
+  const reconnectAttemptsRef = useRef(0);
+  const MAX_RECONNECT_ATTEMPTS = 5;
 
   // Memory efficient accumulation
   const userPartsRef = useRef<string[]>([]);
   const aiPartsRef = useRef<string[]>([]);
   const allTranscriptsRef = useRef<Transcript[]>([]);
+
+  // Track which transcripts are currently being synced to avoid duplicate writes on retry
+  const syncingTranscriptsRef = useRef<Transcript[]>([]);
 
   // Audio Processing Contexts
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -45,6 +66,66 @@ export const useGeminiLive = ({
   // Token cache
   const ephemeralTokenRef = useRef<{ token: string; expiresAt: number } | null>(
     null,
+  );
+
+  const syncSessionToBuffer = useCallback(
+    async (currentDuration: number) => {
+      if (isSyncingRef.current || allTranscriptsRef.current.length === 0)
+        return;
+
+      try {
+        isSyncingRef.current = true;
+        // Snapshot what we're about to sync into a dedicated ref BEFORE the await.
+        // This means:
+        //   a) New transcripts arriving during the async write go into allTranscriptsRef
+        //      and are NOT cleared if this sync fails.
+        //   b) We only clear exactly what was successfully committed, preventing duplicates.
+        syncingTranscriptsRef.current = [...allTranscriptsRef.current];
+
+        const bufferRef = doc(
+          db,
+          COLLECTIONS.VOICE_SESSION_BUFFERS,
+          sessionIdRef.current,
+        );
+
+        const snapshot = await getDoc(bufferRef);
+
+        if (!snapshot.exists()) {
+          await setDoc(bufferRef, {
+            sessionId: sessionIdRef.current,
+            userId,
+            userName,
+            voicePreference,
+            duration: currentDuration,
+            transcripts: syncingTranscriptsRef.current,
+            updatedAt: serverTimestamp(),
+            status: "active",
+          });
+        } else {
+          await updateDoc(bufferRef, {
+            transcripts: arrayUnion(...syncingTranscriptsRef.current),
+            duration: currentDuration,
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        // Only clear the transcripts that were CONFIRMED written.
+        // Any transcripts that arrived during the awaits above are safely preserved
+        // at the front of allTranscriptsRef.current.
+        allTranscriptsRef.current = allTranscriptsRef.current.slice(
+          syncingTranscriptsRef.current.length,
+        );
+        syncingTranscriptsRef.current = [];
+      } catch (error) {
+        console.error("[gemini-live] Sync failed:", error);
+        // On failure, do NOT clear allTranscriptsRef. The in-flight batch
+        // is abandoned and will be retried on the next sync tick.
+        syncingTranscriptsRef.current = [];
+      } finally {
+        isSyncingRef.current = false;
+      }
+    },
+    [userId, userName, voicePreference],
   );
 
   const getEphemeralToken = useCallback(async () => {
@@ -275,7 +356,7 @@ export const useGeminiLive = ({
             console.log("[gemini-live] open");
             setWsStatus("open");
             setActiveTranscript({ speaker: "system", text: "Ready." });
-
+            reconnectAttemptsRef.current = 0; // Reset retry counter on success
             // Attach mic input handler
             processor.port.onmessage = (e) => {
               if (isDisconnectingRef.current) return;
@@ -302,7 +383,7 @@ export const useGeminiLive = ({
             };
 
             source.connect(processor);
-            processor.connect(ctx.destination);
+            // processor.connect(ctx.destination);
           },
           onmessage: (msg) => {
             if (isDisconnectingRef.current) return;
@@ -476,17 +557,43 @@ export const useGeminiLive = ({
     return allTranscriptsRef.current;
   }, [finalizeUserTurn, finalizeAITurn]);
 
+  const wsStatusRef = useRef(wsStatus);
   useEffect(() => {
-    return () => {
-      disconnectFromGemini();
-    };
-  }, [disconnectFromGemini]);
+    wsStatusRef.current = wsStatus;
+  }, [wsStatus]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (wsStatusRef.current === "open") {
+        setDuration((prev) => {
+          const next = prev + 1;
+          if (next % 10 === 0) {
+            syncSessionToBuffer(next);
+          }
+          if (next >= 3600) {
+            disconnectFromGemini();
+          }
+          return next;
+        });
+      }
+    }, 1000);
+
+    // Cleanup only clears the interval. Disconnection is handled explicitly
+    // by the consumer (e.g. unmount, user action) — not implicitly by effect cleanup.
+    return () => clearInterval(interval);
+
+    // wsStatus intentionally excluded. We read it via wsStatusRef.current inside
+    // the interval so we always get the latest value without re-subscribing.
+  }, [disconnectFromGemini, syncSessionToBuffer]);
 
   return {
     wsStatus,
     audioStatus,
     isListening,
     activeTranscript,
+    duration,
+    remainingSeconds: Math.max(0, 3600 - duration),
+    sessionId: sessionIdRef.current,
     connect: connectToGemini,
     disconnect: disconnectFromGemini,
     toggleMicMute,
