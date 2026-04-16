@@ -1,5 +1,7 @@
 "use client";
 
+import { formatTime } from "@/lib";
+import { formatCost } from "@/utils";
 import {
   Document,
   Page,
@@ -11,6 +13,7 @@ import {
   LinearGradient,
   Stop,
   Defs,
+  G,
 } from "@react-pdf/renderer";
 import { format } from "date-fns";
 
@@ -56,7 +59,7 @@ const styles = StyleSheet.create({
     fontWeight: "heavy",
   },
   title: {
-    fontSize: 24,
+    fontSize: 19,
     fontWeight: "bold",
     marginBottom: 15,
     color: "#0f172a",
@@ -165,31 +168,59 @@ const styles = StyleSheet.create({
   },
 });
 
-const LogoIcon = () => (
-  <Svg viewBox="0 0 24 24" style={styles.logoIcon}>
-    <Defs>
-      <LinearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
-        <Stop offset="0%" stopColor="#9a3412" />
-        <Stop offset="100%" stopColor="#818cf8" />
-      </LinearGradient>
-    </Defs>
-    <Path
-      d="M16 16c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2v11z"
-      fill="url(#logoGradient)"
-    />
-    <Path
-      d="M20 21c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2v-3c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v3z"
-      fill="#4f46e5"
-      opacity={0.8}
-    />
-    <Path
-      d="M12 7v10M9 10h6M9 14h6"
-      stroke="#ffffff"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-    />
-  </Svg>
-);
+// const LogoIcon = () => (
+//   <Svg viewBox="0 0 40 40" style={{ width: 32, height: 32, marginRight: 8 }}>
+//     <Defs>
+//       <LinearGradient id="iconBg" x1="0" y1="0" x2="1" y2="1">
+//         <Stop offset="0%" stopColor="#9a3412" /> {/* orange-800 */}
+//         <Stop offset="100%" stopColor="#818cf8" /> {/* indigo-400 */}
+//       </LinearGradient>
+//     </Defs>
+//     <View>
+//       <Path
+//         d="M 20, 20 m -20, 0 a 20, 20 0 1, 0 40, 0 a 20, 20 0 1, 0 -40, 0"
+//         fill="url(#iconBg)"
+//       />
+//       <G transform="translate(8, 8)">
+//         <Path
+//           d="M12 3v18"
+//           stroke="#ffffff"
+//           strokeWidth={2}
+//           strokeLinecap="round"
+//           strokeLinejoin="round"
+//         />
+//         <Path
+//           d="m19 8 3 8a5 5 0 0 1-6 0zV7"
+//           stroke="#ffffff"
+//           strokeWidth={2}
+//           strokeLinecap="round"
+//           strokeLinejoin="round"
+//         />
+//         <Path
+//           d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1"
+//           stroke="#ffffff"
+//           strokeWidth={2}
+//           strokeLinecap="round"
+//           strokeLinejoin="round"
+//         />
+//         <Path
+//           d="m5 8 3 8a5 5 0 0 1-6 0zV7"
+//           stroke="#ffffff"
+//           strokeWidth={2}
+//           strokeLinecap="round"
+//           strokeLinejoin="round"
+//         />
+//         <Path
+//           d="M7 21h10"
+//           stroke="#ffffff"
+//           strokeWidth={2}
+//           strokeLinecap="round"
+//           strokeLinejoin="round"
+//         />
+//       </G>
+//     </View>
+//   </Svg>
+// );
 
 interface ExportPDFProps {
   session: VoiceSession;
@@ -197,8 +228,6 @@ interface ExportPDFProps {
 
 const ExportPDF = ({ session }: ExportPDFProps) => {
   const formattedDate = format(new Date(session.createdAt), "MMMM dd, yyyy");
-  const durationMinutes = Math.floor(session.duration / 60);
-  const durationSeconds = session.duration % 60;
 
   return (
     <Document>
@@ -206,7 +235,7 @@ const ExportPDF = ({ session }: ExportPDFProps) => {
         {/* Header with Professional Gradient look (simulated with SVG) */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <LogoIcon />
+            {/* <LogoIcon /> */}
             <View style={{ flexDirection: "row" }}>
               <Text style={[styles.logoText, { color: "#4f46e5" }]}>Legal</Text>
               <Text style={[styles.logoText, { color: "#ea580c" }]}>
@@ -225,13 +254,13 @@ const ExportPDF = ({ session }: ExportPDFProps) => {
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Duration</Text>
               <Text style={styles.metaValue}>
-                {durationMinutes}m {durationSeconds}s
+                {formatTime(session.duration)}
               </Text>
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Estimated Cost</Text>
               <Text style={styles.metaValue}>
-                UGX {(session.cost || 0).toLocaleString()}
+                {formatCost(session.cost || 0)}
               </Text>
             </View>
             <View style={styles.metaItem}>
