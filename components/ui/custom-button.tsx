@@ -316,7 +316,7 @@ const CustomButtonInner = forwardRef(
         <AnimatePresence mode="wait">
           <motion.div
             key={isLoading ? "loading" : "content"}
-            className="flex items-center justify-center gap-2 z-10"
+            className="flex items-center justify-center gap-2 z-10 dark:text-slate-100 text-slate-900"
             initial={contentTransition.initial}
             animate={contentTransition.animate}
             exit={contentTransition.exit}
