@@ -136,8 +136,8 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     const now = new Date();
-    // Filename: legal-session-YYYY-MM-DD-HH-MM.wav — human-readable, sortable.
-    const filename = `legal-session-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}.wav`;
+    // Filename: legal-session-YYYY-MM-DD-HH-MM.webm — human-readable, sortable.
+    const filename = `legal-session-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}.webm`;
 
     anchor.href = url;
     anchor.download = filename;
@@ -157,7 +157,7 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
     // Guard: only create in a browser environment (not during SSR).
     if (typeof Worker === "undefined") return;
 
-    const worker = new Worker("/js/conversation-recorder-worker.js");
+    const worker = new Worker(new URL("./recorder.worker.ts", import.meta.url));
     workerRef.current = worker;
 
     // ── Incoming messages from the worker ────────────────────────────────────
@@ -178,7 +178,7 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
         }
 
         // Worker finished encoding — Blob is ready to download.
-        case "wav_ready": {
+        case "webm_ready": {
           const blob: Blob = event.data.blob;
           triggerDownload(blob);
           setIsEncoding(false);
