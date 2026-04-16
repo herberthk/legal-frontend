@@ -17,8 +17,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   freeVoiceSeconds,
   balance,
 }) => {
-  const userName       = useAuthStore((state) => state.user?.name);
-  const userId         = useAuthStore((state) => state.user?.id);
+  // Only take first name of the user in AI actions
+  const userName = useAuthStore((state) => state.user?.name)?.split(" ")[0];
+  const userId = useAuthStore((state) => state.user?.id);
   const voicePreference =
     useAuthStore((state) => state.user?.voicePreference) || "Zephyr";
 
@@ -56,7 +57,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // These callbacks are stable refs in the hook so they never trigger
     // connectToGemini to rebuild its internal closure.
     onUserAudioChunk: addUserChunk,
-    onAIAudioChunk:   addAIChunk,
+    onAIAudioChunk: addAIChunk,
   });
 
   const totalAllowedSeconds = useMemo(() => {
