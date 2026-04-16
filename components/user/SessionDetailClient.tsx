@@ -1,17 +1,26 @@
 "use client";
 
 import { FileText, Play, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
 import MarkdownFormatter from "@/components/global/chat/MakdownFormater";
 import { CustomButton } from "../ui/custom-button";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import ExportPDF from "./ExportPDF";
+import { useEffect, useState } from "react";
 
 interface SessionDetailClientProps {
   session: VoiceSession;
 }
 
 const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMounted(true);
+  }, []);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       {/* Left Column: Summary & Recording */}
@@ -33,19 +42,45 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
             )}
           </div>
           <div className="pt-6 border-t border-slate-800">
-            <CustomButton
-              variant="transparent"
-              shape="rounded"
-              borderLeftWidth="4px"
-              borderLeftColor="#4f46e5"
-              borderRightWidth="4px"
-              borderRightColor="#ea580c"
-              className="bg-slate-100/50 dark:bg-slate-800/50"
-              leftIcon={<Download size={16} />}
-              hoverEffect="glow"
-            >
-              Export Conversation
-            </CustomButton>
+            {isMounted && (
+              <PDFDownloadLink
+                document={<ExportPDF session={session} />}
+                fileName={`conversation-${session.id.slice(0, 8)}.pdf`}
+              >
+                {({ loading }) => (
+                  <CustomButton
+                    variant="transparent"
+                    shape="rounded"
+                    borderLeftWidth="4px"
+                    borderLeftColor="#4f46e5"
+                    borderRightWidth="4px"
+                    borderRightColor="#ea580c"
+                    className="bg-slate-100/50 dark:bg-slate-800/50 w-full"
+                    leftIcon={<Download size={16} />}
+                    hoverEffect="glow"
+                    disabled={loading}
+                  >
+                    {loading ? "Preparing PDF..." : "Export Conversation"}
+                  </CustomButton>
+                )}
+              </PDFDownloadLink>
+            )}
+            {!isMounted && (
+              <CustomButton
+                variant="transparent"
+                shape="rounded"
+                borderLeftWidth="4px"
+                borderLeftColor="#4f46e5"
+                borderRightWidth="4px"
+                borderRightColor="#ea580c"
+                className="bg-slate-100/50 dark:bg-slate-800/50 w-full"
+                leftIcon={<Download size={16} />}
+                hoverEffect="glow"
+                disabled
+              >
+                Export Conversation
+              </CustomButton>
+            )}
           </div>
         </section>
 
