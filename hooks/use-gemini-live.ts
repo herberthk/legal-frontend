@@ -89,9 +89,13 @@ export const useGeminiLive = ({
   // entire connectToGemini callback from being recreated whenever the parent
   // re-renders — which would cause the session to restart unexpectedly.
   const onUserAudioChunkRef = useRef(onUserAudioChunk);
-  const onAIAudioChunkRef   = useRef(onAIAudioChunk);
-  useEffect(() => { onUserAudioChunkRef.current = onUserAudioChunk; }, [onUserAudioChunk]);
-  useEffect(() => { onAIAudioChunkRef.current   = onAIAudioChunk;   }, [onAIAudioChunk]);
+  const onAIAudioChunkRef = useRef(onAIAudioChunk);
+  useEffect(() => {
+    onUserAudioChunkRef.current = onUserAudioChunk;
+  }, [onUserAudioChunk]);
+  useEffect(() => {
+    onAIAudioChunkRef.current = onAIAudioChunk;
+  }, [onAIAudioChunk]);
 
   /**
    * Wall-clock ms of when the WebSocket 'open' event fired.
@@ -357,6 +361,7 @@ export const useGeminiLive = ({
             },
           },
         },
+        tools: [{ googleSearch: {} }],
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         // Using context window compression for extended sessions >15 mins
