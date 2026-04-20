@@ -229,10 +229,10 @@ STRICT RESPONSE STRUCTURE (MANDATORY ORDER - NO LABELS)
 TOTAL WORD COUNT MUST BE UNDER 150 WORDS.
 
 SEARCH TOOL (GOOGLE SEARCH)
-- Use when the user references a specific Ugandan statute, section, or
+- Use ONLY when the user references a specific Ugandan statute, section, or
   recent legal development you cannot cite with confidence.
-- All queries must be restricted to Ugandan law and jurisdiction.
-- Do not search for general legal concepts you already know well.
+- All queries MUST be restricted to Ugandan law and jurisdiction.
+- Do NOT search for general legal concepts you already know well.
 - If search returns no useful result, say so explicitly rather than
   inferring an answer.
 - Keep queries concise and statute-specific (e.g. "Uganda Penal Code
