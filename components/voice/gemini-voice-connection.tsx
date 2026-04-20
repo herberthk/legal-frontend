@@ -20,8 +20,10 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   // Only take first name of the user in AI actions
   const userName = useAuthStore((state) => state.user?.name)?.split(" ")[0];
   const userId = useAuthStore((state) => state.user?.id);
-  const voicePreference =
-    useAuthStore((state) => state.user?.voicePreference) || "Zephyr";
+  const preferedVoice = useAuthStore((state) => state.user?.preferedVoice) || {
+    preferedVoiceId: "Zephyr",
+    preferedVoiceName: "Hana",
+  };
 
   // ── Conversation Recorder ────────────────────────────────────────────────────
   // The recorder hook spawns a persistent Worker backed by IndexedDB.
@@ -52,7 +54,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   } = useGeminiLive({
     userId: userId || "",
     userName: userName || "User",
-    voicePreference: voicePreference,
+    preferedVoice,
     // Forward audio chunks to the recorder worker.
     // These callbacks are stable refs in the hook so they never trigger
     // connectToGemini to rebuild its internal closure.
@@ -87,13 +89,13 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
           userId,
           sessionId,
           duration,
-          voicePreference,
+          preferedVoice,
           userName,
           timestamp: Date.now(),
         }),
       );
     }
-  }, [wsStatus, userId, voicePreference, userName, duration, sessionId]);
+  }, [wsStatus, userId, preferedVoice, userName, duration, sessionId]);
 
   // Fallback billing beacon on unmount/tab close
   useEffect(() => {
@@ -107,7 +109,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
           sessionId,
           duration,
           transcripts: getTranscripts().slice(),
-          voicePreference,
+          preferedVoice,
           userName,
         };
         const blob = new Blob([JSON.stringify(payload)], {
@@ -124,7 +126,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     duration,
     userId,
     getTranscripts,
-    voicePreference,
+    preferedVoice,
     userName,
     sessionId,
   ]);
@@ -171,7 +173,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
             sessionId,
             duration,
             transcripts: capturedTranscripts,
-            voicePreference,
+            preferedVoice,
             userName,
           }),
         });
@@ -195,7 +197,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     duration,
     userId,
     getTranscripts,
-    voicePreference,
+    preferedVoice,
     userName,
     wsStatus,
     sessionId,
@@ -224,7 +226,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       setIsAudioMuted={setIsAudioMuted}
       userName={userName}
       listening={isListening}
-      voiceName={voicePreference}
+      voiceName={preferedVoice.preferedVoiceName}
       freeVoiceSeconds={freeVoiceSeconds}
       isCreditExhausted={isCreditExhausted}
       isEncoding={isEncoding}

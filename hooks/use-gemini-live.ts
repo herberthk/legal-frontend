@@ -19,7 +19,10 @@ import {
 
 export interface UseGeminiLiveOptions {
   userName: string;
-  voicePreference: string;
+  preferedVoice: {
+    preferedVoiceId: string;
+    preferedVoiceName: string;
+  };
   userId: string;
 
   /**
@@ -42,7 +45,7 @@ export interface UseGeminiLiveOptions {
 
 export const useGeminiLive = ({
   userName,
-  voicePreference,
+  preferedVoice,
   userId,
   onUserAudioChunk,
   onAIAudioChunk,
@@ -131,7 +134,7 @@ export const useGeminiLive = ({
             sessionId: sessionIdRef.current,
             userId,
             userName,
-            voicePreference,
+            preferedVoice,
             duration: currentDuration,
             transcripts: syncingTranscriptsRef.current,
             updatedAt: serverTimestamp(),
@@ -173,7 +176,7 @@ export const useGeminiLive = ({
         isSyncingRef.current = false;
       }
     },
-    [userId, userName, voicePreference],
+    [userId, userName, preferedVoice],
   );
 
   const getEphemeralToken = useCallback(async () => {
@@ -357,7 +360,7 @@ export const useGeminiLive = ({
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: {
-              voiceName: voicePreference || "Zephyr",
+              voiceName: preferedVoice.preferedVoiceId || "Zephyr",
             },
           },
         },
@@ -371,7 +374,7 @@ export const useGeminiLive = ({
             {
               text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({
                 user: userName,
-                instructor: voicePreference,
+                instructor: preferedVoice.preferedVoiceName,
               }),
             },
           ],
@@ -542,7 +545,7 @@ export const useGeminiLive = ({
     wsStatus,
     getOrCreateAudioCtx,
     getEphemeralToken,
-    voicePreference,
+    preferedVoice,
     userName,
     finalizeAITurn,
     finalizeUserTurn,

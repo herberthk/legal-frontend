@@ -3,25 +3,6 @@ export const formatDate = (date: Date) => {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 };
 
-export const voices: VoicePasona[] = [
-  { id: "Zephyr", name: "Zephyr", gender: "Female", desc: "Bright & Helpful" },
-  { id: "Fenrir", name: "Fenrir", gender: "Male", desc: "Strong & Direct" },
-  {
-    id: "Kore",
-    name: "Kore",
-    gender: "Female",
-    desc: "Balanced & Professional",
-  },
-
-  { id: "Puck", name: "Puck", gender: "Male", desc: "Calm & Reassuring" },
-  {
-    id: "Charon",
-    name: "Charon",
-    gender: "Male",
-    desc: "Deep & Authoritative",
-  },
-];
-
 export const generateMockCards = (): PaymentMethod[] => [
   {
     id: "c1",

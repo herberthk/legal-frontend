@@ -17,7 +17,11 @@ declare global {
 
     // --- Specialized/Experimental (Model Specific) ---
     | "Pegasus" // Often seen in high-fidelity 3.1 preview tiers
-    | "Hydra"; // Multi-tonal experimental voice
+    | "Hydra" // Multi-tonal experimental voice
+    | "Leda" // Gentle and youthful
+    | "Orus" // Steady and calm
+    | "Achernar" // Soft and whisper-quiet
+    | "Umbriel"; // Mellow and low-energy
 
   type VoiceSessionStatus =
     | "idle" // not connected
@@ -72,8 +76,8 @@ declare global {
   }
 
   type VoicePasona = {
-    id: string;
-    name: Voice;
+    id: Voice;
+    name: string;
     gender: string;
     desc: string;
   };
