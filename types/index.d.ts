@@ -24,6 +24,11 @@ declare global {
 
   type Role = "ADMIN" | "USER";
 
+  type PreferedVoice = {
+    preferedVoiceId: Voice;
+    preferedVoiceName: string;
+  };
+
   type User = {
     id: string; // Firebase UID
     name: string;
@@ -33,7 +38,7 @@ declare global {
     balance: number; // In UGX will be converted to USD at rate of 3800
     totalSpent: number; // In UGX will be converted to USD at rate of 3800
     status: "active" | "suspended";
-    voicePreference?: string;
+    preferedVoice?: PreferedVoice;
     // Tier Tracking
     welcomeTextTokens: number; // One-time welcome bonus (4000)
     freeTextTokens: number; // Daily Recurring Limit (1000)

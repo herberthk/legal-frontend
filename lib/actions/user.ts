@@ -10,18 +10,18 @@ import { FieldValue } from "firebase-admin/firestore";
  * @returns Object with success status and message
  */
 export async function updateUserVoicePreference(
-  voicePreference: string,
+  voicePreference: PreferedVoice,
   userId: string,
 ) {
   try {
     const userDocRef = db.collection(COLLECTIONS.USERS).doc(userId);
     await userDocRef.update({
-      voicePreference,
+      preferedVoice: voicePreference,
     });
 
     return {
       success: true,
-      message: `Changed Voice preference to ${voicePreference}`,
+      message: `Changed Voice preference to ${voicePreference.preferedVoiceName}`,
     };
   } catch (error) {
     console.error("Error updating voice preference:", error);

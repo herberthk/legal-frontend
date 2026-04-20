@@ -9,10 +9,10 @@ const VoiceSelection = () => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const updateVoice = useCallback(
-    async (voiceName: string) => {
+    async (voice: PreferedVoice) => {
       if (!user) return;
       try {
-        const result = await updateUserVoicePreference(voiceName, user.id);
+        const result = await updateUserVoicePreference(voice, user.id);
         if (result.success) {
           toast.success(result.message, {
             style: {
@@ -22,7 +22,7 @@ const VoiceSelection = () => {
 
           setUser({
             ...user,
-            voicePreference: voiceName,
+            preferedVoice: voice,
           });
         } else {
           toast.error(result.message, {
@@ -41,8 +41,7 @@ const VoiceSelection = () => {
     },
     [setUser, user],
   );
-  const selectedVoice = user?.voicePreference || "Blake";
-  console.log("voice preference", selectedVoice);
+  const selectedVoice = user?.preferedVoice?.preferedVoiceId || "Zephyr";
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700">
       <div className="flex items-center gap-2 mb-4">
@@ -63,9 +62,14 @@ const VoiceSelection = () => {
         {voices.map((voice) => (
           <button
             key={voice.id}
-            onClick={() => updateVoice(voice.name)}
+            onClick={() =>
+              updateVoice({
+                preferedVoiceId: voice.id,
+                preferedVoiceName: voice.name,
+              })
+            }
             className={`relative p-3 rounded-xl border text-left transition-all duration-300 hover:shadow-md ${
-              selectedVoice === voice.name
+              selectedVoice === voice.id
                 ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-500"
                 : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:border-orange-300 dark:hover:border-orange-700"
             }`}
@@ -80,7 +84,7 @@ const VoiceSelection = () => {
               >
                 {voice.gender}
               </span>
-              {selectedVoice === voice.name && (
+              {selectedVoice === voice.id && (
                 <Check
                   size={16}
                   className="text-orange-600 dark:text-orange-500"
