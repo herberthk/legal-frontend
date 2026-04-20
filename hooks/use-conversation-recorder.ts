@@ -204,7 +204,7 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
 
     // Log unhandled worker errors (e.g. syntax errors in the .js file).
     worker.onerror = (err) => {
-      console.error("[use-conversation-recorder] Worker uncaught error:", err);
+      console.log("[use-conversation-recorder] Worker uncaught error:", err);
       setIsEncoding(false);
     };
 
