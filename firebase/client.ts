@@ -1,7 +1,13 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getAnalytics, isSupported, Analytics, logEvent } from "firebase/analytics";
+import {
+  getAnalytics,
+  isSupported,
+  Analytics,
+  logEvent,
+} from "firebase/analytics";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,16 +26,17 @@ const app =
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Safe Analytics initialization
-export const analyticsPromise: Promise<Analytics | null> = 
-  typeof window !== "undefined" 
-    ? isSupported().then(supported => supported ? getAnalytics(app) : null)
+export const analyticsPromise: Promise<Analytics | null> =
+  typeof window !== "undefined"
+    ? isSupported().then((supported) => (supported ? getAnalytics(app) : null))
     : Promise.resolve(null);
 
 export const logAnalyticsEvent = async (
   eventName: string,
-  eventParams?: Record<string, string | number | boolean | undefined>
+  eventParams?: Record<string, string | number | boolean | undefined>,
 ) => {
   const analytics = await analyticsPromise;
   if (analytics) {

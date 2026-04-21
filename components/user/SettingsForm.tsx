@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { User, Camera, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { updateUserProfile } from "@/lib/actions/user";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatUniversalDate } from "@/utils";
 import { CustomButton } from "../ui/custom-button";
+import { storage } from "@/firebase/client";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { BUCKETS } from "@/constants/buckets";
+import { CircularProgress } from "../ui/CircularProgress";
 
 interface SettingsFormProps {
   user: User;
@@ -30,6 +34,8 @@ export default function SettingsForm({ user }: SettingsFormProps) {
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState(user.name);
   const [avatar, setAvatar] = useState(user.avatar || "");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +62,88 @@ export default function SettingsForm({ user }: SettingsFormProps) {
         toast.error(result.message);
       }
     });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (e.g., 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size should be less than 5MB");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const fileName = `${user.id}_${Date.now()}_${file.name}`;
+      const storageRef = ref(
+        storage,
+        `${BUCKETS.STORED_FILES}/profiles/${fileName}`,
+      );
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const progress =
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Upload failed:", error);
+          toast.error("Failed to upload image");
+          setIsUploading(false);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          // Delete old avatar from storage if it was a Firebase Storage URL
+          if (avatar && avatar.includes("firebasestorage.googleapis.com")) {
+            try {
+              const oldAvatarRef = ref(storage, avatar);
+              await deleteObject(oldAvatarRef);
+              console.log("Old avatar deleted successfully");
+            } catch (error) {
+              console.error("Failed to delete old avatar:", error);
+              // We don't block the flow if deletion fails (e.g., file already deleted or permissions)
+            }
+          }
+
+          setAvatar(downloadURL);
+
+          // Automatically update the database
+          const result = await updateUserProfile(
+            { avatar: downloadURL },
+            user.id,
+          );
+
+          if (result.success) {
+            toast.success("Profile photo updated successfully", {
+              style: { background: "green" },
+            });
+            router.refresh();
+          } else {
+            toast.error(result.message);
+          }
+
+          setIsUploading(false);
+          setUploadProgress(0);
+        },
+      );
+    } catch (error) {
+      console.error("Error in upload flow:", error);
+      toast.error("An unexpected error occurred during upload");
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -96,26 +184,57 @@ export default function SettingsForm({ user }: SettingsFormProps) {
               {/* Avatar Section */}
               <div className="flex flex-col items-center sm:flex-row gap-6 pb-6 border-b border-slate-200/50 dark:border-slate-800/50">
                 <div className="relative group">
-                  <Avatar className="h-24 w-24 ring-4 ring-indigo-500/10 ring-offset-2 ring-offset-background transition-all duration-300 group-hover:ring-indigo-500/30">
-                    <AvatarImage src={avatar} alt={name} />
-                    <AvatarFallback className="bg-linear-to-br from-indigo-500 to-purple-600 text-white text-2xl font-bold">
-                      {name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar
+                      className={cn(
+                        "h-24 w-24 ring-4 ring-indigo-500/10 ring-offset-2 ring-offset-background transition-all duration-300 group-hover:ring-indigo-500/30",
+                        isUploading && "opacity-40",
+                      )}
+                    >
+                      <AvatarImage src={avatar} alt={name} />
+                      <AvatarFallback className="bg-linear-to-br from-indigo-500 to-purple-600 text-white text-2xl font-bold">
+                        {name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    {/* Progress Overlay */}
+                    <AnimatePresence>
+                      {isUploading && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 flex items-center justify-center z-10"
+                        >
+                          <CircularProgress
+                            progress={uploadProgress}
+                            size={80}
+                            strokeWidth={6}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
                   <label
                     htmlFor="avatar-upload"
-                    className="absolute bottom-0 right-0 p-1.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:scale-110 transition-transform duration-200"
+                    className={cn(
+                      "absolute bottom-0 right-0 p-1.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:scale-110 transition-transform duration-200",
+                      isUploading && "pointer-events-none opacity-50",
+                    )}
                   >
-                    <Camera className="size-4 text-indigo-500" />
+                    {isUploading ? (
+                      <Loader2 className="size-4 text-indigo-500 animate-spin" />
+                    ) : (
+                      <Camera className="size-4 text-indigo-500" />
+                    )}
                     <input
                       id="avatar-upload"
                       type="file"
                       className="hidden"
                       accept="image/*"
-                      onChange={(e) => {
-                        // Implement image upload logic here if needed
-                        toast.info("Image upload functionality coming soon!");
-                      }}
+                      onChange={handleFileChange}
+                      disabled={isUploading}
                     />
                   </label>
                 </div>
