@@ -19,11 +19,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatUniversalDate } from "@/utils";
-import { CustomButton } from "../ui/custom-button";
+import { CustomButton } from "@/components/ui/custom-button";
 import { storage } from "@/firebase/client";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 import { BUCKETS } from "@/constants/buckets";
-import { CircularProgress } from "../ui/CircularProgress";
+import { CircularProgress } from "@/components/ui/CircularProgress";
 
 interface SettingsFormProps {
   user: User;
@@ -70,13 +75,21 @@ export default function SettingsForm({ user }: SettingsFormProps) {
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file");
+      toast.error("Please upload an image file", {
+        style: {
+          background: "red",
+        },
+      });
       return;
     }
 
-    // Validate file size (e.g., 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image size should be less than 5MB");
+    // Validate file size (e.g., 1MB)
+    if (file.size > 1 * 1024 * 1024) {
+      toast.error("Image size should be less than 1MB", {
+        style: {
+          background: "red",
+        },
+      });
       return;
     }
 
@@ -105,7 +118,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
         },
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          
+
           // Delete old avatar from storage if it was a Firebase Storage URL
           if (avatar && avatar.includes("firebasestorage.googleapis.com")) {
             try {

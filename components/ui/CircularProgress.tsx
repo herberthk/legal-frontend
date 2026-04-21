@@ -83,11 +83,11 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
             key={progress}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-2xl font-bold font-mono bg-clip-text text-transparent bg-linear-to-br from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 leading-none"
+            className="text-sm font-bold font-mono bg-clip-text text-transparent bg-linear-to-br from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 leading-none"
           >
             {Math.round(progress)}%
           </motion.span>
-          <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold mt-1">
+          <span className="text-[9px] tracking-widest text-slate-500 font-bold mt-1">
             Uploading
           </span>
         </div>
