@@ -8,6 +8,7 @@ import { auth } from "@/firebase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { getInitials } from "@/utils";
 type Props = {
   user: User;
 };
@@ -39,13 +40,13 @@ const ProfilePopUp = ({ user }: Props) => {
               <AvatarImage src={user?.avatar || ""} alt={user?.name} />
               <AvatarFallback
                 className={cn(
-                  "rounded-full text-white font-black",
+                  "rounded-full text-white text-3xl font-black",
                   isAdmin
                     ? "bg-indigo-600 shadow-indigo-500/20"
                     : "bg-orange-500 shadow-orange-500/20",
                 )}
               >
-                {user?.name.charAt(0).toUpperCase()}
+                {getInitials(user?.name)}
               </AvatarFallback>
             </Avatar>
             <div

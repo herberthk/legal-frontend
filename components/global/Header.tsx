@@ -9,6 +9,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { db } from "@/firebase/client";
 import { onSnapshot, where, query, collection } from "firebase/firestore";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { cn } from "@/lib";
+import { getInitials } from "@/utils";
 
 type Props = {
   user: User;
@@ -129,14 +132,27 @@ const Header: React.FC<Props> = ({ user }) => {
                 {user?.email}
               </p>
             </div>
-            <Image
+            {/* <Image
               src={user?.avatar}
               alt={user?.name}
               width={40}
               height={40}
               unoptimized
               className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-indigo-500/50 transition-all duration-300 transform group-hover:scale-105 ${isAdmin ? "group-hover:ring-indigo-500" : "group-hover:ring-orange-500"}`}
-            />
+            /> */}
+            <Avatar className="h-[40px] w-[40px] rounded-full transition-transform duration-300 group-hover:scale-105 ring-orange-500 dark:ring-slate-700">
+              <AvatarImage src={user?.avatar || ""} alt={user?.name} />
+              <AvatarFallback
+                className={cn(
+                  "rounded-full text-white font-black",
+                  isAdmin
+                    ? "bg-indigo-600 shadow-indigo-500/20"
+                    : "bg-orange-500 shadow-orange-500/20",
+                )}
+              >
+                {getInitials(user?.name)}
+              </AvatarFallback>
+            </Avatar>
             <ChevronDown
               size={16}
               className={`hidden sm:block text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-transform duration-300 ${showProfile ? "rotate-180" : ""}`}
