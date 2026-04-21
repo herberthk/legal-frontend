@@ -19,10 +19,7 @@ import {
 
 export interface UseGeminiLiveOptions {
   userName: string;
-  preferedVoice: {
-    preferedVoiceId: string;
-    preferedVoiceName: string;
-  };
+  preferedVoice: PreferedVoice;
   userId: string;
 
   /**
