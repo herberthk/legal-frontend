@@ -16,16 +16,10 @@ interface VoiceControlsProps {
    */
   isRecording: boolean;
   /**
-   * True while the worker is assembling + encoding the WAV after the call.
-   * Used here to hide the controls entirely (replaced by the encoding overlay
-   * in voice-interface.tsx).
+   * True while the post-call progress overlay is active.
+   * Used here to hide the controls entirely.
    */
-  isEncoding: boolean;
-  /**
-   * 0–100 encoding progress. Reserved for future use in controls (e.g. a
-   * compact inline progress indicator if the full overlay is dismissed).
-   */
-  encodingProgress: number;
+  isPostCall: boolean;
 }
 
 const VoiceControls: React.FC<VoiceControlsProps> = ({
@@ -36,13 +30,10 @@ const VoiceControls: React.FC<VoiceControlsProps> = ({
   setIsAudioMuted,
   onEnd,
   isRecording,
-  isEncoding,
-  // encodingProgress kept for future use (compact inline bar)
-  encodingProgress: _encodingProgress,
+  isPostCall,
 }) => {
-  // Hide the entire control bar while the encoding overlay is showing —
-  // the overlay is the primary interaction surface at that point.
-  if (wsStatus !== "open" && !isEncoding) return null;
+  // Hide the entire control bar if the call is not open, or if the post-call overlay is showing.
+  if (wsStatus !== "open" || isPostCall) return null;
 
   return (
     <motion.div

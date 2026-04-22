@@ -54,9 +54,9 @@ export async function POST(req: Request) {
       createdAt: FieldValue.serverTimestamp(),
     };
 
-    await recordVoiceSession({ usage });
+    const voiceSessionId = await recordVoiceSession({ usage });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, voiceSessionId });
   } catch (error) {
     console.error("Error in voice-billing beacon:", error);
     return NextResponse.json(

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { AnimatePresence } from "framer-motion";
 import AmbientGlow from "./interface/AmbientGlow";
 import VoiceHeader from "./interface/VoiceHeader";
 import VoiceVisualizer from "./interface/VoiceVisualizer";
@@ -13,7 +14,7 @@ import {
 } from "@/constants/constants";
 import ExhastedBanner from "./ExhastedBanner";
 import { useThemeStore } from "@/store";
-import Recorder from "./Recording";
+import PostCallProgress from "./PostCallProgress";
 
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   wsStatus,
@@ -33,10 +34,11 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   freeVoiceSeconds,
   isCreditExhausted,
   remainingSeconds,
-  // Recording state from the conversation recorder hook.
-  // isEncoding = true while the worker assembles + encodes the WAV after the call.
-  isEncoding,
+  // Post-call state
+  postCallStage,
+  postCallError,
   encodingProgress,
+  uploadProgress,
 }) => {
   // ─── Derived UI Status ────────────────────────────────────────────────────
   const status: CallStatus = useMemo(() => {
@@ -157,9 +159,8 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         isAudioMuted={isAudioMuted}
         setIsAudioMuted={setIsAudioMuted}
         onEnd={onEnd}
-        isRecording={wsStatus === "open" && !isEncoding}
-        isEncoding={isEncoding}
-        encodingProgress={encodingProgress}
+        isRecording={wsStatus === "open" && !postCallStage}
+        isPostCall={postCallStage !== null}
       />
 
       {/* ── Session Limit Warning Banner ──────────────────────────────────── */}
@@ -180,11 +181,19 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       {/* ── Credit Exhausted Banner ────────────────────────────────────────── */}
       {isCreditExhausted && <ExhastedBanner />}
 
-      {/* ── WAV Encoding Overlay ───────────────────────────────────────────────
-          Shown after the call ends while the recorder worker assembles and
-          encodes the conversation WAV in the background.
+      {/* ── Post Call Progress Overlay ─────────────────────────────────────────
+          Shown after the call ends to display encoding, uploading, and saving progress.
       */}
-      {isEncoding && <Recorder encodingProgress={encodingProgress} />}
+      <AnimatePresence>
+        {postCallStage && (
+          <PostCallProgress
+            stage={postCallStage}
+            error={postCallError}
+            encodingProgress={encodingProgress}
+            uploadProgress={uploadProgress}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
