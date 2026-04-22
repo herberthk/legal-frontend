@@ -1,3 +1,7 @@
 Handle billing well if the user had free minutes and then upgrade to a plan, the free minutes should be used up first before the plan minutes are used.
 
 Try to parse all date from UTC date to local time
+
+// gcloud login
+// gcloud storage buckets update gs://legal-51aee.firebasestorage.app --cors-file=storage-cors.json
+// gcloud storage buckets describe gs://legal-51aee.firebasestorage.app --format="default(cors_config)"
