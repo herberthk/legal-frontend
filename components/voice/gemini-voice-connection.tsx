@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
 import { logAnalyticsEvent } from "@/firebase/client";
+import type { PostCallStage } from "./PostCallProgress";
 
 interface GeminiVoiceConnectionProps {
   freeVoiceSeconds: number;
@@ -34,7 +35,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     addUserChunk,
     addAIChunk,
     finalizeRecording,
-    isEncoding,
     encodingProgress,
   } = useConversationRecorder();
 
@@ -70,6 +70,13 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const isCreditExhausted = duration >= totalAllowedSeconds;
 
   const isResponding = audioStatus === "playing" || wsStatus === "connecting";
+
+  // Post-call UI State
+  const [postCallStage, setPostCallStage] = useState<PostCallStage | null>(
+    null,
+  );
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [postCallError, setPostCallError] = useState<string | undefined>();
 
   // Handle Muting logic via the hook directly
   useEffect(() => {
@@ -151,21 +158,22 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     if (wsStatus === "closed" || wsStatus === "idle") return;
 
     // Snapshot transcripts BEFORE disconnecting.
-    // getTranscripts() calls finalizeUserTurn() + finalizeAITurn() internally,
-    // flushing any segments still sitting in userPartsRef / aiPartsRef into
-    // allTranscriptsRef before isDisconnectingRef is set to true (which would
-    // prevent those parts from ever being finalized).
-    // We .slice() to take a stable shallow copy so concurrent buffer-sync
-    // operations cannot mutate the array while the fetch payload is built.
     const capturedTranscripts = getTranscripts().slice();
 
     await disconnect();
     logAnalyticsEvent("voice_call_end", { engine: "gemini_live", duration });
 
-    // Final billing submission
     if (duration > 0 && userId) {
       try {
-        await fetch("/api/voice-billing", {
+        setPostCallError(undefined);
+
+        // Step 1: Encode WAV
+        setPostCallStage("encoding");
+        const blob = await finalizeRecording();
+
+        // Step 2: Finalize billing and create session record
+        setPostCallStage("billing");
+        const res = await fetch("/api/voice-billing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -177,21 +185,67 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
             userName,
           }),
         });
-        sessionStorage.removeItem("voice_sessionState");
-      } catch (err) {
-        console.error("Failed to submit billing", err);
-      }
-    }
 
-    // ── Trigger WAV download ────────────────────────────────────────────────
-    // Called AFTER billing to avoid delaying the billing POST.
-    // finalizeRecording() instructs the worker to:
-    //   1. Drain its IDB write queue (waits for any in-flight chunk writes).
-    //   2. Read + assemble all chunks.
-    //   3. Encode WAV and post the Blob back.
-    // The hook's onmessage handler then auto-downloads the file.
-    // isEncoding becomes true immediately so the UI can show a spinner.
-    finalizeRecording();
+        const data = await res.json();
+        if (!res.ok || !data.success || !data.voiceSessionId) {
+          throw new Error(data.error || "Failed to finalize session details");
+        }
+
+        sessionStorage.removeItem("voice_sessionState");
+        const voiceSessionId = data.voiceSessionId;
+
+        // Step 3: Upload to Firebase Storage
+        setPostCallStage("uploading");
+        const { storage } = await import("@/firebase/client");
+        const { ref, uploadBytesResumable, getDownloadURL } =
+          await import("firebase/storage");
+        const { BUCKETS } = await import("@/constants/buckets");
+
+        const fileName = `${userId}_${sessionId}.webm`;
+        const storageRef = ref(
+          storage,
+          `${BUCKETS.STORED_FILES}/voice-sessions/${fileName}`,
+        );
+        const uploadTask = uploadBytesResumable(storageRef, blob);
+
+        await new Promise<void>((resolve, reject) => {
+          uploadTask.on(
+            "state_changed",
+            (snapshot) => {
+              const progress =
+                (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUploadProgress(progress);
+            },
+            (error) => reject(error),
+            () => resolve(),
+          );
+        });
+
+        const downloadURL = await getDownloadURL(storageRef);
+
+        // Step 4: Update Firestore with audioUrl
+        setPostCallStage("saving");
+        const { db } = await import("@/firebase/client");
+        const { doc, updateDoc } = await import("firebase/firestore");
+        const { COLLECTIONS } = await import("@/constants/collection");
+
+        const sessionRef = doc(db, COLLECTIONS.VOICE_SESSIONS, voiceSessionId);
+        await updateDoc(sessionRef, { audioUrl: downloadURL });
+
+        // Step 5: Done
+        setPostCallStage("done");
+        setTimeout(() => setPostCallStage(null), 3000);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (err: any) {
+        console.error("Post call processing failed", err);
+        setPostCallError(err.message || "An unexpected error occurred.");
+        setPostCallStage("error");
+        setTimeout(() => setPostCallStage(null), 5000);
+      }
+    } else {
+      // Just clear the worker if no duration
+      finalizeRecording().catch(() => {});
+    }
   }, [
     disconnect,
     duration,
@@ -229,8 +283,10 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       voiceName={preferedVoice.preferedVoiceName}
       freeVoiceSeconds={freeVoiceSeconds}
       isCreditExhausted={isCreditExhausted}
-      isEncoding={isEncoding}
+      postCallStage={postCallStage}
+      postCallError={postCallError}
       encodingProgress={encodingProgress}
+      uploadProgress={uploadProgress}
     />
   );
 };

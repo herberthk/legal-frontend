@@ -63,12 +63,11 @@ export interface UseConversationRecorderReturn {
    *   1. Drain the write queue.
    *   2. Read + assemble all chunks from IDB.
    *   3. Encode as WAV.
-   *   4. Auto-download with a timestamped filename.
+   *   4. Return the assembled Blob.
    *
-   * Sets `isEncoding = true` immediately; resets to false when the download
-   * fires (or on error).
+   * Sets `isEncoding = true` immediately; resets to false when done.
    */
-  finalizeRecording: () => void;
+  finalizeRecording: () => Promise<Blob>;
 
   /**
    * True while the worker is assembling and encoding the WAV file.
@@ -117,39 +116,10 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
   const [encodingProgress, setEncodingProgress] = useState(0);
   const [isReady, setIsReady] = useState(false);
 
-  // ─── Download helper ───────────────────────────────────────────────────────
+  // Reference to the promise resolve function for finalizeRecording
+  const finalizeResolveRef = useRef<((blob: Blob) => void) | null>(null);
+  const finalizeRejectRef = useRef<((reason?: unknown) => void) | null>(null);
 
-  /**
-   * Programmatically download a Blob as a WAV file.
-   *
-   * We use an invisible <a> with `download` attribute rather than
-   * `window.open(url)` because:
-   *   • `window.open` can be blocked by popup blockers.
-   *   • The `download` attribute forces a save-as dialog even for audio MIME
-   *     types, which is exactly what we want (not playing in the browser tab).
-   *
-   * The Object URL is revoked after 60 seconds to free the Blob's memory.
-   * Revoking immediately (before click resolves) can break the download on
-   * some browsers, hence the small delay.
-   */
-  const triggerDownload = (blob: Blob) => {
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    const now = new Date();
-    // Filename: legal-session-YYYY-MM-DD-HH-MM.webm — human-readable, sortable.
-    const filename = `legal-session-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}.webm`;
-
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-
-    // Revoke Blob URL after a short delay so the browser has time to start the
-    // download before we free the underlying memory.
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  };
   // ─── Worker setup & message handler ───────────────────────────────────────
   // Created once on mount. The worker file is served from /public/js/ so it is
   // accessible at the /js/conversation-recorder-worker.js URL at runtime.
@@ -177,10 +147,14 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
           break;
         }
 
-        // Worker finished encoding — Blob is ready to download.
+        // Worker finished encoding — Blob is ready.
         case "webm_ready": {
           const blob: Blob = event.data.blob;
-          triggerDownload(blob);
+          if (finalizeResolveRef.current) {
+            finalizeResolveRef.current(blob);
+            finalizeResolveRef.current = null;
+            finalizeRejectRef.current = null;
+          }
           setIsEncoding(false);
           setEncodingProgress(0);
           break;
@@ -192,6 +166,11 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
             "[use-conversation-recorder] Worker error:",
             event.data.message,
           );
+          if (finalizeRejectRef.current) {
+            finalizeRejectRef.current(new Error(event.data.message));
+            finalizeResolveRef.current = null;
+            finalizeRejectRef.current = null;
+          }
           setIsEncoding(false);
           setEncodingProgress(0);
           break;
@@ -277,18 +256,21 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
   }, []);
 
   /**
-   * Trigger WAV assembly in the worker and auto-download when ready.
-   * Safe to call even if the session had zero audio chunks — the worker will
-   * reply with { type: 'error' } and we reset isEncoding.
+   * Trigger WAV assembly in the worker and return the Blob.
    */
-  const finalizeRecording = useCallback(() => {
-    if (!workerRef.current) {
-      console.warn("[use-conversation-recorder] Worker not available");
-      return;
-    }
-    setIsEncoding(true);
-    setEncodingProgress(0);
-    workerRef.current.postMessage({ type: "finalize" });
+  const finalizeRecording = useCallback((): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      if (!workerRef.current) {
+        console.warn("[use-conversation-recorder] Worker not available");
+        reject(new Error("Worker not available"));
+        return;
+      }
+      setIsEncoding(true);
+      setEncodingProgress(0);
+      finalizeResolveRef.current = resolve;
+      finalizeRejectRef.current = reject;
+      workerRef.current.postMessage({ type: "finalize" });
+    });
   }, []);
 
   /**
