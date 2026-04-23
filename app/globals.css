@@ -131,7 +131,7 @@
 }
 
 .voice-box-shadow {
-  box-shadow: rgba(30, 144, 255, 0.75) 0px 0px 30px 0px inset !important;
+  box-shadow: rgba(30, 144, 255, 0.95) 0px 0px 20px inset !important;
 }
 /* Custom scrollbar for webkit */
 ::-webkit-scrollbar {
