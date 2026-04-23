@@ -287,7 +287,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
             )}
 
             {/* Disconnected / Closed */}
-            {status === "closed" && (
+            {wsStatus === "closed" && (
               <motion.button
                 key="closed"
                 onClick={onStart}
@@ -306,11 +306,9 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
             )}
 
             {/* Startup/Error Button Logic */}
-            {(status === "idle" || effectiveStatus === "error") &&
-              status !== "closed" &&
-              wsStatus !== "connecting" && (
-                <motion.button
-                  key={effectiveStatus === "error" ? "retry-btn" : "start-btn"}
+            {(wsStatus === "idle" || wsStatus === "error") && (
+              <motion.button
+                key={wsStatus === "error" ? "retry-btn" : "start-btn"}
                   onClick={onStart}
                   className="absolute inset-0 flex flex-col items-center justify-center text-white bg-transparent! voice-box-shadow"
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -329,13 +327,13 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
                       ease: "easeInOut",
                     }}
                   >
-                    {effectiveStatus === "error" ? (
+                    {wsStatus === "error" ? (
                       <AlertCircle className="w-12 h-12 sm:w-18 sm:h-18" />
                     ) : (
                       <Mic className="w-12 h-12 sm:w-18 sm:h-18 drop-shadow-lg" />
                     )}
                   </motion.div>
-                  {effectiveStatus === "idle" && (
+                  {wsStatus === "idle" && (
                     <motion.span
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
