@@ -1,3 +1,4 @@
+import { Timestamp } from "firebase/firestore";
 declare global {
   type Voice =
     // --- Original & Standard Voices ---
@@ -66,7 +67,14 @@ declare global {
     /**
      * Post-call stage to show the progress of encoding, uploading, and saving.
      */
-    postCallStage: "encoding" | "billing" | "uploading" | "saving" | "done" | "error" | null;
+    postCallStage:
+      | "encoding"
+      | "billing"
+      | "uploading"
+      | "saving"
+      | "done"
+      | "error"
+      | null;
     postCallError: string | undefined;
     /**
      * Encoding progress 0–100.
@@ -84,6 +92,17 @@ declare global {
     gender: string;
     desc: string;
   };
+
+  interface VoiceSessionBuffer {
+    userId: string;
+    sessionId: string;
+    duration: number;
+    transcripts: Transcript[];
+    preferedVoice: PreferedVoice;
+    userName: string;
+    status: string;
+    updatedAt: Timestamp;
+  }
 }
 
 export {};
