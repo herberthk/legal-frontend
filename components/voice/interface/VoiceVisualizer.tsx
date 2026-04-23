@@ -144,7 +144,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
         {/* Center Orb */}
         <motion.div
-          className={`relative z-10 w-24 h-24 sm:w-36 sm:h-36 rounded-full flex items-center justify-center overflow-hidden cursor-pointer voice-box-shadow`}
+          className={`relative z-10 w-24 h-24 sm:w-36 sm:h-36 rounded-full flex items-center justify-center overflow-hidden cursor-pointer`}
           // ${
           //   isPreCall
           //     ? "shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-md"
@@ -291,7 +291,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
               <motion.button
                 key="closed"
                 onClick={onStart}
-                className="absolute inset-0 flex flex-col items-center justify-center text-white"
+                className="absolute inset-0 flex flex-col items-center justify-center text-white bg-transparent! voice-box-shadow"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
