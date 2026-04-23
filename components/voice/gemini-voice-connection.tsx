@@ -155,7 +155,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   }, [connect, wsStatus, isCreditExhausted, startSession, sessionId]);
 
   const handleEndCall = useCallback(async () => {
-    if (wsStatus === "closed" || wsStatus === "idle") return;
+    if (wsStatus === "idle") return;
 
     // Snapshot transcripts BEFORE disconnecting.
     const capturedTranscripts = getTranscripts().slice();

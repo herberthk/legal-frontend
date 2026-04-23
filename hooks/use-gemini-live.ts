@@ -417,12 +417,24 @@ export const useGeminiLive = ({
                 }
                 const base64Audio = btoa(binaryStr);
 
-                sessionRef.current.sendRealtimeInput({
-                  audio: {
-                    data: base64Audio,
-                    mimeType: "audio/pcm;rate=16000",
-                  },
-                });
+                try {
+                  sessionRef.current.sendRealtimeInput({
+                    audio: {
+                      data: base64Audio,
+                      mimeType: "audio/pcm;rate=16000",
+                    },
+                  });
+                } catch (err) {
+                  console.error("[gemini-live] sendRealtimeInput failed:", err);
+                  // If we hit a closed state here, stop the processor to prevent the infinite error loop
+                  if (processorRef.current) {
+                    processorRef.current.disconnect();
+                    processorRef.current = null;
+                  }
+                  sessionRef.current = null;
+                  setWsStatus("error");
+                  return;
+                }
 
                 // ── Recorder interception (user audio) ────────────────────────
                 // NOW transfer `pcm` to the recorder worker.
@@ -522,10 +534,12 @@ export const useGeminiLive = ({
               text: "Connection error.",
             });
             setWsStatus("error");
+            sessionRef.current = null;
           },
           onclose: (ev) => {
             console.log("[gemini-live] Closed:", ev);
             setWsStatus("closed");
+            sessionRef.current = null;
           },
         },
       });
