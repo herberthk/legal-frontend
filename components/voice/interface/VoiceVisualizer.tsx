@@ -144,7 +144,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
         {/* Center Orb */}
         <motion.div
-          className={`relative z-10 w-24 h-24 sm:w-36 sm:h-36 rounded-full flex items-center justify-center overflow-hidden cursor-pointer`}
+          className={`relative z-10 w-24 h-24 sm:w-36 sm:h-36 rounded-full flex items-center justify-center overflow-hidden cursor-pointer voice-box-shadow`}
           // ${
           //   isPreCall
           //     ? "shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-md"
@@ -291,7 +291,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
               <motion.button
                 key="closed"
                 onClick={onStart}
-                className="absolute inset-0 flex flex-col items-center justify-center text-white voice-box-shadow"
+                className="absolute inset-0 flex flex-col items-center justify-center text-white"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
@@ -309,41 +309,41 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
             {(wsStatus === "idle" || wsStatus === "error") && (
               <motion.button
                 key={wsStatus === "error" ? "retry-btn" : "start-btn"}
-                  onClick={onStart}
-                  className="absolute inset-0 flex flex-col items-center justify-center text-white bg-transparent! voice-box-shadow"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                onClick={onStart}
+                className="absolute inset-0 flex flex-col items-center justify-center text-white bg-transparent! voice-box-shadow"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <motion.div
+                  animate={{
+                    y: [0, -5, 0],
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
                 >
-                  <motion.div
-                    animate={{
-                      y: [0, -5, 0],
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  >
-                    {wsStatus === "error" ? (
-                      <AlertCircle className="w-12 h-12 sm:w-18 sm:h-18" />
-                    ) : (
-                      <Mic className="w-12 h-12 sm:w-18 sm:h-18 drop-shadow-lg" />
-                    )}
-                  </motion.div>
-                  {wsStatus === "idle" && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-[10px] font-black uppercase tracking-[0.2em] mt-2 opacity-80"
-                    >
-                      Start
-                    </motion.span>
+                  {wsStatus === "error" ? (
+                    <AlertCircle className="w-12 h-12 sm:w-18 sm:h-18" />
+                  ) : (
+                    <Mic className="w-12 h-12 sm:w-18 sm:h-18 drop-shadow-lg" />
                   )}
-                </motion.button>
-              )}
+                </motion.div>
+                {wsStatus === "idle" && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-[10px] font-black uppercase tracking-[0.2em] mt-2 opacity-80"
+                  >
+                    Start
+                  </motion.span>
+                )}
+              </motion.button>
+            )}
           </AnimatePresence>
         </motion.div>
       </div>
