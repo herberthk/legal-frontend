@@ -15,69 +15,105 @@ export const statusPalette: Record<
   }
 > = {
   idle: {
-    lightGlow: "#4f46e5", // Indigo
-    darkGlow: "#312e81",
-    lightRing: "#6366f1",
-    darkRing: "#4338ca",
-    orbFrom: "#818cf8",
-    orbTo: "#4f46e5",
+    lightGlow: "#6366f1", // Indigo 500
+    darkGlow: "#4338ca", // Indigo 700
+    lightRing: "#818cf8", // Indigo 400
+    darkRing: "#4f46e5", // Indigo 600
+    orbFrom: "#a5b4fc", // Indigo 300
+    orbTo: "#6366f1", // Indigo 500
     text: "text-indigo-600 dark:text-indigo-400",
   },
   listening: {
-    lightGlow: "#f97316", // Orange
-    darkGlow: "#ea580c",
-    lightRing: "#f97316",
-    darkRing: "#fb923c",
-    orbFrom: "#fb923c",
-    orbTo: "#ea580c",
-    text: "text-orange-500 dark:text-orange-400",
+    lightGlow: "#2dd4bf", // Teal 400
+    darkGlow: "#0d9488", // Teal 600
+    lightRing: "#5eead4", // Teal 300
+    darkRing: "#14b8a6", // Teal 500
+    orbFrom: "#99f6e4", // Teal 200
+    orbTo: "#2dd4bf", // Teal 400
+    text: "text-teal-500 dark:text-teal-400",
   },
   processing: {
-    lightGlow: "#8b5cf6", // Violet
-    darkGlow: "#5b21b6",
-    lightRing: "#a78bfa",
-    darkRing: "#7c3aed",
-    orbFrom: "#c4b5fd",
-    orbTo: "#8b5cf6",
-    text: "text-violet-600 dark:text-violet-400",
+    lightGlow: "#a855f7", // Purple 500
+    darkGlow: "#7e22ce", // Purple 700
+    lightRing: "#c084fc", // Purple 400
+    darkRing: "#9333ea", // Purple 600
+    orbFrom: "#d8b4fe", // Purple 300
+    orbTo: "#a855f7", // Purple 500
+    text: "text-purple-600 dark:text-purple-400",
   },
   speaking: {
-    lightGlow: "#06b6d4", // Cyan
-    darkGlow: "#0891b2",
-    lightRing: "#22d3ee",
-    darkRing: "#06b6d4",
-    orbFrom: "#67e8f9",
-    orbTo: "#0891b2",
+    lightGlow: "#06b6d4", // Cyan 500
+    darkGlow: "#0891b2", // Cyan 700
+    lightRing: "#22d3ee", // Cyan 400
+    darkRing: "#06b6d4", // Cyan 600
+    orbFrom: "#67e8f9", // Cyan 300
+    orbTo: "#0891b2", // Cyan 600
     text: "text-cyan-600 dark:text-cyan-400",
   },
   muted: {
-    lightGlow: "#64748b", // Slate
-    darkGlow: "#334155",
-    lightRing: "#94a3b8",
-    darkRing: "#475569",
-    orbFrom: "#94a3b8",
-    orbTo: "#334155",
+    lightGlow: "#64748b", // Slate 500
+    darkGlow: "#334155", // Slate 700
+    lightRing: "#94a3b8", // Slate 400
+    darkRing: "#475569", // Slate 600
+    orbFrom: "#cbd5e1", // Slate 300
+    orbTo: "#64748b", // Slate 500
     text: "text-slate-400 dark:text-slate-500",
   },
   closed: {
-    lightGlow: "#10b981", // Emerald
-    darkGlow: "#059669",
-    lightRing: "#34d399",
-    darkRing: "#10b981",
-    orbFrom: "#6ee7b7",
-    orbTo: "#059669",
+    lightGlow: "#10b981", // Emerald 500
+    darkGlow: "#059669", // Emerald 600
+    lightRing: "#34d399", // Emerald 400
+    darkRing: "#10b981", // Emerald 500
+    orbFrom: "#6ee7b7", // Emerald 300
+    orbTo: "#10b981", // Emerald 500
     text: "text-emerald-600 dark:text-emerald-400",
   },
   error: {
-    lightGlow: "#ef4444", // Red
-    darkGlow: "#b91c1c",
-    lightRing: "#f87171",
-    darkRing: "#dc2626",
-    orbFrom: "#fca5a5",
-    orbTo: "#b91c1c",
+    lightGlow: "#ef4444", // Red 500
+    darkGlow: "#b91c1c", // Red 700
+    lightRing: "#f87171", // Red 400
+    darkRing: "#dc2626", // Red 600
+    orbFrom: "#fca5a5", // Red 300
+    orbTo: "#ef4444", // Red 500
     text: "text-red-500 dark:text-red-400",
   },
 };
+
+// ─── Liquid Pulse (Connecting state) ──────────────────────────────────────────
+export const LiquidPulse = React.memo(() => (
+  <div className="absolute inset-0 flex items-center justify-center">
+    {[0, 1, 2].map((i) => (
+      <motion.div
+        key={i}
+        className="absolute w-full h-full rounded-full border-2 border-white/30"
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{
+          scale: [0.8, 1.5],
+          opacity: [0.5, 0],
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          delay: i * 0.6,
+          ease: "easeOut",
+        }}
+      />
+    ))}
+    <motion.div
+      className="w-4 h-4 bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.8)]"
+      animate={{
+        scale: [1, 1.5, 1],
+        opacity: [0.8, 1, 0.8],
+      }}
+      transition={{
+        duration: 1.5,
+        repeat: Infinity,
+        ease: "easeInOut",
+      }}
+    />
+  </div>
+));
+LiquidPulse.displayName = "LiquidPulse";
 
 // ─── Animated Waveform Bars ──────────────────────────────────────────────────
 export const WaveBar = React.memo<{ delay: number; heights: number[] }>(
