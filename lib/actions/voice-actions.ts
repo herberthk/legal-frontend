@@ -201,7 +201,7 @@ export const recordVoiceSession = async ({
       const bufferSnap = await bufferRef.get();
 
       if (bufferSnap.exists) {
-        const bufferData = bufferSnap.data();
+        const bufferData = bufferSnap.data() as VoiceSessionBuffer;
         if (bufferData) {
           // Prevent underbilling by taking the max duration
           const clientDuration = usage.duration || 0;
@@ -230,7 +230,7 @@ export const recordVoiceSession = async ({
               await import("@/lib/actions/voice-actions");
             const { title, summary } = await summarizeConversation({
               transcripts: finalUsage.transcripts,
-              instructor: bufferData.voicePreference || "Zephyr",
+              instructor: bufferData.preferedVoice.preferedVoiceName || "Hana",
               user: bufferData.userName || "User",
             });
             finalUsage.title = title;
