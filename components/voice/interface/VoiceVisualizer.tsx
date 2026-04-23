@@ -8,7 +8,13 @@ import {
   Radio,
   Mic,
 } from "lucide-react";
-import { OrbRing, getStatusText, WaveBar, statusPalette } from "../utils";
+import {
+  OrbRing,
+  getStatusText,
+  WaveBar,
+  statusPalette,
+  LiquidPulse,
+} from "../utils";
 
 interface VoiceVisualizerProps {
   status: CallStatus;
@@ -35,8 +41,51 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   voiceName,
   onStart,
 }) => {
+  const isPreCall = wsStatus !== "open";
+
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center z-0 pt-16 pb-64 lg:pb-72 pointer-events-none">
+      {/* ── Background Organic Waves ──────────────────────────────────────── */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none overflow-hidden">
+        <AnimatePresence>
+          {isPreCall && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.2 }}
+              className="relative w-full h-full flex items-center justify-center"
+            >
+              {[...Array(3)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute rounded-[40%_60%_70%_30%/40%_50%_60%_50%]"
+                  style={{
+                    width: `${450 + i * 180}px`,
+                    height: `${450 + i * 180}px`,
+                    border: `1.5px solid ${i % 2 === 0 ? palette.orbFrom : palette.orbTo}${isDark ? "15" : "30"}`,
+                    background: `radial-gradient(circle, ${i % 2 === 0 ? palette.orbFrom : palette.orbTo}05 0%, transparent 70%)`,
+                  }}
+                  animate={{
+                    rotate: i % 2 === 0 ? [0, 360] : [360, 0],
+                    borderRadius: [
+                      "40% 60% 70% 30% / 40% 50% 60% 50%",
+                      "60% 40% 30% 70% / 50% 60% 40% 60%",
+                      "40% 60% 70% 30% / 40% 50% 60% 50%",
+                    ],
+                    scale: [1, 1.15, 1],
+                  }}
+                  transition={{
+                    duration: 20 + i * 8,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Status Text */}
       <AnimatePresence mode="wait">
         {wsStatus === "open" && (
@@ -49,11 +98,11 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             <h2
-              className={`text-xl sm:text-2xl font-bold ${palette.text} transition-colors duration-300`}
+              className={`text-xl sm:text-2xl font-bold ${palette.text} transition-colors duration-300 drop-shadow-sm`}
             >
               {getStatusText(status, wsStatus, voiceName)}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 h-5 italic">
+            <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 h-5 italic font-medium">
               {status === "speaking"
                 ? "is responding..."
                 : status === "listening"
@@ -95,10 +144,25 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
         {/* Center Orb */}
         <motion.div
-          className="relative z-10 w-24 h-24 sm:w-36 sm:h-36 rounded-full flex items-center justify-center overflow-hidden shadow-2xl cursor-pointer"
+          className={`relative z-10 w-24 h-24 sm:w-36 sm:h-36 rounded-full flex items-center justify-center overflow-hidden cursor-pointer`}
+          // ${
+          //   isPreCall
+          //     ? "shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-md"
+          //     : "shadow-2xl"
+          // }`}
           style={{
-            background: `linear-gradient(135deg, ${palette.orbFrom}, ${palette.orbTo})`,
-            boxShadow: `0 0 ${isDark ? 60 : 45}px ${isDark ? 8 : 16}px ${glowColor}${isDark ? "40" : "75"}, inset 0 2px 10px rgba(255,255,255,0.3)`,
+            boxShadow:
+              //  isPreCall
+              //   ? `
+              //     0 0 ${isDark ? 80 : 60}px ${isDark ? 10 : 20}px ${glowColor}${isDark ? "30" : "60"},
+              //     inset 0 4px 15px rgba(255,255,255,0.5),
+              //     inset 0 -4px 15px rgba(0,0,0,0.3),
+              //     inset 10px 10px 30px ${palette.orbFrom}80,
+              //     inset -10px -10px 30px ${palette.orbTo}80
+              //   `
+              //   :
+              `0 0 ${isDark ? 60 : 45}px ${isDark ? 8 : 16}px ${glowColor}${isDark ? "40" : "75"}`,
+            border: isPreCall ? "2px solid rgba(255,255,255,0.4)" : "none",
           }}
           animate={{
             scale:
@@ -121,13 +185,27 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
             filter: { duration: 0.5 },
             background: { duration: 0.6 },
           }}
-          whileHover={wsStatus !== "open" ? { scale: 1.05 } : undefined}
-          whileTap={wsStatus !== "open" ? { scale: 0.97 } : undefined}
+          whileHover={
+            isPreCall
+              ? { scale: 1.05, boxShadow: `0 0 100px 20px ${glowColor}50` }
+              : undefined
+          }
+          whileTap={isPreCall ? { scale: 0.96 } : undefined}
         >
-          {/* Inner highlight */}
-          <div className="absolute inset-0 bg-white/10 dark:bg-white/5 pointer-events-none rounded-full blur-sm -translate-y-1/2 -translate-x-1/4 scale-75" />
-
           <AnimatePresence mode="wait">
+            {/* Connecting */}
+            {wsStatus === "connecting" && (
+              <motion.div
+                key="connecting"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0"
+              >
+                <LiquidPulse />
+              </motion.div>
+            )}
+
             {/* Processing */}
             {status === "processing" && (
               <motion.div
@@ -213,7 +291,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
               <motion.button
                 key="closed"
                 onClick={onStart}
-                className="absolute inset-0 flex flex-col items-center justify-center text-white"
+                className="absolute inset-0 flex flex-col items-center justify-center text-white voice-box-shadow"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
@@ -229,36 +307,43 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
 
             {/* Startup/Error Button Logic */}
             {(status === "idle" || effectiveStatus === "error") &&
-              status !== "closed" && (
+              status !== "closed" &&
+              wsStatus !== "connecting" && (
                 <motion.button
                   key={effectiveStatus === "error" ? "retry-btn" : "start-btn"}
                   onClick={onStart}
-                  className="absolute inset-0 flex flex-col items-center justify-center text-white"
+                  className="absolute inset-0 flex flex-col items-center justify-center text-white bg-transparent! voice-box-shadow"
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  disabled={wsStatus === "connecting"}
                 >
                   <motion.div
-                    animate={
-                      wsStatus === "connecting" ? { rotate: 360 } : { rotate: 0 }
-                    }
-                    transition={
-                      wsStatus === "connecting"
-                        ? { duration: 2, repeat: Infinity, ease: "linear" }
-                        : {}
-                    }
+                    animate={{
+                      y: [0, -5, 0],
+                    }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
                   >
                     {effectiveStatus === "error" ? (
-                      <AlertCircle className="w-10 h-10 sm:w-14 sm:h-14" />
-                    ) : wsStatus === "connecting" ? (
-                      <Radio className="w-10 h-10 sm:w-14 sm:h-14 opacity-50" />
+                      <AlertCircle className="w-12 h-12 sm:w-18 sm:h-18" />
                     ) : (
-                      <Mic className="w-10 h-10 sm:w-14 sm:h-14" />
+                      <Mic className="w-12 h-12 sm:w-18 sm:h-18 drop-shadow-lg" />
                     )}
                   </motion.div>
+                  {effectiveStatus === "idle" && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-[10px] font-black uppercase tracking-[0.2em] mt-2 opacity-80"
+                    >
+                      Start
+                    </motion.span>
+                  )}
                 </motion.button>
               )}
           </AnimatePresence>

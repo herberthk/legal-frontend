@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
 import AmbientGlow from "./interface/AmbientGlow";
 import VoiceHeader from "./interface/VoiceHeader";
 import VoiceVisualizer from "./interface/VoiceVisualizer";
@@ -103,6 +104,28 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   const isCriticalLimit = remainingSeconds < 60; // 1 minute
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-[#F8FAFC] dark:bg-[#0F172A] relative overflow-hidden transition-colors duration-500">
+      {/* ── Background Image (Idle/Connecting only) ────────────────────────── */}
+      <AnimatePresence>
+        {wsStatus !== "open" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-0 pointer-events-none"
+          >
+            <Image
+              src="/images/voice-bg.jpg"
+              alt="Voice Session Background"
+              fill
+              priority
+              // objectFit="cover"
+              // className="object-cover"
+            />
+            {/* Overlay to ensure readability and premium feel */}
+            <div className="absolute inset-0 bg-linear-to-b from-transparent via-[#0F172A]/50 to-[#0F172A]" />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* ── Ambient Glow ──────────────────────────────────────────────────── */}
       <AmbientGlow
         isDark={isDark}

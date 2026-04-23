@@ -130,6 +130,11 @@
   }
 }
 
+@layer utilities {
+  .voice-box-shadow {
+    box-shadow: #1e90ff 0px 0px 60px 8px inset !important;
+  }
+}
 /* Custom scrollbar for webkit */
 ::-webkit-scrollbar {
   width: 8px;
