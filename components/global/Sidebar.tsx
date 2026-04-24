@@ -4,13 +4,7 @@ import { cn, signOut } from "@/lib";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/firebase/client";
 
-import {
-  LogOut,
-  Scale,
-  Shield,
-  ChevronRight,
-  ChevronsUpDown,
-} from "lucide-react";
+import { LogOut, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { sideBarItems } from "@/constants";
 import Link from "next/link";
@@ -300,7 +294,49 @@ const GlobalSidebar = ({ user }: Props) => {
   const clearUser = useAuthStore((state) => state.clearUser);
   const isAdmin = user?.role === "ADMIN";
   const router = useRouter();
-  const { setOpenMobile, isMobile } = useSidebar();
+  const { setOpenMobile, isMobile, openMobile } = useSidebar();
+
+  useEffect(() => {
+    if (!isMobile) return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      touchEndX = e.changedTouches[0].screenX;
+      touchEndY = e.changedTouches[0].screenY;
+      handleSwipe();
+    };
+
+    const handleSwipe = () => {
+      const swipeDistanceX = touchEndX - touchStartX;
+      const swipeDistanceY = touchEndY - touchStartY;
+      const swipeThreshold = 50;
+
+      if (Math.abs(swipeDistanceX) > Math.abs(swipeDistanceY)) {
+        if (swipeDistanceX > swipeThreshold && touchStartX < 50) {
+          if (!openMobile) setOpenMobile(true);
+        } else if (swipeDistanceX < -swipeThreshold) {
+          if (openMobile) setOpenMobile(false);
+        }
+      }
+    };
+
+    document.addEventListener("touchstart", handleTouchStart, { passive: true });
+    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+    return () => {
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [isMobile, openMobile, setOpenMobile]);
 
   const onLogout = async () => {
     try {
