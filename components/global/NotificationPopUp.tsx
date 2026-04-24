@@ -28,15 +28,15 @@ const NotificationPopUp = ({ unreadCount }: Props) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-200"
+        className="fixed inset-0 z-140 bg-black/20 dark:bg-black/40 backdrop-blur-sm md:hidden"
         onClick={toggleNotifications}
       ></motion.div>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: -10, x: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -20, scale: 0.95 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
-        className="absolute right-0 mt-2 w-full md:w-90 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-200 overflow-hidden origin-top-right"
+        className="fixed md:absolute top-16 md:top-auto md:right-0 md:mt-2 left-0 right-0 md:left-auto w-full md:w-96 bg-white dark:bg-slate-800 border-b md:border border-slate-200 dark:border-slate-700 md:rounded-xl shadow-2xl z-150 overflow-hidden origin-top"
       >
         <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800">
           <div>

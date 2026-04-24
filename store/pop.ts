@@ -15,10 +15,17 @@ export const usePopStore = create<PopStore>()((set) => ({
   setShowDemo: (showDemo: boolean) => set({ showDemo }),
   showNotifications: false,
   toggleNotifications: () =>
-    set((state) => ({ showNotifications: !state.showNotifications })),
+    set((state) => ({
+      showNotifications: !state.showNotifications,
+      showProfile: false,
+    })),
   isSidebarOpen: false,
   toggleSidebar: () =>
     set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   showProfile: false,
-  toggleProfile: () => set((state) => ({ showProfile: !state.showProfile })),
+  toggleProfile: () =>
+    set((state) => ({
+      showProfile: !state.showProfile,
+      showNotifications: false,
+    })),
 }));
