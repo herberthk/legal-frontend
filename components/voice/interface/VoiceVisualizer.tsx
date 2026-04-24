@@ -64,6 +64,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
                     height: `${450 + i * 180}px`,
                     border: `1.5px solid ${i % 2 === 0 ? palette.orbFrom : palette.orbTo}${isDark ? "15" : "30"}`,
                     background: `radial-gradient(circle, ${i % 2 === 0 ? palette.orbFrom : palette.orbTo}05 0%, transparent 70%)`,
+                    willChange: "transform, border-radius",
                   }}
                   animate={{
                     rotate: i % 2 === 0 ? [0, 360] : [360, 0],
@@ -91,7 +92,8 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
         {wsStatus === "open" && (
           <motion.div
             key={status}
-            className="flex flex-col items-center mb-6 pointer-events-auto text-center px-4"
+            className="flex flex-col items-center mb-6 pointer-events-auto text-center px-4 z-10"
+            style={{ willChange: "transform, opacity, filter" }}
             initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -12, filter: "blur(6px)" }}
@@ -114,7 +116,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
       </AnimatePresence>
 
       {/* Orb + Rings */}
-      <div className="relative w-48 h-48 sm:w-72 sm:h-72 flex items-center justify-center pointer-events-auto">
+      <div className="relative w-48 h-48 sm:w-72 sm:h-72 flex items-center justify-center pointer-events-auto z-10">
         {/* Outer Dashed Spinner */}
         <OrbRing
           color={ringColor}
@@ -145,24 +147,10 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
         {/* Center Orb */}
         <motion.div
           className={`relative z-10 w-24 h-24 sm:w-36 sm:h-36 rounded-full flex items-center justify-center overflow-hidden cursor-pointer`}
-          // ${
-          //   isPreCall
-          //     ? "shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-md"
-          //     : "shadow-2xl"
-          // }`}
           style={{
-            boxShadow:
-              //  isPreCall
-              //   ? `
-              //     0 0 ${isDark ? 80 : 60}px ${isDark ? 10 : 20}px ${glowColor}${isDark ? "30" : "60"},
-              //     inset 0 4px 15px rgba(255,255,255,0.5),
-              //     inset 0 -4px 15px rgba(0,0,0,0.3),
-              //     inset 10px 10px 30px ${palette.orbFrom}80,
-              //     inset -10px -10px 30px ${palette.orbTo}80
-              //   `
-              //   :
-              `0 0 ${isDark ? 60 : 45}px ${isDark ? 8 : 16}px ${glowColor}${isDark ? "40" : "75"}`,
+            boxShadow: `0 0 ${isDark ? 60 : 45}px ${isDark ? 8 : 16}px ${glowColor}${isDark ? "40" : "75"}`,
             border: isPreCall ? "2px solid rgba(255,255,255,0.4)" : "none",
+            willChange: "transform, filter",
           }}
           animate={{
             scale:
@@ -316,6 +304,9 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
                 exit={{ opacity: 0, scale: 0.8 }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                title={wsStatus === "error" ? "Retry" : "Start"}
+                aria-label={wsStatus === "error" ? "Retry" : "Start"}
+                role="button"
               >
                 <motion.div
                   animate={{
@@ -328,7 +319,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
                   }}
                 >
                   {wsStatus === "error" ? (
-                    <AlertCircle className="w-12 h-12 sm:w-18 sm:h-18" />
+                    <AlertCircle className="w-12 h-12 sm:w-18 sm:h-18 rounded-full bg-red-800 p-4" />
                   ) : (
                     <Mic className="w-12 h-12 sm:w-18 sm:h-18 drop-shadow-lg" />
                   )}
