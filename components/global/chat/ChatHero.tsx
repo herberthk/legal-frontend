@@ -9,7 +9,7 @@ interface ChatHeroProps {
 
 export const ChatHero = memo(({ user, onSuggestionClick }: ChatHeroProps) => {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500 pb-10 mt-auto mb-auto">
+    <div className="flex-1 flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500 pb-10 mt-10 md:mt-auto mb-auto">
       <Logo
         size="lg"
         shape="rounded"

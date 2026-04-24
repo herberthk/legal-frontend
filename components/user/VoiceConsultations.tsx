@@ -67,20 +67,20 @@ const VoiceConsultations = ({
 
   return (
     <div
-      className={`bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700/50 transition-all duration-300 ${isDashboard ? "mt-8" : ""}`}
+      className={`bg-white dark:bg-slate-800 rounded-3xl md:p-6 p-2 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700/50 transition-all duration-300 ${isDashboard ? "mt-8" : ""}`}
     >
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between md:mb-8 mb-4">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-linear-to-br from-orange-500 to-orange-600 text-white rounded-2xl shadow-lg shadow-orange-500/20">
+          <div className="md:p-3 p-1.5 bg-linear-to-br from-orange-500 to-orange-600 text-white rounded-2xl shadow-lg shadow-orange-500/20">
             <Activity size={24} />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h3 className="md:text-xl text-sm font-bold text-slate-900 dark:text-white">
               {isDashboard
                 ? "Recent Consultations"
                 : "Voice Consultation History"}
             </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="md:text-sm text-xs text-slate-500 dark:text-slate-400">
               {isDashboard
                 ? "Your latest recorded voice sessions."
                 : "Manage and playback your recorded voice sessions."}
@@ -89,7 +89,7 @@ const VoiceConsultations = ({
         </div>
         {!isDashboard && (
           <div className="flex items-center gap-2">
-            <div className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-700/50 px-3 py-1.5 rounded-full">
+            <div className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-700/50 md:px-3 px-2 py-1.5 rounded-full">
               {totalCount} Total Sessions
             </div>
           </div>
@@ -120,12 +120,12 @@ const VoiceConsultations = ({
                 }`}
               >
                 <div
-                  className="p-5 cursor-pointer flex items-center justify-between"
+                  className="md:p-5 p-2 cursor-pointer flex items-center justify-between"
                   onClick={() => toggleExpand(session.id)}
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`p-3 rounded-xl transition-colors duration-300 ${
+                      className={`md:p-3 p-2 rounded-xl transition-colors duration-300 ${
                         expandedId === session.id
                           ? "bg-orange-500 text-white"
                           : "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
@@ -134,7 +134,7 @@ const VoiceConsultations = ({
                       <Mic size={20} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900 dark:text-white">
+                      <h4 className="font-bold text-slate-900 dark:text-white md:text-lg text-sm">
                         {session.title || "Untitled Session"}
                       </h4>
                       <div className="flex items-center gap-3 mt-1">
@@ -166,8 +166,8 @@ const VoiceConsultations = ({
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3, ease: "easeInOut" }}
                     >
-                      <div className="px-5 pb-5 pt-1 border-t border-slate-50 dark:border-slate-800/50">
-                        <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl mb-5">
+                      <div className="md:px-5 px-2 pb-5 pt-1 border-t border-slate-50 dark:border-slate-800/50">
+                        <div className="bg-slate-50 dark:bg-slate-900/60 md:p-4 p-2 rounded-xl mb-5">
                           <div className="flex items-center gap-2 mb-2">
                             <FileText size={14} className="text-orange-500" />
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -186,7 +186,7 @@ const VoiceConsultations = ({
                           </div>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <div className="flex flex-row items-center justify-between">
                           <CustomButton
                             component={Link}
                             href={`/dashboard/user/transcriptions/${session.id}`}
@@ -203,8 +203,6 @@ const VoiceConsultations = ({
                           >
                             View Detail
                           </CustomButton>
-
-                          <div className="flex-1" />
 
                           <div className="flex items-center gap-6 px-2">
                             <div className="text-center">

@@ -103,17 +103,17 @@ const VoiceSelection = () => {
   const selectedVoice = user?.preferedVoice?.preferedVoiceId || "Zephyr";
 
   return (
-    <div className="bg-white dark:bg-slate-900/50 rounded-2xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 backdrop-blur-xl">
+    <div className="bg-white dark:bg-slate-900/50 rounded-2xl p-3 md:p-6 shadow-xl border border-slate-100 dark:border-slate-800 backdrop-blur-xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded-xl shadow-inner">
             <Mic size={22} className="animate-pulse" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h3 className="text-sm md:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
               AI Voice Persona
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-medium">
               Select the voice for your live legal consultations.
             </p>
           </div>

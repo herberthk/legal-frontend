@@ -43,7 +43,7 @@ const UsageCards: FC<Prop> = ({ user }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Main Balance */}
-      <div className="bg-white dark:bg-linear-to-br dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 shadow-xl border border-slate-100 dark:border-transparent relative overflow-hidden group hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
+      <div className="bg-white dark:bg-linear-to-br dark:from-slate-800 dark:to-slate-900 rounded-2xl md:p-6 p-3 shadow-xl border border-slate-100 dark:border-transparent relative overflow-hidden group hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity duration-500 transform group-hover:rotate-12 group-hover:scale-110">
           <Scale size={100} className="text-slate-900 dark:text-white" />
         </div>
