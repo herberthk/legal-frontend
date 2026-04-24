@@ -83,6 +83,10 @@ declare global {
     /**
      * Upload progress 0-100.
      */
+    /** RMS mic level 0–1 for canvas visualizer */
+    micLevel: number;
+    /** RMS AI audio level 0–1 for canvas visualizer */
+    aiAudioLevel: number;
     uploadProgress: number;
   }
 

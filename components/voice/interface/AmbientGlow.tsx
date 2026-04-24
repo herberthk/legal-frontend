@@ -18,11 +18,12 @@ const AmbientGlow: React.FC<AmbientGlowProps> = ({
 }) => {
   return (
     <motion.div
-      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-0"
       style={{
         filter: isDark ? "blur(100px)" : "blur(80px)",
         width: isDark ? 600 : 500,
         height: isDark ? 600 : 500,
+        willChange: "transform, opacity, background-color",
       }}
       animate={{
         backgroundColor: glowColor + (isDark ? "55" : "88"),

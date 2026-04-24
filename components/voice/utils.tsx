@@ -149,7 +149,7 @@ export const OrbRing = React.memo<{
 
   return (
     <motion.div
-      className="absolute rounded-full"
+      className="absolute rounded-full pointer-events-none"
       style={{
         width: size,
         height: size,
@@ -159,6 +159,7 @@ export const OrbRing = React.memo<{
         y: "-50%",
         border: dashed ? `1.5px dashed ${color}` : `1.5px solid ${color}`,
         boxShadow: isActive ? `0 0 40px 4px ${color}30` : "none",
+        willChange: "transform, opacity",
       }}
       animate={
         dashed

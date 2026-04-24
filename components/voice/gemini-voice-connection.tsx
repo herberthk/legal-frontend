@@ -51,6 +51,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     toggleMicMute,
     toggleAudioMute,
     getTranscripts,
+    micLevel,
+    aiAudioLevel,
   } = useGeminiLive({
     userId: userId || "",
     userName: userName || "User",
@@ -287,6 +289,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       postCallError={postCallError}
       encodingProgress={encodingProgress}
       uploadProgress={uploadProgress}
+      micLevel={micLevel}
+      aiAudioLevel={aiAudioLevel}
     />
   );
 };

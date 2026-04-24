@@ -8,6 +8,7 @@ import VoiceHeader from "./interface/VoiceHeader";
 import VoiceVisualizer from "./interface/VoiceVisualizer";
 import TranscriptPanel from "./interface/TranscriptPanel";
 import VoiceControls from "./interface/VoiceControls";
+import AudioVisualizerCanvas from "./interface/AudioVisualizerCanvas";
 import { statusConfig, statusPalette } from "./utils";
 import {
   COST_PER_VOICE_SECOND_IN_CENTS,
@@ -40,6 +41,9 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   postCallError,
   encodingProgress,
   uploadProgress,
+  // Audio levels for canvas visualizer
+  micLevel,
+  aiAudioLevel,
 }) => {
   // ─── Derived UI Status ────────────────────────────────────────────────────
   const status: CallStatus = useMemo(() => {
@@ -126,6 +130,27 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Fullscreen Canvas Visualizer (active call background) ───────── */}
+      <AnimatePresence>
+        {isCallActive && (
+          <motion.div
+            className="absolute inset-0 z-0 pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+          >
+            <AudioVisualizerCanvas
+              status={effectiveStatus}
+              isDark={isDark}
+              micLevel={micLevel}
+              aiAudioLevel={aiAudioLevel}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Ambient Glow ──────────────────────────────────────────────────── */}
       <AmbientGlow
         isDark={isDark}

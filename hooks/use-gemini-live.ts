@@ -52,6 +52,27 @@ export const useGeminiLive = ({
   const [isListening, setIsListening] = useState(false);
   const [activeTranscript, setActiveTranscript] =
     useState<AgentTranscript | null>(null);
+
+  // ── Audio level state for visualization ──────────────────────────────────
+  // These are smoothed RMS values (0–1) sampled into React state.
+  // Raw values are stored in refs and throttled to avoid re-render storms.
+  const micLevelRef = useRef(0);
+  const aiAudioLevelRef = useRef(0);
+  const [micLevel, setMicLevel] = useState(0);
+  const [aiAudioLevel, setAiAudioLevel] = useState(0);
+
+  // Throttle level updates to ~30fps using rAF batching
+  const levelRafRef = useRef<number>(0);
+  const scheduleLevelUpdate = useCallback(() => {
+    if (levelRafRef.current) return; // already scheduled
+    levelRafRef.current = requestAnimationFrame(() => {
+      levelRafRef.current = 0;
+      setMicLevel(micLevelRef.current);
+      setAiAudioLevel(aiAudioLevelRef.current);
+      // Decay AI level toward zero when no new chunks arrive
+      aiAudioLevelRef.current *= 0.85;
+    });
+  }, []);
   const aiClientRef = useRef<GoogleGenAI | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const previousHandleRef = useRef<string | null>(null);
@@ -286,6 +307,22 @@ export const useGeminiLive = ({
       onAIAudioChunkRef.current(recordBuf, ts);
     }
 
+    // Compute RMS of AI audio chunk for visualizer
+    {
+      const int16View = new Int16Array(
+        bytes.buffer,
+        bytes.byteOffset,
+        bytes.byteLength / 2,
+      );
+      let sum = 0;
+      for (let i = 0; i < int16View.length; i++) {
+        const sample = int16View[i] / 0x8000;
+        sum += sample * sample;
+      }
+      aiAudioLevelRef.current = Math.sqrt(sum / int16View.length);
+      scheduleLevelUpdate();
+    }
+
     // Zero-copy transfer to audio thread (bytes.buffer is detached after this)
     player.port.postMessage(bytes.buffer, [bytes.buffer]);
     setAudioStatus("playing");
@@ -402,6 +439,10 @@ export const useGeminiLive = ({
 
               const { pcm, volume, isSpeaking } = e.data;
               setIsListening(isSpeaking);
+
+              // Feed mic level to visualizer (smoothed)
+              micLevelRef.current = volume;
+              scheduleLevelUpdate();
 
               if (sessionRef.current) {
                 // pcm is an ArrayBuffer (Int16 @ 16 kHz) transferred from the
@@ -556,8 +597,10 @@ export const useGeminiLive = ({
     wsStatus,
     getOrCreateAudioCtx,
     getEphemeralToken,
-    preferedVoice,
+    preferedVoice.preferedVoiceId,
+    preferedVoice.preferedVoiceName,
     userName,
+    scheduleLevelUpdate,
     finalizeAITurn,
     finalizeUserTurn,
     stopAudio,
@@ -687,5 +730,9 @@ export const useGeminiLive = ({
     toggleMicMute,
     toggleAudioMute,
     getTranscripts,
+    /** RMS mic level 0–1, updated ~30fps */
+    micLevel,
+    /** RMS AI audio level 0–1, updated ~30fps */
+    aiAudioLevel,
   };
 };

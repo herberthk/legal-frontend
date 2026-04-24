@@ -25,7 +25,7 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
   return (
     <div className="absolute bottom-26 left-0 w-full px-4 flex justify-center z-10 pointer-events-none">
       <motion.div
-        className="w-full max-w-2xl sm:max-w-3xl bg-transparent rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col pointer-events-auto"
+        className="w-full max-w-2xl sm:max-w-3xl bg-black/10 backdrop-blur-xs rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col pointer-events-none"
         style={{ minHeight: "9rem" }}
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
