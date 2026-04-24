@@ -1,6 +1,6 @@
 "use client";
 import { useAuthStore, usePopStore } from "@/store";
-import { LogOut } from "lucide-react";
+import { LogOut, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib";
 import { signOut as firebaseSignOut } from "firebase/auth";
@@ -47,6 +47,14 @@ const ProfilePopUp = ({ user }: Props) => {
         transition={{ duration: 0.2, ease: "easeOut" }}
         className="fixed md:absolute top-16 md:top-auto md:right-0 md:mt-2 left-0 right-0 md:left-auto w-full md:w-80 bg-white dark:bg-slate-800 border-b md:border border-slate-200 dark:border-slate-700 md:rounded-xl shadow-2xl z-150 overflow-hidden origin-top"
       >
+        {/* Mobile Close Button */}
+        <button
+          onClick={() => toggleProfile()}
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-rose-500 transition-colors md:hidden z-10"
+        >
+          <X size={20} />
+        </button>
+
         <div className="p-6 text-center border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
           <div className="relative inline-block group">
             <Avatar className="h-26 w-26 rounded-full shadow-lg transition-transform duration-300 group-hover:scale-105 mx-auto mb-3 ring-4 ring-orange-500 dark:ring-slate-700">
