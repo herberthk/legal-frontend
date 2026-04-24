@@ -343,6 +343,16 @@ export const useGeminiLive = ({
 
       setWsStatus("connecting");
 
+      // Reset all session state for a fresh start
+      setDuration(0);
+      allTranscriptsRef.current = [];
+      syncingTranscriptsRef.current = [];
+      userPartsRef.current = [];
+      aiPartsRef.current = [];
+      setActiveTranscript(null);
+      //previousHandleRef.current = null;
+      sessionIdRef.current = crypto.randomUUID();
+
       // Initialize audio context to get mic input
       const ctx = getOrCreateAudioCtx(24000); // 24kHz output
 
