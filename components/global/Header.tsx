@@ -4,7 +4,6 @@ import { Moon, Sun, Bell, ChevronDown, Menu } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import NotificationPopUp from "./NotificationPopUp";
 import ProfilePopUp from "./ProfilePopUp";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { db } from "@/firebase/client";
@@ -132,14 +131,7 @@ const Header: React.FC<Props> = ({ user }) => {
                 {user?.email}
               </p>
             </div>
-            {/* <Image
-              src={user?.avatar}
-              alt={user?.name}
-              width={40}
-              height={40}
-              unoptimized
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-indigo-500/50 transition-all duration-300 transform group-hover:scale-105 ${isAdmin ? "group-hover:ring-indigo-500" : "group-hover:ring-orange-500"}`}
-            /> */}
+
             <Avatar className="h-[40px] w-[40px] rounded-full transition-transform duration-300 group-hover:scale-105 ring-orange-500 dark:ring-slate-700">
               <AvatarImage src={user?.avatar || ""} alt={user?.name} />
               <AvatarFallback
@@ -159,7 +151,9 @@ const Header: React.FC<Props> = ({ user }) => {
             />
           </button>
 
-          {showProfile && <ProfilePopUp user={user} />}
+          <AnimatePresence>
+            {showProfile && <ProfilePopUp user={user} />}
+          </AnimatePresence>
         </div>
       </div>
     </header>
