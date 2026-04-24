@@ -49,11 +49,20 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     const fileInputRef = useRef<HTMLInputElement>(null);
     const fileReaderRef = useRef<FileReader | null>(null);
     const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const router = useRouter();
     // Notify parent of layout/height changes for auto-scroll
     useEffect(() => {
       onHeightChange?.();
     }, [input, isUploading, pendingAttachment, isInputFocused, onHeightChange]);
+
+    // Auto-expand textarea based on content
+    useEffect(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 250)}px`;
+      }
+    }, [input]);
 
     // Cleanup upload timeout on unmount
     useEffect(() => {
@@ -261,79 +270,82 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             accept="application/pdf"
           />
 
-          <div
-            className={`relative flex items-end bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl transition-all duration-300 shadow-sm ${
-              isInputFocused
-                ? "ring-2 ring-orange-500 border-transparent bg-white dark:bg-slate-800 shadow-orange-500/10"
-                : "focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-transparent hover:border-slate-300 dark:hover:border-slate-600"
-            }`}
-          >
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-3 mb-1 ml-1 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 ${
-                pendingAttachment || isUploading
-                  ? "text-orange-500 bg-orange-50 dark:bg-orange-900/20"
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 hover:rotate-12"
+          <div className="relative w-full h-[50px] md:h-[58px]">
+            <div
+              className={`absolute bottom-0 left-0 w-full flex items-end bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl transition-all duration-300 shadow-md z-50 ${
+                isInputFocused
+                  ? "ring-2 ring-orange-500 border-transparent bg-white dark:bg-slate-800 shadow-orange-500/20"
+                  : "focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-transparent hover:border-slate-300 dark:hover:border-slate-600"
               }`}
-              title="Upload legal document (PDF)"
-              disabled={isUploading || connectionStatus === "offline"}
             >
-              <Paperclip size={20} />
-            </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-3 mb-1 ml-1 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 ${
+                  pendingAttachment || isUploading
+                    ? "text-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 hover:rotate-12"
+                }`}
+                title="Upload legal document (PDF)"
+                disabled={isUploading || connectionStatus === "offline"}
+              >
+                <Paperclip size={20} />
+              </button>
 
-            <button
-              onClick={handleGoToVoice}
-              className="p-3 mb-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 hover:-rotate-12"
-              title="Start Voice Consultation (Live Overlay)"
-              type="button"
-              disabled={isUploading || connectionStatus === "offline"}
-            >
-              <Mic size={20} />
-            </button>
+              <button
+                onClick={handleGoToVoice}
+                className="p-3 mb-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 hover:-rotate-12"
+                title="Start Voice Consultation (Live Overlay)"
+                type="button"
+                disabled={isUploading || connectionStatus === "offline"}
+              >
+                <Mic size={20} />
+              </button>
 
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={() => setIsInputFocused(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendClick();
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendClick();
+                  }
+                }}
+                placeholder={
+                  connectionStatus === "offline"
+                    ? "Waiting for connection..."
+                    : isUploading
+                      ? "Uploading document..."
+                      : pendingAttachment
+                        ? "Describe what you need done with this PDF..."
+                        : "Ask about Ugandan Law, or attach a PDF..."
                 }
-              }}
-              placeholder={
-                connectionStatus === "offline"
-                  ? "Waiting for connection..."
-                  : isUploading
-                    ? "Uploading document..."
-                    : pendingAttachment
-                      ? "Describe what you need done with this PDF..."
-                      : "Ask about Ugandan Law, or attach a PDF..."
-              }
-              disabled={
-                isLoading || isUploading || connectionStatus === "offline"
-              }
-              rows={1}
-              name="chat"
-              className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none max-h-32 text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors min-h-[40px] md:min-h-[56px]"
-            />
-            <button
-              onClick={handleSendClick}
-              disabled={
-                isLoading ||
-                isUploading ||
-                connectionStatus === "offline" ||
-                !input.trim()
-              }
-              className="p-2.5 mb-2 mr-2 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 hover:rotate-3 disabled:hover:scale-100 disabled:hover:rotate-0"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Send size={20} />
-              )}
-            </button>
+                disabled={
+                  isLoading || isUploading || connectionStatus === "offline"
+                }
+                rows={1}
+                name="chat"
+                className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors min-h-[40px] md:min-h-[56px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700"
+              />
+              <button
+                onClick={handleSendClick}
+                disabled={
+                  isLoading ||
+                  isUploading ||
+                  connectionStatus === "offline" ||
+                  !input.trim()
+                }
+                className="p-2.5 mb-2 mr-2 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 hover:rotate-3 disabled:hover:scale-100 disabled:hover:rotate-0"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Send size={20} />
+                )}
+              </button>
+            </div>
           </div>
         </div>
         <Disclaimer />
