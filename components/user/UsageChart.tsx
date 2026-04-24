@@ -81,14 +81,14 @@ const UsageChart = () => {
   }, [user?.id, filter, customRange.start, customRange.end]);
 
   return (
-    <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 min-h-[480px] flex flex-col">
+    <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-3 md:p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all duration-300 min-h-[480px] flex flex-col">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
             <Activity size={20} />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm md:text-lg font-bold text-slate-900 dark:text-white">
               Usage Flow
             </h3>
             <p className="text-xs text-slate-500">Multimodal Usage Tracking</p>
@@ -122,7 +122,7 @@ const UsageChart = () => {
             <div className="text-sm text-rose-500 dark:text-rose-400">
               -${totalPeriodCost.toFixed(2)}
             </div>
-            <div className="text-sm text-slate-500 dark:text-slate-400">
+            <div className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
               ( UGX{" "}
               {(totalPeriodCost * USD_TO_UGX_EXCHANGE_RATE).toLocaleString(
                 undefined,
@@ -199,7 +199,7 @@ const UsageChart = () => {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={chartData}
-                margin={{ top: 20, right: 30, left: 10, bottom: 0 }}
+                margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
               >
                 <defs>
                   <linearGradient id="colorText" x1="0" y1="0" x2="0" y2="1">
@@ -236,6 +236,18 @@ const UsageChart = () => {
                   tickFormatter={(v: number) =>
                     v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
                   }
+                  label={{
+                    value: "Text / Transcription tokens",
+                    angle: -90,
+                    position: "insideLeft",
+                    offset: 10,
+                    style: {
+                      fill: isDark ? "#94a3b8" : "#64748b",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textAnchor: "middle",
+                    },
+                  }}
                 />
                 <YAxis
                   yAxisId="right"
@@ -252,7 +264,7 @@ const UsageChart = () => {
                     offset: 10,
                     style: {
                       fill: isDark ? "#94a3b8" : "#64748b",
-                      fontSize: 9,
+                      fontSize: 12,
                       fontWeight: 600,
                       textAnchor: "middle",
                     },

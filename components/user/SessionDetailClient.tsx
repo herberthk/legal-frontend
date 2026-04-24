@@ -105,7 +105,7 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
       {/* Right Column: Transcripts */}
       <div className="md:col-span-2 space-y-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+          <h3 className="md:text-2xl text-lg font-black text-slate-900 dark:text-white flex items-center gap-3">
             <FileText className="text-orange-500" size={24} />
             Full Transcript
           </h3>
@@ -126,7 +126,7 @@ const SessionDetailClient = ({ session }: SessionDetailClientProps) => {
                 className={`flex flex-col ${t.role === "user" ? "items-end" : "items-start"}`}
               >
                 <div
-                  className={`max-w-[85%] p-4 rounded-2xl ${
+                  className={`md:max-w-[85%] max-w-full p-4 rounded-2xl ${
                     t.role === "user"
                       ? "bg-orange-600 text-white rounded-tr-none shadow-lg shadow-orange-600/10"
                       : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-none shadow-sm"

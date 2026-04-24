@@ -82,7 +82,7 @@ const SessionDetailPage = async ({ params }: PageProps) => {
       </div>
 
       {/* Hero Section */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[32px] p-8 shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden relative">
+      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[32px] p-4 md:p-8 shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden relative">
         <div className="absolute top-0 right-0 p-8 opacity-5">
           <Mic size={240} />
         </div>
@@ -93,7 +93,7 @@ const SessionDetailPage = async ({ params }: PageProps) => {
               <Mic size={12} />
               Confirmed Session
             </div>
-            <h1 className="text-xl font-black text-slate-900 dark:text-white leading-tight tracking-tight">
+            <h1 className="md:text-2xl text-lg font-black text-slate-900 dark:text-white leading-tight tracking-tight">
               {session.title}
             </h1>
             <div className="flex flex-wrap items-center gap-6">
@@ -131,7 +131,7 @@ const SessionDetailPage = async ({ params }: PageProps) => {
                     <CircleDollarSign size={14} />
                     <span>Estimated Cost</span>
                   </div>
-                  <span className="text-sm font-bold ml-1">
+                  <span className="md:text-sm text-xs font-bold ml-1">
                     {formatCost(session.cost || 0)}
                   </span>
                 </div>
