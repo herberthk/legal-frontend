@@ -301,40 +301,41 @@ const GlobalSidebar = ({ user }: Props) => {
 
     let touchStartX = 0;
     let touchStartY = 0;
-    let touchEndX = 0;
-    let touchEndY = 0;
 
     const handleTouchStart = (e: TouchEvent) => {
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      touchEndX = e.changedTouches[0].screenX;
-      touchEndY = e.changedTouches[0].screenY;
-      handleSwipe();
-    };
-
-    const handleSwipe = () => {
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      
       const swipeDistanceX = touchEndX - touchStartX;
       const swipeDistanceY = touchEndY - touchStartY;
-      const swipeThreshold = 50;
+      const swipeThreshold = 40;
 
-      if (Math.abs(swipeDistanceX) > Math.abs(swipeDistanceY)) {
-        if (swipeDistanceX > swipeThreshold && touchStartX < 50) {
-          if (!openMobile) setOpenMobile(true);
-        } else if (swipeDistanceX < -swipeThreshold) {
-          if (openMobile) setOpenMobile(false);
+      if (Math.abs(swipeDistanceX) > Math.abs(swipeDistanceY) && Math.abs(swipeDistanceX) > swipeThreshold) {
+        if (swipeDistanceX > 0) {
+          // Swiped right - open sidebar
+          if (touchStartX < 150 && !openMobile) {
+            setOpenMobile(true);
+          }
+        } else {
+          // Swiped left - close sidebar
+          if (openMobile) {
+            setOpenMobile(false);
+          }
         }
       }
     };
 
-    document.addEventListener("touchstart", handleTouchStart, { passive: true });
-    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
+    document.addEventListener("touchend", handleTouchEnd, { capture: true, passive: true });
 
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart);
-      document.removeEventListener("touchend", handleTouchEnd);
+      document.removeEventListener("touchstart", handleTouchStart, { capture: true });
+      document.removeEventListener("touchend", handleTouchEnd, { capture: true });
     };
   }, [isMobile, openMobile, setOpenMobile]);
 
