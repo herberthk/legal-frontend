@@ -122,22 +122,22 @@ const iconVariants: Variants = {
   },
 };
 
-const floatingVariants: Variants = {
-  initial: { y: 0, filter: "drop-shadow(0 0 0px rgba(99, 102, 241, 0))" },
-  animate: {
-    y: [0, -4, 0],
-    filter: [
-      "drop-shadow(0 4px 6px rgba(99, 102, 241, 0.1))",
-      "drop-shadow(0 10px 15px rgba(99, 102, 241, 0.3))",
-      "drop-shadow(0 4px 6px rgba(99, 102, 241, 0.1))",
-    ],
-    transition: {
-      duration: 4,
-      repeat: Infinity,
-      ease: "easeInOut",
-    },
-  },
-};
+// const floatingVariants: Variants = {
+//   initial: { y: 0, filter: "drop-shadow(0 0 0px rgba(99, 102, 241, 0))" },
+//   animate: {
+//     y: [0, -4, 0],
+//     filter: [
+//       "drop-shadow(0 4px 6px rgba(99, 102, 241, 0.1))",
+//       "drop-shadow(0 10px 15px rgba(99, 102, 241, 0.3))",
+//       "drop-shadow(0 4px 6px rgba(99, 102, 241, 0.1))",
+//     ],
+//     transition: {
+//       duration: 4,
+//       repeat: Infinity,
+//       ease: "easeInOut",
+//     },
+//   },
+// };
 
 const CollapsibleMenu = ({
   link,
@@ -310,12 +310,15 @@ const GlobalSidebar = ({ user }: Props) => {
     const handleTouchEnd = (e: TouchEvent) => {
       const touchEndX = e.changedTouches[0].clientX;
       const touchEndY = e.changedTouches[0].clientY;
-      
+
       const swipeDistanceX = touchEndX - touchStartX;
       const swipeDistanceY = touchEndY - touchStartY;
       const swipeThreshold = 40;
 
-      if (Math.abs(swipeDistanceX) > Math.abs(swipeDistanceY) && Math.abs(swipeDistanceX) > swipeThreshold) {
+      if (
+        Math.abs(swipeDistanceX) > Math.abs(swipeDistanceY) &&
+        Math.abs(swipeDistanceX) > swipeThreshold
+      ) {
         if (swipeDistanceX > 0) {
           // Swiped right - open sidebar
           if (touchStartX < 150 && !openMobile) {
@@ -330,12 +333,22 @@ const GlobalSidebar = ({ user }: Props) => {
       }
     };
 
-    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
-    document.addEventListener("touchend", handleTouchEnd, { capture: true, passive: true });
+    document.addEventListener("touchstart", handleTouchStart, {
+      capture: true,
+      passive: true,
+    });
+    document.addEventListener("touchend", handleTouchEnd, {
+      capture: true,
+      passive: true,
+    });
 
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart, { capture: true });
-      document.removeEventListener("touchend", handleTouchEnd, { capture: true });
+      document.removeEventListener("touchstart", handleTouchStart, {
+        capture: true,
+      });
+      document.removeEventListener("touchend", handleTouchEnd, {
+        capture: true,
+      });
     };
   }, [isMobile, openMobile, setOpenMobile]);
 
@@ -389,7 +402,10 @@ const GlobalSidebar = ({ user }: Props) => {
       <SidebarHeader className="py-6 border-b-2! border-slate-200! dark:border-slate-800!">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="hover:bg-transparent">
+            <SidebarMenuButton
+              size="lg"
+              className="hover:bg-transparent ring-0! focus:ring-0! focus:outline-none! "
+            >
               <Logo />
             </SidebarMenuButton>
           </SidebarMenuItem>
