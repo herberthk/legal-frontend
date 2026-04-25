@@ -21,6 +21,7 @@
     "@tiptap/react": "^3.22.0",
     "@tiptap/starter-kit": "^3.22.0",
     "@uidotdev/usehooks": "^2.4.1",
+    "@zakj/no-sleep": "^0.13.6",
     "ai": "^6.0.90",
     "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",

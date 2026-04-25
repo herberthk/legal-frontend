@@ -17,6 +17,8 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
+import NoSleep from "@zakj/no-sleep";
+
 export interface UseGeminiLiveOptions {
   userName: string;
   preferedVoice: PreferedVoice;
@@ -52,7 +54,7 @@ export const useGeminiLive = ({
   const [isListening, setIsListening] = useState(false);
   const [activeTranscript, setActiveTranscript] =
     useState<AgentTranscript | null>(null);
-
+  const noSleep = useRef(new NoSleep());
   // ── Audio level state for visualization ──────────────────────────────────
   // These are smoothed RMS values (0–1) sampled into React state.
   // Raw values are stored in refs and throttled to avoid re-render storms.
@@ -271,62 +273,65 @@ export const useGeminiLive = ({
     return ctx;
   }, []);
 
-  const schedulePCMChunk = useCallback((base64Data: string) => {
-    const player = playerNodeRef.current;
-    if (!player) return;
+  const schedulePCMChunk = useCallback(
+    (base64Data: string) => {
+      const player = playerNodeRef.current;
+      if (!player) return;
 
-    // Resume context if suspended (e.g. autoplay policy)
-    const ctx = audioCtxRef.current;
-    if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+      // Resume context if suspended (e.g. autoplay policy)
+      const ctx = audioCtxRef.current;
+      if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
 
-    // Decode Base64 → binary → ArrayBuffer, then transfer to player worklet.
-    // The ring-buffer worklet handles Int16→Float32 conversion internally and
-    // plays samples from a continuous buffer — no chunk boundaries, no clicks.
-    const binaryString = atob(base64Data);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    // ── Recorder interception (AI audio) ─────────────────────────────────────
-    // IMPORTANT: We need two consumers for this data:
-    //   1. The player worklet  — receives `bytes.buffer` via a transferable.
-    //   2. The recorder worker — needs its own copy because transferring to
-    //      the player DETACHES the buffer (byteLength → 0).
-    //
-    // Decision: `Uint8Array.prototype.slice()` creates a new ArrayBuffer copy
-    // (~4 KB per chunk). This is the one unavoidable allocation in the hot path.
-    // We cannot use SharedArrayBuffer because it requires COOP/COEP headers
-    // which add significant server-config complexity.
-    //
-    // We create the copy BEFORE the player transfer so `bytes` is still intact.
-    if (onAIAudioChunkRef.current) {
-      const recordBuf = bytes.slice().buffer; // copy for recorder
-      const ts = Date.now() - sessionStartRef.current;
-      onAIAudioChunkRef.current(recordBuf, ts);
-    }
-
-    // Compute RMS of AI audio chunk for visualizer
-    {
-      const int16View = new Int16Array(
-        bytes.buffer,
-        bytes.byteOffset,
-        bytes.byteLength / 2,
-      );
-      let sum = 0;
-      for (let i = 0; i < int16View.length; i++) {
-        const sample = int16View[i] / 0x8000;
-        sum += sample * sample;
+      // Decode Base64 → binary → ArrayBuffer, then transfer to player worklet.
+      // The ring-buffer worklet handles Int16→Float32 conversion internally and
+      // plays samples from a continuous buffer — no chunk boundaries, no clicks.
+      const binaryString = atob(base64Data);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
       }
-      aiAudioLevelRef.current = Math.sqrt(sum / int16View.length);
-      scheduleLevelUpdate();
-    }
 
-    // Zero-copy transfer to audio thread (bytes.buffer is detached after this)
-    player.port.postMessage(bytes.buffer, [bytes.buffer]);
-    setAudioStatus("playing");
-  }, []);
+      // ── Recorder interception (AI audio) ─────────────────────────────────────
+      // IMPORTANT: We need two consumers for this data:
+      //   1. The player worklet  — receives `bytes.buffer` via a transferable.
+      //   2. The recorder worker — needs its own copy because transferring to
+      //      the player DETACHES the buffer (byteLength → 0).
+      //
+      // Decision: `Uint8Array.prototype.slice()` creates a new ArrayBuffer copy
+      // (~4 KB per chunk). This is the one unavoidable allocation in the hot path.
+      // We cannot use SharedArrayBuffer because it requires COOP/COEP headers
+      // which add significant server-config complexity.
+      //
+      // We create the copy BEFORE the player transfer so `bytes` is still intact.
+      if (onAIAudioChunkRef.current) {
+        const recordBuf = bytes.slice().buffer; // copy for recorder
+        const ts = Date.now() - sessionStartRef.current;
+        onAIAudioChunkRef.current(recordBuf, ts);
+      }
+
+      // Compute RMS of AI audio chunk for visualizer
+      {
+        const int16View = new Int16Array(
+          bytes.buffer,
+          bytes.byteOffset,
+          bytes.byteLength / 2,
+        );
+        let sum = 0;
+        for (let i = 0; i < int16View.length; i++) {
+          const sample = int16View[i] / 0x8000;
+          sum += sample * sample;
+        }
+        aiAudioLevelRef.current = Math.sqrt(sum / int16View.length);
+        scheduleLevelUpdate();
+      }
+
+      // Zero-copy transfer to audio thread (bytes.buffer is detached after this)
+      player.port.postMessage(bytes.buffer, [bytes.buffer]);
+      setAudioStatus("playing");
+    },
+    [scheduleLevelUpdate],
+  );
 
   const stopAudio = useCallback(() => {
     // Tell the player worklet to flush its ring buffer immediately
@@ -343,6 +348,8 @@ export const useGeminiLive = ({
 
       setWsStatus("connecting");
 
+      // Prevent the display from sleeping during the voice call
+      noSleep.current.enable();
       // Reset all session state for a fresh start
       setDuration(0);
       allTranscriptsRef.current = [];
@@ -625,6 +632,8 @@ export const useGeminiLive = ({
     finalizeUserTurn();
     finalizeAITurn();
 
+    // Disable when the session ends to save user battery
+    noSleep.current.disable();
     isDisconnectingRef.current = true;
 
     stopAudio();
@@ -721,7 +730,10 @@ export const useGeminiLive = ({
 
     // Cleanup only clears the interval. Disconnection is handled explicitly
     // by the consumer (e.g. unmount, user action) — not implicitly by effect cleanup.
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      noSleep.current.disable();
+    };
 
     // wsStatus intentionally excluded. We read it via wsStatusRef.current inside
     // the interval so we always get the latest value without re-subscribing.
