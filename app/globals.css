@@ -135,25 +135,31 @@
 }
 /* Custom scrollbar for webkit */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: orangered;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(30, 144, 255, 0.95);
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: orangered;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: rgba(30, 144, 255, 0.95);
 }
+
+/* 1. The Modern Standard (Firefox and Latest Chrome/Safari/Edge) */
+/* .custom-scroll-container {
+  scrollbar-color: orangered rgba(30, 144, 255, 0.95);
+  scrollbar-width: thin; 
+} */
 
 /* Custom animations */
 @keyframes gradient-x {
