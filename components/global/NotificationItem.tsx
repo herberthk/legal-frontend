@@ -11,9 +11,10 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react";
-import { formatUniversalDate, getRelativeTime } from "@/utils";
+import { formatUniversalDate } from "@/utils";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { usePopStore } from "@/store";
 
 interface NotificationItemProps {
   notification: AppNotification;
@@ -30,6 +31,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   onDelete,
   isAdmin,
 }) => {
+  const toggleNotifications = usePopStore((state) => state.toggleNotifications);
   const Icon = {
     INFO: Info,
     SUCCESS: CheckCircle,
@@ -138,7 +140,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     return (
       <Link
         href={notification.url}
-        onClick={() => onMarkRead?.(notification.id)}
+        onClick={() => {
+          toggleNotifications();
+          onMarkRead?.(notification.id);
+        }}
         className="block"
       >
         {Content}

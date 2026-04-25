@@ -10,10 +10,12 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { getInitials } from "@/utils";
 import { motion } from "framer-motion";
+import { RefObject } from "react";
 type Props = {
   user: User;
+  ref: RefObject<HTMLDivElement>;
 };
-const ProfilePopUp = ({ user }: Props) => {
+const ProfilePopUp = ({ user, ref }: Props) => {
   //   const user = useAuthStore((state) => state.user);
   const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
   const toggleProfile = usePopStore((state) => state.toggleProfile);
@@ -46,6 +48,7 @@ const ProfilePopUp = ({ user }: Props) => {
         exit={{ opacity: 0, y: -20, scale: 0.95 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
         className="fixed md:absolute top-16 md:top-auto md:right-0 md:mt-2 left-0 right-0 md:left-auto w-full md:w-80 bg-white dark:bg-slate-800 border-b md:border border-slate-200 dark:border-slate-700 md:rounded-xl shadow-2xl z-150 overflow-hidden origin-top"
+        ref={ref}
       >
         {/* Mobile Close Button */}
         <button

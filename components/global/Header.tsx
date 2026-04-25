@@ -11,6 +11,7 @@ import { onSnapshot, where, query, collection } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { cn } from "@/lib";
 import { getInitials } from "@/utils";
+import { useClickAway } from "@uidotdev/usehooks";
 
 type Props = {
   user: User;
@@ -25,6 +26,14 @@ const Header: React.FC<Props> = ({ user }) => {
   const showProfile = usePopStore((state) => state.showProfile);
   const toggleProfile = usePopStore((state) => state.toggleProfile);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const notificationsRef = useClickAway<HTMLDivElement>(() => {
+    toggleNotifications();
+  });
+
+  const profileRef = useClickAway<HTMLDivElement>(() => {
+    toggleProfile();
+  });
 
   // Perform firestore realtime listener for unread notifications filter for unread and get the count
 
@@ -110,7 +119,10 @@ const Header: React.FC<Props> = ({ user }) => {
 
           <AnimatePresence>
             {showNotifications && (
-              <NotificationPopUp unreadCount={unreadCount} />
+              <NotificationPopUp
+                ref={notificationsRef}
+                unreadCount={unreadCount}
+              />
             )}
           </AnimatePresence>
         </div>
@@ -152,7 +164,7 @@ const Header: React.FC<Props> = ({ user }) => {
           </button>
 
           <AnimatePresence>
-            {showProfile && <ProfilePopUp user={user} />}
+            {showProfile && <ProfilePopUp ref={profileRef} user={user} />}
           </AnimatePresence>
         </div>
       </div>
