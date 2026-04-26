@@ -24,6 +24,9 @@ const APP_TITLE_TEMPLATE = "%s - Legal Adviser";
 const APP_DESCRIPTION = "Legal Adviser Application";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://legal-adviser.vercel.app",
+  ),
   applicationName: APP_NAME,
   title: {
     default: APP_DEFAULT_TITLE,

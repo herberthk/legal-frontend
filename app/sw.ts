@@ -18,11 +18,12 @@ declare const self: ServiceWorkerGlobalScope;
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
-  clientsClaim: true,
-  navigationPreload: true,
-  runtimeCaching: defaultCache,
+  skipWaiting: true, // Whether the service worker should skip waiting and become the active one.
+  clientsClaim: true, // Whether the service worker should claim all clients.
+  navigationPreload: true, // Whether the service worker should preload navigation requests.
+  runtimeCaching: defaultCache, // The cache configuration for the service worker.
   fallbacks: {
+    // The fallback configuration for the service worker.
     entries: [
       {
         url: "/~offline",
@@ -31,6 +32,10 @@ const serwist = new Serwist({
         },
       },
     ],
+  },
+  precacheOptions: {
+    // Whether outdated caches should be removed.
+    cleanupOutdatedCaches: true,
   },
 });
 
