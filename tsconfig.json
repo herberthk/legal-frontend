@@ -28,10 +28,7 @@
       "@/*": ["./*"]
     },
     "typeRoots": ["./types/**/*.d.ts", "./node_modules/@types"]
-    // "types": [
-    //   // This allows Serwist to type `window.serwist`.
-    //   "@serwist/next/typings"
-    // ]
+    // "types": ["@serwist/next/typings"]
   },
   "include": [
     "next-env.d.ts",

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
+import { SerwistProvider } from "./serwist";
 import "./globals.css";
 import ThemeInitializer from "@/components/global/ThemeInitializer";
 import FirebaseAnalytics from "@/components/global/FirebaseAnalytics";
@@ -21,32 +22,6 @@ const APP_NAME = "Legal";
 const APP_DEFAULT_TITLE = "Legal Adviser";
 const APP_TITLE_TEMPLATE = "%s - Legal Adviser";
 const APP_DESCRIPTION = "Legal Adviser Application";
-
-// export const metadata: Metadata = {
-//   title: "Legal Adviser",
-//   description: "Legal Adviser Application",
-//   manifest: "/manifest.json",
-
-//   appleWebApp: {
-//     capable: true,
-//     statusBarStyle: "default",
-//     title: "Legal Adviser",
-//     // These paths should match the files in public/icons/
-//     startupImage: [
-//       {
-//         url: "/icons/apple-splash-2048-2732.png",
-//         media:
-//           "(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)",
-//       },
-//       {
-//         url: "/icons/apple-splash-1242-2688.png",
-//         media:
-//           "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)",
-//       },
-//       // Tip: Add the other media query objects generated in your terminal by the tool here
-//     ],
-//   },
-// };
 
 export const metadata: Metadata = {
   applicationName: APP_NAME,
@@ -373,7 +348,7 @@ const RootLayout = ({
           <InstallPrompt />
           <ThemeInitializer />
           <NextTopLoader />
-          {children}
+          <SerwistProvider swUrl="/serwist/sw.js">{children}</SerwistProvider>
         </TooltipProvider>
       </body>
     </html>
