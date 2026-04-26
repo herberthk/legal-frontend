@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
     ],
   },
   productionBrowserSourceMaps: false,
+  reactCompiler: true,
 };
 
 export default withSerwist(nextConfig);
