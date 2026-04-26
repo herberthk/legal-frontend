@@ -1,4 +1,4 @@
-export const CookiePolicyPage = () => (
+const CookiePolicyPage = () => (
   <>
     <h3>1. What are Cookies?</h3>
     <p>

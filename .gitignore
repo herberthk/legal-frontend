@@ -45,3 +45,7 @@ legal-51aee-firebase-adminsdk-fbsvc-7077b4276a.json
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# Serwist
+# public/sw*
+# public/swe-worker*

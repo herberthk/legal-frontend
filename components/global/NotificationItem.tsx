@@ -31,7 +31,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   onDelete,
   isAdmin,
 }) => {
-  const toggleNotifications = usePopStore((state) => state.toggleNotifications);
+  const closeNotification = usePopStore((state) => state.closeNotification);
   const Icon = {
     INFO: Info,
     SUCCESS: CheckCircle,
@@ -141,7 +141,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       <Link
         href={notification.url}
         onClick={() => {
-          toggleNotifications();
+          closeNotification();
           onMarkRead?.(notification.id);
         }}
         className="block"

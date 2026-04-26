@@ -9,6 +9,8 @@ type PopStore = {
   toggleSidebar: () => void;
   showProfile: boolean;
   toggleProfile: () => void;
+  closeNotification: () => void;
+  closeProfile: () => void;
 };
 export const usePopStore = create<PopStore>()((set) => ({
   showDemo: false,
@@ -28,4 +30,6 @@ export const usePopStore = create<PopStore>()((set) => ({
       showProfile: !state.showProfile,
       showNotifications: false,
     })),
+  closeNotification: () => set(() => ({ showNotifications: false })),
+  closeProfile: () => set(() => ({ showProfile: false })),
 }));

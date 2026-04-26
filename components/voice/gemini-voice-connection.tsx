@@ -21,6 +21,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   // Only take first name of the user in AI actions
   const userName = useAuthStore((state) => state.user?.name)?.split(" ")[0];
   const userId = useAuthStore((state) => state.user?.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const preferedVoice = useAuthStore((state) => state.user?.preferedVoice) || {
     preferedVoiceId: "Zephyr",
     preferedVoiceName: "Hana",
