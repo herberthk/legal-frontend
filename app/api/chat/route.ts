@@ -10,14 +10,17 @@ import {
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 const MAX_HISTORY_MESSAGES = 6;
+
 export async function POST(req: Request) {
   try {
     const { messages }: { messages: UIMessage[] } = await req.json();
+
     // Read session ID from the custom header set by prepareSendMessagesRequest
     const rawSessionId = req.headers.get("x-chat-id");
     const sessionId =
       rawSessionId && rawSessionId.length > 0 ? rawSessionId : null;
     const isFirstMessage = req.headers.get("x-first-message");
+
     // 1. Authenticate the user
     const userId = await getAuthenticatedUserId();
     if (!userId) {
@@ -36,83 +39,22 @@ export async function POST(req: Request) {
     const textToSend = textPart?.text || "";
     const estimatedInputTokens = Math.ceil(textToSend.length / 4);
 
-    // Extract attachment metadata from the last user message (if any)
+    // Extract attachment metadata from the last user message (if any).
+    // With Firebase Storage the URL is an HTTPS URL — no base64 stripping needed.
     const filePart = lastUserMessage.parts?.find(
       (p: { type: string }) => p.type === "file",
     ) as
       | { type: "file"; mediaType: string; filename?: string; url: string }
       | undefined;
 
+    // Limit context window to the last N messages
     const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
     console.log("messages", historyMessages.length);
 
-    // --- Preprocess: strip data: URL file parts before conversion ---
-    // convertToModelMessages tries to HTTP-fetch file URLs, which fails for
-    // inline data: URLs. We extract them, convert to ModelMessages without
-    // them, then re-inject the file data as inline base64 FileParts.
-    const extractedFiles: Array<{
-      msgIndex: number;
-      data: Buffer;
-      mediaType: string;
-    }> = [];
-
-    const cleanedMessages = historyMessages.map((msg, i) => {
-      const hasDataUrl = msg.parts?.some(
-        (p) =>
-          p.type === "file" &&
-          typeof (p as { url?: string }).url === "string" &&
-          (p as { url: string }).url.startsWith("data:"),
-      );
-      if (!hasDataUrl) return msg;
-
-      const filteredParts = msg.parts?.filter((p) => {
-        if (p.type === "file") {
-          const fileP = p as { url?: string; mediaType: string };
-          if (fileP.url?.startsWith("data:")) {
-            const base64 = fileP.url.split(",")[1];
-            extractedFiles.push({
-              msgIndex: i,
-              data: Buffer.from(base64, "base64"),
-              mediaType: fileP.mediaType,
-            });
-            return false; // Remove from parts
-          }
-        }
-        return true;
-      });
-
-      return { ...msg, parts: filteredParts } as UIMessage;
-    });
-
-    const modelMessages = await convertToModelMessages(cleanedMessages);
-
-    // Re-inject extracted file data into the last user model message
-    if (extractedFiles.length > 0) {
-      // Find the last user message in the model messages array
-      const lastUserModelMsg = [...modelMessages]
-        .reverse()
-        .find((m) => m.role === "user");
-      if (lastUserModelMsg) {
-        for (const extracted of extractedFiles) {
-          if (typeof lastUserModelMsg.content === "string") {
-            lastUserModelMsg.content = [
-              { type: "text" as const, text: lastUserModelMsg.content },
-              {
-                type: "file" as const,
-                data: extracted.data,
-                mediaType: extracted.mediaType,
-              },
-            ];
-          } else if (Array.isArray(lastUserModelMsg.content)) {
-            lastUserModelMsg.content.push({
-              type: "file" as const,
-              data: extracted.data,
-              mediaType: extracted.mediaType,
-            });
-          }
-        }
-      }
-    }
+    // Convert UI messages → model messages.
+    // Firebase Storage URLs are plain HTTPS URLs so convertToModelMessages
+    // handles them correctly — no manual base64 extraction required.
+    const modelMessages = await convertToModelMessages(historyMessages);
 
     const result = streamText({
       model: google("gemini-3-flash-preview"),
@@ -120,8 +62,6 @@ export async function POST(req: Request) {
       providerOptions: {
         google: {
           thinkingConfig: {
-            // For Gemini 3 models, use thinkingLevel (e.g. 'minimal', 'low', 'medium', 'high')
-            // thinkingLevel: "medium",
             includeThoughts: true,
           },
         } satisfies GoogleLanguageModelOptions,
@@ -129,7 +69,6 @@ export async function POST(req: Request) {
       messages: modelMessages,
       temperature: 0.2,
       onFinish: async ({ text, usage }) => {
-        // 3. Record usage after completion
         const totalTokens =
           (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);
         try {
@@ -141,9 +80,8 @@ export async function POST(req: Request) {
               sessionId,
             });
           }
-          // 4. Save assistant message to chat session
           if (sessionId !== null && text) {
-            // Save user message (with attachment metadata if present)
+            // Save user message — include attachment metadata with Firebase Storage URL
             await saveChatMessage(sessionId, {
               role: "user",
               text: textToSend,
@@ -152,8 +90,8 @@ export async function POST(req: Request) {
               ...(filePart && {
                 attachment: {
                   name: filePart.filename || "document.pdf",
-                  type: filePart.mediaType,
-                  url: "",
+                  contentType: filePart.mediaType,
+                  url: filePart.url, // Real Firebase Storage URL
                 },
               }),
             });
@@ -167,7 +105,7 @@ export async function POST(req: Request) {
             });
           }
         } catch (err) {
-          console.error("Error saving assistant message:", err);
+          console.error("Error saving chat message:", err);
         }
       },
     });

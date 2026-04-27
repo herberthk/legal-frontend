@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   CheckCircle2,
   FileText,
   Loader2,
@@ -13,10 +14,19 @@ import React, {
   useEffect,
   forwardRef,
   useImperativeHandle,
+  useCallback,
 } from "react";
 import Disclaimer from "./Disclaimer";
 import { useRouter } from "nextjs-toploader/app";
-import { logAnalyticsEvent } from "@/firebase/client";
+import { motion, AnimatePresence } from "framer-motion";
+import { logAnalyticsEvent, storage } from "@/firebase/client";
+import {
+  ref as firebaseRef,
+  uploadBytesResumable,
+  getDownloadURL,
+  UploadTask,
+} from "firebase/storage";
+import { BUCKETS } from "@/constants";
 
 export interface ChatInputRef {
   triggerFileUpload: (promptText: string) => void;
@@ -25,7 +35,7 @@ export interface ChatInputRef {
 type ChatInputProps = {
   onSend: (
     text: string,
-    attachment?: { name: string; type: string; data: string },
+    attachment?: { name: string; contentType: string; url: string },
   ) => void;
 
   connectionStatus: string;
@@ -40,17 +50,18 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [tempFileName, setTempFileName] = useState("");
+    const [uploadError, setUploadError] = useState<string | null>(null);
     const [pendingAttachment, setPendingAttachment] = useState<{
       name: string;
-      type: string;
-      data: string;
+      contentType: string;
+      url: string;
     } | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const fileReaderRef = useRef<FileReader | null>(null);
-    const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const uploadTaskRef = useRef<UploadTask | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const router = useRouter();
+
     // Notify parent of layout/height changes for auto-scroll
     useEffect(() => {
       onHeightChange?.();
@@ -64,15 +75,10 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       }
     }, [input]);
 
-    // Cleanup upload timeout on unmount
+    // Cancel the Firebase upload task on unmount
     useEffect(() => {
       return () => {
-        if (uploadTimeoutRef.current) {
-          clearTimeout(uploadTimeoutRef.current);
-        }
-        if (fileReaderRef.current) {
-          fileReaderRef.current.abort();
-        }
+        uploadTaskRef.current?.cancel();
       };
     }, []);
 
@@ -98,28 +104,30 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       onSend(input, pendingAttachment || undefined);
       logAnalyticsEvent("send_message", {
         has_attachment: !!pendingAttachment,
-        attachment_type: pendingAttachment?.type || "none",
+        attachment_type: pendingAttachment?.contentType || "none",
       });
       setInput("");
       setPendingAttachment(null);
     };
 
-    const cancelUpload = () => {
-      if (fileReaderRef.current) fileReaderRef.current.abort();
-      if (uploadTimeoutRef.current) clearTimeout(uploadTimeoutRef.current);
+    const cancelUpload = useCallback(() => {
+      uploadTaskRef.current?.cancel();
+      uploadTaskRef.current = null;
       setIsUploading(false);
       setPendingAttachment(null);
       setTempFileName("");
       setUploadProgress(0);
+      setUploadError(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    };
+    }, []);
 
     const clearAttachment = () => {
       setPendingAttachment(null);
+      setUploadError(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
@@ -131,136 +139,230 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       }
 
       setPendingAttachment(null);
+      setUploadError(null);
       setIsUploading(true);
       setUploadProgress(0);
       setTempFileName(file.name);
 
-      const reader = new FileReader();
-      fileReaderRef.current = reader;
+      // Build a unique storage path: chat-attachments/<timestamp>-<filename>
+      const fileRef = firebaseRef(
+        storage,
+        `${BUCKETS.STORED_FILES}/chat-attachments/${Date.now()}-${file.name}`,
+      );
 
-      reader.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100);
+      const uploadTask = uploadBytesResumable(fileRef, file, {
+        contentType: file.type,
+      });
+      uploadTaskRef.current = uploadTask;
+
+      uploadTask.on(
+        "state_changed",
+        (snapshot) => {
+          const percent = Math.round(
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
+          );
           setUploadProgress(percent);
-        }
-      };
-
-      reader.onload = (evt) => {
-        uploadTimeoutRef.current = setTimeout(() => {
-          const result = evt.target?.result as string;
-          const base64Data = result.split(",")[1];
-          const newAttachment = {
-            name: file.name,
-            type: file.type,
-            data: base64Data,
-          };
+        },
+        (error) => {
+          // Upload failed or was cancelled
+          const isCancelled = error.code === "storage/canceled";
+          if (!isCancelled) {
+            console.error("[ChatInput] Firebase Storage upload error:", error);
+            setUploadError(
+              "Upload failed. Please check your connection and try again.",
+            );
+          }
           setIsUploading(false);
           setTempFileName("");
-          fileReaderRef.current = null;
-
-          // Stage the attachment — user must type a description before sending
-          setPendingAttachment(newAttachment);
-
-          // Reset file input so the same file can be selected again
+          uploadTaskRef.current = null;
           if (fileInputRef.current) fileInputRef.current.value = "";
-        }, 600);
-      };
-
-      reader.onerror = () => {
-        setIsUploading(false);
-        setTempFileName("");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      };
-
-      reader.readAsDataURL(file);
-      logAnalyticsEvent("pdf_upload_started", { file_name: file.name });
+        },
+        async () => {
+          // Upload succeeded — get the public download URL
+          try {
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            const newAttachment = {
+              name: file.name,
+              contentType: file.type,
+              url: downloadUrl,
+            };
+            setPendingAttachment(newAttachment);
+          } catch (urlError) {
+            console.error("[ChatInput] Failed to get download URL:", urlError);
+            setUploadError(
+              "Upload succeeded but failed to get file URL. Please try again.",
+            );
+          } finally {
+            setIsUploading(false);
+            setTempFileName("");
+            uploadTaskRef.current = null;
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }
+        },
+      );
     };
 
     const activeFileName = pendingAttachment?.name || tempFileName;
 
     // --- Voice ---
-    const handleGoToVoice = () => {
-      logAnalyticsEvent("voice_consultation_click");
-      router.push("/dashboard/user/voice");
-    };
+    const handleGoToVoice = () => router.push("/dashboard/user/voice");
+
     return (
       <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors">
         <div className="max-w-4xl mx-auto">
-          {(pendingAttachment || isUploading) && (
-            <div
-              className={`transform transition-all duration-300 ease-in-out origin-bottom ${
-                isInputFocused
-                  ? "mb-1 opacity-80 scale-[0.98]"
-                  : "mb-3 opacity-100 scale-100"
-              }`}
-            >
-              <div
-                className={`flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl relative overflow-hidden transition-all duration-300 hover:shadow-md ${
-                  isInputFocused ? "p-2" : "p-3"
-                }`}
+          {/* ── Upload error banner ── */}
+          {uploadError && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm animate-in fade-in slide-in-from-bottom-1 duration-200">
+              <AlertCircle size={14} className="shrink-0" />
+              <span className="flex-1">{uploadError}</span>
+              <button
+                onClick={() => setUploadError(null)}
+                className="shrink-0 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+                aria-label="Dismiss error"
               >
-                {isUploading && (
-                  <div
-                    className="absolute bottom-0 left-0 h-1 bg-linear-to-r from-amber-500 to-orange-600 transition-all duration-300 ease-out"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                )}
-
-                <div
-                  className={`bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 flex items-center justify-center text-orange-500 shadow-sm mr-3 shrink-0 transition-all duration-300 ${
-                    isInputFocused ? "h-8 w-8" : "h-10 w-10"
-                  }`}
-                >
-                  {isUploading ? (
-                    <Loader2
-                      size={isInputFocused ? 16 : 20}
-                      className="animate-spin text-slate-400"
-                    />
-                  ) : (
-                    <FileText size={isInputFocused ? 16 : 20} />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0 mr-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
-                      {activeFileName}
-                    </span>
-                    {isUploading ? (
-                      <span className="text-xs text-slate-500 font-medium">
-                        {uploadProgress}%
-                      </span>
-                    ) : (
-                      <span className="flex items-center text-xs text-green-600 dark:text-green-400 font-medium">
-                        <CheckCircle2 size={12} className="mr-1" /> Ready
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    className={`overflow-hidden transition-all duration-300 ${
-                      isInputFocused
-                        ? "max-h-0 opacity-0"
-                        : "max-h-5 opacity-100"
-                    }`}
-                  >
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                      {isUploading
-                        ? "Processing document..."
-                        : "Document attached for analysis"}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={isUploading ? cancelUpload : clearAttachment}
-                  className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-full transition-all duration-300 hover:rotate-90 shrink-0"
-                  title={isUploading ? "Cancel upload" : "Remove attachment"}
-                >
-                  <X size={18} />
-                </button>
-              </div>
+                <X size={14} />
+              </button>
             </div>
           )}
+
+          <AnimatePresence>
+            {(pendingAttachment || isUploading) && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{
+                  opacity: isInputFocused ? 0.8 : 1,
+                  y: 0,
+                  scale: isInputFocused ? 0.98 : 1,
+                  marginBottom: isInputFocused ? "0.25rem" : "0.75rem",
+                }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="origin-bottom"
+              >
+                <div
+                  className={`flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl relative overflow-hidden transition-all duration-300 hover:shadow-md ${
+                    isInputFocused ? "p-2" : "p-3"
+                  }`}
+                >
+                  {/* Premium Upload progress bar */}
+                  <AnimatePresence>
+                    {isUploading && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute bottom-0 left-0 w-full h-1 bg-linear-to-r from-amber-400 via-orange-500 to-amber-600 z-10"
+                      >
+                        <motion.div
+                          className="h-full w-full"
+                          initial={{ width: "0%" }}
+                          animate={{ width: `${uploadProgress}%` }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 50,
+                            damping: 20,
+                          }}
+                        >
+                          <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div
+                    className={`bg-white dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 flex items-center justify-center text-orange-500 shadow-sm mr-3 shrink-0 transition-all duration-300 ${
+                      isInputFocused ? "h-8 w-8" : "h-10 w-10"
+                    }`}
+                  >
+                    <AnimatePresence mode="wait">
+                      {isUploading ? (
+                        <motion.div
+                          key="loader"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                        >
+                          <Loader2
+                            size={isInputFocused ? 16 : 20}
+                            className="animate-spin text-slate-400"
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="file-icon"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                        >
+                          <FileText size={isInputFocused ? 16 : 20} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  <div className="flex-1 min-w-0 mr-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                        {activeFileName}
+                      </span>
+                      <AnimatePresence mode="wait">
+                        {isUploading ? (
+                          <motion.span
+                            key="progress-text"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            className="text-xs text-slate-500 font-medium tabular-nums"
+                          >
+                            {uploadProgress}%
+                          </motion.span>
+                        ) : (
+                          <motion.span
+                            key="ready-text"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            className="flex items-center text-xs text-green-600 dark:text-green-400 font-medium"
+                          >
+                            <CheckCircle2 size={12} className="mr-1" /> Ready
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    <div
+                      className={`overflow-hidden transition-all duration-300 ${
+                        isInputFocused
+                          ? "max-h-0 opacity-0"
+                          : "max-h-5 opacity-100"
+                      }`}
+                    >
+                      <AnimatePresence mode="wait">
+                        <motion.p
+                          key={isUploading ? "uploading" : "attached"}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5"
+                        >
+                          {isUploading
+                            ? "Uploading to secure storage…"
+                            : "Document attached for analysis"}
+                        </motion.p>
+                      </AnimatePresence>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={isUploading ? cancelUpload : clearAttachment}
+                    className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-full transition-all duration-300 hover:rotate-90 shrink-0"
+                    title={isUploading ? "Cancel upload" : "Remove attachment"}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <input
             type="file"
@@ -327,7 +429,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 }
                 rows={1}
                 name="chat"
-                className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors min-h-[40px] md:min-h-[56px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700"
+                className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors min-h-[40px] md:min-h-[56px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 md:text-lg text-xs"
               />
               <button
                 onClick={handleSendClick}

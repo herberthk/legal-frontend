@@ -191,6 +191,18 @@
   animation: flash 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite linear;
+}
 /* Custom styles to match PDF output exactly */
 .pdf-preview-styles {
   font-family: "Times New Roman", Times, serif;
