@@ -3,16 +3,16 @@ import { fadeInUp, mockChatVariants, staggerContainer } from "@/constants";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, PlayCircle, Scale } from "lucide-react";
 import { usePopStore } from "@/store";
-import { logAnalyticsEvent } from "@/firebase/client";
-import { useRouter } from "next/navigation";
 import { CustomButton } from "../ui/custom-button";
 import Link from "next/link";
 
 const Hero = () => {
   const setShowDemo = usePopStore((state) => state.setShowDemo);
-  const router = useRouter();
   return (
-    <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-4 overflow-hidden z-10">
+    <section
+      className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-4 overflow-hidden z-10"
+      aria-label="Introduction"
+    >
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
         {/* Left: Content */}
         <motion.div
@@ -112,6 +112,7 @@ const Hero = () => {
           variants={mockChatVariants}
           style={{ perspective: 1000 }}
           className="relative hidden lg:block"
+          aria-hidden="true"
         >
           {/* Glowing Ring */}
           <div className="absolute inset-0 bg-linear-to-tr from-amber-500/30 to-purple-600/30 rounded-full blur-[60px] opacity-40 animate-pulse"></div>

@@ -52,7 +52,7 @@ const Features = () => {
             >
               {/* Gradient Border Overlay on Hover */}
               <div className="absolute inset-0 border-2 border-transparent group-hover:border-orange-500/30 rounded-3xl transition-colors duration-300 pointer-events-none"></div>
-              <div className="absolute top-0 right-0 p-8 opacity-0 group-hover:opacity-10 transition-opacity duration-500 transform translate-x-4 -translate-y-4">
+              <div className="absolute top-0 right-0 p-8 opacity-0 group-hover:opacity-10 transition-opacity duration-500 transform translate-x-4 -translate-y-4" aria-hidden="true">
                 <feature.icon
                   size={100}
                   className={`text-${feature.color}-500`}
@@ -61,6 +61,7 @@ const Features = () => {
 
               <div
                 className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 group-hover:rotate-6 bg-${feature.color}-100 dark:bg-${feature.color}-900/20 text-${feature.color}-600 dark:text-${feature.color}-400 shadow-[0_0_15px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.05)]`}
+                aria-hidden="true"
               >
                 <feature.icon size={28} />
               </div>

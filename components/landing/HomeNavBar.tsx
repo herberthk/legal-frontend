@@ -18,14 +18,13 @@ const HomeNavBar = () => {
       className="fixed top-0 w-full z-50 bg-white/70 dark:bg-[#0B1120]/80 backdrop-blur-xl border-b border-white/20 dark:border-white/5 transition-all duration-300"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="flex items-center space-x-2 group cursor-pointer"
-          onClick={() => router.push("/login")}
+        <Link
+          href="/"
+          className="flex items-center space-x-2 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
+          aria-label="Legal Adviser Home"
         >
           <Logo />
-        </motion.div>
+        </Link>
 
         <div className="hidden md:flex items-center space-x-8">
           {["Features", "Pricing", "FAQ"].map((item) => (
@@ -46,9 +45,10 @@ const HomeNavBar = () => {
             whileTap={{ scale: 0.9 }}
             transition={{ duration: 0.3 }}
             onClick={toggleTheme}
-            className="p-2.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+            className="p-2.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-white/10 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
           >
-            {theme === "dark" ? <Moon size={20} /> : <Sun size={20} />}
+            {theme === "dark" ? <Moon size={20} aria-hidden="true" /> : <Sun size={20} aria-hidden="true" />}
           </motion.button>
 
           <CustomButton
