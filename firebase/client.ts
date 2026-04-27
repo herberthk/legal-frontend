@@ -28,9 +28,12 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Safe Analytics initialization
+// Safe Analytics initialization — only runs when a valid Measurement ID is
+// configured. Without one, getAnalytics loads gtag.js with id=undefined which
+// causes a CSP violation and sends malformed data to Google Analytics.
 export const analyticsPromise: Promise<Analytics | null> =
-  typeof window !== "undefined"
+  typeof window !== "undefined" &&
+  process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
     ? isSupported().then((supported) => (supported ? getAnalytics(app) : null))
     : Promise.resolve(null);
 

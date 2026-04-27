@@ -36,7 +36,32 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin", // Controls how much referrer information is included with requests, balancing security and functionality.
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            // Allows the opener page to retain a reference to the Google auth
+            // popup so Firebase can detect window.closed after sign-in.
+            // "same-origin-allow-popups" is the recommended value for apps
+            // using popup-based OAuth (signInWithPopup).
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self' https://apis.google.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app;",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://*.google-analytics.com https://www.googletagmanager.com;",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
+              "font-src 'self' https://fonts.gstatic.com;",
+              "img-src 'self' data: blob: https://ui-avatars.com https://i.pravatar.cc https://lh3.googleusercontent.com https://www.transparenttextures.com https://*.google-analytics.com https://www.googletagmanager.com;",
+              "connect-src 'self' https://apis.google.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.google-analytics.com https://*.google.com https://*.gstatic.com https://www.googletagmanager.com;",
+              "frame-src 'self' https://*.firebaseapp.com https://*.web.app;",
+              "object-src 'none';",
+              "base-uri 'self';",
+              "form-action 'self';",
+              "frame-ancestors 'none';",
+              "upgrade-insecure-requests;",
+            ].join(" "),
           },
         ],
       },
@@ -45,15 +70,20 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Type",
-            value: "application/javascript; charset=utf-8", // Ensures the service worker is interpreted correctly as JavaScript.
+            value: "application/javascript; charset=utf-8",
           },
           {
             key: "Cache-Control",
-            value: "no-cache, no-store, must-revalidate", // Prevents the browser from caching the service worker, ensuring users always get the latest version.
+            value: "no-cache, no-store, must-revalidate",
           },
           {
+            // Service workers enforce the CSP of their OWN response when
+            // calling fetch() internally. We set a permissive policy here so
+            // the SW can reach Google/Firebase origins for the auth passthrough
+            // handler in sw.ts. The page-level CSP (above) still protects the
+            // actual document context.
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self'", // Restricts the sources from which scripts can be loaded, protecting against XSS attacks.
+            value: "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src *",
           },
         ],
       },
