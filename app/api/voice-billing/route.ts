@@ -7,7 +7,7 @@ import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 
 //force to use edge runtime
-export const runtime = "edge";
+// export const runtime = "edge";
 
 type RequestBody = {
   userId: string;
