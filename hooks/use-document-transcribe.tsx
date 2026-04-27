@@ -5,10 +5,9 @@ import {
   Dispatch,
   SetStateAction,
 } from "react";
-import { GoogleGenAI } from "@google/genai";
 import { pdf } from "@react-pdf/renderer";
 import { PDFDocument } from "@/components/editor/PDFDocument";
-import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
+import { transcribeDocument } from "@/lib/actions";
 import { useAuthStore } from "@/store";
 
 export type TranscribeStatus =
@@ -102,65 +101,24 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     setErrorType(null);
 
     try {
-      // 1. Credit Check
-      const { canSend, reason } = await checkUserCanSend(user.id);
-      if (!canSend) {
-        setError(reason || "Insufficient tokens to process this document.");
-        setErrorType("INSUFFICIENT_CREDITS");
-        setStatus("idle");
-        return;
-      }
-
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      if (!apiKey) throw new Error("Gemini API key is missing.");
-
-      const ai = new GoogleGenAI({ apiKey });
-
       // Convert file to base64
       const buffer = await file.arrayBuffer();
       const base64Data = Buffer.from(buffer).toString("base64");
 
-      const basePrompt =
-        "CRITICAL INSTRUCTION: Output ONLY the transcribed text. Do NOT include any conversational filler, introductory text, or labels like 'Here is the transcription...'. ";
-
-      const prompt =
-        formatMode === "professional"
-          ? basePrompt +
-            `Transcribe all text from this document, including both computer-typed and handwritten parts. If the document is a quotation, receipt, memo, or similar form, return the exact content including date, company name, location, receipt number, etc., where applicable. Add relevant formatting to make it look highly professional, well-structured, and clean (using paragraphs, bold, italic, etc.), but do NOT divert from the original document's meaning or facts. Do NOT add any sections, information, or content that is not present in the original document. Correct obvious spelling or grammatical errors in the handwritten parts only.`
-          : basePrompt +
-            `Transcribe all text from this document (both typed and handwritten) exactly as it appears. Maintain the original structure, line breaks, and formatting as closely as possible. Do not add any new headings or correct errors unless they are completely illegible.`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                data: base64Data,
-                mimeType: file.type,
-              },
-            },
-            { text: prompt },
-          ],
-        },
+      const result = await transcribeDocument({
+        base64Data,
+        mimeType: file.type,
+        formatMode,
+        fileName: file.name,
       });
 
-      if (response.text) {
-        setTranscription(response.text);
-
-        // 2. Record Usage
-        const totalTokens = response.usageMetadata?.totalTokenCount || 0;
-        await recordUsageAndDeduct({
-          userId: user.id,
-          type: "DOCUMENT_TRANSCRIPTION",
-          tokens: totalTokens,
-          sessionId: `doc-${file.name}-${Date.now()}`,
-        });
+      if (result.success && result.text) {
+        setTranscription(result.text);
 
         // Extract title from first heading
         const headingMatch =
-          response.text.match(/^#\s+(.+)$/m) ||
-          response.text.match(/<h1[^>]*>(.*?)<\/h1>/i);
+          result.text.match(/^#\s+(.+)$/m) ||
+          result.text.match(/<h1[^>]*>(.*?)<\/h1>/i);
         if (headingMatch && headingMatch[1]) {
           const cleanTitle = headingMatch[1].replace(/<[^>]*>?/gm, "").trim();
           setDocumentTitle(cleanTitle);
@@ -172,18 +130,26 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
 
         setStatus("editing");
       } else {
-        throw new Error("Failed to generate transcription.");
+        if (result.errorType === "INSUFFICIENT_CREDITS") {
+          setError(
+            result.error || "Insufficient tokens to process this document.",
+          );
+          setErrorType("INSUFFICIENT_CREDITS");
+          setStatus("idle");
+          return;
+        }
+        throw new Error(result.error || "Failed to generate transcription.");
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      console.error("--- Document Processing Error ---");
+      console.error("--- Document Processing Error ---", err);
       setErrorType("GENERAL");
 
       let userMessage =
         "An unexpected error occurred while processing the document. Please try again.";
       if (err?.message?.includes("API key")) {
         userMessage =
-          "Configuration Error: Gemini API key is missing or invalid.";
+          "Configuration Error: Gemini API key is missing or invalid on the server.";
       } else if (err?.status === 429) {
         userMessage =
           "Quota Exceeded: The AI service is currently busy. Please try again later.";

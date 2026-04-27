@@ -6,3 +6,4 @@ export * from "./usage";
 export * from "./wallet";
 export * from "./support";
 export * from "./notifications";
+export * from "./transcribe";

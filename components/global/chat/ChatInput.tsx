@@ -429,7 +429,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 }
                 rows={1}
                 name="chat"
-                className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors min-h-[40px] md:min-h-[56px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 md:text-lg text-xs"
+                className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors min-h-[40px] md:min-h-[56px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 md:text-base text-xs"
               />
               <button
                 onClick={handleSendClick}
@@ -439,7 +439,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                   connectionStatus === "offline" ||
                   !input.trim()
                 }
-                className="p-2.5 mb-2 mr-2 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 hover:rotate-3 disabled:hover:scale-100 disabled:hover:rotate-0"
+                className="p-2 mb-2 mr-2 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 hover:rotate-3 disabled:hover:scale-100 disabled:hover:rotate-0"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
