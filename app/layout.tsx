@@ -10,6 +10,12 @@ import InstallPrompt from "@/components/pwa/InstallPrompt";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  APP_DEFAULT_TITLE,
+  APP_DESCRIPTION,
+  APP_NAME,
+  APP_TITLE_TEMPLATE,
+} from "@/constants";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,11 +23,6 @@ const inter = Inter({
   display: "swap",
   variable: "--font-inter",
 });
-
-const APP_NAME = "Legal";
-const APP_DEFAULT_TITLE = "Legal Adviser";
-const APP_TITLE_TEMPLATE = "%s - Legal Adviser";
-const APP_DESCRIPTION = "Legal Adviser Application";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
