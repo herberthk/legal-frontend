@@ -11,7 +11,7 @@ import {
 export const maxDuration = 30;
 
 //force to use edge runtime
-export const runtime = "edge";
+// export const runtime = "edge";
 
 const MAX_HISTORY_MESSAGES = 6;
 

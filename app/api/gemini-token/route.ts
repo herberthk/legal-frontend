@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
 //force to use edge runtime
-export const runtime = "edge";
+// export const runtime = "edge";
 export async function GET() {
   try {
     const user = await getCurrentUser();
