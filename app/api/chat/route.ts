@@ -9,6 +9,10 @@ import {
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
+
+//force to use edge runtime
+export const runtime = "edge";
+
 const MAX_HISTORY_MESSAGES = 6;
 
 export async function POST(req: Request) {
