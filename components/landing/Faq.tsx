@@ -31,8 +31,11 @@ const Faq = () => {
               className={`border rounded-2xl overflow-hidden transition-all duration-300 ${openFaq === i ? "border-orange-500/50 dark:border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.1)]" : "border-slate-200 dark:border-white/10"}`}
             >
               <button
+                id={`faq-question-${i}`}
                 onClick={() => toggleFaq(i)}
-                className="w-full px-6 py-4 flex justify-between items-center bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                aria-expanded={openFaq === i}
+                aria-controls={`faq-answer-${i}`}
+                className="w-full px-6 py-4 flex justify-between items-center bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-2xl"
               >
                 <span
                   className={`font-bold text-left transition-colors ${openFaq === i ? "text-orange-600 dark:text-orange-400" : "text-slate-800 dark:text-slate-200"}`}
@@ -42,6 +45,7 @@ const Faq = () => {
                 <motion.div
                   animate={{ rotate: openFaq === i ? 180 : 0 }}
                   transition={{ duration: 0.3 }}
+                  aria-hidden="true"
                 >
                   {openFaq === i ? (
                     <ChevronUp size={20} className="text-orange-500" />
@@ -53,6 +57,9 @@ const Faq = () => {
               <AnimatePresence>
                 {openFaq === i && (
                   <motion.div
+                    id={`faq-answer-${i}`}
+                    role="region"
+                    aria-labelledby={`faq-question-${i}`}
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}

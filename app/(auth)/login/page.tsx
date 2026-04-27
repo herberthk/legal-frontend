@@ -99,9 +99,10 @@ const LoginPage = () => {
         <Link
           href="/"
           className="flex justify-center cursor-pointer group lg:hidden"
+          aria-label="Go to home page"
         >
           <div className="bg-linear-to-br from-amber-500 to-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-500/20 transform transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
-            <Scale className="w-10 h-10 text-white" />
+            <Scale className="w-10 h-10 text-white" aria-hidden="true" />
           </div>
         </Link>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
@@ -126,14 +127,15 @@ const LoginPage = () => {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Email address
               </label>
               <div className="mt-1 relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                  <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" aria-hidden="true" />
                 </div>
                 <input
+                  id="email"
                   type="email"
                   required
                   value={email}
@@ -145,14 +147,15 @@ const LoginPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Password
               </label>
               <div className="mt-1 relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                  <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" aria-hidden="true" />
                 </div>
                 <input
+                  id="password"
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
@@ -163,12 +166,13 @@ const LoginPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-orange-500 transition-colors focus:outline-none"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-orange-500 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
                   ) : (
-                    <Eye className="h-5 w-5" />
+                    <Eye className="h-5 w-5" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -185,6 +189,7 @@ const LoginPage = () => {
               type="submit"
               disabled={loading}
               isLoading={loading}
+              aria-busy={loading}
               variant="transparent"
               shape="pill"
               borderLeftWidth="4px"
@@ -192,7 +197,7 @@ const LoginPage = () => {
               borderRightWidth="4px"
               borderRightColor="#ea580c"
               className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
-              rightIcon={<ArrowRight />}
+              rightIcon={<ArrowRight aria-hidden="true" />}
               hoverEffect="glow"
               fullWidth
             >

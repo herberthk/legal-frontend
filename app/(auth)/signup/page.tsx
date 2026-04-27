@@ -131,9 +131,10 @@ const SignupPage = () => {
         <Link
           href="/"
           className="flex justify-center cursor-pointer group lg:hidden"
+          aria-label="Go to home page"
         >
           <div className="bg-linear-to-br from-amber-500 to-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-500/20 transform transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
-            <Scale className="w-10 h-10 text-white" />
+            <Scale className="w-10 h-10 text-white" aria-hidden="true" />
           </div>
         </Link>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
@@ -158,14 +159,21 @@ const SignupPage = () => {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
                 Full Name
               </label>
               <div className="mt-1 relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                  <User
+                    className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors"
+                    aria-hidden="true"
+                  />
                 </div>
                 <input
+                  id="name"
                   placeholder="John Doe"
                   type="text"
                   required
@@ -177,14 +185,21 @@ const SignupPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
                 Email address
               </label>
               <div className="mt-1 relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                  <Mail
+                    className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors"
+                    aria-hidden="true"
+                  />
                 </div>
                 <input
+                  id="email"
                   type="email"
                   required
                   value={email}
@@ -196,30 +211,39 @@ const SignupPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
                 Password
               </label>
               <div className="mt-1 relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+                  <Lock
+                    className="h-5 w-5 text-slate-400 group-focus-within:text-orange-500 transition-colors"
+                    aria-hidden="true"
+                  />
                 </div>
                 <input
+                  id="password"
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full pl-10 pr-12 px-3 py-3.5 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white transition-all duration-200"
                   placeholder="••••••••"
+                  aria-describedby="password-requirements"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-orange-500 transition-colors focus:outline-none"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-orange-500 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
                   ) : (
-                    <Eye className="h-5 w-5" />
+                    <Eye className="h-5 w-5" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -238,6 +262,8 @@ const SignupPage = () => {
                         Password Strength
                       </span>
                       <span
+                        role="status"
+                        aria-live="polite"
                         className={`text-xs font-bold uppercase ${
                           strengthPercentage <= 40
                             ? "text-red-500"
@@ -250,15 +276,26 @@ const SignupPage = () => {
                       </span>
                     </div>
 
-                    <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden"
+                      aria-label="Password strength"
+                    >
                       <motion.div
+                        role="progressbar"
+                        aria-valuenow={strengthPercentage}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
                         initial={{ width: 0 }}
                         animate={{ width: `${strengthPercentage}%` }}
                         className={`h-full transition-colors duration-500 ${getStrengthColor()}`}
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+                    <div
+                      id="password-requirements"
+                      className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4"
+                      aria-label="Password requirements"
+                    >
                       {passwordRequirements.map((req, index) => {
                         const isMet = req.test(password);
                         return (
@@ -268,6 +305,7 @@ const SignupPage = () => {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.05 }}
                             className="flex items-center space-x-2"
+                            aria-label={`${req.label}: ${isMet ? "Requirement met" : "Requirement not met"}`}
                           >
                             <div
                               className={`p-0.5 rounded-full transition-colors duration-300 ${
@@ -277,9 +315,15 @@ const SignupPage = () => {
                               }`}
                             >
                               {isMet ? (
-                                <ShieldCheck className="w-3.5 h-3.5" />
+                                <ShieldCheck
+                                  className="w-3.5 h-3.5"
+                                  aria-hidden="true"
+                                />
                               ) : (
-                                <ShieldAlert className="w-3.5 h-3.5" />
+                                <ShieldAlert
+                                  className="w-3.5 h-3.5"
+                                  aria-hidden="true"
+                                />
                               )}
                             </div>
                             <span
@@ -288,6 +332,7 @@ const SignupPage = () => {
                                   ? "text-emerald-600 dark:text-emerald-400 font-medium"
                                   : "text-slate-500 dark:text-slate-500"
                               }`}
+                              aria-hidden="true"
                             >
                               {req.label}
                             </span>
@@ -304,6 +349,7 @@ const SignupPage = () => {
               type="submit"
               disabled={loading}
               isLoading={loading}
+              aria-busy={loading}
               variant="transparent"
               shape="pill"
               borderLeftWidth="4px"
@@ -311,7 +357,7 @@ const SignupPage = () => {
               borderRightWidth="4px"
               borderRightColor="#ea580c"
               className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
-              rightIcon={<ArrowRight className="w-4 h-4" />}
+              rightIcon={<ArrowRight className="w-4 h-4" aria-hidden="true" />}
               hoverEffect="glow"
               fullWidth
             >

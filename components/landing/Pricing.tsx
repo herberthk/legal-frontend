@@ -7,6 +7,7 @@ const Pricing = () => {
     <section
       className="py-24 relative overflow-hidden z-10 bg-slate-50 dark:bg-[#0B1120]"
       id="pricing"
+      aria-labelledby="pricing-heading"
     >
       {/* Subtle Grid Background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px] pointer-events-none"></div>
@@ -19,7 +20,10 @@ const Pricing = () => {
           variants={fadeInUp}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-4">
+          <h2
+            id="pricing-heading"
+            className="text-4xl font-extrabold text-slate-900 dark:text-white mb-4"
+          >
             Simple, Transparent Pricing
           </h2>
           <p className="text-slate-600 dark:text-slate-400 text-lg max-w-2xl mx-auto">
@@ -70,7 +74,8 @@ const Pricing = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {}}
-              className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500"
+              aria-label="Get started with Basic Access for free"
             >
               Get Started
             </motion.button>
@@ -122,7 +127,8 @@ const Pricing = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {}}
-              className="w-full py-3 px-4 rounded-xl bg-white text-indigo-700 font-bold shadow-lg transition-all hover:bg-indigo-50"
+              className="w-full py-3 px-4 rounded-xl bg-white text-indigo-700 font-bold shadow-lg transition-all hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-white"
+              aria-label="Load Credits for Flexible pricing"
             >
               Load Credits
             </motion.button>
@@ -172,7 +178,8 @@ const Pricing = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {}}
-              className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500"
+              aria-label="Contact sales for Legal Firm custom pricing"
             >
               Contact Sales
             </motion.button>
