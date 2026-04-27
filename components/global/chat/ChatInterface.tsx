@@ -125,7 +125,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
         if (m.attachment) {
           parts.push({
             type: "file",
-            mediaType: m.attachment.type,
+            mediaType: m.attachment.contentType,
             filename: m.attachment.name,
             url: m.attachment.url || "",
           });
@@ -151,7 +151,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     if (m.attachment) {
       parts.push({
         type: "file",
-        mediaType: m.attachment.type,
+        mediaType: m.attachment.contentType,
         filename: m.attachment.name,
         url: m.attachment.url || "",
       });
@@ -393,7 +393,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       const pending: {
         text: string;
         estimatedTokens: number;
-        attachment?: { name: string; type: string; data: string };
+        attachment?: { name: string; contentType: string; url: string };
       } = JSON.parse(raw);
 
       chatSessionIdRef.current = chatId;
@@ -409,15 +409,14 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
 
       // sendMessage adds the user bubble and starts the AI stream
       if (pending.attachment) {
-        const dataUrl = `data:${pending.attachment.type};base64,${pending.attachment.data}`;
         sendMessage({
           text: pending.text,
           files: [
             {
               type: "file" as const,
-              mediaType: pending.attachment.type,
+              mediaType: pending.attachment.contentType,
               filename: pending.attachment.name,
-              url: dataUrl,
+              url: pending.attachment.url, // Firebase Storage HTTPS URL
             },
           ],
         });
@@ -478,7 +477,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
   // --- Send Message ---
   const handleSend = async (
     textToSend: string,
-    attachmentToSend?: { name: string; type: string; data: string },
+    attachmentToSend?: { name: string; contentType: string; url: string },
   ) => {
     if (connectionStatus === "offline") return;
     setBillingError(null);
@@ -524,6 +523,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
         JSON.stringify({
           text: textToSend,
           estimatedTokens,
+          // Store the Firebase Storage URL shape — no base64
           attachment: attachmentToSend ?? null,
         }),
       );
@@ -535,18 +535,15 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
 
     // ── EXISTING CHAT ────────────────────────────────────────────────────────
     // Send via Vercel AI SDK (adds user bubble + triggers stream)
-    // console.log("attachmentToSend", attachmentToSend);
-    // console.log("textToSend", textToSend);
     if (attachmentToSend) {
-      const dataUrl = `data:${attachmentToSend.type};base64,${attachmentToSend.data}`;
       sendMessage({
         text: textToSend,
         files: [
           {
             type: "file" as const,
-            mediaType: attachmentToSend.type,
+            mediaType: attachmentToSend.contentType,
             filename: attachmentToSend.name,
-            url: dataUrl,
+            url: attachmentToSend.url, // Firebase Storage HTTPS URL
           },
         ],
       });

@@ -65,8 +65,8 @@ declare global {
     isStreaming?: boolean;
     attachment?: {
       name: string;
-      type: string;
-      data: string;
+      contentType: string;
+      url: string;
     };
   };
 
@@ -185,7 +185,7 @@ declare global {
     text: string;
     createdAt: string;
     tokenCount: number;
-    attachment?: { name: string; type: string; url: string };
+    attachment?: { name: string; contentType: string; url: string };
   };
 
   type UsageSource = "free" | "paid" | "welcome";

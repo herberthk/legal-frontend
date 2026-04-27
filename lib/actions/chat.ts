@@ -39,7 +39,7 @@ export async function saveChatMessage(
     role: "user" | "assistant";
     text: string;
     tokenCount: number;
-    attachment?: { name: string; type: string; url: string };
+    attachment?: { name: string; contentType: string; url: string };
     isFirstMessage?: boolean; // Only update session title on the first user message
   },
 ) {
