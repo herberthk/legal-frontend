@@ -76,7 +76,8 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
                     scale: [1, 1.15, 1],
                   }}
                   transition={{
-                    duration: 20 + i * 8,
+                    duration:
+                      wsStatus === "connecting" ? 10 + i * 4 : 20 + i * 8,
                     repeat: Infinity,
                     ease: "linear",
                   }}
@@ -122,6 +123,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
           color={ringColor}
           size={280}
           status={status}
+          wsStatus={wsStatus}
           dashed
           opacity={0.25}
         />
@@ -131,6 +133,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
           color={ringColor}
           size={230}
           status={status}
+          wsStatus={wsStatus}
           delay={0.1}
           opacity={isDark ? 0.35 : 0.5}
         />
@@ -140,6 +143,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
           color={ringColor}
           size={180}
           status={status}
+          wsStatus={wsStatus}
           delay={0.2}
           opacity={isDark ? 0.5 : 0.7}
         />

@@ -80,39 +80,99 @@ export const statusPalette: Record<
 };
 
 // ─── Liquid Pulse (Connecting state) ──────────────────────────────────────────
-export const LiquidPulse = React.memo(() => (
-  <div className="absolute inset-0 flex items-center justify-center">
-    {[0, 1, 2].map((i) => (
+export const LiquidPulse = React.memo(() => {
+  const particles = React.useMemo(
+    () =>
+      [...Array(10)].map((_, i) => ({
+        // eslint-disable-next-line react-hooks/purity
+        x: (i % 2 === 0 ? 1 : -1) * (40 + Math.random() * 40),
+        // eslint-disable-next-line react-hooks/purity
+        y: (i % 3 === 0 ? 1 : -1) * (40 + Math.random() * 40),
+        // eslint-disable-next-line react-hooks/purity
+        duration: 2 + Math.random(),
+      })),
+    [],
+  );
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+      {/* Radiant Scanning Ray */}
       <motion.div
-        key={i}
-        className="absolute w-full h-full rounded-full border-2 border-white/30"
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{
-          scale: [0.8, 1.5],
-          opacity: [0.5, 0],
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          delay: i * 0.6,
-          ease: "easeOut",
-        }}
+        className="absolute w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0deg,rgba(255,255,255,0.15)_180deg,transparent_360deg)]"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
       />
-    ))}
-    <motion.div
-      className="w-4 h-4 bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.8)]"
-      animate={{
-        scale: [1, 1.5, 1],
-        opacity: [0.8, 1, 0.8],
-      }}
-      transition={{
-        duration: 1.5,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
-    />
-  </div>
-));
+
+      {/* Multi-layered Expanding Energy Rings */}
+      {[0, 1, 2, 3].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute w-full h-full rounded-full border border-white/20"
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{
+            scale: [0.4, 2],
+            opacity: [0.6, 0],
+            borderWidth: [1, 4, 1],
+          }}
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+            delay: i * 0.6,
+            ease: "easeOut",
+          }}
+        />
+      ))}
+
+      {/* Floating "Data" Particles */}
+      {particles.map((p, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1 h-1 bg-white rounded-full shadow-[0_0_8px_white]"
+          animate={{
+            x: [0, p.x],
+            y: [0, p.y],
+            opacity: [0, 0.8, 0],
+            scale: [0, 1.2, 0],
+          }}
+          transition={{
+            duration: p.duration,
+            repeat: Infinity,
+            delay: i * 0.2,
+            ease: "easeInOut",
+          }}
+          style={{
+            left: "50%",
+            top: "50%",
+            marginLeft: "-2px",
+            marginTop: "-2px",
+          }}
+        />
+      ))}
+
+      {/* Central Core Pulse */}
+      <div className="relative">
+        <motion.div
+          className="w-5 h-5 bg-white rounded-full shadow-[0_0_25px_rgba(255,255,255,0.9)]"
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [0.7, 1, 0.7],
+          }}
+          transition={{
+            duration: 1.2,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        {/* Inner Core */}
+        <motion.div
+          className="absolute inset-0 m-auto w-2 h-2 bg-indigo-200 rounded-full z-10"
+          animate={{ scale: [1, 0.8, 1] }}
+          transition={{ duration: 1.2, repeat: Infinity }}
+        />
+      </div>
+    </div>
+  );
+});
 LiquidPulse.displayName = "LiquidPulse";
 
 // ─── Animated Waveform Bars ──────────────────────────────────────────────────
@@ -139,65 +199,88 @@ export const OrbRing = React.memo<{
   color: string;
   size: number;
   status: CallStatus;
+  wsStatus?: VoiceSessionStatus;
   delay?: number;
   opacity?: number;
   dashed?: boolean;
-}>(({ color, size, status, delay = 0, opacity = 0.4, dashed = false }) => {
-  const isActive = status === "listening" || status === "speaking";
-  const isPulsing = status === "listening";
-  const isSpeaking = status === "speaking";
+}>(
+  ({
+    color,
+    size,
+    status,
+    wsStatus,
+    delay = 0,
+    opacity = 0.4,
+    dashed = false,
+  }) => {
+    const isActive = status === "listening" || status === "speaking";
+    const isPulsing = status === "listening";
+    const isSpeaking = status === "speaking";
+    const isConnecting = wsStatus === "connecting";
 
-  return (
-    <motion.div
-      className="absolute rounded-full pointer-events-none"
-      style={{
-        width: size,
-        height: size,
-        top: "50%",
-        left: "50%",
-        x: "-50%",
-        y: "-50%",
-        border: dashed ? `1.5px dashed ${color}` : `1.5px solid ${color}`,
-        boxShadow: isActive ? `0 0 40px 4px ${color}30` : "none",
-        willChange: "transform, opacity",
-      }}
-      animate={
-        dashed
-          ? {
-              rotate: isActive ? 360 : 0,
-              scale: isActive ? 1.25 : 1,
-              opacity: isActive ? 0.25 : 0.04,
-            }
-          : isPulsing
+    return (
+      <motion.div
+        className="absolute rounded-full pointer-events-none"
+        style={{
+          width: size,
+          height: size,
+          top: "50%",
+          left: "50%",
+          x: "-50%",
+          y: "-50%",
+          border: dashed ? `1.5px dashed ${color}` : `1.5px solid ${color}`,
+          boxShadow:
+            isActive || isConnecting ? `0 0 40px 4px ${color}30` : "none",
+          willChange: "transform, opacity",
+        }}
+        animate={
+          dashed
             ? {
-                scale: [1, 1.12, 1],
-                opacity: [opacity * 0.6, opacity, opacity * 0.6],
+                rotate: isActive || isConnecting ? 360 : 0,
+                scale: isActive || isConnecting ? 1.25 : 1,
+                opacity: isActive || isConnecting ? 0.25 : 0.04,
               }
-            : isSpeaking
+            : isConnecting
               ? {
-                  scale: [1, 1.1, 1],
-                  opacity: [opacity, opacity * 1.3, opacity],
-                  borderWidth: [1.5, 3, 1.5],
+                  scale: [1, 1.08, 1],
+                  opacity: [opacity * 0.5, opacity * 1.2, opacity * 0.5],
+                  rotate: [0, 90, 180, 270, 360],
                 }
-              : { scale: 1, opacity: opacity }
-      }
-      transition={
-        dashed
-          ? {
-              rotate: { duration: 12, ease: "linear", repeat: Infinity },
-              scale: { duration: 0.8 },
-              opacity: { duration: 0.8 },
-            }
-          : {
-              duration: isSpeaking ? 1 : 2,
-              repeat: isActive ? Infinity : 0,
-              ease: "easeInOut",
-              delay,
-            }
-      }
-    />
-  );
-});
+              : isPulsing
+                ? {
+                    scale: [1, 1.12, 1],
+                    opacity: [opacity * 0.6, opacity, opacity * 0.6],
+                  }
+                : isSpeaking
+                  ? {
+                      scale: [1, 1.1, 1],
+                      opacity: [opacity, opacity * 1.3, opacity],
+                      borderWidth: [1.5, 3, 1.5],
+                    }
+                  : { scale: 1, opacity: opacity }
+        }
+        transition={
+          dashed
+            ? {
+                rotate: {
+                  duration: isConnecting ? 4 : 12,
+                  ease: "linear",
+                  repeat: Infinity,
+                },
+                scale: { duration: 0.8 },
+                opacity: { duration: 0.8 },
+              }
+            : {
+                duration: isConnecting ? 1.5 : isSpeaking ? 1 : 2,
+                repeat: isActive || isConnecting ? Infinity : 0,
+                ease: "easeInOut",
+                delay,
+              }
+        }
+      />
+    );
+  },
+);
 OrbRing.displayName = "OrbRing";
 
 export const getStatusText = (

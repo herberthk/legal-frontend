@@ -17,9 +17,25 @@ export default async function VoicePage() {
   const balance = usageResult.user?.balance ?? 0;
 
   return (
-    <VoiceSessionManager
-      freeVoiceSeconds={freeVoiceSeconds}
-      balance={balance}
-    />
+    <>
+      <head>
+        <link
+          rel="preload"
+          href="/images/voice-bg.jpg"
+          as="image"
+          media="(min-width: 768px)"
+        />
+        <link
+          rel="preload"
+          href="/images/voice-bg-mobile.jpg"
+          as="image"
+          media="(max-width: 767px)"
+        />
+      </head>
+      <VoiceSessionManager
+        freeVoiceSeconds={freeVoiceSeconds}
+        balance={balance}
+      />
+    </>
   );
 }
