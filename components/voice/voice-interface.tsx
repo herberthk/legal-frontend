@@ -119,11 +119,17 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
           >
             <Image
               src="/images/voice-bg.jpg"
-              alt="Voice Session Background"
+              alt="Voice Session Background Desktop"
               fill
               priority
-              // objectFit="cover"
-              // className="object-cover"
+              className="hidden md:block object-cover"
+            />
+            <Image
+              src="/images/voice-bg-mobile.jpg"
+              alt="Voice Session Background Mobile"
+              fill
+              priority
+              className="block md:hidden object-cover"
             />
             {/* Overlay to ensure readability and premium feel */}
             <div className="absolute inset-0 bg-linear-to-b from-transparent via-[#0F172A]/50 to-[#0F172A]" />

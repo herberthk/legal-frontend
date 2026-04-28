@@ -59,10 +59,10 @@ export default function InstallPrompt() {
             <Download className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-slate-900 dark:text-white">
+            <h3 className="font-semibold text-slate-900 dark:text-white text-sm md:text-base">
               Install LegalAdviser app
             </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Add to your home screen for quick access and offline support.
             </p>
           </div>
