@@ -51,10 +51,11 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self' https://apis.google.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app;",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://*.google-analytics.com https://www.googletagmanager.com;",
+              "worker-src 'self' blob:;",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
               "font-src 'self' https://fonts.gstatic.com;",
               "img-src 'self' data: blob: https://ui-avatars.com https://i.pravatar.cc https://lh3.googleusercontent.com https://www.transparenttextures.com https://*.google-analytics.com https://www.googletagmanager.com;",
-              "connect-src 'self' https://apis.google.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.google-analytics.com https://*.google.com https://*.gstatic.com https://www.googletagmanager.com;",
+              "connect-src 'self' https://apis.google.com https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.google-analytics.com https://*.google.com https://*.gstatic.com https://www.googletagmanager.com;",
               "frame-src 'self' https://*.firebaseapp.com https://*.web.app;",
               "object-src 'none';",
               "base-uri 'self';",
