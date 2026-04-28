@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useGeminiLive } from "@/hooks/use-gemini-live";
 import { useConversationRecorder } from "@/hooks/use-conversation-recorder";
 import { useAuthStore } from "@/store";
@@ -80,6 +86,55 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   );
   const [uploadProgress, setUploadProgress] = useState(0);
   const [postCallError, setPostCallError] = useState<string | undefined>();
+
+  // ── Audio Feedback ────────────────────────────────────────────────────────────
+  const connectingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const connectedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const disconnectedAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Preload audio files
+  useEffect(() => {
+    connectingAudioRef.current = new Audio("/voices/connecting.mp3");
+    connectingAudioRef.current.loop = true;
+    connectedAudioRef.current = new Audio("/voices/connected.mp3");
+    disconnectedAudioRef.current = new Audio("/voices/disconnected.mp3");
+
+    return () => {
+      connectingAudioRef.current?.pause();
+      connectedAudioRef.current?.pause();
+      disconnectedAudioRef.current?.pause();
+      connectingAudioRef.current = null;
+      connectedAudioRef.current = null;
+      disconnectedAudioRef.current = null;
+    };
+  }, []);
+
+  // Handle Audio Playback based on wsStatus
+  useEffect(() => {
+    if (wsStatus === "connecting") {
+      connectingAudioRef.current?.play().catch((err) => {
+        console.warn("Connecting sound playback failed:", err);
+      });
+    } else {
+      connectingAudioRef.current?.pause();
+      if (connectingAudioRef.current) {
+        connectingAudioRef.current.currentTime = 0;
+      }
+    }
+
+    if (wsStatus === "open") {
+      connectedAudioRef.current?.play().catch((err) => {
+        console.warn("Connected sound playback failed:", err);
+      });
+    }
+
+    if (wsStatus === "closed") {
+      disconnectedAudioRef.current?.play().catch((err) => {
+        console.warn("Disconnected sound playback failed:", err);
+      });
+    }
+  }, [wsStatus]);
+
 
   // Handle Muting logic via the hook directly
   useEffect(() => {
