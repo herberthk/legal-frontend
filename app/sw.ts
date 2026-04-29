@@ -37,6 +37,7 @@ const GOOGLE_FIREBASE_ORIGINS = [
   "https://firebaselogging.googleapis.com",
   "https://www.gstatic.com",
   "https://accounts.google.com",
+  "https://storage.googleapis.com",
 ];
 
 // This listener is registered BEFORE serwist.addEventListeners() so it runs
