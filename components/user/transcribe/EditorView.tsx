@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Edit3, FileText, FileImage, Download, Settings, RotateCcw } from "lucide-react";
+import { Edit3, FileText, FileImage, Download, Settings, RotateCcw, Save, Loader2 } from "lucide-react";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
 import { TranscribeStatus } from "@/hooks/use-document-transcribe";
 import { memo } from "react";
@@ -15,6 +15,8 @@ interface EditorViewProps {
   onDownload: () => void;
   onReset: () => void;
   setShowSettingsModal: (show: boolean) => void;
+  onSave?: () => void;
+  isSaving?: boolean;
 }
 
 export const EditorView = memo(({
@@ -26,6 +28,8 @@ export const EditorView = memo(({
   onDownload,
   onReset,
   setShowSettingsModal,
+  onSave,
+  isSaving,
 }: EditorViewProps) => {
   return (
     <motion.div
@@ -89,6 +93,17 @@ export const EditorView = memo(({
                 <Download className="w-5 h-5" />
                 Download PDF
               </button>
+
+              {onSave && (
+                <button
+                  onClick={onSave}
+                  disabled={isSaving}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-indigo-600 text-white font-black hover:bg-indigo-700 transition-all duration-300 shadow-lg shadow-indigo-500/20 active:scale-95 active:translate-y-1 border-b-4 border-indigo-800 disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                  {isSaving ? "Saving..." : "Save to DB"}
+                </button>
+              )}
             </>
           )}
         </div>

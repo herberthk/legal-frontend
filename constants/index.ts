@@ -8,3 +8,4 @@ export * from "./constants";
 export * from "./prompt";
 export * from "./voices";
 export * from "./buckets";
+export * from "./menu";

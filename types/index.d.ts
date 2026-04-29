@@ -138,6 +138,18 @@ declare global {
     createdAt: string; // ISO Date string
   };
 
+  type TranscriptionRecord = {
+    id: string;
+    userId: string;
+    title: string;
+    fileName: string;
+    fileUrl?: string; // Original document URL
+    transcribedText: string;
+    formatMode: "professional" | "original";
+    createdAt: string; // ISO string
+    updatedAt: string; // ISO string
+  };
+
   type Transcript = {
     role: "user" | "AI";
     content: string;

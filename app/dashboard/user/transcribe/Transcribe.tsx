@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 
 // Hooks
@@ -13,7 +13,18 @@ import { EditorView } from "@/components/user/transcribe/EditorView";
 import { ReferenceModal } from "@/components/user/transcribe/ReferenceModal";
 import { PdfSettingsModal } from "@/components/user/transcribe/PdfSettingsModal";
 
-const Transcribe = () => {
+import { ArrowLeft } from "lucide-react";
+import { storage } from "@/firebase/client";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { saveTranscriptionRecord } from "@/lib/actions/transcribe";
+import { toast } from "sonner";
+
+interface TranscribeProps {
+  onClose?: () => void;
+  initialRecord?: TranscriptionRecord | null;
+}
+
+const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
   const {
     file,
     previewUrl,
@@ -25,6 +36,7 @@ const Transcribe = () => {
     setStatus,
     setTranscription,
     setFormatMode,
+    setPreviewUrl,
     handleDrop,
     processDocument,
     downloadPdf,
@@ -41,11 +53,85 @@ const Transcribe = () => {
     documentTitle,
   } = useDocumentTranscribe();
 
+  useEffect(() => {
+    if (initialRecord) {
+      setTranscription(initialRecord.transcribedText);
+      setDocumentTitle(initialRecord.title);
+      setFormatMode(initialRecord.formatMode);
+      setStatus("editing");
+      if (initialRecord.fileUrl) {
+        setPreviewUrl(initialRecord.fileUrl);
+      }
+    }
+  }, [
+    initialRecord,
+    setTranscription,
+    setDocumentTitle,
+    setFormatMode,
+    setStatus,
+    setPreviewUrl,
+  ]);
+
   const [showReferenceModal, setShowReferenceModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!transcription) {
+      toast.error("No transcription to save.");
+      return;
+    }
+
+    setIsSaving(true);
+    let fileUrl: string | undefined = undefined;
+
+    try {
+      if (file) {
+        const storageRef = ref(
+          storage,
+          `transcriptions/${Date.now()}_${file.name}`,
+        );
+        const snapshot = await uploadBytes(storageRef, file);
+        fileUrl = await getDownloadURL(snapshot.ref);
+      }
+
+      const res = await saveTranscriptionRecord({
+        title: documentTitle || "Untitled Document",
+        fileName: file?.name || "untitled.pdf",
+        fileUrl,
+        transcribedText: transcription,
+        formatMode,
+      });
+
+      if (res.success) {
+        toast.success("Transcription saved successfully!");
+        if (onClose) onClose();
+      } else {
+        toast.error("Failed to save transcription", { description: res.error });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error(err);
+      toast.error("An error occurred while saving.", {
+        description: err.message,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-indigo-50/5 dark:bg-slate-900 transition-colors duration-500">
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 mb-6 px-4 py-2 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-800 rounded-xl font-medium shadow-sm transition-colors border border-slate-100 dark:border-slate-700 w-fit"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to History
+          </button>
+        )}
         <AnimatePresence mode="wait">
           {/* Upload Stage */}
           {status === "idle" && !file && (
@@ -86,6 +172,8 @@ const Transcribe = () => {
                 onDownload={downloadPdf}
                 onReset={reset}
                 setShowSettingsModal={setShowSettingsModal}
+                onSave={handleSave}
+                isSaving={isSaving}
               />
             </div>
           )}

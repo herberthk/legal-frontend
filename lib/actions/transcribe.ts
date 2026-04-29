@@ -3,6 +3,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { getAuthenticatedUserId } from "./auth";
 import { checkUserCanSend, recordUsageAndDeduct } from "./usage";
+import { db } from "@/firebase/admin";
+import { COLLECTIONS } from "@/constants";
+import { FieldValue } from "firebase-admin/firestore";
 
 interface TranscribeDocumentParams {
   base64Data: string;
@@ -92,5 +95,163 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
         error.message || "An unexpected error occurred during transcription.",
       errorType: "GENERAL" as const,
     };
+  }
+}
+
+export async function saveTranscriptionRecord(
+  data: Omit<TranscriptionRecord, "id" | "createdAt" | "updatedAt" | "userId">,
+) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc();
+    const now = FieldValue.serverTimestamp();
+
+    await docRef.set({
+      ...data,
+      userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { success: true, id: docRef.id };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("Error saving transcription:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getTranscriptions(
+  limitCount = 10,
+  beforeId?: string,
+  searchQuery?: string,
+) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    let collectionRef: FirebaseFirestore.Query = db
+      .collection(COLLECTIONS.TRANSCRIPTIONS)
+      .where("userId", "==", userId);
+
+    if (searchQuery) {
+      // Very basic prefix search since Firestore lacks full text search
+      // Using \uf8ff to get items that start with searchQuery
+      collectionRef = collectionRef
+        .where("title", ">=", searchQuery)
+        .where("title", "<=", searchQuery + "\uf8ff");
+    }
+
+    // Always sort by createdAt desc unless restricted by inequality constraints.
+    // If searching by title, we need to order by title first, then createdAt
+    if (searchQuery) {
+      collectionRef = collectionRef
+        .orderBy("title")
+        .orderBy("createdAt", "desc");
+    } else {
+      collectionRef = collectionRef.orderBy("createdAt", "desc");
+    }
+
+    if (beforeId) {
+      const cursorDoc = await db
+        .collection(COLLECTIONS.TRANSCRIPTIONS)
+        .doc(beforeId)
+        .get();
+      if (cursorDoc.exists) {
+        collectionRef = collectionRef.startAfter(cursorDoc);
+      }
+    }
+
+    const snapshot = await collectionRef.limit(limitCount + 1).get();
+
+    const hasMore = snapshot.docs.length > limitCount;
+    const docs = hasMore ? snapshot.docs.slice(0, limitCount) : snapshot.docs;
+
+    const transcriptions = docs.map((doc) => ({
+      ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data().createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+      updatedAt:
+        doc.data().updatedAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+    })) as TranscriptionRecord[];
+
+    return { success: true, transcriptions, hasMore };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("Error getting transcriptions:", error);
+    return {
+      success: false,
+      transcriptions: [],
+      hasMore: false,
+      error: error.message,
+    };
+  }
+}
+
+export async function getTranscriptionRecord(id: string) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const doc = await db.collection(COLLECTIONS.TRANSCRIPTIONS).doc(id).get();
+
+    if (!doc.exists || doc.data()?.userId !== userId) {
+      return { success: false, error: "Transcription not found" };
+    }
+
+    const data = doc.data();
+    const record = {
+      ...data,
+      id: doc.id,
+      createdAt:
+        data?.createdAt?.toDate().toISOString() || new Date().toISOString(),
+      updatedAt:
+        data?.updatedAt?.toDate().toISOString() || new Date().toISOString(),
+    } as TranscriptionRecord;
+
+    return { success: true, record };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("Error getting transcription:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteTranscriptionRecord(id: string) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return { success: false, error: "Transcription not found" };
+    }
+
+    if (doc.data()?.userId !== userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await docRef.delete();
+
+    return { success: true };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("Error deleting transcription:", error);
+    return { success: false, error: error.message };
   }
 }
