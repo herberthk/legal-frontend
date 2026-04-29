@@ -18,20 +18,18 @@ export default async function VoicePage() {
 
   return (
     <>
-      <head>
-        <link
-          rel="preload"
-          href="/images/voice-bg.jpg"
-          as="image"
-          media="(min-width: 768px)"
-        />
-        <link
-          rel="preload"
-          href="/images/voice-bg-mobile.jpg"
-          as="image"
-          media="(max-width: 767px)"
-        />
-      </head>
+      <link
+        rel="preload"
+        href="/images/voice-bg.jpg"
+        as="image"
+        media="(min-width: 768px)"
+      />
+      <link
+        rel="preload"
+        href="/images/voice-bg-mobile.jpg"
+        as="image"
+        media="(max-width: 767px)"
+      />
       <VoiceSessionManager
         freeVoiceSeconds={freeVoiceSeconds}
         balance={balance}

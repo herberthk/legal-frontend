@@ -83,7 +83,9 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
     }
 
     setIsSaving(true);
-    const toastId = toast.loading(file ? "Uploading source document..." : "Saving to database...");
+    const toastId = toast.loading(
+      file ? "Uploading source document..." : "Saving to database...",
+    );
     let fileUrl: string | undefined = undefined;
 
     try {
@@ -94,7 +96,14 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
         );
         const snapshot = await uploadBytes(storageRef, file);
         fileUrl = await getDownloadURL(snapshot.ref);
-        toast.loading("Saving to database...", { id: toastId });
+        toast.loading("Saving to database...", {
+          id: toastId,
+          style: {
+            backgroundColor: "#1e293b",
+            color: "#ffffff",
+            border: "none",
+          },
+        });
       }
 
       const res = await saveTranscriptionRecord({
@@ -109,11 +118,31 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
       if (res.success) {
         toast.loading("Finalizing...", { id: toastId });
         setTimeout(() => {
-          toast.success(initialRecord ? "Transcription updated successfully!" : "Transcription saved successfully!", { id: toastId });
+          toast.success(
+            initialRecord
+              ? "Transcription updated successfully!"
+              : "Transcription saved successfully!",
+            {
+              id: toastId,
+              style: {
+                backgroundColor: "#1e293b",
+                color: "#ffffff",
+                border: "none",
+              },
+            },
+          );
           if (onClose) onClose();
         }, 800);
       } else {
-        toast.error("Failed to save transcription", { id: toastId, description: res.error });
+        toast.error("Failed to save transcription", {
+          id: toastId,
+          description: res.error,
+          style: {
+            backgroundColor: "#1e293b",
+            color: "#ffffff",
+            border: "none",
+          },
+        });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -121,6 +150,11 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
       toast.error("An error occurred while saving.", {
         id: toastId,
         description: err.message,
+        style: {
+          backgroundColor: "#1e293b",
+          color: "#ffffff",
+          border: "none",
+        },
       });
     } finally {
       setIsSaving(false);

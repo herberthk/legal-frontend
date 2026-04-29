@@ -99,7 +99,10 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
 }
 
 export async function saveTranscriptionRecord(
-  data: Omit<TranscriptionRecord, "id" | "createdAt" | "updatedAt" | "userId"> & { id?: string },
+  data: Omit<
+    TranscriptionRecord,
+    "id" | "createdAt" | "updatedAt" | "userId"
+  > & { id?: string },
 ) {
   try {
     const userId = await getAuthenticatedUserId();
@@ -255,7 +258,11 @@ export async function getTranscriptionRecord(id: string) {
   }
 }
 
-export async function deleteTranscriptionRecord(id: string) {
+export async function deleteTranscriptionRecord(id: string): Promise<{
+  success: boolean;
+  error?: string;
+  fileUrl?: string;
+}> {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) {
@@ -273,7 +280,7 @@ export async function deleteTranscriptionRecord(id: string) {
       return { success: false, error: "Unauthorized" };
     }
 
-    const fileUrl = doc.data()?.fileUrl;
+    const fileUrl = doc.data()?.fileUrl as string;
 
     await docRef.delete();
 

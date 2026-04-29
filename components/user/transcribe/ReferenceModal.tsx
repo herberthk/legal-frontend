@@ -58,7 +58,8 @@ export function ReferenceModal({
             </div>
 
             <div className="flex-1 overflow-auto p-6 md:p-10 bg-indigo-50/30 dark:bg-slate-900 flex justify-center items-start">
-              {file?.type === "application/pdf" || previewUrl.toLowerCase().includes(".pdf") ? (
+              {file?.type === "application/pdf" ||
+              previewUrl.toLowerCase().includes(".pdf") ? (
                 <iframe
                   src={`${previewUrl}#toolbar=0`}
                   className="w-full max-w-6xl h-full min-h-[700px] rounded-3xl border border-indigo-200 dark:border-indigo-900 shadow-2xl bg-white dark:bg-black/20"
