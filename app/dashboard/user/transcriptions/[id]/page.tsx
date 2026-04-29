@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "nextjs-toploader/app";
 import { getTranscriptionRecord } from "@/lib/actions/transcribe";
 import Transcribe from "../../transcribe/Transcribe";
+import { ViewRecordSkeleton } from "@/components/user/transcribe/TranscriptionSkeleton";
 
 export default function TranscriptionViewPage() {
   const { id } = useParams();
@@ -24,11 +26,21 @@ export default function TranscriptionViewPage() {
         } else {
           toast.error("Failed to load transcription", {
             description: res.error,
+            style: {
+              backgroundColor: "#dc2626",
+              color: "white",
+            },
           });
           router.push("/dashboard/user/transcriptions");
         }
       } catch (error) {
-        toast.error("Error loading transcription");
+        toast.error("Error loading transcription", {
+          description: (error as Error).message,
+          style: {
+            backgroundColor: "#dc2626",
+            color: "white",
+          },
+        });
         router.push("/dashboard/user/transcriptions");
       } finally {
         setIsLoading(false);
@@ -36,17 +48,10 @@ export default function TranscriptionViewPage() {
     };
 
     fetchRecord();
-  }, [id, router]);
+  }, [id]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-indigo-50/5 dark:bg-slate-900 transition-colors duration-500">
-        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-        <p className="mt-4 text-slate-500 dark:text-slate-400 font-medium animate-pulse">
-          Loading transcription...
-        </p>
-      </div>
-    );
+    return <ViewRecordSkeleton />;
   }
 
   if (!record) {

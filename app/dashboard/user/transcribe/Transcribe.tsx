@@ -12,11 +12,13 @@ import { ProcessingStep } from "@/components/user/transcribe/ProcessingStep";
 import { EditorView } from "@/components/user/transcribe/EditorView";
 import { ReferenceModal } from "@/components/user/transcribe/ReferenceModal";
 import { PdfSettingsModal } from "@/components/user/transcribe/PdfSettingsModal";
+import { SaveTitleModal } from "@/components/user/transcribe/SaveTitleModal";
 
 import { ArrowLeft } from "lucide-react";
 import { storage } from "@/firebase/client";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { saveTranscriptionRecord } from "@/lib/actions/transcribe";
+import { useRouter } from "nextjs-toploader/app";
 import { toast } from "sonner";
 
 interface TranscribeProps {
@@ -25,6 +27,7 @@ interface TranscribeProps {
 }
 
 const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
+  const router = useRouter();
   const {
     file,
     previewUrl,
@@ -54,7 +57,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
   } = useDocumentTranscribe();
 
   useEffect(() => {
-    if (initialRecord) {
+    if (initialRecord && status === "idle") {
       setTranscription(initialRecord.transcribedText);
       setDocumentTitle(initialRecord.title);
       setFormatMode(initialRecord.formatMode);
@@ -65,6 +68,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
     }
   }, [
     initialRecord,
+    status,
     setTranscription,
     setDocumentTitle,
     setFormatMode,
@@ -74,14 +78,10 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
 
   const [showReferenceModal, setShowReferenceModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = async () => {
-    if (!transcription) {
-      toast.error("No transcription to save.");
-      return;
-    }
-
+  const performSave = async (finalTitle: string) => {
     setIsSaving(true);
     const toastId = toast.loading(
       file ? "Uploading source document..." : "Saving to database...",
@@ -108,7 +108,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
 
       const res = await saveTranscriptionRecord({
         id: initialRecord?.id,
-        title: documentTitle || "Untitled Document",
+        title: finalTitle,
         fileName: file?.name || initialRecord?.fileName || "untitled.pdf",
         fileUrl: fileUrl || initialRecord?.fileUrl,
         transcribedText: transcription,
@@ -117,6 +117,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
 
       if (res.success) {
         toast.loading("Finalizing...", { id: toastId });
+        setShowSaveModal(false);
         setTimeout(() => {
           toast.success(
             initialRecord
@@ -131,7 +132,12 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
               },
             },
           );
-          if (onClose) onClose();
+
+          if (!initialRecord && res.id) {
+            router.push(`/dashboard/user/transcriptions/${res.id}`);
+          } else if (onClose) {
+            onClose();
+          }
         }, 800);
       } else {
         toast.error("Failed to save transcription", {
@@ -158,6 +164,21 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!transcription) {
+      toast.error("No transcription to save.");
+      return;
+    }
+
+    if (initialRecord) {
+      // Direct update for existing records
+      await performSave(documentTitle || "Untitled Document");
+    } else {
+      // Show modal for new transcriptions
+      setShowSaveModal(true);
     }
   };
 
@@ -245,6 +266,20 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
           setPageNumberPosition={setPageNumberPosition}
         />
       )}
+      <SaveTitleModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onConfirm={(title) => {
+          setDocumentTitle(title);
+          performSave(title);
+        }}
+        defaultTitle={
+          documentTitle ||
+          file?.name?.replace(/\.[^/.]+$/, "") ||
+          "Untitled Document"
+        }
+        isSaving={isSaving}
+      />
     </div>
   );
 };

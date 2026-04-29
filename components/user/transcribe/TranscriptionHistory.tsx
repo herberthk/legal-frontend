@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  FileText,
-  Search,
-  Trash2,
-  Plus,
-  Loader2,
+import { 
+  FileText, 
+  Search, 
+  Trash2, 
+  Plus, 
+  Loader2, 
   Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import {
   deleteTranscriptionRecord,
 } from "@/lib/actions/transcribe";
 import { CustomButton } from "@/components/ui/custom-button";
+import { HistorySkeleton } from "./TranscriptionSkeleton";
 import { storage } from "@/firebase/client";
 import { ref, deleteObject } from "firebase/storage";
 
@@ -121,14 +122,8 @@ export const TranscriptionHistory = ({
         if (res.fileUrl) {
           toast.loading("Cleaning up associated files...", { id: toastId });
           try {
-            // Extract path from storage URL
-            const url = new URL(res.fileUrl);
-            const pathPart = url.pathname.split("/o/")[1];
-            if (pathPart) {
-              const decodedPath = decodeURIComponent(pathPart.split("?")[0]);
-              const storageRef = ref(storage, decodedPath);
-              await deleteObject(storageRef);
-            }
+            const storageRef = ref(storage, res.fileUrl);
+            await deleteObject(storageRef);
           } catch (storageErr) {
             console.error("Storage cleanup failed:", storageErr);
             // We don't fail the whole operation if storage cleanup fails
@@ -138,11 +133,19 @@ export const TranscriptionHistory = ({
         setTranscriptions((prev) => prev.filter((t) => t.id !== id));
         toast.success("Transcription and files deleted successfully", {
           id: toastId,
+          style: {
+            backgroundColor: "#22c55e",
+            color: "white",
+          },
         });
       } else {
         toast.error("Failed to delete transcription", {
           id: toastId,
           description: res.error,
+          style: {
+            backgroundColor: "#dc2626",
+            color: "white",
+          },
         });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +153,10 @@ export const TranscriptionHistory = ({
       toast.error("An error occurred during deletion", {
         id: toastId,
         description: err.message,
+        style: {
+          backgroundColor: "#dc2626",
+          color: "white",
+        },
       });
     } finally {
       setDeletingId(null);
@@ -165,6 +172,10 @@ export const TranscriptionHistory = ({
       minute: "2-digit",
     });
   };
+
+  if (isLoading) {
+    return <HistorySkeleton />;
+  }
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16 min-h-screen flex flex-col bg-indigo-50/5 dark:bg-slate-900 transition-colors duration-500">
@@ -232,14 +243,7 @@ export const TranscriptionHistory = ({
       </div>
 
       <div className="flex-1">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64 space-y-4">
-            <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-            <p className="text-slate-500 dark:text-slate-400 font-medium animate-pulse">
-              Loading your history...
-            </p>
-          </div>
-        ) : transcriptions.length === 0 ? (
+        {transcriptions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center bg-white dark:bg-slate-800 rounded-3xl border border-indigo-50 dark:border-slate-700 p-8 shadow-sm">
             <div className="w-20 h-20 bg-indigo-50 dark:bg-slate-700 rounded-full flex items-center justify-center mb-6">
               <FileText className="w-10 h-10 text-indigo-300 dark:text-slate-400" />
