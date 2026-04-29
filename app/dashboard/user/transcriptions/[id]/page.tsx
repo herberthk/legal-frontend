@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getTranscriptionRecord } from "@/lib/actions/transcribe";
 import Transcribe from "../../transcribe/Transcribe";
@@ -22,7 +22,9 @@ export default function TranscriptionViewPage() {
         if (res.success && res.record) {
           setRecord(res.record);
         } else {
-          toast.error("Failed to load transcription", { description: res.error });
+          toast.error("Failed to load transcription", {
+            description: res.error,
+          });
           router.push("/dashboard/user/transcriptions");
         }
       } catch (error) {
@@ -52,9 +54,9 @@ export default function TranscriptionViewPage() {
   }
 
   return (
-    <Transcribe 
-      initialRecord={record} 
-      onClose={() => router.push("/dashboard/user/transcriptions")} 
+    <Transcribe
+      initialRecord={record}
+      onClose={() => router.push("/dashboard/user/transcriptions")}
     />
   );
 }

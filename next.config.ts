@@ -54,8 +54,8 @@ const nextConfig: NextConfig = {
               "worker-src 'self' blob:;",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
               "font-src 'self' https://fonts.gstatic.com;",
-              "img-src 'self' data: blob: https://ui-avatars.com https://i.pravatar.cc https://lh3.googleusercontent.com https://www.transparenttextures.com https://*.google-analytics.com https://www.googletagmanager.com;",
-              "connect-src 'self' data: https://apis.google.com https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.google-analytics.com https://*.google.com https://*.gstatic.com https://www.googletagmanager.com;",
+              "img-src 'self' data: blob: https://ui-avatars.com https://i.pravatar.cc https://lh3.googleusercontent.com https://www.transparenttextures.com https://*.google-analytics.com https://www.googletagmanager.com https://firebasestorage.googleapis.com;",
+              "connect-src 'self' data: https://apis.google.com https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.google-analytics.com https://*.google.com https://*.gstatic.com https://www.googletagmanager.com https://firebasestorage.googleapis.com https://*.firebasestorage.app;",
               "frame-src 'self' https://*.firebaseapp.com https://*.web.app;",
               "object-src 'none';",
               "base-uri 'self';",
@@ -84,7 +84,8 @@ const nextConfig: NextConfig = {
             // handler in sw.ts. The page-level CSP (above) still protects the
             // actual document context.
             key: "Content-Security-Policy",
-            value: "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src *",
+            value:
+              "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src *",
           },
         ],
       },
