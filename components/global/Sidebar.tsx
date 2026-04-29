@@ -424,7 +424,7 @@ const GlobalSidebar = ({ user }: Props) => {
                 if (link.subItems && link.subItems.length > 0) {
                   return (
                     <CollapsibleMenu
-                      key={link.href}
+                      key={link.id}
                       link={link}
                       pathname={pathname}
                       setOpenMobile={setOpenMobile}
@@ -434,7 +434,7 @@ const GlobalSidebar = ({ user }: Props) => {
                 }
 
                 return (
-                  <SidebarMenuItem key={link.href}>
+                  <SidebarMenuItem key={link.id}>
                     <motion.div variants={itemVariants}>
                       <SidebarMenuButton
                         asChild
