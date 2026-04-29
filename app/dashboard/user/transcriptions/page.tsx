@@ -1,17 +1,17 @@
 "use client";
 
 import { TranscriptionHistory } from "@/components/user/transcribe/TranscriptionHistory";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 
 const TranscriptionsPage = () => {
   const router = useRouter();
 
   return (
-    <TranscriptionHistory 
-      onNewTranscription={() => router.push("/dashboard/user/transcribe")} 
+    <TranscriptionHistory
+      onNewTranscription={() => router.push("/dashboard/user/transcribe")}
       onViewTranscription={(record) => {
         router.push(`/dashboard/user/transcriptions/${record.id}`);
-      }} 
+      }}
     />
   );
 };

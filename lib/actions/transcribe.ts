@@ -99,7 +99,7 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
 }
 
 export async function saveTranscriptionRecord(
-  data: Omit<TranscriptionRecord, "id" | "createdAt" | "updatedAt" | "userId">,
+  data: Omit<TranscriptionRecord, "id" | "createdAt" | "updatedAt" | "userId"> & { id?: string },
 ) {
   try {
     const userId = await getAuthenticatedUserId();
@@ -107,17 +107,30 @@ export async function saveTranscriptionRecord(
       throw new Error("Unauthorized");
     }
 
-    const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc();
+    const { id, ...updateData } = data;
     const now = FieldValue.serverTimestamp();
 
-    await docRef.set({
-      ...data,
-      userId,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return { success: true, id: docRef.id };
+    if (id) {
+      const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc(id);
+      const doc = await docRef.get();
+      if (!doc.exists || doc.data()?.userId !== userId) {
+        throw new Error("Unauthorized or Transcription not found");
+      }
+      await docRef.update({
+        ...updateData,
+        updatedAt: now,
+      });
+      return { success: true, id };
+    } else {
+      const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc();
+      await docRef.set({
+        ...updateData,
+        userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { success: true, id: docRef.id };
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error saving transcription:", error);
@@ -129,6 +142,7 @@ export async function getTranscriptions(
   limitCount = 10,
   beforeId?: string,
   searchQuery?: string,
+  timeRange?: "24h" | "7d" | "30d" | "all",
 ) {
   try {
     const userId = await getAuthenticatedUserId();
@@ -139,6 +153,19 @@ export async function getTranscriptions(
     let collectionRef: FirebaseFirestore.Query = db
       .collection(COLLECTIONS.TRANSCRIPTIONS)
       .where("userId", "==", userId);
+
+    if (timeRange && timeRange !== "all") {
+      const now = new Date();
+      let filterDate: Date;
+      if (timeRange === "24h") {
+        filterDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      } else if (timeRange === "7d") {
+        filterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else {
+        filterDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      collectionRef = collectionRef.where("createdAt", ">=", filterDate);
+    }
 
     if (searchQuery) {
       // Very basic prefix search since Firestore lacks full text search
@@ -246,9 +273,11 @@ export async function deleteTranscriptionRecord(id: string) {
       return { success: false, error: "Unauthorized" };
     }
 
+    const fileUrl = doc.data()?.fileUrl;
+
     await docRef.delete();
 
-    return { success: true };
+    return { success: true, fileUrl };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error deleting transcription:", error);

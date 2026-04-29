@@ -83,6 +83,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
     }
 
     setIsSaving(true);
+    const toastId = toast.loading(file ? "Uploading source document..." : "Saving to database...");
     let fileUrl: string | undefined = undefined;
 
     try {
@@ -93,26 +94,32 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
         );
         const snapshot = await uploadBytes(storageRef, file);
         fileUrl = await getDownloadURL(snapshot.ref);
+        toast.loading("Saving to database...", { id: toastId });
       }
 
       const res = await saveTranscriptionRecord({
+        id: initialRecord?.id,
         title: documentTitle || "Untitled Document",
-        fileName: file?.name || "untitled.pdf",
-        fileUrl,
+        fileName: file?.name || initialRecord?.fileName || "untitled.pdf",
+        fileUrl: fileUrl || initialRecord?.fileUrl,
         transcribedText: transcription,
         formatMode,
       });
 
       if (res.success) {
-        toast.success("Transcription saved successfully!");
-        if (onClose) onClose();
+        toast.loading("Finalizing...", { id: toastId });
+        setTimeout(() => {
+          toast.success(initialRecord ? "Transcription updated successfully!" : "Transcription saved successfully!", { id: toastId });
+          if (onClose) onClose();
+        }, 800);
       } else {
-        toast.error("Failed to save transcription", { description: res.error });
+        toast.error("Failed to save transcription", { id: toastId, description: res.error });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error(err);
       toast.error("An error occurred while saving.", {
+        id: toastId,
         description: err.message,
       });
     } finally {
@@ -174,6 +181,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
                 setShowSettingsModal={setShowSettingsModal}
                 onSave={handleSave}
                 isSaving={isSaving}
+                isUpdating={!!initialRecord}
               />
             </div>
           )}

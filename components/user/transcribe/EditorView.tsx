@@ -17,6 +17,7 @@ interface EditorViewProps {
   setShowSettingsModal: (show: boolean) => void;
   onSave?: () => void;
   isSaving?: boolean;
+  isUpdating?: boolean;
 }
 
 export const EditorView = memo(({
@@ -30,6 +31,7 @@ export const EditorView = memo(({
   setShowSettingsModal,
   onSave,
   isSaving,
+  isUpdating,
 }: EditorViewProps) => {
   return (
     <motion.div
@@ -101,7 +103,7 @@ export const EditorView = memo(({
                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-indigo-600 text-white font-black hover:bg-indigo-700 transition-all duration-300 shadow-lg shadow-indigo-500/20 active:scale-95 active:translate-y-1 border-b-4 border-indigo-800 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                  {isSaving ? "Saving..." : "Save to DB"}
+                  {isSaving ? "Saving..." : isUpdating ? "Update Changes" : "Save to DB"}
                 </button>
               )}
             </>
