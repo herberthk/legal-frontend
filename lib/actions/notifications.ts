@@ -204,3 +204,38 @@ export const getLatestUnreadNotifications = async (userId: string) => {
     };
   }
 };
+
+// ─── FCM Token Management ─────────────────────────────────────────────────────
+
+/**
+ * Saves (upserts) an FCM registration token for a user.
+ * Tokens are stored in the top-level `fcmTokens` collection.
+ */
+export async function saveFCMToken(userId: string, token: string) {
+  try {
+    await db.collection(COLLECTIONS.FCM_TOKENS).doc(token).set({
+      id: token,
+      userId,
+      token,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("[FCM] Error saving token:", error);
+    return { success: false };
+  }
+}
+
+/**
+ * Removes a stale or revoked FCM registration token.
+ */
+export async function removeFCMToken(token: string) {
+  try {
+    await db.collection(COLLECTIONS.FCM_TOKENS).doc(token).delete();
+    return { success: true };
+  } catch (error) {
+    console.error("[FCM] Error removing token:", error);
+    return { success: false };
+  }
+}

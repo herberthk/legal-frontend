@@ -3,6 +3,8 @@
 import { defaultCache } from "@serwist/turbopack/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist } from "serwist";
+import { initializeApp } from "firebase/app";
+import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
@@ -15,6 +17,61 @@ declare global {
 }
 
 declare const self: ServiceWorkerGlobalScope;
+
+// ─── Firebase Cloud Messaging — Background Push Handler ───────────────────────
+// Initialise Firebase and Messaging.
+// Because Serwist outputs a module worker, we use ES module imports instead
+// of `importScripts()`.
+const firebaseApp = initializeApp({
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+});
+
+const messaging = getMessaging(firebaseApp);
+
+/**
+ * Background message handler — fires when the web app is NOT in focus.
+ * FCM automatically creates a notification from the `notification` field;
+ * we override the options here to provide consistent icon / badge branding.
+ */
+onBackgroundMessage(messaging, (payload) => {
+  const { title, body, icon } = payload.notification ?? {};
+  const notificationTitle: string = title ?? "Legal Adviser";
+  const notificationOptions: NotificationOptions = {
+    body: body ?? "",
+    icon: icon ?? "/icons/icon-192x192.png",
+    badge: "/icons/icon-96x96.png",
+    data: payload.data ?? {},
+    // Replace any previous notification from this app so the tray stays tidy
+    tag: "legal-adviser-push",
+  };
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+/** Navigate / focus the app tab when a notification is clicked. */
+self.addEventListener("notificationclick", (event: NotificationEvent) => {
+  event.notification.close();
+  const url: string =
+    (event.notification.data?.url as string) ?? "/dashboard/user/voice";
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(url) && "focus" in client) {
+            return (client as WindowClient).focus();
+          }
+        }
+        return self.clients.openWindow(url);
+      }),
+  );
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Domains that must bypass the service worker entirely.
@@ -38,6 +95,9 @@ const GOOGLE_FIREBASE_ORIGINS = [
   "https://www.gstatic.com",
   "https://accounts.google.com",
   "https://storage.googleapis.com",
+  // FCM push registration & delivery endpoints
+  "https://fcm.googleapis.com",
+  "https://fcmregistrations.googleapis.com",
 ];
 
 // This listener is registered BEFORE serwist.addEventListeners() so it runs

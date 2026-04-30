@@ -13,6 +13,8 @@ const GeminiVoiceConnection = dynamic(
   },
 );
 
+import { MicrophoneSoftPrompt } from "./MicrophoneSoftPrompt";
+
 interface VoiceSessionManagerProps {
   freeVoiceSeconds: number;
   balance: number;
@@ -23,10 +25,12 @@ const VoiceSessionManager: React.FC<VoiceSessionManagerProps> = ({
   balance,
 }) => {
   return (
-    <GeminiVoiceConnection
-      freeVoiceSeconds={freeVoiceSeconds}
-      balance={balance}
-    />
+    <MicrophoneSoftPrompt>
+      <GeminiVoiceConnection
+        freeVoiceSeconds={freeVoiceSeconds}
+        balance={balance}
+      />
+    </MicrophoneSoftPrompt>
   );
 };
 

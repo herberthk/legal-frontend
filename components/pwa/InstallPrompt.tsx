@@ -15,7 +15,7 @@ export default function InstallPrompt() {
       e.preventDefault();
       setDeferredPrompt(e);
       // Wait a moment before showing to not overwhelm the user immediately
-      setTimeout(() => setShowPrompt(true), 3000);
+      setTimeout(() => setShowPrompt(true), 60000);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);

@@ -127,6 +127,14 @@ declare global {
 
   type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ERROR";
 
+  type FCMTokenRecord = {
+    id: string; // The token itself is typically used as the ID
+    userId: string;
+    token: string;
+    createdAt: string; // ISO string
+    updatedAt: string; // ISO string
+  };
+
   type AppNotification = {
     id: string;
     userId: string;

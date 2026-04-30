@@ -1,0 +1,107 @@
+import { NextResponse } from "next/server";
+import { db, messaging } from "@/firebase/admin";
+import { COLLECTIONS } from "@/constants";
+
+type SendPushBody = {
+  userId: string;
+  title: string;
+  body: string;
+  url?: string;
+  data?: Record<string, string>;
+};
+
+/**
+ * POST /api/notifications/send-push
+ *
+ * Sends a Firebase Cloud Messaging push notification to all registered
+ * devices of the specified user.
+ *
+ * - Reads FCM tokens from `users/{userId}/fcmTokens`
+ * - Uses `sendEachForMulticast` to deliver in parallel
+ * - Automatically removes stale / expired tokens from Firestore
+ */
+export async function POST(req: Request) {
+  try {
+    const body = (await req.json()) as SendPushBody;
+    const { userId, title, body: msgBody, url, data } = body;
+
+    if (!userId || !title || !msgBody) {
+      return NextResponse.json(
+        { error: "Missing required fields: userId, title, body" },
+        { status: 400 },
+      );
+    }
+
+    // Fetch all FCM tokens for this user
+    const tokensSnap = await db
+      .collection(COLLECTIONS.FCM_TOKENS)
+      .where("userId", "==", userId)
+      .get();
+
+    if (tokensSnap.empty) {
+      // No tokens — user hasn't enabled notifications yet; silently succeed
+      return NextResponse.json({ success: true, sent: 0 });
+    }
+
+    const tokens = tokensSnap.docs.map((d) => d.data().token as string);
+    console.log("[FCM] Sending push notification to user:", tokens);
+
+    const message = {
+      tokens,
+      notification: { title, body: msgBody },
+      data: {
+        url: url ?? "/dashboard/user/voice",
+        ...data,
+      },
+      webpush: {
+        fcmOptions: {
+          link: url ?? "/dashboard/user/voice",
+        },
+        notification: {
+          title,
+          body: msgBody,
+          icon: "/icons/icon-192x192.png",
+          badge: "/icons/icon-96x96.png",
+          requireInteraction: false,
+        },
+      },
+    };
+
+    const response = await messaging.sendEachForMulticast(message);
+
+    // Clean up tokens that FCM rejected (device unregistered / token invalid)
+    const staleTokenDeletions: Promise<unknown>[] = [];
+    response.responses.forEach((res, idx) => {
+      if (!res.success) {
+        const errCode = res.error?.code ?? "";
+        if (
+          errCode === "messaging/registration-token-not-registered" ||
+          errCode === "messaging/invalid-registration-token"
+        ) {
+          staleTokenDeletions.push(
+            db.collection(COLLECTIONS.FCM_TOKENS).doc(tokens[idx]).delete(),
+          );
+        } else {
+          console.error(
+            `[FCM] Failed to send to token ${tokens[idx]}:`,
+            res.error,
+          );
+        }
+      }
+    });
+
+    await Promise.allSettled(staleTokenDeletions);
+
+    return NextResponse.json({
+      success: true,
+      sent: response.successCount,
+      failed: response.failureCount,
+    });
+  } catch (error) {
+    console.error("[FCM] Error sending push notification:", error);
+    return NextResponse.json(
+      { error: "Failed to send push notification" },
+      { status: 500 },
+    );
+  }
+}

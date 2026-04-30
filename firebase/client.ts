@@ -8,6 +8,13 @@ import {
   logEvent,
 } from "firebase/analytics";
 import { getStorage } from "firebase/storage";
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  Messaging,
+  MessagePayload,
+} from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -48,3 +55,60 @@ export const logAnalyticsEvent = async (
 };
 
 export default app;
+
+// ─── Firebase Cloud Messaging ─────────────────────────────────────────────────
+
+/** Lazily initialised FCM Messaging instance — browser-only. */
+let messagingInstance: Messaging | null = null;
+
+const getMessagingInstance = (): Messaging | null => {
+  if (typeof window === "undefined") return null;
+  if (!("Notification" in window)) return null;
+  if (!messagingInstance) {
+    messagingInstance = getMessaging(app);
+  }
+  return messagingInstance;
+};
+
+/**
+ * Requests notification permission and returns the FCM registration token.
+ * Returns `null` if the user denies permission or FCM is unsupported.
+ */
+export const getFCMToken = async (): Promise<string | null> => {
+  try {
+    const messagingInst = getMessagingInstance();
+    if (!messagingInst) return null;
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return null;
+
+    const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+    if (!vapidKey) {
+      console.warn("[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set.");
+      return null;
+    }
+
+    const token = await getToken(messagingInst, {
+      vapidKey,
+      serviceWorkerRegistration: await navigator.serviceWorker.getRegistration(
+        "/serwist/sw.js",
+      ),
+    });
+    return token ?? null;
+  } catch (err) {
+    console.error("[FCM] Failed to get token:", err);
+    return null;
+  }
+};
+
+/**
+ * Listens for foreground push messages (app is focused).
+ * Returns an unsubscribe function.
+ */
+export const onForegroundMessage = (
+  callback: (payload: MessagePayload) => void,
+): (() => void) => {
+  const messagingInst = getMessagingInstance();
+  if (!messagingInst) return () => {};
+  return onMessage(messagingInst, callback);
+};

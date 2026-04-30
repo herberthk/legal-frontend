@@ -13,4 +13,5 @@ export const COLLECTIONS = {
   PENDING_SIGNUPS: "pendingSignups",
   VOICE_SESSION_BUFFERS: "voiceSessionBuffers",
   TRANSCRIPTIONS: "transcriptions",
+  FCM_TOKENS: "fcmTokens",
 } as const;
