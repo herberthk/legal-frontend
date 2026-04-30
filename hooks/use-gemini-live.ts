@@ -83,7 +83,6 @@ export const useGeminiLive = ({
   const sessionIdRef = useRef<string>(crypto.randomUUID());
   const isSyncingRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
-  const MAX_RECONNECT_ATTEMPTS = 5;
 
   // Memory efficient accumulation
   const userPartsRef = useRef<string[]>([]);
@@ -341,288 +340,348 @@ export const useGeminiLive = ({
     setAudioStatus("idle");
   }, []);
 
-  const connectToGemini = useCallback(async () => {
-    try {
-      if (wsStatus === "connecting" || wsStatus === "open") return;
-      isDisconnectingRef.current = false;
+  const wsStatusRef = useRef(wsStatus);
+  const durationRef = useRef(duration);
+  useEffect(() => {
+    wsStatusRef.current = wsStatus;
+  }, [wsStatus]);
 
-      setWsStatus("connecting");
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
 
-      // Prevent the display from sleeping during the voice call
-      noSleep.current.enable();
-      // Reset all session state for a fresh start
-      setDuration(0);
-      allTranscriptsRef.current = [];
-      syncingTranscriptsRef.current = [];
-      userPartsRef.current = [];
-      aiPartsRef.current = [];
-      setActiveTranscript(null);
-      //previousHandleRef.current = null;
-      sessionIdRef.current = crypto.randomUUID();
+  const connectToGemini = useCallback(
+    async (isReconnect = false) => {
+      try {
+        if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open"))
+          return;
+        isDisconnectingRef.current = false;
 
-      // Initialize audio context to get mic input
-      const ctx = getOrCreateAudioCtx(24000); // 24kHz output
+        setWsStatus("connecting");
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          autoGainControl: true,
-          noiseSuppression: true,
-        },
-      });
-      mediaStreamRef.current = stream;
-
-      // Load worklets from proper file URLs (not data: URIs).
-      // Firefox does NOT support data: URIs for audioWorklet.addModule().
-      await Promise.all([
-        ctx.audioWorklet.addModule("/js/pcm-processor.js"),
-        ctx.audioWorklet.addModule("/js/pcm-player-processor.js"),
-      ]);
-
-      const source = ctx.createMediaStreamSource(stream);
-      const processor = new AudioWorkletNode(ctx, "pcm-processor", {
-        channelCount: 1,
-      });
-      processorRef.current = processor;
-
-      // Create the ring-buffer player node for click-free audio output
-      const playerNode = new AudioWorkletNode(ctx, "pcm-player-processor");
-      playerNode.connect(masterGainRef.current || ctx.destination);
-      playerNodeRef.current = playerNode;
-
-      // Listen for buffer-drain notifications from the player worklet
-      playerNode.port.onmessage = (e) => {
-        if (e.data?.type === "bufferEmpty") {
-          setAudioStatus("done");
+        if (!isReconnect) {
+          // Prevent the display from sleeping during the voice call
+          noSleep.current.enable();
+          // Reset all session state for a fresh start
+          setDuration(0);
+          durationRef.current = 0;
+          allTranscriptsRef.current = [];
+          syncingTranscriptsRef.current = [];
+          userPartsRef.current = [];
+          aiPartsRef.current = [];
+          setActiveTranscript(null);
+          previousHandleRef.current = null;
+          sessionIdRef.current = crypto.randomUUID();
         }
-      };
 
-      const token = await getEphemeralToken();
+        // Initialize audio context to get mic input
+        let ctx = audioCtxRef.current;
+        let processor = processorRef.current;
+        let source: MediaStreamAudioSourceNode | undefined;
 
-      // console.log("Token:", token);
-      aiClientRef.current = new GoogleGenAI({
-        apiKey: token,
-        apiVersion: "v1alpha",
-      });
+        if (!isReconnect) {
+          ctx = getOrCreateAudioCtx(24000); // 24kHz output
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              channelCount: 1,
+              echoCancellation: true,
+              autoGainControl: true,
+              noiseSuppression: true,
+            },
+          });
+          mediaStreamRef.current = stream;
 
-      const config: LiveConnectConfig = {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: preferedVoice.preferedVoiceId || "Zephyr",
+          // Load worklets from proper file URLs
+          await Promise.all([
+            ctx.audioWorklet.addModule("/js/pcm-processor.js"),
+            ctx.audioWorklet.addModule("/js/pcm-player-processor.js"),
+          ]);
+
+          source = ctx.createMediaStreamSource(stream);
+          processor = new AudioWorkletNode(ctx, "pcm-processor", {
+            channelCount: 1,
+          });
+          processorRef.current = processor;
+
+          // Create the ring-buffer player node for click-free audio output
+          const playerNode = new AudioWorkletNode(ctx, "pcm-player-processor");
+          playerNode.connect(masterGainRef.current || ctx.destination);
+          playerNodeRef.current = playerNode;
+
+          // Listen for buffer-drain notifications from the player worklet
+          playerNode.port.onmessage = (e) => {
+            if (e.data?.type === "bufferEmpty") {
+              setAudioStatus("done");
+            }
+          };
+        } else {
+          // If reconnecting, ctx and processor already exist.
+          if (!ctx || !processor) {
+            console.error(
+              "[gemini-live] Missing audio context during reconnect.",
+            );
+            return;
+          }
+        }
+
+        const token = await getEphemeralToken();
+
+        aiClientRef.current = new GoogleGenAI({
+          apiKey: token,
+          apiVersion: "v1alpha",
+        });
+
+        const config: LiveConnectConfig = {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: preferedVoice.preferedVoiceId || "Zephyr",
+              },
             },
           },
-        },
-        tools: [{ googleSearch: {} }],
-        inputAudioTranscription: {},
-        outputAudioTranscription: {},
-        // Using context window compression for extended sessions >15 mins
-        contextWindowCompression: { slidingWindow: {} },
-        systemInstruction: {
-          parts: [
-            {
-              text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({
-                user: userName,
-                instructor: preferedVoice.preferedVoiceName,
-              }),
+          tools: [{ googleSearch: {} }],
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
+          // Using context window compression for extended sessions >15 mins
+          contextWindowCompression: { slidingWindow: {} },
+          systemInstruction: {
+            parts: [
+              {
+                text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({
+                  user: userName,
+                  instructor: preferedVoice.preferedVoiceName,
+                }),
+              },
+            ],
+          },
+        };
+
+        if (previousHandleRef.current) {
+          config.sessionResumption = { handle: previousHandleRef.current };
+        }
+
+        sessionRef.current = await aiClientRef.current.live.connect({
+          model: "gemini-3.1-flash-live-preview",
+          config,
+          callbacks: {
+            onopen: () => {
+              console.log("[gemini-live] open");
+              setWsStatus("open");
+              if (!isReconnect) {
+                setActiveTranscript({ speaker: "system", text: "Ready." });
+              }
+              reconnectAttemptsRef.current = 0; // Reset retry counter on success
+
+              // Record session start time for chunk timestamps (only on new calls to preserve sync? Or update it?).
+              // For reconnect, the timestamp logic might be slightly offset, but relative times are fine for chunks.
+              if (!isReconnect) {
+                sessionStartRef.current = Date.now();
+              }
+
+              if (processor && source && !isReconnect) {
+                source.connect(processor);
+              }
+
+              // Attach mic input handler
+              if (processor) {
+                processor.port.onmessage = (e) => {
+                  if (isDisconnectingRef.current) return;
+
+                  const { pcm, volume, isSpeaking } = e.data;
+                  setIsListening(isSpeaking);
+
+                  // Feed mic level to visualizer (smoothed)
+                  micLevelRef.current = volume;
+                  scheduleLevelUpdate();
+
+                  if (sessionRef.current) {
+                    // pcm is an ArrayBuffer (Int16 @ 16 kHz) transferred from the
+                    // pcm-processor worklet. At this point the main thread owns it.
+
+                    // Build base64 for Gemini. This reads `pcm` but does NOT
+                    // transfer/detach it — the Gemini SDK receives a string, not
+                    // the buffer. So `pcm` stays valid after sendRealtimeInput.
+                    const uint8Array = new Uint8Array(pcm);
+                    let binaryStr = "";
+                    for (let i = 0; i < uint8Array.length; i++) {
+                      binaryStr += String.fromCharCode(uint8Array[i]);
+                    }
+                    const base64Audio = btoa(binaryStr);
+
+                    try {
+                      sessionRef.current.sendRealtimeInput({
+                        audio: {
+                          data: base64Audio,
+                          mimeType: "audio/pcm;rate=16000",
+                        },
+                      });
+                    } catch (err) {
+                      console.error(
+                        "[gemini-live] sendRealtimeInput failed:",
+                        err,
+                      );
+                      if (processorRef.current) {
+                        processorRef.current.disconnect();
+                        processorRef.current = null;
+                      }
+                      sessionRef.current = null;
+                      setWsStatus("error");
+                      return;
+                    }
+
+                    // ── Recorder interception (user audio) ────────────────────────
+                    // NOW transfer `pcm` to the recorder worker.
+                    // This is zero-copy: we transfer ownership of the ArrayBuffer
+                    // that was handed to us from the worklet. After this line, `pcm`
+                    // is detached on the main thread — but we already finished using
+                    // it for the Gemini sendRealtimeInput above, so this is safe.
+                    //
+                    // We only record chunks while the user is actually speaking
+                    // (isSpeaking from VAD) to avoid storing silence in IDB and
+                    // bloating the WAV file with dead air during listening pauses.
+                    // Note: we still send all audio to Gemini (including non-speaking
+                    // frames) so Gemini's own VAD functions correctly.
+                    if (onUserAudioChunkRef.current && isSpeaking) {
+                      const ts = Date.now() - sessionStartRef.current;
+                      onUserAudioChunkRef.current(pcm, ts);
+                      // `pcm` buffer is now detached — do not use it below this line
+                    }
+                  }
+                };
+              }
             },
-          ],
-        },
-      };
-
-      if (previousHandleRef.current) {
-        config.sessionResumption = { handle: previousHandleRef.current };
-      }
-
-      sessionRef.current = await aiClientRef.current.live.connect({
-        model: "gemini-3.1-flash-live-preview",
-        config,
-        callbacks: {
-          onopen: () => {
-            console.log("[gemini-live] open");
-            setWsStatus("open");
-            setActiveTranscript({ speaker: "system", text: "Ready." });
-            reconnectAttemptsRef.current = 0; // Reset retry counter on success
-
-            // Record session start time for chunk timestamps.
-            // All subsequent chunk timestamps are (Date.now() - sessionStartRef.current).
-            sessionStartRef.current = Date.now();
-
-            // Attach mic input handler
-            processor.port.onmessage = (e) => {
+            onmessage: (msg) => {
               if (isDisconnectingRef.current) return;
 
-              const { pcm, volume, isSpeaking } = e.data;
-              setIsListening(isSpeaking);
-
-              // Feed mic level to visualizer (smoothed)
-              micLevelRef.current = volume;
-              scheduleLevelUpdate();
-
-              if (sessionRef.current) {
-                // pcm is an ArrayBuffer (Int16 @ 16 kHz) transferred from the
-                // pcm-processor worklet. At this point the main thread owns it.
-
-                // Build base64 for Gemini. This reads `pcm` but does NOT
-                // transfer/detach it — the Gemini SDK receives a string, not
-                // the buffer. So `pcm` stays valid after sendRealtimeInput.
-                const uint8Array = new Uint8Array(pcm);
-                let binaryStr = "";
-                for (let i = 0; i < uint8Array.length; i++) {
-                  binaryStr += String.fromCharCode(uint8Array[i]);
-                }
-                const base64Audio = btoa(binaryStr);
-
-                try {
-                  sessionRef.current.sendRealtimeInput({
-                    audio: {
-                      data: base64Audio,
-                      mimeType: "audio/pcm;rate=16000",
-                    },
-                  });
-                } catch (err) {
-                  console.error("[gemini-live] sendRealtimeInput failed:", err);
-                  // If we hit a closed state here, stop the processor to prevent the infinite error loop
-                  if (processorRef.current) {
-                    processorRef.current.disconnect();
-                    processorRef.current = null;
-                  }
-                  sessionRef.current = null;
-                  setWsStatus("error");
-                  return;
-                }
-
-                // ── Recorder interception (user audio) ────────────────────────
-                // NOW transfer `pcm` to the recorder worker.
-                // This is zero-copy: we transfer ownership of the ArrayBuffer
-                // that was handed to us from the worklet. After this line, `pcm`
-                // is detached on the main thread — but we already finished using
-                // it for the Gemini sendRealtimeInput above, so this is safe.
-                //
-                // We only record chunks while the user is actually speaking
-                // (isSpeaking from VAD) to avoid storing silence in IDB and
-                // bloating the WAV file with dead air during listening pauses.
-                // Note: we still send all audio to Gemini (including non-speaking
-                // frames) so Gemini's own VAD functions correctly.
-                if (onUserAudioChunkRef.current && isSpeaking) {
-                  const ts = Date.now() - sessionStartRef.current;
-                  onUserAudioChunkRef.current(pcm, ts);
-                  // `pcm` buffer is now detached — do not use it below this line
-                }
-              }
-            };
-
-            source.connect(processor);
-            // processor.connect(ctx.destination);
-          },
-          onmessage: (msg) => {
-            if (isDisconnectingRef.current) return;
-
-            // Handle audio interruption
-            if (msg.serverContent?.interrupted) {
-              console.log("[gemini-live] Interrupted!");
-              finalizeAITurn();
-              finalizeUserTurn();
-              stopAudio();
-            }
-
-            // Save new handles for resumption
-            if (msg.sessionResumptionUpdate?.newHandle) {
-              previousHandleRef.current = msg.sessionResumptionUpdate.newHandle;
-            }
-
-            // End of goAway signal / graceful stop needed
-            if (msg.goAway) {
-              console.log(
-                "[gemini-live] Received GoAway. Reconnecting gracefully shortly if needed.",
-              );
-              // For a more robust app, handle graceful reconnect here.
-            }
-
-            // Process parts
-            if (msg.serverContent?.modelTurn?.parts) {
-              for (const part of msg.serverContent.modelTurn.parts) {
-                if (
-                  part.inlineData &&
-                  part.inlineData?.mimeType?.startsWith("audio/pcm")
-                ) {
-                  schedulePCMChunk(part.inlineData.data as string);
-                }
-              }
-            }
-
-            if (msg.serverContent?.inputTranscription) {
-              const txt = msg.serverContent.inputTranscription.text;
-              if (txt) {
-                // If AI was speaking, finalize its turn before starting user output
+              // Handle audio interruption
+              if (msg.serverContent?.interrupted) {
+                console.log("[gemini-live] Interrupted!");
                 finalizeAITurn();
-                userPartsRef.current.push(txt);
-                const current = userPartsRef.current.join("");
-                // Use activeTranscript for unified UI display
-                setActiveTranscript({ speaker: "user", text: current });
-              }
-            }
-
-            // Output Transcription
-            if (msg.serverContent?.outputTranscription) {
-              const txt = msg.serverContent.outputTranscription.text;
-              if (txt) {
-                // If User was speaking, finalize its turn before starting AI output
                 finalizeUserTurn();
-                aiPartsRef.current.push(txt);
-                const current = aiPartsRef.current.join("");
-                setActiveTranscript({
-                  speaker: "ai",
-                  text: current,
-                });
+                stopAudio();
               }
-            }
 
-            if (msg.serverContent?.turnComplete) {
-              finalizeUserTurn();
-              finalizeAITurn();
-            }
-          },
-          onerror: (err) => {
-            console.error("[gemini-live] Error:", err);
-            setActiveTranscript({
-              speaker: "system",
-              text: "Connection error.",
-            });
-            setWsStatus("error");
-            sessionRef.current = null;
-          },
-          onclose: (ev) => {
-            console.log("[gemini-live] Closed:", ev);
-            setWsStatus("closed");
-            sessionRef.current = null;
-          },
-        },
-      });
+              // Save new handles for resumption
+              if (msg.sessionResumptionUpdate?.newHandle) {
+                previousHandleRef.current =
+                  msg.sessionResumptionUpdate.newHandle;
+              }
 
-      sessionRef.current.sendRealtimeInput({
-        text: "Hello",
-      });
-    } catch (error) {
-      console.error("[gemini-live] Connection error:", error);
-      setWsStatus("error");
-      setActiveTranscript({ speaker: "system", text: "Failed to connect." });
-    }
-  }, [
-    wsStatus,
-    getOrCreateAudioCtx,
-    getEphemeralToken,
-    preferedVoice.preferedVoiceId,
-    preferedVoice.preferedVoiceName,
-    userName,
-    scheduleLevelUpdate,
-    finalizeAITurn,
-    finalizeUserTurn,
-    stopAudio,
-    schedulePCMChunk,
-  ]);
+              // End of goAway signal / graceful stop needed
+              if (msg.goAway) {
+                console.log(
+                  "[gemini-live] Received GoAway. Reconnecting gracefully...",
+                );
+                if (!isDisconnectingRef.current && durationRef.current < 1800) {
+                  sessionRef.current?.close(); // Proactively close to trigger seamless reconnect
+                }
+              }
+
+              // Process parts
+              if (msg.serverContent?.modelTurn?.parts) {
+                for (const part of msg.serverContent.modelTurn.parts) {
+                  if (
+                    part.inlineData &&
+                    part.inlineData?.mimeType?.startsWith("audio/pcm")
+                  ) {
+                    schedulePCMChunk(part.inlineData.data as string);
+                  }
+                }
+              }
+
+              if (msg.serverContent?.inputTranscription) {
+                const txt = msg.serverContent.inputTranscription.text;
+                if (txt) {
+                  // If AI was speaking, finalize its turn before starting user output
+                  finalizeAITurn();
+                  userPartsRef.current.push(txt);
+                  const current = userPartsRef.current.join("");
+                  // Use activeTranscript for unified UI display
+                  setActiveTranscript({ speaker: "user", text: current });
+                }
+              }
+
+              // Output Transcription
+              if (msg.serverContent?.outputTranscription) {
+                const txt = msg.serverContent.outputTranscription.text;
+                if (txt) {
+                  // If User was speaking, finalize its turn before starting AI output
+                  finalizeUserTurn();
+                  aiPartsRef.current.push(txt);
+                  const current = aiPartsRef.current.join("");
+                  setActiveTranscript({
+                    speaker: "ai",
+                    text: current,
+                  });
+                }
+              }
+
+              if (msg.serverContent?.turnComplete) {
+                finalizeUserTurn();
+                finalizeAITurn();
+              }
+            },
+            onerror: (err) => {
+              console.error("[gemini-live] Error:", err);
+              sessionRef.current = null;
+              if (!isDisconnectingRef.current && durationRef.current < 1800) {
+                console.log("[gemini-live] Reconnecting after error...");
+                setTimeout(() => connectToGemini(true), 500);
+                return;
+              }
+              setActiveTranscript({
+                speaker: "system",
+                text: "Connection error.",
+              });
+              setWsStatus("error");
+            },
+            onclose: (ev) => {
+              console.log("[gemini-live] Closed:", ev);
+              sessionRef.current = null;
+              if (!isDisconnectingRef.current && durationRef.current < 1800) {
+                console.log("[gemini-live] Seamlessly reconnecting...");
+                setTimeout(() => connectToGemini(true), 500);
+                return;
+              }
+              setWsStatus("closed");
+            },
+          },
+        });
+
+        if (!isReconnect) {
+          sessionRef.current.sendRealtimeInput({
+            text: "Hello",
+          });
+        }
+      } catch (error) {
+        console.error("[gemini-live] Connection error:", error);
+        if (
+          isReconnect &&
+          !isDisconnectingRef.current &&
+          durationRef.current < 1800
+        ) {
+          setTimeout(() => connectToGemini(true), 2000); // Retry reconnect with delay
+          return;
+        }
+        setWsStatus("error");
+        setActiveTranscript({ speaker: "system", text: "Failed to connect." });
+      }
+    },
+    [
+      wsStatus,
+      getOrCreateAudioCtx,
+      getEphemeralToken,
+      preferedVoice.preferedVoiceId,
+      preferedVoice.preferedVoiceName,
+      userName,
+      scheduleLevelUpdate,
+      finalizeAITurn,
+      finalizeUserTurn,
+      stopAudio,
+      schedulePCMChunk,
+    ],
+  );
 
   const disconnectFromGemini = useCallback(async () => {
     // Flush any in-progress user/AI transcript segments into allTranscriptsRef
@@ -654,7 +713,6 @@ export const useGeminiLive = ({
     }
 
     if (sessionRef.current) {
-      // Send natural end to flush buffers
       try {
         // Note: with GenAI SDK, sendRealtimeInput is supported, but audioStreamEnd may need specific shape
         // if we are using the SDK. We will close directly.
@@ -680,13 +738,6 @@ export const useGeminiLive = ({
       mediaStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = !muted;
       });
-      // Flush gemini buffer
-      if (muted && sessionRef.current) {
-        try {
-          // Send an empty message with audio_stream_end essentially to flush vad buffer
-          // Not explicitly supported in all SDK versions via object, but helps
-        } catch {}
-      }
     }
   }, []);
 
@@ -701,16 +752,10 @@ export const useGeminiLive = ({
   }, []);
 
   const getTranscripts = useCallback(() => {
-    // Ensure any active turn is flushed to the results before returning
     finalizeUserTurn();
     finalizeAITurn();
     return allTranscriptsRef.current;
   }, [finalizeUserTurn, finalizeAITurn]);
-
-  const wsStatusRef = useRef(wsStatus);
-  useEffect(() => {
-    wsStatusRef.current = wsStatus;
-  }, [wsStatus]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -720,7 +765,7 @@ export const useGeminiLive = ({
           if (next % 10 === 0) {
             syncSessionToBuffer(next);
           }
-          if (next >= 3600) {
+          if (next >= 1800) {
             disconnectFromGemini();
           }
           return next;
@@ -745,7 +790,7 @@ export const useGeminiLive = ({
     isListening,
     activeTranscript,
     duration,
-    remainingSeconds: Math.max(0, 3600 - duration),
+    remainingSeconds: Math.max(0, 1800 - duration),
     sessionId: sessionIdRef.current,
     connect: connectToGemini,
     disconnect: disconnectFromGemini,
