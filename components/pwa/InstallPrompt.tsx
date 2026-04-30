@@ -10,23 +10,67 @@ export default function InstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
+    // ── Register event listener ─────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Wait a moment before showing to not overwhelm the user immediately
-      setTimeout(() => setShowPrompt(true), 60000);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    // ── Interval Logic ──────────────────────────────────────────────────────
+    const INTERVALS_MIN = [5, 10, 20, 30, 40, 50, 60]; // minutes from session start
+    const STORAGE_KEY_START = "pwa_prompt_cycle_start";
+    const STORAGE_KEY_INDEX = "pwa_prompt_last_index";
+
+    // Initialize cycle start time if not present
+    if (!localStorage.getItem(STORAGE_KEY_START)) {
+      localStorage.setItem(STORAGE_KEY_START, Date.now().toString());
+      localStorage.setItem(STORAGE_KEY_INDEX, "-1");
+    }
+
+    const checkInterval = setInterval(() => {
+      if (window.matchMedia("(display-mode: standalone)").matches) {
+        clearInterval(checkInterval);
+        return;
+      }
+
+      const cycleStart = parseInt(
+        localStorage.getItem(STORAGE_KEY_START) || "0",
+        10,
+      );
+      const lastIndex = parseInt(
+        localStorage.getItem(STORAGE_KEY_INDEX) || "-1",
+        10,
+      );
+      const elapsedMin = (Date.now() - cycleStart) / 60000;
+
+      const nextIndex = lastIndex + 1;
+      let targetMin = 0;
+
+      if (nextIndex < INTERVALS_MIN.length) {
+        targetMin = INTERVALS_MIN[nextIndex];
+      } else {
+        // After the last specific interval, show every 60 minutes
+        const extraHours = nextIndex - INTERVALS_MIN.length + 1;
+        targetMin = INTERVALS_MIN[INTERVALS_MIN.length - 1] + extraHours * 60;
+      }
+
+      if (elapsedMin >= targetMin && deferredPrompt && !showPrompt) {
+        setShowPrompt(true);
+        localStorage.setItem(STORAGE_KEY_INDEX, nextIndex.toString());
+      }
+    }, 10000); // Check every 10 seconds
 
     return () => {
       window.removeEventListener(
         "beforeinstallprompt",
         handleBeforeInstallPrompt,
       );
+      clearInterval(checkInterval);
     };
-  }, []);
+  }, [deferredPrompt, showPrompt]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
