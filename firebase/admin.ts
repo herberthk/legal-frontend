@@ -1,7 +1,7 @@
-// lib/firebase-admin.ts
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 
 const firebaseAdminConfig = {
   credential: cert({
@@ -18,5 +18,6 @@ const adminApp =
 
 export const auth = getAuth(adminApp);
 export const db = getFirestore(adminApp);
+export const messaging = getMessaging(adminApp);
 
 export default adminApp;

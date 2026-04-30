@@ -5,6 +5,7 @@ import { SerwistProvider } from "./serwist";
 import "./globals.css";
 import ThemeInitializer from "@/components/global/ThemeInitializer";
 import FirebaseAnalytics from "@/components/global/FirebaseAnalytics";
+import FCMProvider from "@/components/global/FCMProvider";
 import NetworkStatus from "@/components/pwa/NetworkStatus";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 
@@ -347,6 +348,7 @@ const RootLayout = ({
       >
         <TooltipProvider>
           <FirebaseAnalytics />
+          <FCMProvider />
           <Toaster position="top-right" />
           <NetworkStatus />
           <InstallPrompt />

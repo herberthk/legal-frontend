@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "nextjs-toploader/app";
 import { getTranscriptionRecord } from "@/lib/actions/transcribe";

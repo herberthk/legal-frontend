@@ -5,6 +5,7 @@ import {
 } from "@/lib/actions/voice-actions";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
+import { sendPushToUser } from "@/lib/fcm-admin";
 
 //force to use edge runtime
 // export const runtime = "edge";
@@ -58,6 +59,22 @@ export async function POST(req: Request) {
     };
 
     const voiceSessionId = await recordVoiceSession({ usage });
+
+    // ── Push notification — fire-and-forget ─────────────────────────────────
+    const durationMin = Math.floor(duration / 60);
+    const durationSec = duration % 60;
+    const durationLabel =
+      durationMin > 0 ? `${durationMin}m ${durationSec}s` : `${durationSec}s`;
+
+    sendPushToUser({
+      userId,
+      title: "✅ Voice Session Complete",
+      body: `Your session "${title}" (${durationLabel}) has been saved.`,
+      url: `/dashboard/user/voice`,
+    }).catch((err) =>
+      console.error("[FCM] Post-call push notification failed:", err),
+    );
+    // ───────────────────────────────────────────────────────────────────────
 
     return NextResponse.json({ success: true, voiceSessionId });
   } catch (error) {
