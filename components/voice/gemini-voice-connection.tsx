@@ -97,16 +97,35 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const connectingAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectedAudioRef = useRef<HTMLAudioElement | null>(null);
   const disconnectedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const sfxCtxRef = useRef<AudioContext | null>(null);
 
-  // Preload audio files
+  // Preload audio files and route through Web Audio API for volume boost.
+  // HTMLAudioElement.volume caps at 1.0 — to go louder we pipe each element
+  // through a GainNode at 2.0× (~+6dB).
   useEffect(() => {
+    const BOOST = 2.0; // +6dB over system level
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SfxAudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const sfxCtx = new SfxAudioCtx();
+    sfxCtxRef.current = sfxCtx;
+
+    const boostAudio = (audio: HTMLAudioElement) => {
+      const source = sfxCtx.createMediaElementSource(audio);
+      const gain = sfxCtx.createGain();
+      gain.gain.value = BOOST;
+      source.connect(gain);
+      gain.connect(sfxCtx.destination);
+    };
+
     connectingAudioRef.current = new Audio("/voices/connecting.mp3");
     connectingAudioRef.current.loop = true;
     connectedAudioRef.current = new Audio("/voices/connected.mp3");
     disconnectedAudioRef.current = new Audio("/voices/disconnected.mp3");
-    connectingAudioRef.current.volume = 1.0;
-    connectedAudioRef.current.volume = 1.0;
-    disconnectedAudioRef.current.volume = 1.0;
+
+    boostAudio(connectingAudioRef.current);
+    boostAudio(connectedAudioRef.current);
+    boostAudio(disconnectedAudioRef.current);
 
     return () => {
       connectingAudioRef.current?.pause();
@@ -115,6 +134,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       connectingAudioRef.current = null;
       connectedAudioRef.current = null;
       disconnectedAudioRef.current = null;
+      sfxCtx.close().catch(() => {});
+      sfxCtxRef.current = null;
     };
   }, []);
 

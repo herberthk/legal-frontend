@@ -106,6 +106,15 @@ export const useGeminiLive = ({
   const playerNodeRef = useRef<AudioWorkletNode | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
 
+  // ── Extended audio chain refs ────────────────────────────────────────────
+  // These nodes form the broadcast-quality processing chain between the
+  // pcm-player-processor worklet and ctx.destination:
+  //   highPass → presenceEQ → gain → limiter → outputTrim → destination
+  const highPassRef = useRef<BiquadFilterNode | null>(null);
+  const presenceEQRef = useRef<BiquadFilterNode | null>(null);
+  const limiterRef = useRef<DynamicsCompressorNode | null>(null);
+  const outputTrimRef = useRef<GainNode | null>(null);
+
   // Token cache
   const ephemeralTokenRef = useRef<{ token: string; expiresAt: number } | null>(
     null,
@@ -271,10 +280,56 @@ export const useGeminiLive = ({
 
     audioCtxRef.current = ctx;
 
+    // ── Build the full audio processing chain ──────────────────────────────
+    // Chain: playerNode → highPass → presenceEQ → gain → limiter → trim → dest
+    //
+    // 1. High-pass filter — cuts sub-80Hz rumble before anything amplifies it
+    const highPass = ctx.createBiquadFilter();
+    highPass.type = "highpass";
+    highPass.frequency.value = 80;
+    highPass.Q.value = 0.7071; // Butterworth (maximally flat passband)
+    highPassRef.current = highPass;
+
+    // 2. Presence EQ — lifts the 3kHz consonant band for speech clarity
+    const presenceEQ = ctx.createBiquadFilter();
+    presenceEQ.type = "peaking";
+    presenceEQ.frequency.value = 3000;
+    presenceEQ.Q.value = 1.2; // moderate width (~1 octave)
+    presenceEQ.gain.value = 4; // +4dB lift in the presence band
+    presenceEQRef.current = presenceEQ;
+
+    // 3. Master gain — the node that toggleAudioMute ramps between 0 and 1.4
     const gainNode = ctx.createGain();
-    gainNode.gain.value = 1;
-    gainNode.connect(ctx.destination);
+    gainNode.gain.value = 1.4;
     masterGainRef.current = gainNode;
+
+    // 4. Limiter — brick-wall ceiling at -4dB so the gain boost never clips
+    //    Using DynamicsCompressorNode configured as a hard limiter:
+    //    - threshold at -4dB: signal above this gets compressed
+    //    - ratio 20:1: virtually infinite compression (brick wall)
+    //    - attack 0.001s: near-instant catch of transient peaks
+    //    - release 0.05s: fast release to avoid pumping artifacts
+    //    - knee 0dB: hard knee for true limiting behavior
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -4;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.05;
+    limiter.knee.value = 0;
+    limiterRef.current = limiter;
+
+    // 5. Output trim — final -0.5dB safety margin against inter-sample peaks
+    //    -0.5dB ≈ 10^(-0.5/20) ≈ 0.9441
+    const outputTrim = ctx.createGain();
+    outputTrim.gain.value = 0.9441;
+    outputTrimRef.current = outputTrim;
+
+    // Wire the chain: highPass → presenceEQ → gain → limiter → trim → destination
+    highPass.connect(presenceEQ);
+    presenceEQ.connect(gainNode);
+    gainNode.connect(limiter);
+    limiter.connect(outputTrim);
+    outputTrim.connect(ctx.destination);
 
     return ctx;
   }, []);
@@ -416,7 +471,11 @@ export const useGeminiLive = ({
 
           // Create the ring-buffer player node for click-free audio output
           const playerNode = new AudioWorkletNode(ctx, "pcm-player-processor");
-          playerNode.connect(masterGainRef.current || ctx.destination);
+          // Connect to the head of the processing chain (highPass filter)
+          // Chain: playerNode → highPass → presenceEQ → gain → limiter → trim → dest
+          playerNode.connect(
+            highPassRef.current || masterGainRef.current || ctx.destination,
+          );
           playerNodeRef.current = playerNode;
 
           // Listen for buffer-drain notifications from the player worklet
@@ -718,6 +777,24 @@ export const useGeminiLive = ({
       playerNodeRef.current = null;
     }
 
+    // Disconnect extended audio chain nodes
+    if (highPassRef.current) {
+      highPassRef.current.disconnect();
+      highPassRef.current = null;
+    }
+    if (presenceEQRef.current) {
+      presenceEQRef.current.disconnect();
+      presenceEQRef.current = null;
+    }
+    if (limiterRef.current) {
+      limiterRef.current.disconnect();
+      limiterRef.current = null;
+    }
+    if (outputTrimRef.current) {
+      outputTrimRef.current.disconnect();
+      outputTrimRef.current = null;
+    }
+
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
@@ -755,7 +832,7 @@ export const useGeminiLive = ({
   const toggleAudioMute = useCallback((muted: boolean) => {
     if (masterGainRef.current && audioCtxRef.current) {
       masterGainRef.current.gain.setTargetAtTime(
-        muted ? 0 : 1,
+        muted ? 0 : 1.4,
         audioCtxRef.current.currentTime,
         0.01,
       );
