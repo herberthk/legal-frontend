@@ -35,6 +35,14 @@ let currentSessionId: string | null = null;
 
 let writeQueue = Promise.resolve();
 
+// ── Continuous timestamp tracking ───────────────────────────────────────────
+// Wall-clock timestamps from Date.now() have jitter and include real-time
+// pauses as silence gaps. Instead, we track a running sample counter per role
+// so consecutive chunks stitch together with zero gaps or overlaps.
+// Each counter represents microseconds of audio received so far for that role.
+let userContinuousTs = 0; // µs of user audio accumulated
+let aiContinuousTs = 0; // µs of AI audio accumulated
+
 // ─── IndexedDB Setup ──────────────────────────────────────────────────────────
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -131,6 +139,56 @@ function resampleToFloat32(
 
 // ─── Finalize (Assembly + Encode + Download) ──────────────────────────────────
 
+/**
+ * Merge user and AI chunk streams into a single compact Float32 timeline.
+ *
+ * Strategy:
+ *   1. Separate chunks by role and resample everything to 48 kHz.
+ *   2. Concatenate each role's chunks into one continuous buffer (no gaps,
+ *      no wall-clock pauses — chunks are stitched back-to-back).
+ *   3. Mix the two role buffers sample-by-sample. Where both overlap we
+ *      sum + soft-clip; where only one exists we use it directly.
+ *   4. Feed the single mixed buffer to Mediabunny as one AudioSample at
+ *      timestamp 0 — no per-chunk timestamps means no PTS jitter.
+ */
+
+const AUDIO_OUTPUT_RATE = 48000;
+
+function concatRoleChunks(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  chunks: any[],
+  originalRate: number,
+): Float32Array {
+  // Pass 1: resample each chunk and compute total length
+  const resampled: Float32Array[] = [];
+  let totalLen = 0;
+  for (const chunk of chunks) {
+    const raw = new Int16Array(chunk.buffer);
+    const f32 = resampleToFloat32(raw, originalRate, AUDIO_OUTPUT_RATE);
+    resampled.push(f32);
+    totalLen += f32.length;
+  }
+
+  // Pass 2: concatenate into one buffer
+  const out = new Float32Array(totalLen);
+  let offset = 0;
+  for (const seg of resampled) {
+    out.set(seg, offset);
+    offset += seg.length;
+  }
+  return out;
+}
+
+/**
+ * Soft-clip: fast tanh-like curve that tames summed peaks while preserving
+ * quiet-to-normal signal linearity. Cheaper than Math.tanh.
+ */
+function softClip(x: number): number {
+  if (x > 1.5) return 1.0;
+  if (x < -1.5) return -1.0;
+  return x - (x * x * x) / 6.75;
+}
+
 async function finalizeRecording() {
   if (!db || !currentSessionId) {
     self.postMessage({ type: "error", message: "Recorder not initialized" });
@@ -148,11 +206,41 @@ async function finalizeRecording() {
       return;
     }
 
-    self.postMessage({ type: "progress", percent: 20 });
+    self.postMessage({ type: "progress", percent: 15 });
 
-    const AUDIO_OUTPUT_RATE = 48000;
+    // ── Separate by role ────────────────────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userChunks: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const aiChunks: any[] = [];
+    for (const c of chunks) {
+      if (c.role === "user") userChunks.push(c);
+      else aiChunks.push(c);
+    }
 
-    // ── Create Media Pipeline ──────────────────────────────────────────────
+    self.postMessage({ type: "progress", percent: 25 });
+
+    // ── Concatenate each role into a continuous buffer ───────────────────────
+    const userBuf = concatRoleChunks(userChunks, USER_SAMPLE_RATE);
+    const aiBuf = concatRoleChunks(aiChunks, AI_SAMPLE_RATE);
+
+    self.postMessage({ type: "progress", percent: 40 });
+
+    // ── Mix into a single output buffer ─────────────────────────────────────
+    // User and AI buffers are placed back-to-back per role. We mix by summing
+    // sample-by-sample with soft-clipping to prevent overs.
+    const mixLen = Math.max(userBuf.length, aiBuf.length);
+    const mixed = new Float32Array(mixLen);
+
+    for (let i = 0; i < mixLen; i++) {
+      const u = i < userBuf.length ? userBuf[i] : 0;
+      const a = i < aiBuf.length ? aiBuf[i] : 0;
+      mixed[i] = softClip(u + a);
+    }
+
+    self.postMessage({ type: "progress", percent: 55 });
+
+    // ── Encode with Mediabunny ──────────────────────────────────────────────
     const output = new Output({
       format: new WebMOutputFormat(),
       target: new BufferTarget(),
@@ -162,48 +250,45 @@ async function finalizeRecording() {
       codec: "opus",
       //@ts-ignore
       numberOfChannels: 1,
-      sampleRate: AUDIO_OUTPUT_RATE, // Opus natively demands 48kHz cleanly
+      sampleRate: AUDIO_OUTPUT_RATE,
       bitrate: 64000,
     });
 
     output.addAudioTrack(audioSource);
     await output.start();
 
-    // ── Feed Sequence to Mediabunny ───────────────────────────────────────
-    for (let ci = 0; ci < chunks.length; ci++) {
-      const chunk = chunks[ci];
+    self.postMessage({ type: "progress", percent: 60 });
 
-      const rawSamples = new Int16Array(chunk.buffer);
-      // Synchronize AI + User chunks faithfully to normalized 48kHz floats before adding
-      const resampledData = resampleToFloat32(
-        rawSamples,
-        chunk.sampleRate,
-        AUDIO_OUTPUT_RATE,
-      );
+    // Feed in manageable segments (1 second each) to avoid blocking and
+    // to give the encoder a chance to flush internal buffers.
+    const SEGMENT_SAMPLES = AUDIO_OUTPUT_RATE; // 1 second
+    const totalSegments = Math.ceil(mixed.length / SEGMENT_SAMPLES);
+
+    for (let si = 0; si < totalSegments; si++) {
+      const start = si * SEGMENT_SAMPLES;
+      const end = Math.min(start + SEGMENT_SAMPLES, mixed.length);
+      const segmentData = mixed.subarray(start, end);
 
       const sample = new AudioSample({
-        data: resampledData,
-        format: "f32-planar", // Float32 is universally supported for Opus AudioEncoders natively
+        data: segmentData,
+        format: "f32-planar",
         numberOfChannels: 1,
         sampleRate: AUDIO_OUTPUT_RATE,
-        timestamp: chunk.timestamp / 1000, // Mediabunny expects seconds
+        timestamp: start / AUDIO_OUTPUT_RATE, // seconds, derived from sample position
       });
 
-      // Mediabunny automatically aligns PTS. Gaps between calls dynamically represent silence implicitly in the Opus WebM stream.
       try {
         await audioSource.add(sample);
       } finally {
-        // AudioSample releases WebCodecs references quickly, must be closed even if encoding fails
         sample.close();
       }
 
-      if (ci % Math.ceil(chunks.length / 10) === 0) {
-        const pct = 20 + Math.floor((ci / chunks.length) * 60);
-        self.postMessage({ type: "progress", percent: pct });
-      }
+      // Progress: 60% – 85% during encoding
+      const pct = 60 + Math.floor(((si + 1) / totalSegments) * 25);
+      self.postMessage({ type: "progress", percent: pct });
     }
 
-    self.postMessage({ type: "progress", percent: 85 });
+    self.postMessage({ type: "progress", percent: 90 });
 
     await output.finalize();
 
@@ -298,6 +383,9 @@ self.addEventListener("message", async (event: MessageEvent) => {
           db = await openDatabase();
         }
         writeQueue = Promise.resolve();
+        // Reset continuous timestamp counters for the new session
+        userContinuousTs = 0;
+        aiContinuousTs = 0;
         self.postMessage({ type: "ready" });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
@@ -310,14 +398,22 @@ self.addEventListener("message", async (event: MessageEvent) => {
     }
 
     case "user_chunk": {
-      const { buffer, timestamp } = event.data;
-      enqueueWrite("user", buffer, timestamp, USER_SAMPLE_RATE);
+      const { buffer } = event.data;
+      // Use continuous sample-count timestamp instead of wall-clock time.
+      // This ensures chunks stitch seamlessly with no jitter gaps.
+      const userSamples = buffer.byteLength / 2; // Int16 = 2 bytes per sample
+      const userChunkDurationUs = (userSamples / USER_SAMPLE_RATE) * 1_000_000;
+      enqueueWrite("user", buffer, userContinuousTs, USER_SAMPLE_RATE);
+      userContinuousTs += userChunkDurationUs;
       break;
     }
 
     case "ai_chunk": {
-      const { buffer, timestamp } = event.data;
-      enqueueWrite("ai", buffer, timestamp, AI_SAMPLE_RATE);
+      const { buffer } = event.data;
+      const aiSamples = buffer.byteLength / 2;
+      const aiChunkDurationUs = (aiSamples / AI_SAMPLE_RATE) * 1_000_000;
+      enqueueWrite("ai", buffer, aiContinuousTs, AI_SAMPLE_RATE);
+      aiContinuousTs += aiChunkDurationUs;
       break;
     }
 
