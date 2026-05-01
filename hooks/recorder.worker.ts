@@ -170,6 +170,13 @@ function groupIntoSegments(chunks: any[]): Segment[] {
   let segChunks: Float32Array[] = [];
   let segWallStartMs: number = chunks[0].timestamp;
   let segWallEndMs: number = chunks[0].timestamp;
+  
+  // Accumulated real audio duration in ms for the current segment.
+  // Used to compute the correct playback-end time for AI segments:
+  // AI audio streams faster than real-time (Gemini sends 30 s of audio in
+  // ~2 s), so lastChunk.timestamp underestimates when the AI stops speaking.
+  // The true playback end = segWallStartMs + segAccumulatedDurationMs.
+  let segAccumulatedDurationMs = 0;
 
   const flushSegment = () => {
     if (segChunks.length === 0) return;
@@ -184,10 +191,18 @@ function groupIntoSegments(chunks: any[]): Segment[] {
       offset += c.length;
     }
 
+    // For AI: use playback-accurate wall end (start + total audio duration).
+    // For user: chunks arrive in real-time so lastChunk.timestamp + duration
+    //           is already accurate — keep segWallEndMs as-is.
+    const accurateWallEndMs =
+      currentRole === "ai"
+        ? segWallStartMs + segAccumulatedDurationMs
+        : segWallEndMs;
+
     segments.push({
       role: currentRole as "user" | "ai",
       wallStartMs: segWallStartMs,
-      wallEndMs: segWallEndMs,
+      wallEndMs: accurateWallEndMs,
       samples: merged,
     });
   };
@@ -199,14 +214,19 @@ function groupIntoSegments(chunks: any[]): Segment[] {
       currentRole = chunk.role;
       segChunks = [];
       segWallStartMs = chunk.timestamp;
+      segWallEndMs = chunk.timestamp;
+      segAccumulatedDurationMs = 0;
     }
 
     const raw = new Int16Array(chunk.buffer);
     const f32 = resampleToFloat32(raw, chunk.sampleRate, AUDIO_OUTPUT_RATE);
     segChunks.push(f32);
 
-    // Track the wall-clock end of this chunk for gap calculations
+    // Accumulate the real audio duration of this chunk (ms)
     const chunkDurationMs = (raw.length / chunk.sampleRate) * 1000;
+    segAccumulatedDurationMs += chunkDurationMs;
+
+    // Track the wall-clock end of this chunk for gap calculations
     segWallEndMs = chunk.timestamp + chunkDurationMs;
   }
 
