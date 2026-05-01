@@ -6,11 +6,17 @@
  * Persistent Web Worker responsible for:
  *   1. Ingesting audio chunks (user mic + Gemini AI) into IndexedDB via a
  *      serialized write queue — keeping the main thread 100% free of disk I/O.
- *   2. On "finalize": reading all session chunks from IDB, feeding them to
- *      a Mediabunny WebM Opus encoder pipeline which preserves accurate PTS
- *      (Presentation Timestamps) natively.
+ *   2. On "finalize": reading all session chunks from IDB, assembling them
+ *      into a compact WebM Opus file via Mediabunny with accurate timing.
  *   3. Posting the finished WebM Blob back to the main thread for download.
  *   4. Cleaning up IndexedDB records after the session is done.
+ *
+ * ── Recording quality notes ─────────────────────────────────────────────────
+ *  Chunks are stored with wall-clock timestamps for correct ordering.
+ *  During finalize, consecutive same-role chunks are stitched gap-free
+ *  (eliminating click/pop artifacts from Date.now() jitter), and silence
+ *  gaps between role transitions are capped at MAX_GAP_S to produce a
+ *  compact file that still sounds like a natural conversation.
  */
 
 import {
@@ -27,6 +33,15 @@ const STORE_NAME = "audio_chunks";
 
 const AI_SAMPLE_RATE = 24000;
 const USER_SAMPLE_RATE = 16000;
+const AUDIO_OUTPUT_RATE = 48000;
+
+/**
+ * Maximum silence gap (seconds) preserved between conversation turns.
+ * Gaps longer than this are capped to avoid huge dead-air stretches from
+ * network stalls or very long AI thinking pauses (> 10 s).
+ * Set high enough that normal conversation pauses are preserved faithfully.
+ */
+const MAX_GAP_S = 8.0;
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -34,14 +49,6 @@ let db: IDBDatabase | null = null;
 let currentSessionId: string | null = null;
 
 let writeQueue = Promise.resolve();
-
-// ── Continuous timestamp tracking ───────────────────────────────────────────
-// Wall-clock timestamps from Date.now() have jitter and include real-time
-// pauses as silence gaps. Instead, we track a running sample counter per role
-// so consecutive chunks stitch together with zero gaps or overlaps.
-// Each counter represents microseconds of audio received so far for that role.
-let userContinuousTs = 0; // µs of user audio accumulated
-let aiContinuousTs = 0; // µs of AI audio accumulated
 
 // ─── IndexedDB Setup ──────────────────────────────────────────────────────────
 
@@ -137,57 +144,79 @@ function resampleToFloat32(
   return output;
 }
 
-// ─── Finalize (Assembly + Encode + Download) ──────────────────────────────────
+// ─── Segment grouping ─────────────────────────────────────────────────────────
+
+interface Segment {
+  role: "user" | "ai";
+  /** Wall-clock timestamp (ms) of the first chunk in this segment */
+  wallStartMs: number;
+  /** Wall-clock timestamp (ms) of the last chunk's end in this segment */
+  wallEndMs: number;
+  /** Resampled Float32 samples at AUDIO_OUTPUT_RATE, stitched gap-free */
+  samples: Float32Array;
+}
 
 /**
- * Merge user and AI chunk streams into a single compact Float32 timeline.
- *
- * Strategy:
- *   1. Separate chunks by role and resample everything to 48 kHz.
- *   2. Concatenate each role's chunks into one continuous buffer (no gaps,
- *      no wall-clock pauses — chunks are stitched back-to-back).
- *   3. Mix the two role buffers sample-by-sample. Where both overlap we
- *      sum + soft-clip; where only one exists we use it directly.
- *   4. Feed the single mixed buffer to Mediabunny as one AudioSample at
- *      timestamp 0 — no per-chunk timestamps means no PTS jitter.
+ * Group consecutive same-role chunks into segments, stitching their audio
+ * seamlessly (no jitter gaps). The wall-clock timestamps are preserved on
+ * the segment for ordering, but internal chunk boundaries are eliminated.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function groupIntoSegments(chunks: any[]): Segment[] {
+  if (chunks.length === 0) return [];
 
-const AUDIO_OUTPUT_RATE = 48000;
+  const segments: Segment[] = [];
+  let currentRole: string = chunks[0].role;
+  let segChunks: Float32Array[] = [];
+  let segWallStartMs: number = chunks[0].timestamp;
+  let segWallEndMs: number = chunks[0].timestamp;
 
-function concatRoleChunks(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  chunks: any[],
-  originalRate: number,
-): Float32Array {
-  // Pass 1: resample each chunk and compute total length
-  const resampled: Float32Array[] = [];
-  let totalLen = 0;
+  const flushSegment = () => {
+    if (segChunks.length === 0) return;
+
+    // Concatenate all resampled chunks into one continuous buffer
+    let totalLen = 0;
+    for (const c of segChunks) totalLen += c.length;
+    const merged = new Float32Array(totalLen);
+    let offset = 0;
+    for (const c of segChunks) {
+      merged.set(c, offset);
+      offset += c.length;
+    }
+
+    segments.push({
+      role: currentRole as "user" | "ai",
+      wallStartMs: segWallStartMs,
+      wallEndMs: segWallEndMs,
+      samples: merged,
+    });
+  };
+
   for (const chunk of chunks) {
+    if (chunk.role !== currentRole) {
+      // Role changed — flush the current segment and start a new one
+      flushSegment();
+      currentRole = chunk.role;
+      segChunks = [];
+      segWallStartMs = chunk.timestamp;
+    }
+
     const raw = new Int16Array(chunk.buffer);
-    const f32 = resampleToFloat32(raw, originalRate, AUDIO_OUTPUT_RATE);
-    resampled.push(f32);
-    totalLen += f32.length;
+    const f32 = resampleToFloat32(raw, chunk.sampleRate, AUDIO_OUTPUT_RATE);
+    segChunks.push(f32);
+
+    // Track the wall-clock end of this chunk for gap calculations
+    const chunkDurationMs = (raw.length / chunk.sampleRate) * 1000;
+    segWallEndMs = chunk.timestamp + chunkDurationMs;
   }
 
-  // Pass 2: concatenate into one buffer
-  const out = new Float32Array(totalLen);
-  let offset = 0;
-  for (const seg of resampled) {
-    out.set(seg, offset);
-    offset += seg.length;
-  }
-  return out;
+  // Flush the last segment
+  flushSegment();
+
+  return segments;
 }
 
-/**
- * Soft-clip: fast tanh-like curve that tames summed peaks while preserving
- * quiet-to-normal signal linearity. Cheaper than Math.tanh.
- */
-function softClip(x: number): number {
-  if (x > 1.5) return 1.0;
-  if (x < -1.5) return -1.0;
-  return x - (x * x * x) / 6.75;
-}
+// ─── Finalize (Assembly + Encode + Download) ──────────────────────────────────
 
 async function finalizeRecording() {
   if (!db || !currentSessionId) {
@@ -208,39 +237,21 @@ async function finalizeRecording() {
 
     self.postMessage({ type: "progress", percent: 15 });
 
-    // ── Separate by role ────────────────────────────────────────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userChunks: any[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const aiChunks: any[] = [];
-    for (const c of chunks) {
-      if (c.role === "user") userChunks.push(c);
-      else aiChunks.push(c);
-    }
+    // ── Group consecutive same-role chunks into segments ─────────────────
+    // Each segment's internal chunks are stitched gap-free (no jitter clicks).
+    const segments = groupIntoSegments(chunks);
 
     self.postMessage({ type: "progress", percent: 25 });
 
-    // ── Concatenate each role into a continuous buffer ───────────────────────
-    const userBuf = concatRoleChunks(userChunks, USER_SAMPLE_RATE);
-    const aiBuf = concatRoleChunks(aiChunks, AI_SAMPLE_RATE);
+    // ── Build a compact timeline ────────────────────────────────────────
+    // Walk segments in order. Between segments, preserve the wall-clock gap
+    // but cap it at MAX_GAP_S to compress long silences (thinking time, etc).
+    // This keeps the recording compact while maintaining natural turn flow.
+    let outputTimestamp = 0; // seconds — running position in the output file
 
-    self.postMessage({ type: "progress", percent: 40 });
+    self.postMessage({ type: "progress", percent: 30 });
 
-    // ── Mix into a single output buffer ─────────────────────────────────────
-    // User and AI buffers are placed back-to-back per role. We mix by summing
-    // sample-by-sample with soft-clipping to prevent overs.
-    const mixLen = Math.max(userBuf.length, aiBuf.length);
-    const mixed = new Float32Array(mixLen);
-
-    for (let i = 0; i < mixLen; i++) {
-      const u = i < userBuf.length ? userBuf[i] : 0;
-      const a = i < aiBuf.length ? aiBuf[i] : 0;
-      mixed[i] = softClip(u + a);
-    }
-
-    self.postMessage({ type: "progress", percent: 55 });
-
-    // ── Encode with Mediabunny ──────────────────────────────────────────────
+    // ── Create Media Pipeline ───────────────────────────────────────────
     const output = new Output({
       format: new WebMOutputFormat(),
       target: new BufferTarget(),
@@ -257,34 +268,72 @@ async function finalizeRecording() {
     output.addAudioTrack(audioSource);
     await output.start();
 
-    self.postMessage({ type: "progress", percent: 60 });
+    self.postMessage({ type: "progress", percent: 35 });
 
-    // Feed in manageable segments (1 second each) to avoid blocking and
-    // to give the encoder a chance to flush internal buffers.
-    const SEGMENT_SAMPLES = AUDIO_OUTPUT_RATE; // 1 second
-    const totalSegments = Math.ceil(mixed.length / SEGMENT_SAMPLES);
+    // ── Feed segments to Mediabunny ─────────────────────────────────────
+    for (let si = 0; si < segments.length; si++) {
+      const seg = segments[si];
 
-    for (let si = 0; si < totalSegments; si++) {
-      const start = si * SEGMENT_SAMPLES;
-      const end = Math.min(start + SEGMENT_SAMPLES, mixed.length);
-      const segmentData = mixed.subarray(start, end);
+      // Insert a compressed gap between segments (role transitions or pauses)
+      if (si > 0) {
+        const wallGapMs = seg.wallStartMs - segments[si - 1].wallEndMs;
+        const gapS = Math.min(Math.max(wallGapMs / 1000, 0), MAX_GAP_S);
 
-      const sample = new AudioSample({
-        data: segmentData,
-        format: "f32-planar",
-        numberOfChannels: 1,
-        sampleRate: AUDIO_OUTPUT_RATE,
-        timestamp: start / AUDIO_OUTPUT_RATE, // seconds, derived from sample position
-      });
-
-      try {
-        await audioSource.add(sample);
-      } finally {
-        sample.close();
+        if (gapS > 0.01) {
+          // Insert silence for the gap
+          const silenceSamples = Math.floor(gapS * AUDIO_OUTPUT_RATE);
+          const silence = new Float32Array(silenceSamples);
+          const silenceSample = new AudioSample({
+            data: silence,
+            format: "f32-planar",
+            numberOfChannels: 1,
+            sampleRate: AUDIO_OUTPUT_RATE,
+            timestamp: outputTimestamp,
+          });
+          try {
+            await audioSource.add(silenceSample);
+          } finally {
+            silenceSample.close();
+          }
+          outputTimestamp += gapS;
+        }
       }
 
-      // Progress: 60% – 85% during encoding
-      const pct = 60 + Math.floor(((si + 1) / totalSegments) * 25);
+      // Feed the segment's audio in 1-second sub-segments for smooth encoding.
+      // IMPORTANT: use slice() (not subarray()) so each AudioSample owns an
+      // independent copy of the data. subarray() returns a shared-memory view;
+      // when sample.close() frees the encoder reference, later sub-segments
+      // reading the same memory get stale/reused data → looping artefacts.
+      const SEGMENT_SIZE = AUDIO_OUTPUT_RATE; // 1 second of samples
+      const totalSubSegments = Math.ceil(seg.samples.length / SEGMENT_SIZE);
+
+      for (let ssi = 0; ssi < totalSubSegments; ssi++) {
+        const start = ssi * SEGMENT_SIZE;
+        const end = Math.min(start + SEGMENT_SIZE, seg.samples.length);
+        // slice() allocates a new Float32Array — safe to close the AudioSample
+        // without affecting any subsequent sub-segment's backing memory.
+        const subData = seg.samples.slice(start, end);
+        const subDuration = subData.length / AUDIO_OUTPUT_RATE;
+
+        const sample = new AudioSample({
+          data: subData,
+          format: "f32-planar",
+          numberOfChannels: 1,
+          sampleRate: AUDIO_OUTPUT_RATE,
+          timestamp: outputTimestamp,
+        });
+
+        try {
+          await audioSource.add(sample);
+        } finally {
+          sample.close();
+        }
+
+        outputTimestamp += subDuration;
+      }
+
+      // Progress: 35% – 85% during encoding
+      const pct = 35 + Math.floor(((si + 1) / segments.length) * 50);
       self.postMessage({ type: "progress", percent: pct });
     }
 
@@ -383,9 +432,6 @@ self.addEventListener("message", async (event: MessageEvent) => {
           db = await openDatabase();
         }
         writeQueue = Promise.resolve();
-        // Reset continuous timestamp counters for the new session
-        userContinuousTs = 0;
-        aiContinuousTs = 0;
         self.postMessage({ type: "ready" });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
@@ -398,22 +444,14 @@ self.addEventListener("message", async (event: MessageEvent) => {
     }
 
     case "user_chunk": {
-      const { buffer } = event.data;
-      // Use continuous sample-count timestamp instead of wall-clock time.
-      // This ensures chunks stitch seamlessly with no jitter gaps.
-      const userSamples = buffer.byteLength / 2; // Int16 = 2 bytes per sample
-      const userChunkDurationUs = (userSamples / USER_SAMPLE_RATE) * 1_000_000;
-      enqueueWrite("user", buffer, userContinuousTs, USER_SAMPLE_RATE);
-      userContinuousTs += userChunkDurationUs;
+      const { buffer, timestamp } = event.data;
+      enqueueWrite("user", buffer, timestamp, USER_SAMPLE_RATE);
       break;
     }
 
     case "ai_chunk": {
-      const { buffer } = event.data;
-      const aiSamples = buffer.byteLength / 2;
-      const aiChunkDurationUs = (aiSamples / AI_SAMPLE_RATE) * 1_000_000;
-      enqueueWrite("ai", buffer, aiContinuousTs, AI_SAMPLE_RATE);
-      aiContinuousTs += aiChunkDurationUs;
+      const { buffer, timestamp } = event.data;
+      enqueueWrite("ai", buffer, timestamp, AI_SAMPLE_RATE);
       break;
     }
 
