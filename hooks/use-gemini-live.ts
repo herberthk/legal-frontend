@@ -40,6 +40,12 @@ export interface UseGeminiLiveOptions {
    * `timestamp` is ms since session start.
    */
   onAIAudioChunk?: (buffer: ArrayBuffer, timestamp: number) => void;
+
+  /**
+   * Called exactly when the duration reaches the 30-minute limit.
+   * Use this to trigger saving/billing before the hook stops the session.
+   */
+  onDurationLimitReached?: () => void;
 }
 
 export const useGeminiLive = ({
@@ -48,6 +54,7 @@ export const useGeminiLive = ({
   userId,
   onUserAudioChunk,
   onAIAudioChunk,
+  onDurationLimitReached,
 }: UseGeminiLiveOptions) => {
   const [wsStatus, setWsStatus] = useState<VoiceSessionStatus>("idle");
   const [audioStatus, setAudioStatus] = useState<VoiceAudioStatus>("idle");
@@ -357,7 +364,11 @@ export const useGeminiLive = ({
           return;
         isDisconnectingRef.current = false;
 
-        setWsStatus("connecting");
+        // Only show 'connecting' state on initial start, not during background reconnects.
+        // This ensures the user doesn't see a UI jump or hear sounds during the invisible transition.
+        if (!isReconnect) {
+          setWsStatus("connecting");
+        }
 
         if (!isReconnect) {
           // Prevent the display from sleeping during the voice call
@@ -766,7 +777,13 @@ export const useGeminiLive = ({
             syncSessionToBuffer(next);
           }
           if (next >= 1800) {
-            disconnectFromGemini();
+            // Duration limit reached. We call the callback if provided.
+            // We NO LONGER call disconnectFromGemini() here automatically,
+            // because the consumer (GeminiVoiceConnection) needs to perform
+            // its own handleEndCall() logic to ensure billing and saving.
+            if (onDurationLimitReached) {
+              onDurationLimitReached();
+            }
           }
           return next;
         });

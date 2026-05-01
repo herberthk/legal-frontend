@@ -45,6 +45,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     encodingProgress,
   } = useConversationRecorder();
 
+  // Stable ref to avoid circular dependencies with the hook
+  const handleEndCallRef = useRef<() => Promise<void>>(null);
+
   const {
     wsStatus,
     audioStatus,
@@ -69,6 +72,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // connectToGemini to rebuild its internal closure.
     onUserAudioChunk: addUserChunk,
     onAIAudioChunk: addAIChunk,
+    onDurationLimitReached: useCallback(() => {
+      handleEndCallRef.current?.();
+    }, []),
   });
 
   const totalAllowedSeconds = useMemo(() => {
@@ -98,6 +104,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     connectingAudioRef.current.loop = true;
     connectedAudioRef.current = new Audio("/voices/connected.mp3");
     disconnectedAudioRef.current = new Audio("/voices/disconnected.mp3");
+    connectingAudioRef.current.volume = 1.0;
+    connectedAudioRef.current.volume = 1.0;
+    disconnectedAudioRef.current.volume = 1.0;
 
     return () => {
       connectingAudioRef.current?.pause();
@@ -134,7 +143,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       });
     }
   }, [wsStatus]);
-
 
   // Handle Muting logic via the hook directly
   useEffect(() => {
@@ -315,6 +323,10 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     sessionId,
     finalizeRecording,
   ]);
+
+  // Update the ref whenever the callback changes to ensure useGeminiLive
+  // always has access to the latest version for the 30-min timeout.
+  handleEndCallRef.current = handleEndCall;
 
   useEffect(() => {
     if (isCreditExhausted && wsStatus === "open") {
