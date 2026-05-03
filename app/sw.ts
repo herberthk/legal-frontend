@@ -130,7 +130,7 @@ const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true, // Whether the service worker should skip waiting and become the active one.
   clientsClaim: true, // Whether the service worker should claim all clients.
-  navigationPreload: false, // Set to false to prevent 'preloadResponse settled' console warnings.
+  navigationPreload: true,
   //runtimeCaching: defaultCache, // The cache configuration for the service worker.
 
   fallbacks: {
@@ -148,6 +148,7 @@ const serwist = new Serwist({
     // Whether outdated caches should be removed.
     cleanupOutdatedCaches: true,
     concurrency: 20,
+    ignoreURLParametersMatching: [/.*/],
   },
   runtimeCaching: [
     {
@@ -185,9 +186,7 @@ const serwist = new Serwist({
     },
     {
       matcher: ({ request, url: { pathname }, sameOrigin }) =>
-        (request.mode === "navigate" ||
-          request.destination === "document" ||
-          request.headers.get("Accept")?.includes("text/html")) &&
+        request.headers.get("Content-Type")?.includes("text/html") &&
         sameOrigin &&
         !pathname.startsWith("/api/"),
       handler: new NetworkFirst({
@@ -199,51 +198,6 @@ const serwist = new Serwist({
           }),
         ],
         matchOptions,
-      }),
-    },
-    {
-      matcher({ request }) {
-        return request.destination === "image";
-      },
-      handler: new StaleWhileRevalidate({
-        cacheName: "images",
-        plugins: [
-          new ExpirationPlugin({
-            maxEntries: 128,
-            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-          }),
-          new BroadcastUpdatePlugin(),
-        ],
-      }),
-    },
-    // Handle scripts
-    {
-      matcher({ request }) {
-        return request.destination === "script";
-      },
-      handler: new CacheFirst({
-        cacheName: "scripts",
-        plugins: [
-          new ExpirationPlugin({
-            maxEntries: 64,
-            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-          }),
-        ],
-      }),
-    },
-    // Handle styles
-    {
-      matcher({ request }) {
-        return request.destination === "style";
-      },
-      handler: new CacheFirst({
-        cacheName: "styles",
-        plugins: [
-          new ExpirationPlugin({
-            maxEntries: 32,
-            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-          }),
-        ],
       }),
     },
     ...defaultCache,
