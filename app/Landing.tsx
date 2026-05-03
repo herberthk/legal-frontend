@@ -119,6 +119,7 @@ const LandingPage = () => {
                       width={40}
                       height={40}
                       className="object-cover"
+                      unoptimized
                     />
                   </div>
                 ))}
