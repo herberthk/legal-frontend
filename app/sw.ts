@@ -1,8 +1,15 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
-import { defaultCache } from "@serwist/turbopack/worker";
+import { defaultCache, PAGES_CACHE_NAME } from "@serwist/turbopack/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
+import {
+  Serwist,
+  NetworkFirst,
+  ExpirationPlugin,
+  StaleWhileRevalidate,
+  CacheFirst,
+  BroadcastUpdatePlugin,
+} from "serwist";
 import { initializeApp } from "firebase/app";
 import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 
@@ -17,6 +24,10 @@ declare global {
 }
 
 declare const self: ServiceWorkerGlobalScope;
+
+const matchOptions = {
+  ignoreSearch: true,
+} satisfies CacheQueryOptions;
 
 // ─── Firebase Cloud Messaging — Background Push Handler ───────────────────────
 // Initialise Firebase and Messaging.
@@ -119,8 +130,8 @@ const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true, // Whether the service worker should skip waiting and become the active one.
   clientsClaim: true, // Whether the service worker should claim all clients.
-  //navigationPreload: true, // Whether the service worker should preload navigation requests.
-  runtimeCaching: defaultCache, // The cache configuration for the service worker.
+  navigationPreload: false, // Set to false to prevent 'preloadResponse settled' console warnings.
+  //runtimeCaching: defaultCache, // The cache configuration for the service worker.
 
   fallbacks: {
     // The fallback configuration for the service worker.
@@ -136,7 +147,134 @@ const serwist = new Serwist({
   precacheOptions: {
     // Whether outdated caches should be removed.
     cleanupOutdatedCaches: true,
+    concurrency: 20,
   },
+  runtimeCaching: [
+    {
+      matcher: ({ request, url: { pathname }, sameOrigin }) =>
+        request.headers.get("RSC") === "1" &&
+        request.headers.get("Next-Router-Prefetch") === "1" &&
+        sameOrigin &&
+        !pathname.startsWith("/api/"),
+      handler: new NetworkFirst({
+        cacheName: PAGES_CACHE_NAME.rscPrefetch,
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          }),
+        ],
+        matchOptions,
+      }),
+    },
+    {
+      matcher: ({ request, url: { pathname }, sameOrigin }) =>
+        request.headers.get("RSC") === "1" &&
+        sameOrigin &&
+        !pathname.startsWith("/api/"),
+      handler: new NetworkFirst({
+        cacheName: PAGES_CACHE_NAME.rsc,
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          }),
+        ],
+        matchOptions,
+      }),
+    },
+    {
+      matcher: ({ request, url: { pathname }, sameOrigin }) =>
+        (request.mode === "navigate" ||
+          request.destination === "document" ||
+          request.headers.get("Accept")?.includes("text/html")) &&
+        sameOrigin &&
+        !pathname.startsWith("/api/"),
+      handler: new NetworkFirst({
+        cacheName: PAGES_CACHE_NAME.html,
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          }),
+        ],
+        matchOptions,
+      }),
+    },
+    {
+      matcher({ request }) {
+        return request.destination === "image";
+      },
+      handler: new StaleWhileRevalidate({
+        cacheName: "images",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 128,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          }),
+          new BroadcastUpdatePlugin(),
+        ],
+      }),
+    },
+    // Handle scripts
+    {
+      matcher({ request }) {
+        return request.destination === "script";
+      },
+      handler: new CacheFirst({
+        cacheName: "scripts",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 64,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          }),
+        ],
+      }),
+    },
+    // Handle styles
+    {
+      matcher({ request }) {
+        return request.destination === "style";
+      },
+      handler: new CacheFirst({
+        cacheName: "styles",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          }),
+        ],
+      }),
+    },
+    ...defaultCache,
+  ],
+});
+
+const urlsToCache = [
+  "/",
+  "/login",
+  "/signup",
+  "/reset",
+  "/forgot-password",
+  "/cookies",
+  "/terms",
+  "/privacy",
+  "/disclaimer",
+  "/~offline",
+] as const;
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    Promise.all(
+      urlsToCache.map((entry) => {
+        const request = serwist.handleRequest({
+          request: new Request(entry),
+          event,
+        });
+        return request;
+      }),
+    ),
+  );
 });
 
 serwist.addEventListeners();
