@@ -8,6 +8,7 @@ import FirebaseAnalytics from "@/components/global/FirebaseAnalytics";
 import FCMProvider from "@/components/global/FCMProvider";
 import NetworkStatus from "@/components/pwa/NetworkStatus";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
+import PwaUpdateToast from "@/components/pwa/PwaUpdateToast";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -352,6 +353,7 @@ const RootLayout = ({
           <Toaster position="top-right" />
           <NetworkStatus />
           <InstallPrompt />
+          <PwaUpdateToast />
           <ThemeInitializer />
           <NextTopLoader />
           <SerwistProvider swUrl="/serwist/sw.js">{children}</SerwistProvider>
