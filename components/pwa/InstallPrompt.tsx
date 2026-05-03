@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const STORAGE_KEY_START = "pwa_prompt_cycle_start";
+const STORAGE_KEY_INDEX = "pwa_prompt_last_index";
+const INTERVALS_MIN = [5, 10, 20, 30, 40, 50, 60]; // minutes since last dismissed
+
 export default function InstallPrompt() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -20,9 +24,6 @@ export default function InstallPrompt() {
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
     // ── Interval Logic ──────────────────────────────────────────────────────
-    const INTERVALS_MIN = [5, 10, 20, 30, 40, 50, 60]; // minutes from session start
-    const STORAGE_KEY_START = "pwa_prompt_cycle_start";
-    const STORAGE_KEY_INDEX = "pwa_prompt_last_index";
 
     // Initialize cycle start time if not present
     if (!localStorage.getItem(STORAGE_KEY_START)) {
@@ -53,13 +54,11 @@ export default function InstallPrompt() {
         targetMin = INTERVALS_MIN[nextIndex];
       } else {
         // After the last specific interval, show every 60 minutes
-        const extraHours = nextIndex - INTERVALS_MIN.length + 1;
-        targetMin = INTERVALS_MIN[INTERVALS_MIN.length - 1] + extraHours * 60;
+        targetMin = 60;
       }
 
       if (elapsedMin >= targetMin && deferredPrompt && !showPrompt) {
         setShowPrompt(true);
-        localStorage.setItem(STORAGE_KEY_INDEX, nextIndex.toString());
       }
     }, 10000); // Check every 10 seconds
 
@@ -87,6 +86,13 @@ export default function InstallPrompt() {
 
   const handleClose = () => {
     setShowPrompt(false);
+    localStorage.setItem(STORAGE_KEY_START, Date.now().toString());
+    let lastIndex = parseInt(
+      localStorage.getItem(STORAGE_KEY_INDEX) || "-1",
+      10,
+    );
+    if (isNaN(lastIndex)) lastIndex = -1;
+    localStorage.setItem(STORAGE_KEY_INDEX, (lastIndex + 1).toString());
   };
 
   return (
