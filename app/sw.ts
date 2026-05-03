@@ -2,7 +2,14 @@
 /// <reference lib="webworker" />
 import { defaultCache, PAGES_CACHE_NAME } from "@serwist/turbopack/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { ExpirationPlugin, NetworkFirst, Serwist } from "serwist";
+import {
+  Serwist,
+  NetworkFirst,
+  ExpirationPlugin,
+  StaleWhileRevalidate,
+  CacheFirst,
+  BroadcastUpdatePlugin,
+} from "serwist";
 import { initializeApp } from "firebase/app";
 import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 
@@ -192,6 +199,51 @@ const serwist = new Serwist({
           }),
         ],
         matchOptions,
+      }),
+    },
+    {
+      matcher({ request }) {
+        return request.destination === "image";
+      },
+      handler: new StaleWhileRevalidate({
+        cacheName: "images",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 128,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          }),
+          new BroadcastUpdatePlugin(),
+        ],
+      }),
+    },
+    // Handle scripts
+    {
+      matcher({ request }) {
+        return request.destination === "script";
+      },
+      handler: new CacheFirst({
+        cacheName: "scripts",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 64,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          }),
+        ],
+      }),
+    },
+    // Handle styles
+    {
+      matcher({ request }) {
+        return request.destination === "style";
+      },
+      handler: new CacheFirst({
+        cacheName: "styles",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+          }),
+        ],
       }),
     },
     ...defaultCache,
