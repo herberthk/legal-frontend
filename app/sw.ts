@@ -1,8 +1,8 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
-import { defaultCache } from "@serwist/turbopack/worker";
+import { defaultCache, PAGES_CACHE_NAME } from "@serwist/turbopack/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
+import { ExpirationPlugin, NetworkFirst, Serwist } from "serwist";
 import { initializeApp } from "firebase/app";
 import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 
@@ -18,9 +18,9 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-// const matchOptions = {
-//   ignoreSearch: true,
-// } satisfies CacheQueryOptions;
+const matchOptions = {
+  ignoreSearch: true,
+} satisfies CacheQueryOptions;
 
 // ─── Firebase Cloud Messaging — Background Push Handler ───────────────────────
 // Initialise Firebase and Messaging.
@@ -124,7 +124,7 @@ const serwist = new Serwist({
   skipWaiting: true, // Whether the service worker should skip waiting and become the active one.
   clientsClaim: true, // Whether the service worker should claim all clients.
   navigationPreload: false, // Set to false to prevent 'preloadResponse settled' console warnings.
-  runtimeCaching: defaultCache, // The cache configuration for the service worker.
+  //runtimeCaching: defaultCache, // The cache configuration for the service worker.
 
   fallbacks: {
     // The fallback configuration for the service worker.
@@ -142,60 +142,60 @@ const serwist = new Serwist({
     cleanupOutdatedCaches: true,
     concurrency: 20,
   },
-  // runtimeCaching: [
-  //   {
-  //     matcher: ({ request, url: { pathname }, sameOrigin }) =>
-  //       request.headers.get("RSC") === "1" &&
-  //       request.headers.get("Next-Router-Prefetch") === "1" &&
-  //       sameOrigin &&
-  //       !pathname.startsWith("/api/"),
-  //     handler: new NetworkFirst({
-  //       cacheName: PAGES_CACHE_NAME.rscPrefetch,
-  //       plugins: [
-  //         new ExpirationPlugin({
-  //           maxEntries: 32,
-  //           maxAgeSeconds: 24 * 60 * 60, // 24 hours
-  //         }),
-  //       ],
-  //       matchOptions,
-  //     }),
-  //   },
-  //   {
-  //     matcher: ({ request, url: { pathname }, sameOrigin }) =>
-  //       request.headers.get("RSC") === "1" &&
-  //       sameOrigin &&
-  //       !pathname.startsWith("/api/"),
-  //     handler: new NetworkFirst({
-  //       cacheName: PAGES_CACHE_NAME.rsc,
-  //       plugins: [
-  //         new ExpirationPlugin({
-  //           maxEntries: 32,
-  //           maxAgeSeconds: 24 * 60 * 60, // 24 hours
-  //         }),
-  //       ],
-  //       matchOptions,
-  //     }),
-  //   },
-  //   {
-  //     matcher: ({ request, url: { pathname }, sameOrigin }) =>
-  //       (request.mode === "navigate" ||
-  //         request.destination === "document" ||
-  //         request.headers.get("Accept")?.includes("text/html")) &&
-  //       sameOrigin &&
-  //       !pathname.startsWith("/api/"),
-  //     handler: new NetworkFirst({
-  //       cacheName: PAGES_CACHE_NAME.html,
-  //       plugins: [
-  //         new ExpirationPlugin({
-  //           maxEntries: 32,
-  //           maxAgeSeconds: 24 * 60 * 60, // 24 hours
-  //         }),
-  //       ],
-  //       matchOptions,
-  //     }),
-  //   },
-  //   ...defaultCache,
-  // ],
+  runtimeCaching: [
+    {
+      matcher: ({ request, url: { pathname }, sameOrigin }) =>
+        request.headers.get("RSC") === "1" &&
+        request.headers.get("Next-Router-Prefetch") === "1" &&
+        sameOrigin &&
+        !pathname.startsWith("/api/"),
+      handler: new NetworkFirst({
+        cacheName: PAGES_CACHE_NAME.rscPrefetch,
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          }),
+        ],
+        matchOptions,
+      }),
+    },
+    {
+      matcher: ({ request, url: { pathname }, sameOrigin }) =>
+        request.headers.get("RSC") === "1" &&
+        sameOrigin &&
+        !pathname.startsWith("/api/"),
+      handler: new NetworkFirst({
+        cacheName: PAGES_CACHE_NAME.rsc,
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          }),
+        ],
+        matchOptions,
+      }),
+    },
+    {
+      matcher: ({ request, url: { pathname }, sameOrigin }) =>
+        (request.mode === "navigate" ||
+          request.destination === "document" ||
+          request.headers.get("Accept")?.includes("text/html")) &&
+        sameOrigin &&
+        !pathname.startsWith("/api/"),
+      handler: new NetworkFirst({
+        cacheName: PAGES_CACHE_NAME.html,
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          }),
+        ],
+        matchOptions,
+      }),
+    },
+    ...defaultCache,
+  ],
 });
 
 const urlsToCache = [
