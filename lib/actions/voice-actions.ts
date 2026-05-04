@@ -258,7 +258,7 @@ export const recordVoiceSession = async ({
       title: "Voice Session Recorded",
       message: "Your voice session has been recorded successfully.",
       type: "SUCCESS",
-      url: `/dashboard/user/transcriptions/${voiceSessionRef.id}`,
+      url: `/dashboard/user/transcripts/${voiceSessionRef.id}`,
     });
 
     // Delete from temporary buffer after successful save
