@@ -853,6 +853,40 @@ export const useGeminiLive = ({
           if (next % 10 === 0) {
             syncSessionToBuffer(next);
           }
+
+          if (next === 1500) {
+            try {
+              sessionRef.current?.sendRealtimeInput({
+                text: "SYSTEM NOTIFICATION: The voice session has reached 25 minutes. There are exactly 5 minutes remaining before the session automatically ends. Please proactively and politely inform the user about the remaining time.",
+              });
+            } catch (err) {
+              console.error(
+                "[gemini-live] Failed to send 25 min warning:",
+                err,
+              );
+            }
+          }
+
+          if (next === 1740) {
+            try {
+              sessionRef.current?.sendRealtimeInput({
+                text: "SYSTEM NOTIFICATION: There is only 1 minute remaining before the 30-minute hard limit. Please immediately inform the user, and wrap up the conversation concisely.",
+              });
+            } catch (err) {
+              console.error("[gemini-live] Failed to send 29 min warning:", err);
+            }
+          }
+
+          if (next === 1790) {
+            try {
+              sessionRef.current?.sendRealtimeInput({
+                text: "SYSTEM NOTIFICATION: Time is over. The session will automatically disconnect in 10 seconds. Announce that time is up and say a final goodbye immediately.",
+              });
+            } catch (err) {
+              console.error("[gemini-live] Failed to send time is over warning:", err);
+            }
+          }
+
           if (next >= 1800) {
             // Duration limit reached. We call the callback if provided.
             // We NO LONGER call disconnectFromGemini() here automatically,
@@ -876,7 +910,7 @@ export const useGeminiLive = ({
 
     // wsStatus intentionally excluded. We read it via wsStatusRef.current inside
     // the interval so we always get the latest value without re-subscribing.
-  }, [disconnectFromGemini, syncSessionToBuffer]);
+  }, [disconnectFromGemini, onDurationLimitReached, syncSessionToBuffer]);
 
   return {
     wsStatus,

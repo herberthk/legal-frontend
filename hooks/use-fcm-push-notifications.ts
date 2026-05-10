@@ -131,7 +131,7 @@ export function useFCMPushNotifications(): UseFCMReturn {
     const unsub = onForegroundMessage((payload) => {
       const title = payload.notification?.title ?? "Legal Adviser";
       const body = payload.notification?.body ?? "";
-      const url = (payload.data?.url as string) ?? "/dashboard/user/voice";
+      const url = (payload.data?.url as string) ?? "/";
 
       toast(title, {
         description: body,
