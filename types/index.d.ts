@@ -1,7 +1,5 @@
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="voices.d.ts" />
 import "./email.d.ts";
-
+import "./voices.d.ts";
 declare global {
   type SignInParams = {
     email: string;
@@ -258,5 +256,13 @@ declare global {
   type FirestoreWrite<T, K extends keyof T = never> = Omit<T, K> & {
     [P in K]: FieldValue;
   };
+
+  type PostCallStage =
+    | "encoding"
+    | "billing"
+    | "uploading"
+    | "saving"
+    | "done"
+    | "error";
 }
 export {};

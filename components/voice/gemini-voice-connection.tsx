@@ -13,7 +13,6 @@ import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
 import { logAnalyticsEvent } from "@/firebase/client";
-import type { PostCallStage } from "./PostCallProgress";
 
 interface GeminiVoiceConnectionProps {
   freeVoiceSeconds: number;
@@ -93,6 +92,17 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [postCallError, setPostCallError] = useState<string | undefined>();
 
+  // ── Connection Error State ────────────────────────────────────────────────
+  // Typed error surfaced when wsStatus fails to reach "open". Distinct from
+  // postCallError which covers post-session processing failures.
+  const [connectionError, setConnectionError] = useState<{
+    kind: ConnectionErrorKind;
+    rawMessage?: string;
+  } | null>(null);
+
+  // Ref to the connection-timeout timer so we can clear it on success
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── Audio Feedback ────────────────────────────────────────────────────────────
   const connectingAudioRef = useRef<HTMLAudioElement | null>(null);
   const connectedAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -105,8 +115,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   useEffect(() => {
     const BOOST = 2.0; // +6dB over system level
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SfxAudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const SfxAudioCtx =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      window.AudioContext || (window as any).webkitAudioContext;
     const sfxCtx = new SfxAudioCtx();
     sfxCtxRef.current = sfxCtx;
 
@@ -225,9 +236,55 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     sessionId,
   ]);
 
+  // ── Connection error classifier ──────────────────────────────────────────
+  // Maps a raw error (or undefined for timeout/offline) to a ConnectionErrorKind.
+  const classifyConnectionError = useCallback(
+    (err?: unknown): { kind: ConnectionErrorKind; rawMessage?: string } => {
+      // Check offline first — most reliable signal
+      if (!navigator.onLine) {
+        return { kind: "offline" };
+      }
+
+      const message = err instanceof Error ? err.message : String(err ?? "");
+      const name = err instanceof Error ? err.name : "";
+
+      if (
+        name === "NotAllowedError" ||
+        name === "PermissionDeniedError" ||
+        /not allowed|permission denied|microphone.*blocked/i.test(message)
+      ) {
+        return { kind: "mic_denied", rawMessage: message };
+      }
+
+      if (
+        name === "NotFoundError" ||
+        name === "DevicesNotFoundError" ||
+        /not found|no.*microphone|device.*not found/i.test(message)
+      ) {
+        return { kind: "mic_unavailable", rawMessage: message };
+      }
+
+      if (/token|auth|401|403|forbidden|unauthorized/i.test(message)) {
+        return { kind: "token_failed", rawMessage: message };
+      }
+
+      return { kind: "generic", rawMessage: message || undefined };
+    },
+    [],
+  );
+
   const handleStartCall = useCallback(async () => {
     if (wsStatus === "connecting" || wsStatus === "open" || isCreditExhausted)
       return;
+
+    // Immediately fail with offline error — don't even try to connect
+    if (!navigator.onLine) {
+      setConnectionError({ kind: "offline" });
+      return;
+    }
+
+    // Clear any stale error
+    setConnectionError(null);
 
     // Reset duration for new call
     sessionStorage.removeItem("voice_sessionState");
@@ -237,9 +294,68 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // that arrive milliseconds after the WebSocket handshake.
     startSession(sessionId);
 
-    await connect();
-    logAnalyticsEvent("voice_call_start", { engine: "gemini_live" });
-  }, [connect, wsStatus, isCreditExhausted, startSession, sessionId]);
+    // ── Connection timeout ─────────────────────────────────────────────────
+    // If wsStatus never transitions away from "connecting" within 15 s,
+    // we abort and surface a timeout error. The hook's catch block will also
+    // fire setWsStatus("error") eventually, but this covers the case where
+    // the SDK hangs without throwing (e.g. DNS resolution timeout).
+    connectTimeoutRef.current = setTimeout(() => {
+      // Only fire if we're STILL in the connecting phase
+      if (wsStatusRef.current === "connecting") {
+        setConnectionError({ kind: "timeout" });
+        // Attempt a clean disconnect — ignore failures
+        disconnect().catch(() => {});
+      }
+    }, 15_000);
+
+    try {
+      await connect();
+      logAnalyticsEvent("voice_call_start", { engine: "gemini_live" });
+    } catch (err) {
+      setConnectionError(classifyConnectionError(err));
+    } finally {
+      if (connectTimeoutRef.current) {
+        clearTimeout(connectTimeoutRef.current);
+        connectTimeoutRef.current = null;
+      }
+    }
+  }, [
+    connect,
+    disconnect,
+    wsStatus,
+    isCreditExhausted,
+    startSession,
+    sessionId,
+    classifyConnectionError,
+  ]);
+
+  // Ref mirror of wsStatus so the timeout callback can read it without
+  // becoming a stale closure (avoids having wsStatus in its dep array).
+  const wsStatusRef = useRef(wsStatus);
+  useEffect(() => {
+    wsStatusRef.current = wsStatus;
+    // When the connection succeeds, clear any pending timeout
+    if (wsStatus === "open" && connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
+    }
+    // When the hook itself transitions to "error", classify and surface it
+    if (wsStatus === "error" && !connectionError) {
+      setConnectionError({ kind: "generic" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsStatus]);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (connectTimeoutRef.current) clearTimeout(connectTimeoutRef.current);
+    };
+  }, []);
+
+  const handleClearConnectionError = useCallback(() => {
+    setConnectionError(null);
+  }, []);
 
   const handleEndCall = useCallback(async () => {
     if (wsStatus === "closed" || wsStatus === "idle") return;
@@ -380,6 +496,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       uploadProgress={uploadProgress}
       micLevel={micLevel}
       aiAudioLevel={aiAudioLevel}
+      connectionError={connectionError}
+      onClearConnectionError={handleClearConnectionError}
     />
   );
 };
