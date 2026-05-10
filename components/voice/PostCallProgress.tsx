@@ -2,14 +2,6 @@ import { FC } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
-export type PostCallStage =
-  | "encoding"
-  | "billing"
-  | "uploading"
-  | "saving"
-  | "done"
-  | "error";
-
 type Props = {
   stage: PostCallStage;
   encodingProgress: number;

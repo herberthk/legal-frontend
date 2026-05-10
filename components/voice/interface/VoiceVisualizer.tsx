@@ -27,6 +27,7 @@ interface VoiceVisualizerProps {
   isAudioActive: boolean;
   voiceName?: string;
   onStart: () => void;
+  connectionError?: boolean;
 }
 
 const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
@@ -40,6 +41,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
   isAudioActive,
   voiceName,
   onStart,
+  connectionError,
 }) => {
   const isPreCall = wsStatus !== "open";
 
@@ -186,7 +188,7 @@ const VoiceVisualizer: React.FC<VoiceVisualizerProps> = ({
         >
           <AnimatePresence mode="wait">
             {/* Connecting */}
-            {wsStatus === "connecting" && (
+            {wsStatus === "connecting" && !connectionError && (
               <motion.div
                 key="connecting"
                 initial={{ opacity: 0 }}

@@ -76,6 +76,10 @@ declare global {
       | "error"
       | null;
     postCallError: string | undefined;
+    /** Typed connection error kind for the premium error overlay */
+    connectionError: { kind: ConnectionErrorKind; rawMessage?: string } | null;
+    /** Clears the connectionError and resets wsStatus to idle */
+    onClearConnectionError: () => void;
     /**
      * Encoding progress 0–100.
      */
@@ -107,6 +111,14 @@ declare global {
     status: string;
     updatedAt: Timestamp;
   }
+
+  type ConnectionErrorKind =
+    | "offline" // navigator.onLine === false
+    | "mic_denied" // NotAllowedError / PermissionDeniedError
+    | "mic_unavailable" // NotFoundError / no mic device
+    | "token_failed" // ephemeral token fetch failed (auth/server issue)
+    | "timeout" // connection took > 15 s
+    | "generic"; // everything else
 }
 
 export {};

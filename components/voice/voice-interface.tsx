@@ -17,6 +17,7 @@ import {
 import ExhastedBanner from "./ExhastedBanner";
 import { useThemeStore } from "@/store";
 import PostCallProgress from "./PostCallProgress";
+import ConnectionErrorOverlay from "./ConnectionErrorOverlay";
 
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   wsStatus,
@@ -44,6 +45,8 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   // Audio levels for canvas visualizer
   micLevel,
   aiAudioLevel,
+  connectionError,
+  onClearConnectionError,
 }) => {
   // ─── Derived UI Status ────────────────────────────────────────────────────
   const status: CallStatus = useMemo(() => {
@@ -189,6 +192,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         isAudioActive={isAudioActive}
         voiceName={voiceName}
         onStart={onStart}
+        connectionError={!!connectionError}
       />
 
       {/* ── Live Transcript Panel ────────────────────────────────────────── */}
@@ -245,6 +249,20 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
             error={postCallError}
             encodingProgress={encodingProgress}
             uploadProgress={uploadProgress}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Connection Error Overlay ───────────────────────────────────────────
+          Premium UI for handling network, mic, and connection errors.
+      */}
+      <AnimatePresence>
+        {connectionError && (
+          <ConnectionErrorOverlay
+            kind={connectionError.kind}
+            rawMessage={connectionError.rawMessage}
+            onRetry={onStart}
+            onDismiss={onClearConnectionError}
           />
         )}
       </AnimatePresence>
