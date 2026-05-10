@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db, messaging } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
+import { getCurrentUser } from "@/lib/actions/auth";
+import { MulticastMessage } from "firebase-admin/messaging";
 
 type SendPushBody = {
   userId: string;
@@ -16,12 +18,18 @@ type SendPushBody = {
  * Sends a Firebase Cloud Messaging push notification to all registered
  * devices of the specified user.
  *
- * - Reads FCM tokens from `users/{userId}/fcmTokens`
+ * - Reads FCM tokens from the top-level `fcmTokens` collection
  * - Uses `sendEachForMulticast` to deliver in parallel
  * - Automatically removes stale / expired tokens from Firestore
  */
 export async function POST(req: Request) {
   try {
+    // ── Auth guard ────────────────────────────────────────────────────────
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = (await req.json()) as SendPushBody;
     const { userId, title, body: msgBody, url, data } = body;
 
@@ -46,7 +54,7 @@ export async function POST(req: Request) {
     const tokens = tokensSnap.docs.map((d) => d.data().token as string);
     console.log("[FCM] Sending push notification to user:", tokens);
 
-    const message = {
+    const message: MulticastMessage = {
       tokens,
       notification: { title, body: msgBody },
       data: {
@@ -60,8 +68,8 @@ export async function POST(req: Request) {
         notification: {
           title,
           body: msgBody,
-          icon: "/icons/icon-192x192.png",
-          badge: "/icons/icon-96x96.png",
+          icon: "/icons/manifest-icon-192.maskable.png",
+          badge: "/icons/mstile-icon-128.png",
           requireInteraction: false,
         },
       },

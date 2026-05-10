@@ -49,8 +49,8 @@ export async function sendPushToUser({
       notification: {
         title,
         body,
-        icon: "/icons/icon-192x192.png",
-        badge: "/icons/icon-96x96.png",
+        icon: "/icons/manifest-icon-192.maskable.png",
+        badge: "/icons/mstile-icon-128.png",
         requireInteraction: false,
       },
     },
