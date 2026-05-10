@@ -1,6 +1,6 @@
 "use client";
 
-import { sendPushToUser } from "@/lib/fcm-admin";
+import { useState } from "react";
 
 /**
  * app/test/page.tsx
@@ -389,9 +389,12 @@ import { sendPushToUser } from "@/lib/fcm-admin";
 // }
 
 export default function Test() {
-  // send post request to /api/notifications/send-push instead
+  const [result, setResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const send = async () => {
+    setLoading(true);
+    setResult(null);
     try {
       const res = await fetch("/api/notifications/send-push", {
         method: "POST",
@@ -405,20 +408,31 @@ export default function Test() {
         }),
       });
       const data = await res.json();
-      console.log(data);
+      setResult(`Status: ${res.status}\n${JSON.stringify(data, null, 2)}`);
+      console.log("Response:", res.status, data);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      setResult(`Error: ${msg}`);
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
   return (
-    <div>
-      <h1>Test push notification</h1>
+    <div className="flex items-center justify-center h-screen gap-4 flex-col">
+      <h1 className="text-2xl font-bold">Test push notification</h1>
       <button
         className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
         onClick={send}
+        disabled={loading}
       >
-        Send push notification
+        {loading ? "Sending..." : "Send push notification"}
       </button>
+      {result && (
+        <pre className="mt-4 p-4 bg-slate-800 text-green-400 rounded-lg text-sm max-w-lg overflow-auto whitespace-pre-wrap">
+          {result}
+        </pre>
+      )}
     </div>
   );
 }
