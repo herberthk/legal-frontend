@@ -59,9 +59,9 @@ export default app;
 // ─── Firebase Cloud Messaging ─────────────────────────────────────────────────
 
 /** Lazily initialised FCM Messaging instance — browser-only. */
-let messagingInstance: Messaging | null = null;
+let messagingInstance: ReturnType<typeof getMessaging>;
 
-const getMessagingInstance = (): Messaging | null => {
+const getMessagingInstance = (): ReturnType<typeof getMessaging> | null => {
   if (typeof window === "undefined") return null;
   if (!("Notification" in window)) return null;
   if (!messagingInstance) {
@@ -69,7 +69,6 @@ const getMessagingInstance = (): Messaging | null => {
   }
   return messagingInstance;
 };
-
 /**
  * Requests notification permission and returns the FCM registration token.
  * Returns `null` if the user denies permission or FCM is unsupported.
@@ -84,15 +83,14 @@ export const getFCMToken = async (): Promise<string | null> => {
 
     const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
     if (!vapidKey) {
-      console.warn("[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set.");
+      console.error("[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set.");
       return null;
     }
 
     const token = await getToken(messagingInst, {
       vapidKey,
-      serviceWorkerRegistration: await navigator.serviceWorker.getRegistration(
-        "/serwist/sw.js",
-      ),
+      serviceWorkerRegistration:
+        await navigator.serviceWorker.getRegistration("/serwist/sw.js"),
     });
     return token ?? null;
   } catch (err) {
