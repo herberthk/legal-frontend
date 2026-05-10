@@ -60,8 +60,7 @@ onBackgroundMessage(messaging, (payload) => {
 /** Navigate / focus the app tab when a notification is clicked. */
 self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
-  const url: string =
-    (event.notification.data?.url as string) ?? "/dashboard/user/voice";
+  const url: string = (event.notification.data?.url as string) ?? "/";
 
   event.waitUntil(
     self.clients
