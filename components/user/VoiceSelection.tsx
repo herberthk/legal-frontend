@@ -1,7 +1,7 @@
 import { voices } from "@/constants";
 import { updateUserVoicePreference } from "@/lib";
 import { useAuthStore } from "@/store";
-import { Check, Mic, Play, Square, Volume2 } from "lucide-react";
+import { Check, Mic, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";

@@ -268,13 +268,12 @@ When the user signals they are done (e.g. "thanks", "bye", etc) OR when you rece
 1. Thank ${user} by name.
 2. Wish them well.
 3. Invite them to call back.
-4. Silently call the endCall tool AFTER the spoken farewell (only if the session hasn't already timed out).
-   - For timed cutoffs, you have only 10 seconds to deliver this farewell.
-
 
 CRITICAL REMINDER: KEEP IT UNDER 150 WORDS. BE CONCISE.
 `.trim();
 
+// 4. Silently call the endCall tool AFTER the spoken farewell (only if the session hasn't already timed out).
+//    - For timed cutoffs, you have only 10 seconds to deliver this farewell.
 export const SUMMARIZE_TRANSCRIPT_PROMPT = ({
   user,
   instructor,

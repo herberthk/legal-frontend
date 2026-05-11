@@ -28,8 +28,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const userId = useAuthStore((state) => state.user?.id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const preferedVoice = useAuthStore((state) => state.user?.preferedVoice) || {
-    preferedVoiceId: "Zephyr",
-    preferedVoiceName: "Hana",
+    preferedVoiceId: "Aoede",
+    preferedVoiceName: "Evelyn",
   };
 
   // ── Conversation Recorder ────────────────────────────────────────────────────
