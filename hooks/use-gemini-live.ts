@@ -857,33 +857,30 @@ export const useGeminiLive = ({
           if (next === 1500) {
             try {
               sessionRef.current?.sendRealtimeInput({
-                text: "SYSTEM NOTIFICATION: The voice session has reached 25 minutes. There are exactly 5 minutes remaining before the session automatically ends. Please proactively and politely inform the user about the remaining time.",
+                text: "SYSTEM NOTIFICATION: 5 minutes remaining until the 30-minute session limit. Please inform the user gracefully.",
               });
             } catch (err) {
-              console.error(
-                "[gemini-live] Failed to send 25 min warning:",
-                err,
-              );
+              console.error("[gemini-live] 5m warning error:", err);
             }
           }
 
-          if (next === 1740) {
+          if (next === 1680) {
             try {
               sessionRef.current?.sendRealtimeInput({
-                text: "SYSTEM NOTIFICATION: There is only 1 minute remaining before the 30-minute hard limit. Please immediately inform the user, and wrap up the conversation concisely.",
+                text: "SYSTEM NOTIFICATION: 2 minutes remaining. Please inform the user and continue your response uninterrupted.",
               });
             } catch (err) {
-              console.error("[gemini-live] Failed to send 29 min warning:", err);
+              console.error("[gemini-live] 2m warning error:", err);
             }
           }
 
           if (next === 1790) {
             try {
               sessionRef.current?.sendRealtimeInput({
-                text: "SYSTEM NOTIFICATION: Time is over. The session will automatically disconnect in 10 seconds. Announce that time is up and say a final goodbye immediately.",
+                text: "SYSTEM NOTIFICATION: The 30-minute session limit has been reached. Please gracefully inform the user that time is over, thank them for their time, and warmly invite them to call back if they have any further legal concerns. Be creative and as polite as possible in your final 10 seconds.",
               });
             } catch (err) {
-              console.error("[gemini-live] Failed to send time is over warning:", err);
+              console.error("[gemini-live] 10s warning error:", err);
             }
           }
 
