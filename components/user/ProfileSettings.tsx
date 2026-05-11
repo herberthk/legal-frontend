@@ -21,8 +21,10 @@ import { storage } from "@/firebase/client";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { BUCKETS } from "@/constants/buckets";
 import { updateUserProfile } from "@/lib/actions/user";
-import { formatUniversalDate } from "@/utils";
+import { formatUniversalDate, resizeImage } from "@/utils";
 import { cn } from "@/lib/utils";
+
+type UploadStage = "initializing" | "resizing" | "uploading" | "finishing" | "idle";
 
 interface ProfileSettingsProps {
   user: User;
@@ -35,6 +37,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
   const [avatar, setAvatar] = useState(user.avatar || "");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>("idle");
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,31 +66,42 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
       return;
     }
 
-    if (file.size > 1 * 1024 * 1024) {
-      toast.error("Image size should be less than 1MB", { style: { background: "red" } });
-      return;
-    }
-
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadStage("initializing");
 
     try {
-      const fileName = `${user.id}_${Date.now()}_${file.name}`;
+      // Step 1: Resizing (if needed)
+      setUploadStage("resizing");
+      setUploadProgress(20); // Arbitrary progress for starting resizing
+      const processedFile = await resizeImage(file, 400, 400);
+      setUploadProgress(40); // Done resizing
+
+      // Step 2: Uploading to Firebase
+      setUploadStage("uploading");
+      const fileName = `${user.id}_${Date.now()}_${processedFile.name}`;
       const storageRef = ref(storage, `${BUCKETS.STORED_FILES}/profiles/${fileName}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      const uploadTask = uploadBytesResumable(storageRef, processedFile);
 
       uploadTask.on(
         "state_changed",
         (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          // Map 0-100% of upload to 40-90% of overall progress
+          const uploadPercent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          const progress = 40 + (uploadPercent * 0.5);
           setUploadProgress(progress);
         },
         (error) => {
           console.error("Upload failed:", error);
           toast.error("Failed to upload image");
           setIsUploading(false);
+          setUploadStage("idle");
         },
         async () => {
+          // Step 3: Finishing up (Cleaning up old avatar and updating DB)
+          setUploadStage("finishing");
+          setUploadProgress(95);
+
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           if (avatar && avatar.includes("firebasestorage.googleapis.com")) {
             try {
@@ -101,19 +115,26 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
           setAvatar(downloadURL);
           const result = await updateUserProfile({ avatar: downloadURL }, user.id);
           if (result.success) {
+            setUploadProgress(100);
             toast.success("Profile photo updated successfully", { style: { background: "green" } });
             router.refresh();
           } else {
             toast.error(result.message);
           }
-          setIsUploading(false);
-          setUploadProgress(0);
+          
+          // Small delay before hiding the loader for premium feel
+          setTimeout(() => {
+            setIsUploading(false);
+            setUploadStage("idle");
+            setUploadProgress(0);
+          }, 800);
         }
       );
     } catch (error) {
       console.error("Error in upload flow:", error);
       toast.error("An unexpected error occurred during upload");
       setIsUploading(false);
+      setUploadStage("idle");
     }
   };
 
@@ -142,7 +163,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
               <AnimatePresence>
                 {isUploading && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex items-center justify-center z-10">
-                    <CircularProgress progress={uploadProgress} size={80} strokeWidth={6} />
+                    <CircularProgress progress={uploadProgress} size={80} strokeWidth={6} label={uploadStage} />
                   </motion.div>
                 )}
               </AnimatePresence>

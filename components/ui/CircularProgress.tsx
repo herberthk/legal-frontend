@@ -9,6 +9,7 @@ interface CircularProgressProps {
   strokeWidth?: number;
   color?: string;
   className?: string;
+  label?: string;
 }
 
 export const CircularProgress: React.FC<CircularProgressProps> = ({
@@ -17,6 +18,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
   strokeWidth = 8,
   color = "#4f46e5", // indigo-600
   className = "",
+  label = "Uploading",
 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -87,11 +89,12 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           >
             {Math.round(progress)}%
           </motion.span>
-          <span className="text-[9px] tracking-widest text-slate-500 font-bold mt-1">
-            Uploading
+          <span className="text-[9px] tracking-widest text-slate-500 font-bold mt-1 uppercase">
+            {label}
           </span>
         </div>
       </div>
+
 
       {/* Decorative pulse ring when near completion */}
       <AnimatePresence>
