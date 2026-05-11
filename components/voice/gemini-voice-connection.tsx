@@ -47,6 +47,10 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   // Stable ref to avoid circular dependencies with the hook
   const handleEndCallRef = useRef<() => Promise<void>>(null);
 
+  const totalAllowedSeconds = useMemo(() => {
+    return freeVoiceSeconds + balance / COST_PER_VOICE_SECOND_IN_CENTS;
+  }, [freeVoiceSeconds, balance]);
+
   const {
     wsStatus,
     audioStatus,
@@ -74,11 +78,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     onDurationLimitReached: useCallback(() => {
       handleEndCallRef.current?.();
     }, []),
+    totalAllowedSeconds,
   });
-
-  const totalAllowedSeconds = useMemo(() => {
-    return freeVoiceSeconds + balance / COST_PER_VOICE_SECOND_IN_CENTS;
-  }, [freeVoiceSeconds, balance]);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const isCreditExhausted = duration >= totalAllowedSeconds;

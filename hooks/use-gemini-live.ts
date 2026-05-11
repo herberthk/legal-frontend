@@ -42,10 +42,15 @@ export interface UseGeminiLiveOptions {
   onAIAudioChunk?: (buffer: ArrayBuffer, timestamp: number) => void;
 
   /**
-   * Called exactly when the duration reaches the 30-minute limit.
+   * Called exactly when the duration reaches the dynamic or 30-minute limit.
    * Use this to trigger saving/billing before the hook stops the session.
    */
   onDurationLimitReached?: () => void;
+  /**
+   * The total number of seconds allowed for this session based on balance + free time.
+   * Hard capped at 1800 (30 minutes) internally.
+   */
+  totalAllowedSeconds: number;
 }
 
 export const useGeminiLive = ({
@@ -55,6 +60,7 @@ export const useGeminiLive = ({
   onUserAudioChunk,
   onAIAudioChunk,
   onDurationLimitReached,
+  totalAllowedSeconds,
 }: UseGeminiLiveOptions) => {
   const [wsStatus, setWsStatus] = useState<VoiceSessionStatus>("idle");
   const [audioStatus, setAudioStatus] = useState<VoiceAudioStatus>("idle");
@@ -501,6 +507,14 @@ export const useGeminiLive = ({
           apiVersion: "v1alpha",
         });
 
+        const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
+        const limitMinutes = Math.floor(effectiveLimit / 60);
+        const limitSeconds = effectiveLimit % 60;
+        let durationText = `${limitMinutes} minute${limitMinutes !== 1 ? "s" : ""}`;
+        if (limitSeconds > 0) {
+          durationText += ` and ${limitSeconds} second${limitSeconds !== 1 ? "s" : ""}`;
+        }
+
         const config: LiveConnectConfig = {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -521,6 +535,7 @@ export const useGeminiLive = ({
                 text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({
                   user: userName,
                   instructor: preferedVoice.preferedVoiceName,
+                  maxDurationText: durationText,
                 }),
               },
             ],
@@ -740,11 +755,12 @@ export const useGeminiLive = ({
     },
     [
       wsStatus,
-      getOrCreateAudioCtx,
       getEphemeralToken,
       preferedVoice.preferedVoiceId,
       preferedVoice.preferedVoiceName,
       userName,
+      getOrCreateAudioCtx,
+      totalAllowedSeconds,
       scheduleLevelUpdate,
       finalizeAITurn,
       finalizeUserTurn,
@@ -854,17 +870,27 @@ export const useGeminiLive = ({
             syncSessionToBuffer(next);
           }
 
-          if (next === 1500) {
+          const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
+
+          if (
+            next === effectiveLimit - 300 &&
+            effectiveLimit > 600 &&
+            effectiveLimit <= 1800
+          ) {
             try {
               sessionRef.current?.sendRealtimeInput({
-                text: "SYSTEM NOTIFICATION: 5 minutes remaining until the 30-minute session limit. Please inform the user gracefully.",
+                text: "SYSTEM NOTIFICATION: 5 minutes remaining until the session limit. Please inform the user gracefully.",
               });
             } catch (err) {
               console.error("[gemini-live] 5m warning error:", err);
             }
           }
 
-          if (next === 1680) {
+          if (
+            next === effectiveLimit - 120 &&
+            effectiveLimit > 300 &&
+            effectiveLimit <= 1800
+          ) {
             try {
               sessionRef.current?.sendRealtimeInput({
                 text: "SYSTEM NOTIFICATION: 2 minutes remaining. Please inform the user and continue your response uninterrupted.",
@@ -874,17 +900,17 @@ export const useGeminiLive = ({
             }
           }
 
-          if (next === 1790) {
+          if (next === effectiveLimit - 10 && effectiveLimit > 10) {
             try {
               sessionRef.current?.sendRealtimeInput({
-                text: "SYSTEM NOTIFICATION: The 30-minute session limit has been reached. Please gracefully inform the user that time is over, thank them for their time, and warmly invite them to call back if they have any further legal concerns. Be creative and as polite as possible in your final 10 seconds.",
+                text: "SYSTEM NOTIFICATION: The session limit has been reached. Please gracefully inform the user that time is over, thank them for their time, and warmly invite them to call back if they have any further legal concerns. Be creative and as polite as possible in your final 10 seconds.",
               });
             } catch (err) {
               console.error("[gemini-live] 10s warning error:", err);
             }
           }
 
-          if (next >= 1800) {
+          if (next >= effectiveLimit) {
             // Duration limit reached. We call the callback if provided.
             // We NO LONGER call disconnectFromGemini() here automatically,
             // because the consumer (GeminiVoiceConnection) needs to perform
@@ -907,7 +933,14 @@ export const useGeminiLive = ({
 
     // wsStatus intentionally excluded. We read it via wsStatusRef.current inside
     // the interval so we always get the latest value without re-subscribing.
-  }, [disconnectFromGemini, onDurationLimitReached, syncSessionToBuffer]);
+  }, [
+    disconnectFromGemini,
+    onDurationLimitReached,
+    syncSessionToBuffer,
+    totalAllowedSeconds,
+  ]);
+
+  const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
 
   return {
     wsStatus,
@@ -915,7 +948,7 @@ export const useGeminiLive = ({
     isListening,
     activeTranscript,
     duration,
-    remainingSeconds: Math.max(0, 1800 - duration),
+    remainingSeconds: Math.max(0, effectiveLimit - duration),
     sessionId: sessionIdRef.current,
     connect: connectToGemini,
     disconnect: disconnectFromGemini,
