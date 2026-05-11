@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, CreditCard } from "lucide-react";
 import Link from "next/link";
+import { CustomButton } from "../ui/custom-button";
 
 const ExhastedBanner = () => {
   return (
@@ -28,13 +29,21 @@ const ExhastedBanner = () => {
           </p>
 
           <div className="flex flex-col gap-3">
-            <Link
+            <CustomButton
+              component={Link}
               href="/dashboard/user/billing"
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+              variant="transparent"
+              shape="pill"
+              borderLeftWidth="4px"
+              borderLeftColor="#4f46e5"
+              borderRightWidth="4px"
+              borderRightColor="#ea580c"
+              className="bg-slate-100/50 dark:bg-slate-800/50"
+              leftIcon={<CreditCard size={20} />}
+              hoverEffect="glow"
             >
-              <CreditCard size={20} />
-              Add Credit Now
-            </Link>
+              Add credits now
+            </CustomButton>
             <div className="w-full py-4 text-slate-600 dark:text-slate-400 font-semibold rounded-2xl">
               Session closed
             </div>
