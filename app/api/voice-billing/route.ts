@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     // Process the summary server-side
     const { title, summary } = await summarizeConversation({
       transcripts: transcripts || [],
-      instructor: preferedVoice.preferedVoiceName || "Zephyr",
+      instructor: preferedVoice.preferedVoiceName || "Evelyn",
       user: userName || "User",
     });
 

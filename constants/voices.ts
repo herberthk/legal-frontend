@@ -1,10 +1,6 @@
 export const voices: VoicePasona[] = [
-  {
-    id: "Zephyr",
-    name: "Hana",
-    gender: "Female",
-    desc: "Bright and fast-paced",
-  },
+  { id: "Aoede", name: "Evelyn", gender: "Female", desc: "Breezy and light" },
+
   {
     id: "Fenrir",
     name: "Mark",
@@ -38,7 +34,12 @@ export const voices: VoicePasona[] = [
     desc: "Soft and whisper-quiet",
   },
   { id: "Orus", name: "Orus", gender: "Male", desc: "Steady and calm" },
-  { id: "Aoede", name: "Evelyn", gender: "Female", desc: "Breezy and light" },
+  {
+    id: "Zephyr",
+    name: "Hana",
+    gender: "Female",
+    desc: "Bright and fast-paced",
+  },
   {
     id: "Umbriel",
     name: "Malcolm",

@@ -85,8 +85,8 @@ export async function signUp(
       totalSpent: 0,
       status: "active",
       preferedVoice: {
-        preferedVoiceId: "Zephyr",
-        preferedVoiceName: "Hana",
+        preferedVoiceId: "Aoede",
+        preferedVoiceName: "Evelyn",
       },
       welcomeTextTokens: FREE_WELCOME_TEXT_TOKENS,
       freeTextTokens: 0,

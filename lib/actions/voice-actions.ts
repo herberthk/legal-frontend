@@ -50,7 +50,7 @@ export const summarizeConversation = async ({
 
   try {
     const { text: summary } = await generateText({
-      model: google("gemini-3.1-flash-lite-preview"),
+      model: google("gemini-2.5-flash-lite"),
       system: SUMMARIZE_TRANSCRIPT_PROMPT({
         user,
         instructor,
@@ -230,7 +230,8 @@ export const recordVoiceSession = async ({
               await import("@/lib/actions/voice-actions");
             const { title, summary } = await summarizeConversation({
               transcripts: finalUsage.transcripts,
-              instructor: bufferData.preferedVoice.preferedVoiceName || "Hana",
+              instructor:
+                bufferData.preferedVoice.preferedVoiceName || "Evelyn",
               user: bufferData.userName || "User",
             });
             finalUsage.title = title;
