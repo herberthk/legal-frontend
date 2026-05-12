@@ -103,7 +103,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
 
   const formatTime = (s: number) => {
     const mins = Math.floor(s / 60);
-    const secs = s % 60;
+    const secs = Math.round(s % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
@@ -224,7 +224,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       {/* ── Session Limit Warning Banner ──────────────────────────────────── */}
       {isNearingLimit && !isCreditExhausted && (
         <div
-          className={`absolute top-24 left-1/2 -translate-x-1/2 z-50 px-6 py-2 rounded-full border shadow-2xl transition-all duration-500 flex items-center gap-3 backdrop-blur-xl ${
+          className={`absolute top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-2 rounded-full border shadow-2xl transition-all duration-500 flex items-center gap-3 backdrop-blur-xl ${
             isCriticalLimit
               ? "bg-red-500/90 border-red-400 text-white animate-pulse"
               : "bg-amber-500/90 border-amber-400 text-white"

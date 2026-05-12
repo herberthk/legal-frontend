@@ -2,9 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import { getFCMToken, onForegroundMessage } from "@/firebase/client";
+import { getFCMToken } from "@/firebase/client";
+import { onMessage, Unsubscribe } from "firebase/messaging";
 import { saveFCMToken } from "@/lib/actions/notifications";
 import { useAuthStore } from "@/store";
+// import { useRouter } from "next/router";
+import { messaging } from "@/firebase/client";
 
 type PermissionState = "default" | "granted" | "denied" | "unsupported";
 
@@ -34,6 +37,8 @@ export function useFCMPushNotifications(): UseFCMReturn {
   const [permission, setPermission] = useState<PermissionState>("default");
   const [isSupported, setIsSupported] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+
+  // const router = useRouter();
 
   // Track the last token we saved so we don't double-write on re-renders
   const savedTokenRef = useRef<string | null>(null);
@@ -66,7 +71,7 @@ export function useFCMPushNotifications(): UseFCMReturn {
     const fcmToken = await getFCMToken();
     const newPermission = Notification.permission as PermissionState;
     setPermission(newPermission);
-
+    console.log("FCM TOKEN", fcmToken);
     if (fcmToken && fcmToken !== savedTokenRef.current) {
       setToken(fcmToken);
       savedTokenRef.current = fcmToken;
@@ -125,28 +130,114 @@ export function useFCMPushNotifications(): UseFCMReturn {
   }, [isSupported, userId, requestPermission]);
 
   // ── Foreground message listener ───────────────────────────────────────────
+  // useEffect(() => {
+  //   if (!isSupported || permission !== "granted") return;
+
+  //   const unsub = onForegroundMessage((payload) => {
+  //     console.log("Foreground Message:", payload);
+  //     const title = payload.notification?.title ?? "Legal Adviser";
+  //     const body = payload.notification?.body ?? "";
+  //     const url = (payload.data?.url as string) ?? "/";
+
+  //     toast(title, {
+  //       description: body,
+  //       duration: 6000,
+  //       action: {
+  //         label: "View",
+  //         onClick: () => {
+  //           window.open(url, "_self");
+  //         },
+  //       },
+  //     });
+  //   });
+
+  //   return unsub;
+  // }, [isSupported, permission]);
+
   useEffect(() => {
-    if (!isSupported || permission !== "granted") return;
+    const setupListener = async () => {
+      if (!token) return; // Exit if no token is available.
 
-    const unsub = onForegroundMessage((payload) => {
-      const title = payload.notification?.title ?? "Legal Adviser";
-      const body = payload.notification?.body ?? "";
-      const url = (payload.data?.url as string) ?? "/";
+      console.log(`onMessage registered with token ${token}`);
+      const m = await messaging();
+      if (!m) return;
 
-      toast(title, {
-        description: body,
-        duration: 6000,
-        action: {
-          label: "View",
-          onClick: () => {
-            window.open(url, "_self");
+      // Step 9: Register a listener for incoming FCM messages.
+      const unsubscribe = onMessage(m, (payload) => {
+        console.log("Foreground push notification received:", payload);
+        if (Notification.permission !== "granted") return;
+
+        const link = payload.fcmOptions?.link || payload.data?.link;
+
+        if (link) {
+          toast.info(
+            `${payload.notification?.title}: ${payload.notification?.body}`,
+            {
+              action: {
+                label: "Visit",
+                onClick: () => {
+                  const link = payload.fcmOptions?.link || payload.data?.link;
+                  if (link) {
+                    window.open(link, "_self");
+                    // router.push(link);
+                  }
+                },
+              },
+            },
+          );
+        } else {
+          toast.info(
+            `${payload.notification?.title}: ${payload.notification?.body}`,
+          );
+        }
+
+        // --------------------------------------------
+        // Disable this if you only want toast notifications.
+        // Vibrate the device manually in the foreground if supported
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate([200, 100, 200]);
+        }
+
+        const n = new Notification(
+          payload.notification?.title || "Legal Adviser",
+          {
+            body: payload.notification?.body || "New update received",
+            icon: "/icons/apple-icon-180.png",
+            badge: "/icons/mstile-icon-128.png",
+            data: link ? { url: link } : undefined,
+            tag: "legal-adviser-push",
           },
-        },
+        );
+
+        // Step 10: Handle notification click event to navigate to a link if present.
+        n.onclick = (event) => {
+          event.preventDefault();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const link = (event.target as any)?.data?.url;
+          if (link) {
+            // router.push(link);
+            window.open(link, "_self");
+          } else {
+            console.log("No link found in the notification payload");
+          }
+        };
+        // --------------------------------------------
       });
+
+      return unsubscribe;
+    };
+
+    let unsubscribe: Unsubscribe | null = null;
+
+    setupListener().then((unsub) => {
+      if (unsub) {
+        unsubscribe = unsub;
+      }
     });
 
-    return unsub;
-  }, [isSupported, permission]);
+    // Step 11: Cleanup the listener when the component unmounts.
+    return () => unsubscribe?.();
+  }, [token]);
 
   return {
     permission,

@@ -392,29 +392,53 @@ export default function Test() {
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const send = async () => {
-    setLoading(true);
-    setResult(null);
+  // const send = async () => {
+  //   setLoading(true);
+  //   setResult(null);
+  //   try {
+  //     const res = await fetch("/api/notifications/send-push", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({
+  //         userId: "Bc7eq5VJoag3MAa9OEM8OO7oqCe2",
+  //         title: "Test push notification",
+  //         body: "This is a test push notification",
+  //       }),
+  //     });
+  //     const data = await res.json();
+  //     setResult(`Status: ${res.status}\n${JSON.stringify(data, null, 2)}`);
+  //     console.log("Response:", res.status, data);
+  //   } catch (error) {
+  //     const msg = error instanceof Error ? error.message : String(error);
+  //     setResult(`Error: ${msg}`);
+  //     console.error(error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+  const handleTestNotification = async () => {
     try {
-      const res = await fetch("/api/notifications/send-push", {
+      setLoading(true);
+      const response = await fetch("/api/notifications/single-push", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: "Bc7eq5VJoag3MAa9OEM8OO7oqCe2",
-          title: "Test push notification",
-          body: "This is a test push notification",
+          userId: "jOeHG88DELchkPoCABVjWr5DJuK2",
+          title: "Test Notification",
+          message: "This is a test notification",
+          link: "/contact",
         }),
       });
-      const data = await res.json();
-      setResult(`Status: ${res.status}\n${JSON.stringify(data, null, 2)}`);
-      console.log("Response:", res.status, data);
+
+      const data = await response.json();
+      setResult(`Status: ${response.status}\n${JSON.stringify(data, null, 2)}`);
+      console.log(data);
+      setLoading(false);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      setResult(`Error: ${msg}`);
-      console.error(error);
-    } finally {
       setLoading(false);
     }
   };
@@ -423,7 +447,7 @@ export default function Test() {
       <h1 className="text-2xl font-bold">Test push notification</h1>
       <button
         className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-        onClick={send}
+        onClick={handleTestNotification}
         disabled={loading}
       >
         {loading ? "Sending..." : "Send push notification"}

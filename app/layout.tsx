@@ -349,14 +349,16 @@ const RootLayout = ({
       >
         <TooltipProvider>
           <FirebaseAnalytics />
-          <FCMProvider />
           <Toaster position="top-right" />
           <NetworkStatus />
           <InstallPrompt />
           <PwaUpdateToast />
           <ThemeInitializer />
           <NextTopLoader />
-          <SerwistProvider swUrl="/serwist/sw.js">{children}</SerwistProvider>
+          <SerwistProvider swUrl="/sw.js">
+            <FCMProvider />
+            {children}
+          </SerwistProvider>
         </TooltipProvider>
       </body>
     </html>
