@@ -7,12 +7,12 @@ import {
   Analytics,
   logEvent,
 } from "firebase/analytics";
+
 import { getStorage } from "firebase/storage";
 import {
   getMessaging,
   getToken,
   onMessage,
-  Messaging,
   MessagePayload,
 } from "firebase/messaging";
 
@@ -59,23 +59,51 @@ export default app;
 // ─── Firebase Cloud Messaging ─────────────────────────────────────────────────
 
 /** Lazily initialised FCM Messaging instance — browser-only. */
-let messagingInstance: ReturnType<typeof getMessaging>;
+// let messagingInstance: ReturnType<typeof getMessaging>;
 
-const getMessagingInstance = (): ReturnType<typeof getMessaging> | null => {
-  if (typeof window === "undefined") return null;
-  if (!("Notification" in window)) return null;
-  if (!messagingInstance) {
-    messagingInstance = getMessaging(app);
-  }
-  return messagingInstance;
+// const getMessagingInstance = (): ReturnType<typeof getMessaging> | null => {
+//   if (typeof window === "undefined") return null;
+//   if (!("Notification" in window)) return null;
+//   if (!messagingInstance) {
+//     messagingInstance = getMessaging(app);
+//   }
+//   return messagingInstance;
+// };
+export const messaging = async () => {
+  const supported = await isSupported();
+  return supported ? getMessaging(app) : null;
 };
 /**
  * Requests notification permission and returns the FCM registration token.
  * Returns `null` if the user denies permission or FCM is unsupported.
  */
+/**
+ * Waits for the Serwist service worker to be registered and activated.
+ * Returns the active ServiceWorkerRegistration, or null after timeout.
+ */
+const waitForSwRegistration = async (
+  maxWaitMs = 10_000,
+): Promise<ServiceWorkerRegistration | null> => {
+  const start = Date.now();
+
+  // First, ensure the SW container is ready (any SW controls the page)
+  await navigator.serviceWorker.ready;
+
+  // Then verify we can retrieve the specific registration by its scope
+  while (Date.now() - start < maxWaitMs) {
+    const reg = await navigator.serviceWorker.getRegistration("/");
+    if (reg?.active) return reg;
+    // SW not yet active — wait a bit and retry
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  console.warn("[FCM] Timed out waiting for service worker registration.");
+  return null;
+};
+
 export const getFCMToken = async (): Promise<string | null> => {
   try {
-    const messagingInst = getMessagingInstance();
+    const messagingInst = await messaging();
     if (!messagingInst) return null;
 
     const permission = await Notification.requestPermission();
@@ -86,12 +114,29 @@ export const getFCMToken = async (): Promise<string | null> => {
       console.error("[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set.");
       return null;
     }
+    let token: string | null = null;
 
-    const token = await getToken(messagingInst, {
-      vapidKey,
-      serviceWorkerRegistration:
-        await navigator.serviceWorker.getRegistration("/serwist/sw.js"),
-    });
+    try {
+      // Wait for the Serwist SW to be fully active before requesting a token.
+      // This prevents a race condition where FCMProvider initialises before
+      // SerwistProvider has registered the service worker.
+      const registration = await waitForSwRegistration();
+      if (!registration) {
+        console.error("[FCM] No active service worker registration found.");
+        return null;
+      }
+      token = await getToken(messagingInst, {
+        vapidKey,
+        serviceWorkerRegistration: registration,
+      });
+      console.log("[FCM] SW state:", registration.active?.state);
+    } catch (error) {
+      console.error("[FCM] Failed to get token:", error);
+      return null;
+    }
+
+    console.log("[FCM] Token:", token);
+
     return token ?? null;
   } catch (err) {
     console.error("[FCM] Failed to get token:", err);
@@ -106,7 +151,7 @@ export const getFCMToken = async (): Promise<string | null> => {
 export const onForegroundMessage = (
   callback: (payload: MessagePayload) => void,
 ): (() => void) => {
-  const messagingInst = getMessagingInstance();
+  const messagingInst = getMessaging();
   if (!messagingInst) return () => {};
   return onMessage(messagingInst, callback);
 };

@@ -213,8 +213,7 @@ export const getLatestUnreadNotifications = async (userId: string) => {
  */
 export async function saveFCMToken(userId: string, token: string) {
   try {
-    await db.collection(COLLECTIONS.FCM_TOKENS).doc(token).set({
-      id: token,
+    await db.collection(COLLECTIONS.FCM_TOKENS).doc(userId).set({
       userId,
       token,
       createdAt: FieldValue.serverTimestamp(),

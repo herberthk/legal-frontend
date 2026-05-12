@@ -78,6 +78,10 @@ const nextConfig: NextConfig = {
             value: "no-cache, no-store, must-revalidate",
           },
           {
+            key: "Service-Worker-Allowed",
+            value: "/",
+          },
+          {
             // Service workers enforce the CSP of their OWN response when
             // calling fetch() internally. We set a permissive policy here so
             // the SW can reach Google/Firebase origins for the auth passthrough
@@ -91,6 +95,16 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  rewrites: async () => [
+    {
+      source: "/sw.js",
+      destination: "/serwist/sw.js",
+    },
+    {
+      source: "/sw.js.map",
+      destination: "/serwist/sw.js.map",
+    },
+  ],
 };
 
 export default withSerwist(nextConfig);
