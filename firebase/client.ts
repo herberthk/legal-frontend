@@ -135,8 +135,6 @@ export const getFCMToken = async (): Promise<string | null> => {
       return null;
     }
 
-    console.log("[FCM] Token:", token);
-
     return token ?? null;
   } catch (err) {
     console.error("[FCM] Failed to get token:", err);

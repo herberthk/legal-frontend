@@ -6,7 +6,6 @@ import { getFCMToken } from "@/firebase/client";
 import { onMessage, Unsubscribe } from "firebase/messaging";
 import { saveFCMToken } from "@/lib/actions/notifications";
 import { useAuthStore } from "@/store";
-// import { useRouter } from "next/router";
 import { messaging } from "@/firebase/client";
 
 type PermissionState = "default" | "granted" | "denied" | "unsupported";
@@ -37,8 +36,6 @@ export function useFCMPushNotifications(): UseFCMReturn {
   const [permission, setPermission] = useState<PermissionState>("default");
   const [isSupported, setIsSupported] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-
-  // const router = useRouter();
 
   // Track the last token we saved so we don't double-write on re-renders
   const savedTokenRef = useRef<string | null>(null);
@@ -71,7 +68,7 @@ export function useFCMPushNotifications(): UseFCMReturn {
     const fcmToken = await getFCMToken();
     const newPermission = Notification.permission as PermissionState;
     setPermission(newPermission);
-    console.log("FCM TOKEN", fcmToken);
+
     if (fcmToken && fcmToken !== savedTokenRef.current) {
       setToken(fcmToken);
       savedTokenRef.current = fcmToken;
@@ -129,36 +126,10 @@ export function useFCMPushNotifications(): UseFCMReturn {
     }
   }, [isSupported, userId, requestPermission]);
 
-  // ── Foreground message listener ───────────────────────────────────────────
-  // useEffect(() => {
-  //   if (!isSupported || permission !== "granted") return;
-
-  //   const unsub = onForegroundMessage((payload) => {
-  //     console.log("Foreground Message:", payload);
-  //     const title = payload.notification?.title ?? "Legal Adviser";
-  //     const body = payload.notification?.body ?? "";
-  //     const url = (payload.data?.url as string) ?? "/";
-
-  //     toast(title, {
-  //       description: body,
-  //       duration: 6000,
-  //       action: {
-  //         label: "View",
-  //         onClick: () => {
-  //           window.open(url, "_self");
-  //         },
-  //       },
-  //     });
-  //   });
-
-  //   return unsub;
-  // }, [isSupported, permission]);
-
   useEffect(() => {
     const setupListener = async () => {
       if (!token) return; // Exit if no token is available.
 
-      console.log(`onMessage registered with token ${token}`);
       const m = await messaging();
       if (!m) return;
 
@@ -170,25 +141,41 @@ export function useFCMPushNotifications(): UseFCMReturn {
         const link = payload.fcmOptions?.link || payload.data?.link;
 
         if (link) {
-          toast.info(
-            `${payload.notification?.title}: ${payload.notification?.body}`,
-            {
-              action: {
-                label: "Visit",
-                onClick: () => {
-                  const link = payload.fcmOptions?.link || payload.data?.link;
-                  if (link) {
-                    window.open(link, "_self");
-                    // router.push(link);
-                  }
-                },
+          toast.info(payload.notification?.title, {
+            description: payload.notification?.body,
+            duration: 10000,
+            style: {
+              background: "#09172b",
+              border: "0.5px dashed white",
+              borderRadius: "12px",
+            },
+
+            action: {
+              label: "View",
+              actionButtonStyle: {
+                color: "white",
+                background: "black",
+                padding: "2px",
+                cursor: "pointer",
+              },
+              onClick: () => {
+                const link = payload.fcmOptions?.link || payload.data?.link;
+                if (link) {
+                  window.open(link, "_self");
+                }
               },
             },
-          );
+          });
         } else {
-          toast.info(
-            `${payload.notification?.title}: ${payload.notification?.body}`,
-          );
+          toast.info(payload.notification?.title, {
+            description: payload.notification?.body,
+            duration: 6000,
+            style: {
+              background: "#09172b",
+              border: "0.5px solid white",
+              borderRadius: "12px",
+            },
+          });
         }
 
         // --------------------------------------------
@@ -215,10 +202,7 @@ export function useFCMPushNotifications(): UseFCMReturn {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const link = (event.target as any)?.data?.url;
           if (link) {
-            // router.push(link);
             window.open(link, "_self");
-          } else {
-            console.log("No link found in the notification payload");
           }
         };
         // --------------------------------------------
