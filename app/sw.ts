@@ -23,27 +23,15 @@ declare const self: ServiceWorkerGlobalScope;
 // } satisfies CacheQueryOptions;
 
 // ─── Firebase Cloud Messaging — Background Push Handler ───────────────────────
-// Initialise Firebase and Messaging.
-// Because Serwist outputs a module worker, we use ES module imports instead
-// of `importScripts()`.
-const firebaseConfig = {
-  apiKey: "AIzaSyAGRWrcAQYIYGvhzUk1QpjnInfpR4bK3P8",
-  authDomain: "legal-51aee.firebaseapp.com",
-  projectId: "legal-51aee",
-  storageBucket: "legal-51aee.firebasestorage.app",
-  messagingSenderId: "1084985669671",
-  appId: "1:1084985669671:web:f8ffef301b7268370a7602",
-  measurementId: "G-YNT850VBQ9",
-};
-const firebaseApp = initializeApp(firebaseConfig);
-// const firebaseApp = initializeApp({
-//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-//   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-//   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-//   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-//   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-//   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-// });
+const firebaseApp = initializeApp({
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+});
 
 const messaging = getMessaging(firebaseApp);
 
