@@ -1,5 +1,6 @@
 import "./email.d.ts";
 import "./voices.d.ts";
+import "./global.d.ts";
 declare global {
   type SignInParams = {
     email: string;

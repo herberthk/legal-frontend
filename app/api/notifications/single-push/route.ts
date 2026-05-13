@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db, messaging } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
 import { getCurrentUser } from "@/lib/actions/auth";
-import { Message } from "firebase-admin/messaging";
+import { MulticastMessage } from "firebase-admin/messaging";
 
 type SendPushBody = {
   userId: string;
@@ -32,9 +32,9 @@ export async function POST(req: Request) {
     const body = (await req.json()) as SendPushBody;
     const { userId, title, message, link } = body;
 
-    if (!userId || !title || !message) {
+    if (!userId || !title || !message || !link) {
       return NextResponse.json(
-        { error: "Missing required fields: userId, title, body" },
+        { error: "Missing required fields: userId, title, body, link" },
         { status: 400 },
       );
     }
@@ -43,19 +43,22 @@ export async function POST(req: Request) {
     const tokensSnap = await db
       .collection(COLLECTIONS.FCM_TOKENS)
       .where("userId", "==", userId)
-      .limit(1)
       .get();
 
     if (tokensSnap.empty) {
       // No tokens — user hasn't enabled notifications yet; silently succeed
-      return NextResponse.json({ success: true, sent: 0 });
+      return NextResponse.json({
+        success: false,
+        message: "User hasn't enabled notication",
+        devices: 0,
+      });
     }
 
-    const token = tokensSnap.docs.map((d) => d.data().token as string)[0];
-    console.log("[FCM] Sending push notification to user:", token);
+    const tokens = tokensSnap.docs.map((d) => d.data().token as string);
+    // console.log("[FCM] Sending push notification to user:", tokens);
 
-    const payload: Message = {
-      token,
+    const payload: MulticastMessage = {
+      tokens,
       notification: {
         title: title,
         body: message,
@@ -69,11 +72,36 @@ export async function POST(req: Request) {
         : undefined,
     };
 
-    await messaging.send(payload);
+    // await messaging.send(payload);
+    const response = await messaging.sendEachForMulticast(payload);
+
+    // Clean up tokens that FCM rejected (device unregistered / token invalid)
+    const staleTokenDeletions: Promise<unknown>[] = [];
+    response.responses.forEach((res, idx) => {
+      if (!res.success) {
+        const errCode = res.error?.code ?? "";
+        if (
+          errCode === "messaging/registration-token-not-registered" ||
+          errCode === "messaging/invalid-registration-token"
+        ) {
+          staleTokenDeletions.push(
+            db.collection(COLLECTIONS.FCM_TOKENS).doc(tokens[idx]).delete(),
+          );
+        } else {
+          console.error(
+            `[FCM] Failed to send to token ${tokens[idx]}:`,
+            res.error,
+          );
+        }
+      }
+    });
+
+    await Promise.allSettled(staleTokenDeletions);
 
     return NextResponse.json({
       success: true,
       message: "Notification sent!",
+      devices: response.successCount,
     });
   } catch (error) {
     console.error("[FCM] Error sending push notification:", error);
