@@ -18,3 +18,10 @@ export const APP_DEFAULT_TITLE = "Legal Adviser";
 export const APP_TITLE_TEMPLATE = "%s - LegalAdviser";
 export const APP_DESCRIPTION =
   "LegalAdviser is an AI-powered platform dedicated to democratizing access to justice in Uganda. Get instant legal guidance, analyze complex cases, and access 24/7 AI-driven consultations to empower your legal journey.";
+
+// Default region
+export const DEFAULT_REGION = "europe-west3";
+
+// Firebase function url for single push notification
+export const SINGLE_PUSH_NOTIFICATION_URL =
+  "https://europe-west3-legal-51aee.cloudfunctions.net/singlePushNotification";

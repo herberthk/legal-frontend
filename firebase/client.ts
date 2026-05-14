@@ -15,6 +15,7 @@ import {
   onMessage,
   MessagePayload,
 } from "firebase/messaging";
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -34,6 +35,8 @@ const app =
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+// Initialize Functions (Set default region, e.g., europe-west3)
+export const functions = getFunctions(app, "europe-west3");
 
 // Safe Analytics initialization — only runs when a valid Measurement ID is
 // configured. Without one, getAnalytics loads gtag.js with id=undefined which
@@ -57,18 +60,6 @@ export const logAnalyticsEvent = async (
 export default app;
 
 // ─── Firebase Cloud Messaging ─────────────────────────────────────────────────
-
-/** Lazily initialised FCM Messaging instance — browser-only. */
-// let messagingInstance: ReturnType<typeof getMessaging>;
-
-// const getMessagingInstance = (): ReturnType<typeof getMessaging> | null => {
-//   if (typeof window === "undefined") return null;
-//   if (!("Notification" in window)) return null;
-//   if (!messagingInstance) {
-//     messagingInstance = getMessaging(app);
-//   }
-//   return messagingInstance;
-// };
 export const messaging = async () => {
   const supported = await isSupported();
   return supported ? getMessaging(app) : null;
