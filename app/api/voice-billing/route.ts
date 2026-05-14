@@ -68,7 +68,7 @@ export async function POST(req: Request) {
 
     sendSingleNotification({
       to: userId,
-      title: "Your AI Legal Consultation Session is Available",
+      title: "Your AI Legal voice Session is Available",
       message: `Your AI legal consultation session that lasted for (${durationLabel}) is now available.`,
       link: `/dashboard/user/transcripts/${voiceSessionId}`,
     }).catch((err) =>
