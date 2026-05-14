@@ -7,3 +7,4 @@ export * from "./wallet";
 export * from "./support";
 export * from "./notifications";
 export * from "./transcribe";
+export * from "./pushNotification";
