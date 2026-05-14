@@ -254,13 +254,13 @@ export const recordVoiceSession = async ({
       sessionId: finalUsage.sessionId,
     });
 
-    // Send notification to user
-    await createNotification(usage.userId, {
-      title: "Voice Session Recorded",
-      message: "Your voice session has been recorded successfully.",
-      type: "SUCCESS",
-      url: `/dashboard/user/transcripts/${voiceSessionRef.id}`,
-    });
+    // Send notification to user (this is handled in the firebase serverless cloud function)
+    // await createNotification(usage.userId, {
+    //   title: "Voice Session Recorded",
+    //   message: "Your voice session has been recorded successfully.",
+    //   type: "SUCCESS",
+    //   url: `/dashboard/user/transcripts/${voiceSessionRef.id}`,
+    // });
 
     // Delete from temporary buffer after successful save
     if (usage.sessionId) {
