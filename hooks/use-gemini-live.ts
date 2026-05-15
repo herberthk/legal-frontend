@@ -501,6 +501,7 @@ export const useGeminiLive = ({
         }
 
         const token = await getEphemeralToken();
+        if (isDisconnectingRef.current) return;
 
         aiClientRef.current = new GoogleGenAI({
           apiKey: token,
@@ -543,10 +544,12 @@ export const useGeminiLive = ({
         };
 
         if (previousHandleRef.current) {
-          config.sessionResumption = { handle: previousHandleRef.current };
+          config.sessionResumption = {
+            handle: previousHandleRef.current,
+          };
         }
 
-        sessionRef.current = await aiClientRef.current.live.connect({
+        const session = await aiClientRef.current.live.connect({
           model: "gemini-3.1-flash-live-preview",
           config,
           callbacks: {
@@ -710,6 +713,7 @@ export const useGeminiLive = ({
             onerror: (err) => {
               console.error("[gemini-live] Error:", err);
               sessionRef.current = null;
+              setIsListening(false);
               if (!isDisconnectingRef.current && durationRef.current < 1800) {
                 console.log("[gemini-live] Reconnecting after error...");
                 setTimeout(() => connectToGemini(true), 500);
@@ -724,6 +728,7 @@ export const useGeminiLive = ({
             onclose: (ev) => {
               console.log("[gemini-live] Closed:", ev);
               sessionRef.current = null;
+              setIsListening(false);
               if (!isDisconnectingRef.current && durationRef.current < 1800) {
                 console.log("[gemini-live] Seamlessly reconnecting...");
                 setTimeout(() => connectToGemini(true), 500);
@@ -733,6 +738,16 @@ export const useGeminiLive = ({
             },
           },
         });
+
+        if (isDisconnectingRef.current) {
+          console.log(
+            "[gemini-live] Connection established but disconnect was already requested. Closing session.",
+          );
+          session.close();
+          return;
+        }
+
+        sessionRef.current = session;
 
         if (!isReconnect) {
           sessionRef.current.sendRealtimeInput({
@@ -835,6 +850,10 @@ export const useGeminiLive = ({
     setAudioStatus("idle");
     setIsListening(false);
     setActiveTranscript(null);
+    micLevelRef.current = 0;
+    aiAudioLevelRef.current = 0;
+    setMicLevel(0);
+    setAiAudioLevel(0);
   }, [stopAudio, finalizeUserTurn, finalizeAITurn]);
 
   const toggleMicMute = useCallback((muted: boolean) => {
