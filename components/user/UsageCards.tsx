@@ -6,6 +6,9 @@ import {
   COST_PER_VOICE_MINUTE,
   FREE_WELCOME_VOICE_SECONDS,
 } from "@/constants";
+import { FC, useState, useEffect, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import {
   Scale,
   AlertCircle,
@@ -13,33 +16,118 @@ import {
   Gift,
   MessageSquareIcon,
   MicIcon,
+  Clock,
+  Sparkles,
+  Wallet,
+  ArrowRight,
 } from "lucide-react";
-import { FC } from "react";
 
 type Prop = {
   user: User;
 };
 
 const UsageCards: FC<Prop> = ({ user }) => {
-  // --- Limits Logic ---
-  const hasBalance = (user?.balance ?? 0) > 0;
-  const hasWelcomeTokens = (user?.welcomeTextTokens ?? 0) > 0;
-  const hasFreeTextTokens = (user?.freeTextTokens ?? 0) > 0;
-  const hasFreeVoiceSeconds = (user?.freeVoiceSeconds ?? 0) > 0;
+  // De-structure for stable dependencies and compiler compatibility
+  const balance = user?.balance ?? 0;
+  const welcomeTextTokens = user?.welcomeTextTokens ?? 0;
+  const freeTextTokens = user?.freeTextTokens ?? 0;
+  const freeVoiceSeconds = user?.freeVoiceSeconds ?? 0;
+  const nextDailyReset = user?.nextDailyReset;
 
-  const showTextWarning =
-    !hasBalance && !hasWelcomeTokens && !hasFreeTextTokens;
-  const showVoiceWarning = !hasBalance && !hasFreeVoiceSeconds;
+  // --- Limits Logic (Memoized for Performance) ---
+  const {
+    hasBalance,
+    hasWelcomeTokens,
+    hasFreeTextTokens,
+    hasFreeVoiceSeconds,
+    showTextWarning,
+    showVoiceWarning,
+  } = useMemo(() => {
+    return {
+      hasBalance: balance > 0,
+      hasWelcomeTokens: welcomeTextTokens > 0,
+      hasFreeTextTokens: freeTextTokens > 0,
+      hasFreeVoiceSeconds: freeVoiceSeconds > 0,
+      showTextWarning:
+        balance <= 0 && welcomeTextTokens <= 0 && freeTextTokens <= 0,
+      showVoiceWarning: balance <= 0 && freeVoiceSeconds <= 0,
+    };
+  }, [balance, welcomeTextTokens, freeTextTokens, freeVoiceSeconds]);
 
-  // Wallet Equivalence
-  // Text: $0.027 per 1000 tokens
-  // Voice: $0.08 per minute
-  const potentialTokens = Math.floor(
-    ((user?.balance || 0) / 100 / COST_PER_THOUSAND_TOKENS) * 1000,
-  );
-  const potentialVoiceMins = Math.floor(
-    (user?.balance || 0) / 100 / COST_PER_VOICE_MINUTE,
-  );
+  // Wallet Equivalence (Memoized)
+  const { potentialTokens, potentialVoiceMins } = useMemo(() => {
+    return {
+      potentialTokens: Math.floor(
+        (balance / 100 / COST_PER_THOUSAND_TOKENS) * 1000,
+      ),
+      potentialVoiceMins: Math.floor(balance / 100 / COST_PER_VOICE_MINUTE),
+    };
+  }, [balance]);
+
+  // --- Countdown Logic ---
+  const [timeLeft, setTimeLeft] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+    totalSeconds: number;
+  } | null>(null);
+
+  const calculateTimeLeft = useCallback(() => {
+    if (!nextDailyReset) return null;
+    const targetDate = new Date(nextDailyReset).getTime();
+    const now = new Date().getTime();
+    const difference = targetDate - now;
+
+    if (difference <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, totalSeconds: 0 };
+    }
+
+    return {
+      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+      minutes: Math.floor((difference / 1000 / 60) % 60),
+      seconds: Math.floor((difference / 1000) % 60),
+      totalSeconds: Math.floor(difference / 1000),
+    };
+  }, [nextDailyReset]);
+
+  useEffect(() => {
+    if (!nextDailyReset) return;
+
+    const initial = calculateTimeLeft();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (initial) setTimeLeft(initial);
+
+    const timer = setInterval(() => {
+      const remaining = calculateTimeLeft();
+      if (remaining) {
+        setTimeLeft(remaining);
+        if (remaining.totalSeconds <= 0) {
+          clearInterval(timer);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [nextDailyReset, calculateTimeLeft]);
+
+  // 3 days in seconds = 3 * 24 * 60 * 60 = 259,200
+  const TOTAL_RESET_SECONDS = 259200;
+  const totalSecondsRemaining = timeLeft?.totalSeconds;
+
+  const progressPercent = useMemo(() => {
+    if (totalSecondsRemaining === undefined) return 0;
+    if (totalSecondsRemaining <= 0) return 100;
+    return Math.max(
+      0,
+      Math.min(100, (1 - totalSecondsRemaining / TOTAL_RESET_SECONDS) * 100),
+    );
+  }, [totalSecondsRemaining]);
+
+  const isResetOverdue = totalSecondsRemaining !== undefined && totalSecondsRemaining <= 0;
+
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {/* Main Balance */}
@@ -150,16 +238,17 @@ const UsageCards: FC<Prop> = ({ user }) => {
                   <span>Current Wallet Balance</span>
                   <div className="text-right">
                     <p className="font-mono font-bold text-slate-900 dark:text-white">
-                      ${((user?.balance || 0) / 100).toFixed(2)}
+                      ${(balance / 100).toFixed(2)}
                     </p>
                     <p className="text-[10px] text-slate-500 font-medium">
                       USh{" "}
                       {Math.round(
-                        ((user?.balance || 0) / 100) * USD_TO_UGX_EXCHANGE_RATE,
+                        (balance / 100) * USD_TO_UGX_EXCHANGE_RATE,
                       ).toLocaleString()}
                     </p>
                   </div>
                 </div>
+
                 <div className="flex justify-between items-start text-xs text-slate-600 dark:text-slate-400">
                   <span>Cost per 1,000 Tokens</span>
                   <div className="text-right">
@@ -184,7 +273,7 @@ const UsageCards: FC<Prop> = ({ user }) => {
             // WELCOME MODE
             <>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
-                {user?.welcomeTextTokens}{" "}
+                {welcomeTextTokens}{" "}
                 <span className="text-sm font-medium text-slate-400">
                   / {FREE_WELCOME_TEXT_TOKENS} left
                 </span>
@@ -193,10 +282,11 @@ const UsageCards: FC<Prop> = ({ user }) => {
                 <div
                   className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out"
                   style={{
-                    width: `${(user?.welcomeTextTokens / FREE_WELCOME_TEXT_TOKENS) * 100}%`,
+                    width: `${(welcomeTextTokens / FREE_WELCOME_TEXT_TOKENS) * 100}%`,
                   }}
                 ></div>
               </div>
+
               <p className="text-xs text-slate-500 mt-2">
                 Welcome Reward: Usage stats active for this bundle.
               </p>
@@ -205,7 +295,7 @@ const UsageCards: FC<Prop> = ({ user }) => {
             // DAILY MODE
             <>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
-                {Math.floor(user?.freeTextTokens ?? 0)}{" "}
+                {Math.floor(freeTextTokens)}{" "}
                 <span className="text-sm font-medium text-slate-400">
                   / {FREE_DAILY_TEXT_TOKENS} free
                 </span>
@@ -214,28 +304,137 @@ const UsageCards: FC<Prop> = ({ user }) => {
                 <div
                   className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out"
                   style={{
-                    width: `${(user?.freeTextTokens / FREE_DAILY_TEXT_TOKENS) * 100}%`,
+                    width: `${(freeTextTokens / FREE_DAILY_TEXT_TOKENS) * 100}%`,
                   }}
                 ></div>
               </div>
+
               <p className="text-xs text-slate-500 mt-2">
                 Resets daily. Paid balance applied after exhaustion.
               </p>
             </>
           ) : (
-            // EMPTY MODE
-            <div className="py-2">
-              <h3 className="text-2xl font-bold text-red-600 dark:text-red-400">
-                0 Tokens
-              </h3>
-              <div className="flex items-center gap-2 mt-3 p-3 bg-red-500/10 rounded-xl border border-red-500/20 text-red-600 dark:text-red-400">
-                <AlertCircle size={18} className="shrink-0" />
-                <p className="text-xs font-bold leading-tight">
-                  Your balance and free credits are exhausted. Please fund your
-                  wallet to continue.
-                </p>
-              </div>
-            </div>
+            // EMPTY MODE WITH COUNTDOWN
+            <AnimatePresence mode="wait">
+              <motion.div
+                key="countdown-container"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="relative mt-2"
+              >
+                <div className="bg-linear-to-br from-amber-500/5 to-orange-500/10 dark:from-amber-500/10 dark:to-orange-500/20 rounded-2xl p-4 border border-amber-200/50 dark:border-amber-500/20 overflow-hidden relative group">
+                  {/* Decorative background glow */}
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/10 blur-3xl rounded-full group-hover:bg-amber-500/20 transition-all duration-700" />
+
+                  <div className="flex items-start gap-3 relative z-10">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
+                      <Clock size={20} className="animate-pulse" />
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <h4 className="text-sm font-bold text-amber-900 dark:text-amber-100 flex items-center gap-1.5">
+                        {isResetOverdue ? "Refreshing Credits..." : "Free Credits Pending"}
+                        <Sparkles size={12} className="text-amber-500" />
+                      </h4>
+                      <p className="text-[11px] text-amber-700/70 dark:text-amber-400/70 leading-tight">
+                        {isResetOverdue 
+                          ? "Your tokens are arriving soon. Hang tight while we process your reward."
+                          : <>Your 3-day cycle is active. <span className="font-bold text-amber-800 dark:text-amber-200">1,000 free tokens</span> will be credited in:</>}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Countdown Timer Grid (Only show if not overdue) */}
+                  {!isResetOverdue ? (
+                    <div className="grid grid-cols-4 gap-2 mt-4 relative z-10">
+                      {[
+                        { label: "Days", value: timeLeft?.days ?? 0 },
+                        { label: "Hrs", value: timeLeft?.hours ?? 0 },
+                        { label: "Mins", value: timeLeft?.minutes ?? 0 },
+                        { label: "Secs", value: timeLeft?.seconds ?? 0 },
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex flex-col items-center">
+                          <div className="w-full bg-white/50 dark:bg-slate-900/50 backdrop-blur-md rounded-lg py-2 border border-white dark:border-white/5 shadow-xs flex items-center justify-center">
+                            <span className="text-lg font-black font-mono text-slate-800 dark:text-white tabular-nums">
+                              {String(item.value).padStart(2, "0")}
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase mt-1 tracking-wider">
+                            {item.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex flex-col items-center justify-center py-4 bg-white/30 dark:bg-slate-900/30 rounded-xl border border-white/50 dark:border-white/5 backdrop-blur-sm relative overflow-hidden group">
+                      <motion.div
+                        animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                        className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-sm tracking-tight"
+                      >
+                        <Sparkles size={16} />
+                        Arriving Soon
+                      </motion.div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Processing reward batch...</p>
+                    </div>
+                  )}
+
+                  {/* Progress Bar */}
+                  <div className="mt-4 space-y-1.5">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                      <span>{isResetOverdue ? "Processing Reward" : "Cycle Progress"}</span>
+                      <span className="text-amber-600 dark:text-amber-400">
+                        {isResetOverdue ? "99%" : `${Math.round(progressPercent)}%`}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-200/50 dark:bg-slate-700/50 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ 
+                          width: isResetOverdue ? "99%" : `${progressPercent}%`,
+                          opacity: isResetOverdue ? [0.6, 1, 0.6] : 1
+                        }}
+                        transition={{ 
+                          width: { duration: 1, ease: "easeOut" },
+                          opacity: { repeat: Infinity, duration: 1.5, ease: "easeInOut" }
+                        }}
+                        className="h-full bg-linear-to-r from-amber-400 to-orange-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                      />
+                    </div>
+                  </div>
+
+
+                  {/* Call to Action: Fund Wallet */}
+                  <div className="mt-5 p-3 bg-white/40 dark:bg-slate-900/40 rounded-xl border border-white/60 dark:border-white/5 backdrop-blur-sm relative overflow-hidden group/cta transition-all hover:bg-white/60 dark:hover:bg-slate-900/60">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                          <Wallet size={14} />
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] font-bold text-slate-900 dark:text-white leading-none">
+                            Don&apos;t want to wait?
+                          </p>
+                          <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-none">
+                            Fund your wallet to continue now.
+                          </p>
+                        </div>
+                      </div>
+                      <Link
+                        href="/dashboard/user/billing"
+                        className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all transform hover:scale-110 active:scale-95 shadow-lg shadow-blue-500/20"
+                      >
+                        <ArrowRight size={14} />
+                      </Link>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-center text-slate-500 dark:text-slate-400 mt-3 italic">
+                    Credits are refreshed every 72 hours for active users.
+                  </p>
+                </div>
+              </motion.div>
+            </AnimatePresence>
           )}
         </div>
       </div>
@@ -283,16 +482,17 @@ const UsageCards: FC<Prop> = ({ user }) => {
                   <span>Balance</span>
                   <div className="text-right">
                     <p className="font-mono font-bold text-slate-900 dark:text-white">
-                      ${((user?.balance || 0) / 100).toFixed(2)}
+                      ${(balance / 100).toFixed(2)}
                     </p>
                     <p className="text-[10px] text-slate-500 font-medium">
                       USh{" "}
                       {Math.round(
-                        ((user?.balance || 0) / 100) * USD_TO_UGX_EXCHANGE_RATE,
+                        (balance / 100) * USD_TO_UGX_EXCHANGE_RATE,
                       ).toLocaleString()}
                     </p>
                   </div>
                 </div>
+
                 <div className="flex justify-between items-start text-xs text-slate-600 dark:text-slate-400">
                   <span>Rate / Minute</span>
                   <div className="text-right">
@@ -317,7 +517,7 @@ const UsageCards: FC<Prop> = ({ user }) => {
             // FREE VOICE MODE
             <>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
-                {Math.ceil(user?.freeVoiceSeconds ?? 0)}{" "}
+                {Math.ceil(freeVoiceSeconds)}{" "}
                 <span className="text-sm font-medium text-slate-400">
                   sec left
                 </span>
@@ -326,14 +526,14 @@ const UsageCards: FC<Prop> = ({ user }) => {
                 <div
                   className="h-full bg-purple-500 rounded-full transition-all duration-1000 ease-out"
                   style={{
-                    width: `${(user?.freeVoiceSeconds / FREE_WELCOME_VOICE_SECONDS) * 100}%`,
+                    width: `${(freeVoiceSeconds / FREE_WELCOME_VOICE_SECONDS) * 100}%`,
                   }}
                 ></div>
               </div>
               <p className="text-xs text-slate-500 mt-2 flex justify-between">
                 <span>Welcome Gift</span>
                 <span className="font-bold text-purple-600 dark:text-purple-400">
-                  (~ {(user?.freeVoiceSeconds / 60).toFixed(1)} mins)
+                  (~ {(freeVoiceSeconds / 60).toFixed(1)} mins)
                 </span>
               </p>
             </>
