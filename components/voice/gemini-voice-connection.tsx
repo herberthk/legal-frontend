@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
 import { logAnalyticsEvent } from "@/firebase/client";
+import { sendSingleNotification } from "@/lib";
 
 interface GeminiVoiceConnectionProps {
   freeVoiceSeconds: number;
@@ -439,6 +440,24 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         // Step 5: Done
         setPostCallStage("done");
         setTimeout(() => setPostCallStage(null), 3000);
+
+        // ── Push notification — fire-and-forget ─────────────────────────────────
+        const durationMin = Math.floor(duration / 60);
+        const durationSec = duration % 60;
+        const durationLabel =
+          durationMin > 0
+            ? `${durationMin}m ${durationSec}s`
+            : `${durationSec}s`;
+
+        sendSingleNotification({
+          to: userId,
+          title: "Your AI Legal voice Session is Available",
+          message: `Your AI legal consultation session that lasted for (${durationLabel}) is now available.`,
+          link: `/dashboard/user/transcripts/${voiceSessionId}`,
+        }).catch((err) =>
+          console.error("[FCM] Post-call push notification failed:", err),
+        );
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         console.error("Post call processing failed", err);

@@ -224,14 +224,14 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       {/* ── Session Limit Warning Banner ──────────────────────────────────── */}
       {isNearingLimit && !isCreditExhausted && (
         <div
-          className={`absolute top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-2 rounded-full border shadow-2xl transition-all duration-500 flex items-center gap-3 backdrop-blur-xl ${
+          className={`absolute top-20 md:top-24 left-1/2 -translate-x-1/2 z-50 px-3 py-1 md:px-6 md:py-2 rounded-full border shadow-2xl transition-all duration-500 flex items-center gap-3 backdrop-blur-xl ${
             isCriticalLimit
               ? "bg-red-500/90 border-red-400 text-white animate-pulse"
               : "bg-amber-500/90 border-amber-400 text-white"
           }`}
         >
           <div className="w-2 h-2 rounded-full bg-white animate-ping" />
-          <span className="text-xs font-bold uppercase tracking-widest whitespace-nowrap">
+          <span className="md:text-xs text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
             Session ending in {formatTime(remainingSeconds)}
           </span>
         </div>

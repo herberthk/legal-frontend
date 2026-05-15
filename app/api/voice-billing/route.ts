@@ -5,7 +5,6 @@ import {
 } from "@/lib/actions/voice-actions";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
-import { sendSingleNotification } from "@/lib";
 
 //force to use edge runtime
 // export const runtime = "edge";
@@ -59,21 +58,6 @@ export async function POST(req: Request) {
     };
 
     const voiceSessionId = await recordVoiceSession({ usage });
-
-    // ── Push notification — fire-and-forget ─────────────────────────────────
-    const durationMin = Math.floor(duration / 60);
-    const durationSec = duration % 60;
-    const durationLabel =
-      durationMin > 0 ? `${durationMin}m ${durationSec}s` : `${durationSec}s`;
-
-    sendSingleNotification({
-      to: userId,
-      title: "Your AI Legal voice Session is Available",
-      message: `Your AI legal consultation session that lasted for (${durationLabel}) is now available.`,
-      link: `/dashboard/user/transcripts/${voiceSessionId}`,
-    }).catch((err) =>
-      console.error("[FCM] Post-call push notification failed:", err),
-    );
 
     return NextResponse.json({ success: true, voiceSessionId });
   } catch (error) {
