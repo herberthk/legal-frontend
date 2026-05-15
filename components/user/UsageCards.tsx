@@ -403,6 +403,17 @@ const UsageCards: FC<Prop> = ({ user }) => {
                     </div>
                   </div>
 
+                  <div className="mt-4 flex justify-center">
+                    <Link 
+                      href="/dashboard/user/freecredits"
+                      className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-1 transition-colors uppercase tracking-widest"
+                    >
+                      <Sparkles size={10} />
+                      View Reward History
+                    </Link>
+                  </div>
+
+
 
                   {/* Call to Action: Fund Wallet */}
                   <div className="mt-5 p-3 bg-white/40 dark:bg-slate-900/40 rounded-xl border border-white/60 dark:border-white/5 backdrop-blur-sm relative overflow-hidden group/cta transition-all hover:bg-white/60 dark:hover:bg-slate-900/60">
