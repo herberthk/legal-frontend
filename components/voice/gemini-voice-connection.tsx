@@ -166,9 +166,12 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     }
 
     if (wsStatus === "open") {
-      connectedAudioRef.current?.play().catch((err) => {
-        console.warn("Connected sound playback failed:", err);
-      });
+      // Only play connected sound if we didn't just surface a connection error (like timeout)
+      if (!connectionError) {
+        connectedAudioRef.current?.play().catch((err) => {
+          console.warn("Connected sound playback failed:", err);
+        });
+      }
     }
 
     if (wsStatus === "closed") {
@@ -176,7 +179,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         console.warn("Disconnected sound playback failed:", err);
       });
     }
-  }, [wsStatus]);
+  }, [connectionError, wsStatus]);
 
   // Handle Muting logic via the hook directly
   useEffect(() => {
