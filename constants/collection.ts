@@ -14,4 +14,5 @@ export const COLLECTIONS = {
   VOICE_SESSION_BUFFERS: "voiceSessionBuffers",
   TRANSCRIPTIONS: "transcriptions",
   FCM_TOKENS: "fcmTokens",
+  FREE_CREDIT_HISTORY: "freeCreditHistory",
 } as const;

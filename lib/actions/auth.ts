@@ -17,14 +17,11 @@ import {
 const SESSION_DURATION = 60 * 60 * 24 * 7;
 
 /**
- * Returns the Timestamp for the next midnight (UTC)
+ * Returns the Timestamp for the next 3 days
  */
-function getNextMidnight(): Timestamp {
-  const now = new Date();
-  const next = new Date(now);
-  next.setUTCDate(next.getUTCDate() + 1);
-  next.setUTCHours(0, 0, 0, 0);
-  return Timestamp.fromDate(next);
+function getNextResetTime(): Timestamp {
+  const nextReset = Timestamp.fromMillis(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  return nextReset;
 }
 
 /**
@@ -91,7 +88,7 @@ export async function signUp(
       welcomeTextTokens: FREE_WELCOME_TEXT_TOKENS,
       freeTextTokens: 0,
       freeVoiceSeconds: FREE_WELCOME_VOICE_SECONDS,
-      nextDailyReset: getNextMidnight(),
+      nextDailyReset: getNextResetTime(),
       createdAt: FieldValue.serverTimestamp(),
     };
 
