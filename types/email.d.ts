@@ -8,6 +8,7 @@ declare global {
     expiresAt: Timestamp;
     attempts: number;
   }
+
   type FreeCreditHistory = {
     id: string;
     userId: string;

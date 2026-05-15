@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Settings,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { MessageSquareIcon, MicIcon } from "./icons";
@@ -122,6 +123,12 @@ export const sideBarItems = (role: Role): MenuItems[] => {
           label: "Help & Support",
           icon: <LifeBuoy size={20} />,
           href: "/dashboard/user/help",
+        },
+        {
+          id: "/dashboard/user/freecredits",
+          label: "Free Credits",
+          icon: <Sparkles size={20} />,
+          href: "/dashboard/user/freecredits",
         },
         {
           id: "/dashboard/user/settings",

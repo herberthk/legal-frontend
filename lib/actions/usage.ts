@@ -485,3 +485,62 @@ function getDateRange(
       };
   }
 }
+
+/**
+ * Gets the free credit history for a user with pagination.
+ * @param userId - The authenticated user's ID
+ * @param page - The current page number (1-indexed)
+ * @param pageSize - The number of records per page
+ * @returns Array of FreeCreditHistory records and metadata
+ */
+export const getFreeCreditHistory = async (
+  userId: string,
+  page: number = 1,
+  pageSize: number = 10,
+): Promise<{
+  success: boolean;
+  records: FreeCreditHistory[];
+  totalCount: number;
+  totalPages: number;
+}> => {
+  try {
+    if (!userId) {
+      return { success: false, records: [], totalCount: 0, totalPages: 0 };
+    }
+
+    const query = db
+      .collection(COLLECTIONS.FREE_CREDIT_HISTORY)
+      .where("userId", "==", userId);
+
+    // Get total count for pagination metadata
+    const countSnapshot = await query.count().get();
+    const totalCount = countSnapshot.data().count;
+
+    const snapshot = await query
+      .orderBy("createdAt", "desc")
+      .offset((page - 1) * pageSize)
+      .limit(pageSize)
+      .get();
+
+    const records: FreeCreditHistory[] = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        createdAt:
+          data.createdAt?.toDate().toISOString() || new Date().toISOString(),
+      } as FreeCreditHistory;
+    });
+
+    return {
+      success: true,
+      records,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+    };
+  } catch (error) {
+    console.error("Error getting free credit history:", error);
+    return { success: false, records: [], totalCount: 0, totalPages: 0 };
+  }
+};
+
