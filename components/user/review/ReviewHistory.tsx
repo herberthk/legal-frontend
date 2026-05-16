@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { getDocumentReviews, deleteDocumentReview } from "@/lib/actions/review";
 import { CustomButton } from "@/components/ui/custom-button";
+import { ReviewHistorySkeleton } from "./ReviewHistorySkeleton";
 import { storage } from "@/firebase/client";
 import { ref, deleteObject } from "firebase/storage";
 
@@ -21,21 +22,6 @@ interface ReviewHistoryProps {
   onNewReview: () => void;
   onViewReview: (record: DocumentReview) => void;
 }
-
-const HistorySkeleton = () => (
-  <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16">
-    <div className="h-12 w-64 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse mb-4" />
-    <div className="h-6 w-96 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse mb-12" />
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {[1, 2, 3, 4, 5, 6].map((i) => (
-        <div
-          key={i}
-          className="h-48 bg-slate-200 dark:bg-slate-800 rounded-3xl animate-pulse"
-        />
-      ))}
-    </div>
-  </div>
-);
 
 export const ReviewHistory = ({
   onNewReview,
@@ -156,7 +142,7 @@ export const ReviewHistory = ({
   };
 
   if (isLoading) {
-    return <HistorySkeleton />;
+    return <ReviewHistorySkeleton />;
   }
 
   return (
