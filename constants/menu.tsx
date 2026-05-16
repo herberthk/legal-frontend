@@ -5,6 +5,7 @@ import {
   FileWarning,
   LayoutDashboard,
   LifeBuoy,
+  Scale,
   Settings,
   Sparkles,
   Users,
@@ -110,6 +111,24 @@ export const sideBarItems = (role: Role): MenuItems[] => {
           label: "Transactions",
           icon: <CreditCard size={20} />,
           href: "/dashboard/user/transactions",
+        },
+        {
+          id: "legal-review-group",
+          label: "Legal Review",
+          icon: <Scale size={20} />,
+          href: "",
+          subItems: [
+            {
+              id: "/dashboard/user/review",
+              label: "New Review",
+              href: "/dashboard/user/review",
+            },
+            {
+              id: "/dashboard/user/reviews",
+              label: "Review History",
+              href: "/dashboard/user/reviews",
+            },
+          ],
         },
         {
           id: "/dashboard/user/billing",

@@ -15,4 +15,5 @@ export const COLLECTIONS = {
   TRANSCRIPTIONS: "transcriptions",
   FCM_TOKENS: "fcmTokens",
   FREE_CREDIT_HISTORY: "freeCreditHistory",
+  DOCUMENT_REVIEWS: "documentReviews",
 } as const;

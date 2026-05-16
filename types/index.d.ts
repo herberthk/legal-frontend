@@ -265,5 +265,63 @@ declare global {
     | "saving"
     | "done"
     | "error";
+
+  // --- Document Review Types ---
+  type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
+
+  type ReviewClause = {
+    title: string;
+    content: string;
+    assessment: string;
+    riskLevel: RiskLevel;
+  };
+
+  type ReviewRisk = {
+    title: string;
+    description: string;
+    severity: RiskLevel;
+    clause?: string;
+    recommendation: string;
+  };
+
+  type ReviewRecommendation = {
+    title: string;
+    description: string;
+    priority: RiskLevel;
+  };
+
+  type ReviewScoreCategory = {
+    category: string;
+    score: number; // 0-100
+  };
+
+  type DocumentReview = {
+    id: string;
+    userId: string;
+    fileName: string;
+    fileUrl: string;
+    documentType: string;
+    summary: string;
+    overallScore: number; // 0-100
+    highlights: string[];
+    keyClauses: ReviewClause[];
+    risks: ReviewRisk[];
+    recommendations: ReviewRecommendation[];
+    scoreBreakdown: ReviewScoreCategory[];
+    tokensUsed: number;
+    pageCount: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+
+  type ReviewStage =
+    | "idle"
+    | "uploading"
+    | "extracting"
+    | "analyzing"
+    | "scoring"
+    | "generating"
+    | "complete"
+    | "error";
 }
 export {};
