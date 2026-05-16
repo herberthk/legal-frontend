@@ -71,7 +71,6 @@ export async function POST(req: Request) {
         } satisfies GoogleLanguageModelOptions,
       },
       messages: modelMessages,
-      temperature: 0.2,
       onFinish: async ({ text, usage }) => {
         const totalTokens =
           (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);

@@ -3,6 +3,7 @@ import { withSerwist } from "@serwist/turbopack";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  serverExternalPackages: ["pdf-parse"],
   images: {
     remotePatterns: [
       {

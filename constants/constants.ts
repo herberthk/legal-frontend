@@ -25,3 +25,9 @@ export const DEFAULT_REGION = "europe-west3";
 // Firebase function url for single push notification
 export const SINGLE_PUSH_NOTIFICATION_URL =
   "https://europe-west3-legal-51aee.cloudfunctions.net/singlePushNotification";
+
+// Document Review constants
+export const MAX_REVIEW_FILE_SIZE_MB = 10;
+export const MAX_REVIEW_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+export const MAX_REVIEW_PAGES = 15;
+export const CHARS_PER_TOKEN = 4; // ~4 characters per token (standard LLM estimate)
