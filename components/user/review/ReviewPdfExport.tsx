@@ -8,25 +8,9 @@ import {
   View,
   StyleSheet,
   pdf,
-  Font,
 } from "@react-pdf/renderer";
 import { Download } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-
-// Register a clean font
-Font.register({
-  family: "Inter",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff",
-      fontWeight: 400,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hiJ-Ek-_EeA.woff",
-      fontWeight: 700,
-    },
-  ],
-});
 
 const COLORS = {
   primary: "#059669",
@@ -42,7 +26,7 @@ const COLORS = {
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 10,
     color: COLORS.dark,
     paddingTop: 48,
@@ -51,7 +35,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   // Cover page
-  cover: { flex: 1, justifyContent: "center", alignItems: "flex-start" },
+  cover: { flex: 1, justifyContent: "center", alignItems: "stretch" },
   coverBadge: {
     backgroundColor: "#ecfdf5",
     borderRadius: 20,
@@ -61,8 +45,8 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   coverBadgeText: { color: COLORS.primary, fontSize: 9, fontWeight: 700 },
-  coverTitle: { fontSize: 26, fontWeight: 700, color: COLORS.dark, marginBottom: 8, lineHeight: 1.3 },
-  coverSub: { fontSize: 11, color: COLORS.gray, marginBottom: 28, lineHeight: 1.5 },
+  coverTitle: { fontSize: 26, fontWeight: 700, color: COLORS.dark, marginBottom: 8, lineHeight: 1.3, width: "100%" },
+  coverSub: { fontSize: 11, color: COLORS.gray, marginBottom: 28, lineHeight: 1.5, width: "100%" },
   scoreBox: {
     backgroundColor: "#ecfdf5",
     borderRadius: 12,
@@ -73,10 +57,11 @@ const styles = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: "#a7f3d0",
+    width: "100%",
   },
   scoreNumber: { fontSize: 36, fontWeight: 700, color: COLORS.primary },
   scoreLabel: { fontSize: 10, color: COLORS.gray },
-  metaRow: { flexDirection: "row", gap: 24 },
+  metaRow: { flexDirection: "row", gap: 24, width: "100%" },
   metaItem: { flex: 1 },
   metaLabel: { fontSize: 8, color: COLORS.gray, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 },
   metaValue: { fontSize: 10, color: COLORS.dark, fontWeight: 700 },
@@ -95,7 +80,7 @@ const styles = StyleSheet.create({
   },
   summaryText: { fontSize: 10, color: COLORS.dark, lineHeight: 1.6 },
   // Score table
-  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: 6 },
+  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: 6, alignItems: "center" },
   tableCell: { flex: 1, fontSize: 10 },
   tableHeader: { fontWeight: 700, fontSize: 9, color: COLORS.gray },
   scoreBar: { height: 6, borderRadius: 3, marginTop: 3 },
@@ -239,10 +224,12 @@ const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => (
         {review.scoreBreakdown.map((item, i) => (
           <View key={i} style={styles.tableRow}>
             <Text style={[styles.tableCell, { flex: 2 }]}>{formatCategoryName(item.category)}</Text>
-            <View style={[styles.tableCell, { flex: 3, justifyContent: "center" }]}>
-              <View style={[styles.scoreBar, { width: `${item.score}%`, backgroundColor: scoreBarColor(item.score) }]} />
+            <View style={[styles.tableCell, { flex: 3, justifyContent: "center", paddingRight: 10 }]}>
+              <View style={{ height: 6, borderRadius: 3, backgroundColor: COLORS.lightGray, width: "100%", overflow: "hidden" }}>
+                <View style={[styles.scoreBar, { width: `${item.score}%`, backgroundColor: scoreBarColor(item.score), marginTop: 0 }]} />
+              </View>
             </View>
-            <Text style={[styles.tableCell, { textAlign: "right", fontWeight: 700, color: scoreBarColor(item.score) }]}>
+            <Text style={[styles.tableCell, { textAlign: "right", fontWeight: 700, color: scoreBarColor(item.score), flex: 0.5 }]}>
               {item.score}
             </Text>
           </View>
