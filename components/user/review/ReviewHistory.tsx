@@ -274,6 +274,11 @@ export const ReviewHistory = ({
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold">
                       {record.pageCount} Pages
                     </span>
+                    {record.tokensUsed !== undefined && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                        {record.tokensUsed.toLocaleString()} Tokens
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between text-xs font-medium text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-4">

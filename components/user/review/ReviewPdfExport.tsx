@@ -163,6 +163,22 @@ function scoreBarColor(score: number) {
   return COLORS.red;
 }
 
+function formatCategoryName(cat: string): string {
+  const map: Record<string, string> = {
+    legalCompliance: "Legal Compliance",
+    riskManagement: "Risk Management",
+    clarityDrafting: "Clarity & Drafting",
+    partyProtection: "Party Protection",
+    enforceability: "Enforceability",
+    "Legal Compliance": "Legal Compliance",
+    "Risk Management": "Risk Management",
+    "Clarity & Drafting": "Clarity & Drafting",
+    "Party Protection": "Party Protection",
+    Enforceability: "Enforceability",
+  };
+  return map[cat] ?? cat;
+}
+
 const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => (
   <Document title={`Legal Review — ${review.fileName}`} author="LegalAdviser Uganda">
     {/* ─── Cover Page ─────────────────────────────────────── */}
@@ -222,7 +238,7 @@ const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => (
         <Text style={styles.sectionTitle}>Score Breakdown</Text>
         {review.scoreBreakdown.map((item, i) => (
           <View key={i} style={styles.tableRow}>
-            <Text style={[styles.tableCell, { flex: 2 }]}>{item.category}</Text>
+            <Text style={[styles.tableCell, { flex: 2 }]}>{formatCategoryName(item.category)}</Text>
             <View style={[styles.tableCell, { flex: 3, justifyContent: "center" }]}>
               <View style={[styles.scoreBar, { width: `${item.score}%`, backgroundColor: scoreBarColor(item.score) }]} />
             </View>

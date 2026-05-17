@@ -151,7 +151,7 @@ export function ReviewProcessing({
               >
                 {/* Icon */}
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${
                     isDone
                       ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
                       : isActive
@@ -197,11 +197,11 @@ export function ReviewProcessing({
                   <motion.div
                     animate={{ scale: [1, 1.3, 1] }}
                     transition={{ duration: 1.2, repeat: Infinity }}
-                    className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"
+                    className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"
                   />
                 )}
                 {isDone && (
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
                 )}
               </motion.div>
             );
