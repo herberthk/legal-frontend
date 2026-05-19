@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib";
 import TransactionList from "@/components/user/TransactionList";
 import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
 
 const TransactionsPage = async ({
   searchParams,
@@ -16,19 +17,19 @@ const TransactionsPage = async ({
   const currentDuration = duration || "all";
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="md:p-8 p-2 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <a
+        <Link
           href="/dashboard/user/billing"
           className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 text-slate-500 hover:text-orange-600 transition-colors shadow-sm"
         >
           <ChevronLeft size={20} />
-        </a>
+        </Link>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <h1 className="md:text-2xl text-xl font-bold text-slate-900 dark:text-white">
             Full Transaction History
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="md:text-base text-sm text-slate-500">
             View and search all your past transactions
           </p>
         </div>

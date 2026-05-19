@@ -5,7 +5,11 @@ import { toast } from "sonner";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/firebase/client";
 import { saveDocumentReview } from "@/lib/actions/review";
-import { MAX_REVIEW_FILE_SIZE, MAX_REVIEW_FILE_SIZE_MB } from "@/constants";
+import {
+  BUCKETS,
+  MAX_REVIEW_FILE_SIZE,
+  MAX_REVIEW_FILE_SIZE_MB,
+} from "@/constants";
 
 // Simulated stage durations (ms) — will jump to complete when API responds
 const STAGE_DURATIONS: Record<ReviewStage, number> = {
@@ -31,7 +35,10 @@ const STAGE_ORDER: ReviewStage[] = [
 export function useDocumentReview() {
   const [file, setFile] = useState<File | null>(null);
   const [stage, setStage] = useState<ReviewStage>("idle");
-  const [review, setReview] = useState<Omit<DocumentReview, "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt"> | null>(null);
+  const [review, setReview] = useState<Omit<
+    DocumentReview,
+    "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt"
+  > | null>(null);
   const [savedReview, setSavedReview] = useState<DocumentReview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -58,7 +65,9 @@ export function useDocumentReview() {
     setStage(nextStage);
 
     // Update progress percentage
-    const progressPct = Math.round(((targetIndex + 1) / STAGE_ORDER.length) * 100);
+    const progressPct = Math.round(
+      ((targetIndex + 1) / STAGE_ORDER.length) * 100,
+    );
     setProgress(progressPct);
 
     if (nextStage === "complete") return;
@@ -90,7 +99,9 @@ export function useDocumentReview() {
       return;
     }
     if (dropped.size > MAX_REVIEW_FILE_SIZE) {
-      setError(`File exceeds ${MAX_REVIEW_FILE_SIZE_MB}MB limit. Your file is ${(dropped.size / 1024 / 1024).toFixed(1)}MB.`);
+      setError(
+        `File exceeds ${MAX_REVIEW_FILE_SIZE_MB}MB limit. Your file is ${(dropped.size / 1024 / 1024).toFixed(1)}MB.`,
+      );
       return;
     }
 
@@ -157,7 +168,10 @@ export function useDocumentReview() {
 
     try {
       // 1. Upload PDF to Firebase Storage
-      const storageRef = ref(storage, `reviews/${Date.now()}_${file.name}`);
+      const storageRef = ref(
+        storage,
+        `${BUCKETS.STORED_FILES}/reviews/${Date.now()}_${file.name}`,
+      );
       const snapshot = await uploadBytes(storageRef, file);
       const fileUrl = await getDownloadURL(snapshot.ref);
 
@@ -181,7 +195,10 @@ export function useDocumentReview() {
           updatedAt: new Date().toISOString(),
         });
       } else {
-        toast.error("Failed to save review.", { id: toastId, description: result.error });
+        toast.error("Failed to save review.", {
+          id: toastId,
+          description: result.error,
+        });
       }
     } catch (err) {
       console.error(err);

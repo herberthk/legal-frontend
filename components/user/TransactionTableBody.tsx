@@ -53,7 +53,7 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                   : "hover:bg-slate-50 dark:hover:bg-slate-700/30"
               }`}
             >
-              <td className="px-6 py-4">
+              <td className="p-2 md:px-6 py-4">
                 <div className="flex items-center gap-3">
                   <div
                     className={`p-2 rounded-full transition-colors ${
@@ -106,18 +106,18 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+              <td className="p-2 md:px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
                 {formatDate(t.createdAt)}
               </td>
               <td
-                className={`px-6 py-4 font-mono text-sm font-medium ${t.amount > 0 ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white"}`}
+                className={`p-2 md:px-6 py-4 font-mono text-sm font-medium ${t.amount > 0 ? "text-green-600 dark:text-green-400" : "text-slate-900 dark:text-white"}`}
               >
                 {t.amount > 0 ? "+" : ""}$
                 {parseFloat((t.amount / 100).toString()).toFixed(2)} (UGX{" "}
                 {((t.amount / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString()}
                 )
               </td>
-              <td className="px-6 py-4 text-right">
+              <td className="p-2 md:px-6 py-4 text-right">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -132,8 +132,8 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
             </tr>
             {expandedTxId === t.id && (
               <tr className="bg-slate-50 dark:bg-slate-700/20 animate-in fade-in slide-in-from-top-1 duration-200">
-                <td colSpan={4} className="px-6 pb-6 pt-2">
-                  <div className="ml-14 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <td colSpan={4} className="p-2 md:px-6 pb-6 pt-2">
+                  <div className="ml-2 md:ml-14 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     {t.type === "DEPOSIT" && (
                       <>
                         <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-3">

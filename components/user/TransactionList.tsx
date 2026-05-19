@@ -31,11 +31,11 @@ const TransactionList = async ({
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all duration-300">
-      <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+      <div className="p-2 md:p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+        <h3 className="md:text-lg text-base font-bold text-slate-900 dark:text-white">
           Transaction History
         </h3>
-        <button className="text-sm text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 transition-colors hover:text-orange-700">
+        <button className="md:text-sm text-xs text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 transition-colors hover:text-orange-700">
           <Download size={14} /> Download Invoice
         </button>
       </div>

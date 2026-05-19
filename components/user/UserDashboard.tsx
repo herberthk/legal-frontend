@@ -32,13 +32,13 @@ const UserDashboard: FC<Props> = ({ user, recentSessions }) => {
   }, [user, setUser]);
 
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+    <div className="p-2 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div>
-          <h1 className="text-xl md:text-3xl font-bold text-slate-900 dark:text-white">
+        <div className="p-2 md:p-4 mt-2">
+          <h1 className="md:text-3xl text-xl font-bold text-slate-900 dark:text-white">
             Dashboard
           </h1>
-          <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mt-2">
+          <p className="md:text-base text-sm text-slate-500 dark:text-slate-400 mt-2">
             Track your daily free credits and account balance.
           </p>
         </div>

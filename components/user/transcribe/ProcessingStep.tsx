@@ -47,7 +47,7 @@ export function ProcessingStep({
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="max-w-[1400px] mx-auto w-full"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 md:p-14 shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 overflow-hidden relative">
+      <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-2 md:p-8 shadow-2xl border border-indigo-500/10 dark:border-indigo-400/10 overflow-hidden relative">
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-20 items-stretch relative z-10">
           <div className="w-full lg:w-3/5 aspect-3/4 rounded-[2rem] overflow-hidden bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 relative shadow-inner">
             {previewUrl && (
