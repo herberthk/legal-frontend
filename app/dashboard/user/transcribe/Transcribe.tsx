@@ -20,6 +20,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { saveTranscriptionRecord } from "@/lib/actions/transcribe";
 import { useRouter } from "nextjs-toploader/app";
 import { toast } from "sonner";
+import { BUCKETS } from "@/constants";
 
 interface TranscribeProps {
   onClose?: () => void;
@@ -92,7 +93,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
       if (file) {
         const storageRef = ref(
           storage,
-          `transcriptions/${Date.now()}_${file.name}`,
+          `${BUCKETS.STORED_FILES}/transcriptions/${Date.now()}_${file.name}`,
         );
         const snapshot = await uploadBytes(storageRef, file);
         fileUrl = await getDownloadURL(snapshot.ref);
@@ -184,7 +185,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
 
   return (
     <div className="min-h-screen flex flex-col bg-indigo-50/5 dark:bg-slate-900 transition-colors duration-500">
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-2 md:px-8 py-8 md:py-16">
         {onClose && (
           <button
             onClick={onClose}

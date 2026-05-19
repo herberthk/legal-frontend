@@ -42,7 +42,7 @@ const TranscriptionPage = async ({ searchParams }: PageProps) => {
   });
 
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+    <div className="md:p-8 p-2 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <TranscriptionFilters initialFilter={filter} initialSearch={search} />
 
       {/* Sessions List */}

@@ -48,7 +48,7 @@ const SessionDetailPage = async ({ params }: PageProps) => {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="p-2 md:p-8 space-y-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header Navigation */}
       <div className="flex items-center justify-between">
         <Link href="/dashboard/user/transcripts">

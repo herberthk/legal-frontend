@@ -28,7 +28,7 @@ export function UploadZone({ onDrop, error }: UploadZoneProps) {
       className="max-w-3xl mx-auto"
     >
       <div className="text-center mb-12">
-        <h2 className="font-serif text-4xl md:text-5xl mb-6 font-bold tracking-tight text-indigo-950 dark:text-indigo-50">
+        <h2 className="font-serif text-3xl md:text-5xl mb-6 font-bold tracking-tight text-indigo-950 dark:text-indigo-50">
           Transform handwriting into <br />
           <span className="italic text-orange-600 dark:text-orange-400">
             professional documents.

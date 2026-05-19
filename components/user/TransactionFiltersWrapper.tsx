@@ -48,10 +48,10 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 text-xs uppercase font-semibold">
             <tr>
-              <th className="px-6 py-4">Description</th>
-              <th className="px-6 py-4">Date</th>
-              <th className="px-6 py-4">Amount</th>
-              <th className="px-6 py-4 text-right">Actions</th>
+              <th className="p-2 md:px-6 py-4">Description</th>
+              <th className="p-2 md:px-6 py-4">Date</th>
+              <th className="p-2 md:px-6 py-4">Amount</th>
+              <th className="p-2 md:px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -65,10 +65,10 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
       </div>
 
       {isSummary ? (
-        <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex justify-center">
+        <div className="p-2 md:p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex justify-center">
           <Link
             href="/dashboard/user/transactions"
-            className="text-sm font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors flex items-center gap-2"
+            className="md:text-sm text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors flex items-center gap-2"
           >
             View All Transactions
             <svg

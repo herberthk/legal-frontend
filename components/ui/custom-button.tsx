@@ -316,7 +316,7 @@ const CustomButtonInner = forwardRef(
         <AnimatePresence mode="wait">
           <motion.div
             key={isLoading ? "loading" : "content"}
-            className="flex items-center justify-center gap-2 z-10 dark:text-slate-100 text-slate-900"
+            className="flex items-center justify-center gap-2 dark:text-slate-100 text-slate-900"
             initial={contentTransition.initial}
             animate={contentTransition.animate}
             exit={contentTransition.exit}
@@ -332,7 +332,7 @@ const CustomButtonInner = forwardRef(
                 {leftIcon && (
                   <span className="flex items-center">{leftIcon}</span>
                 )}
-                <motion.span className="relative z-10">{children}</motion.span>
+                <motion.span className="relative">{children}</motion.span>
                 {rightIcon && (
                   <span className="flex items-center">{rightIcon}</span>
                 )}
