@@ -136,11 +136,21 @@ export const recordVoiceUsageAndDeduct = async (params: {
       let freeSeconds = user.freeVoiceSeconds;
 
       if (freeSeconds > 0) {
-        // Deduct exclusively from free voice quota first
-        freeSeconds = Math.max(0, freeSeconds - seconds);
-        source = "free";
+        if (freeSeconds >= seconds) {
+          // Fully covered by free seconds
+          freeSeconds = freeSeconds - seconds;
+          source = "free";
+        } else {
+          // Partially covered by free seconds, remaining billed to balance
+          const remainingPaidSeconds = seconds - freeSeconds;
+          freeSeconds = 0;
+          const cost = remainingPaidSeconds * COST_PER_VOICE_SECOND_IN_CENTS;
+          balance = Math.max(0, balance - cost);
+          totalCost = cost;
+          source = "paid";
+        }
       } else {
-        // No free seconds left — deduct from paid balance
+        // No free seconds left — fully billed to paid balance
         const cost = seconds * COST_PER_VOICE_SECOND_IN_CENTS;
         balance = Math.max(0, balance - cost);
         totalCost = cost;
