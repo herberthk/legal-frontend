@@ -1,6 +1,6 @@
 ## TODO
 
-1. Handle billing well if the user had free minutes and then upgrade to a plan, the free minutes should be used up first before the plan minutes are used.
+1. Handle billing well if the user had free minutes and then credits his or her account, the free minutes should be used up first before user credits is used. Or better yet if the user has free minutes it should be exhausted first, before the user's plan or credits are used.
 2. Try to parse all date from UTC date to local time.
 3. Implement a fully working admin dashboard
 4. Make audio sessions work on firefox and safari browsers.
