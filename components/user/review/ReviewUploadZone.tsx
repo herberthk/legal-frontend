@@ -41,15 +41,15 @@ export function ReviewUploadZone({
       <div className="text-center mb-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 text-sm font-semibold mb-6">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          Powered by Gemini Pro · Ugandan Law
+          Powered by Most advanced AI Models
         </div>
-        <h2 className="font-serif text-4xl md:text-5xl mb-5 font-bold tracking-tight text-slate-900 dark:text-slate-50">
+        <h2 className="font-serif text-3xl md:text-5xl mb-5 font-bold tracking-tight text-slate-900 dark:text-slate-50">
           Review any legal document{" "}
           <span className="italic text-emerald-600 dark:text-emerald-400">
             instantly.
           </span>
         </h2>
-        <p className="text-lg text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
+        <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
           Upload your PDF and receive a comprehensive compliance score, risk
           analysis, key clauses, and recommendations — all grounded in Ugandan
           law.

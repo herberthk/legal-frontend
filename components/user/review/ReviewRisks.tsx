@@ -108,7 +108,7 @@ export function ReviewRisks({ risks }: ReviewRisksProps) {
     <div>
       {/* Summary counts */}
       <div className="flex items-center gap-4 mb-5 flex-wrap">
-        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
           Identified Risks ({risks.length})
         </h3>
         <div className="flex gap-2 ml-auto">

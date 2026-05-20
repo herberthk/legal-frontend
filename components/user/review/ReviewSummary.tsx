@@ -28,7 +28,8 @@ export function ReviewSummary({
       className="space-y-4"
     >
       {/* Document meta header */}
-      <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700">
+      <div className="flex flex-wrap justify-between md:flex-row flex-col items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700">
+      <div className="flex items-center gap-2">
         <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
           <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
         </div>
@@ -40,14 +41,15 @@ export function ReviewSummary({
             {pageCount} {pageCount === 1 ? "page" : "pages"} · {tokensUsed.toLocaleString()} tokens used
           </p>
         </div>
+        </div>
         <span className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-800">
           {documentType}
         </span>
       </div>
 
       {/* Summary card */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
-        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
+      <div className="md:p-5 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+        <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 mt-1">
           Document Summary
         </h3>
         <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm">
@@ -57,8 +59,8 @@ export function ReviewSummary({
 
       {/* Highlights */}
       {highlights.length > 0 && (
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+        <div className="md:p-5 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+          <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2 mt-1">
             <Star className="w-3.5 h-3.5 text-amber-400" />
             Highlights
           </h3>

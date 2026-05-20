@@ -41,7 +41,7 @@ export function ReviewRecommendations({
 
   return (
     <div>
-      <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+      <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2 mt-1">
         <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
         Recommendations ({recommendations.length})
       </h3>

@@ -98,17 +98,17 @@ export function ReviewResults({
       />
 
       {/* ── Risks ────────────────────────────────────────── */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="md:p-5 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
         <ReviewRisks risks={review.risks} />
       </div>
 
       {/* ── Key Clauses ──────────────────────────────────── */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="md:p-5 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
         <ReviewClauses clauses={review.keyClauses} />
       </div>
 
       {/* ── Recommendations ──────────────────────────────── */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="md:p-5 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
         <ReviewRecommendations recommendations={review.recommendations} />
       </div>
 

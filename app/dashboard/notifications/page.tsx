@@ -27,7 +27,7 @@ const NotificationPage = async ({ searchParams }: PageProps) => {
   });
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto">
+    <div className="p-2 md:p-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
           Notifications

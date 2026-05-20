@@ -146,7 +146,7 @@ export const ReviewHistory = ({
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16 min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
+    <div className="w-full max-w-7xl mx-auto px-2 md:px-8 py-8 md:py-16 min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
         <div>
           <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
