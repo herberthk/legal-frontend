@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib";
 import { getNotifications } from "@/lib/actions/notifications";
 import NotificationList from "@/components/global/NotificationList";
 import { redirect } from "next/navigation";
+import BackButton from "@/components/global/BackButton";
 
 interface PageProps {
   searchParams: Promise<{
@@ -28,13 +29,16 @@ const NotificationPage = async ({ searchParams }: PageProps) => {
 
   return (
     <div className="p-2 md:p-8 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-          Notifications
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Stay updated with your account activity and system alerts.
-        </p>
+      <div className="mb-8 flex items-center gap-4">
+        <BackButton />
+        <div className="mt-0.5">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+            Notifications
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">
+            Stay updated with your account activity and system alerts.
+          </p>
+        </div>
       </div>
 
       <NotificationList

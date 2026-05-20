@@ -3,6 +3,7 @@ import { getFreeCreditHistory } from "@/lib/actions/usage";
 import FreeCreditList from "@/components/user/FreeCreditList";
 import { ChevronLeft, Sparkles } from "lucide-react";
 import Link from "next/link";
+import BackButton from "@/components/global/BackButton";
 
 export const metadata = {
   title: "Free Credit History | Dashboard",
@@ -32,12 +33,7 @@ const FreeCreditsPage = async ({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard/user"
-            className="p-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 hover:scale-105 transition-all shadow-sm"
-          >
-            <ChevronLeft size={24} />
-          </Link>
+          <BackButton />
           <div className="mt-2">
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
