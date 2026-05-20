@@ -68,7 +68,7 @@ function ClauseCard({ clause, index }: { clause: ReviewClause; index: number }) 
         </span>
         <RiskBadge level={clause.riskLevel} />
         <ChevronDown
-          className={`w-4 h-4 text-slate-400 transition-transform duration-300 flex-shrink-0 ${open ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -115,7 +115,7 @@ export function ReviewClauses({ clauses }: ReviewClausesProps) {
 
   return (
     <div>
-      <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">
+      <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 mt-1">
         Key Clauses ({clauses.length})
       </h3>
       <div className="space-y-3">

@@ -221,7 +221,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
   const currentFontSize = editor.getAttributes("textStyle").fontSize || "";
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 p-3 border-b border-indigo-500/10 dark:border-indigo-400/10 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md sticky top-0 z-20 transition-colors">
+    <div className="flex flex-wrap items-center gap-1.5 p-1 md:p-3 border-b border-indigo-500/10 dark:border-indigo-400/10 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md sticky top-0 z-20 transition-colors">
       <div className="flex items-center gap-2 pr-3 border-r border-indigo-500/10 dark:border-indigo-400/10">
         <EditorSelect
           value={currentFontFamily}
@@ -246,7 +246,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
         />
       </div>
 
-      <div className="flex items-center gap-0.5 px-3 border-r border-indigo-500/10 dark:border-indigo-400/10">
+      <div className="flex items-center gap-0.5 px-1 md:px-3 border-r border-indigo-500/10 dark:border-indigo-400/10">
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={`p-2 rounded-xl hover:bg-indigo-500/10 dark:hover:bg-indigo-400/10 transition-all ${editor.isActive("bold") ? "bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "text-slate-500 dark:text-slate-400"}`}
@@ -402,7 +402,7 @@ export function TiptapEditor({
     editorProps: {
       attributes: {
         class:
-          "pdf-preview-styles focus:outline-none min-h-[600px] transition-colors p-8 md:p-12",
+          "pdf-preview-styles focus:outline-none min-h-[600px] transition-colors p-4 md:p-12",
         style: "color: inherit;",
       },
     },

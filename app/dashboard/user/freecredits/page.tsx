@@ -28,17 +28,17 @@ const FreeCreditsPage = async ({
   );
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-8">
+    <div className="p-2 md:p-6 max-w-5xl mx-auto space-y-8">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <Link
             href="/dashboard/user"
-            className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 hover:scale-105 transition-all shadow-sm"
+            className="p-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 hover:scale-105 transition-all shadow-sm"
           >
-            <ChevronLeft size={22} />
+            <ChevronLeft size={24} />
           </Link>
-          <div>
+          <div className="mt-2">
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
                 Free Rewards
