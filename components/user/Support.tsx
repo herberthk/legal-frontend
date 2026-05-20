@@ -17,6 +17,7 @@ import { HelpFAQ } from "./HelpFAQ";
 import { createSupportTicket } from "@/lib/actions/support";
 import { Timestamp } from "firebase-admin/firestore";
 import { formatDate } from "@/lib";
+import BackButton from "../global/BackButton";
 // import { formatDate } from "@/utils";
 
 interface SupportPageProps {
@@ -124,13 +125,16 @@ const SupportPage: React.FC<SupportPageProps> = ({
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            Help & Support
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Browse FAQs or submit a ticket for specialized assistance.
-          </p>
+        <div className="flex items-center gap-4">
+          <BackButton />
+          <div className="mt-2">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+              Help & Support
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              Browse FAQs or submit a ticket for specialized assistance.
+            </p>
+          </div>
         </div>
         <button
           onClick={() => setShowNewTicket(true)}

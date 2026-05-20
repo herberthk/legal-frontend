@@ -3,6 +3,11 @@ import { getCurrentUser } from "@/lib";
 import { getUserSupportTickets, getHelpArticles } from "@/lib/actions/support";
 import { seedHelpArticles } from "@/lib/actions/seed-help";
 
+export const metadata = {
+  title: "Help Center | Dashboard",
+  description: "Get help with your account and services",
+};
+
 const HelpPage = async () => {
   const user = await getCurrentUser();
   if (!user) return null;

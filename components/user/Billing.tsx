@@ -5,6 +5,7 @@ import BillingCard from "./BillingCard";
 import PricingGuide from "./PricingGuide";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
+import BackButton from "../global/BackButton";
 
 // Dynamically import heavy components
 const UsageChart = dynamic(() => import("./UsageChart"), {
@@ -46,13 +47,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     <div className="md:p-8 px-2 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="p-2 md:p-4 mt-3">
-          <h1 className="md:text-3xl text-xl font-bold text-slate-900 dark:text-white">
-            Billing & Usage
-          </h1>
-          <p className="md:text-base text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Manage your funds, payment methods, and view consumption history.
-          </p>
+        <div className="p-2 md:p-4 mt-3 flex items-center gap-4">
+          <BackButton />
+          <div className="mt-1">
+            <h1 className="md:text-3xl text-xl font-bold text-slate-900 dark:text-white">
+              Billing & Usage
+            </h1>
+            <p className="md:text-base text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Manage your funds, payment methods, and view consumption history.
+            </p>
+          </div>
         </div>
         {/* <div className="flex items-center space-x-3 bg-orange-50 dark:bg-orange-900/20 px-4 py-2 rounded-lg border border-orange-100 dark:border-orange-800 animate-in slide-in-from-right-4 duration-500">
           <Activity className="text-orange-500 w-5 h-5 animate-pulse" />
