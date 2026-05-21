@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser, getTransactionByReference } from "@/lib";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import Success from "./Success";
@@ -19,13 +19,18 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   }
 
   const resolvedSearchParams = await searchParams;
-  const amountStr = (resolvedSearchParams?.amount as string) || "0";
-  const amount = parseFloat(amountStr);
-  const method = (resolvedSearchParams?.method as string) || "card";
+  const reference = (resolvedSearchParams?.ref as string) || "";
+  // Get transaction details from the reference ID
+  
+  const transaction = await getTransactionByReference(reference) as unknown as Transaction;
 
- 
+  if (!transaction) {
+    redirect("/dashboard/user/billing");
+  }
+
+
 
   return (
-   <Success amount={amount} method={method} user={user}/>
+   <Success amount={transaction.amount} method={transaction.method} user={user}/>
   );
 }
