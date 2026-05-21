@@ -201,3 +201,19 @@ export const formatUniversalDate = (
   // Previous years
   return format(date, "MMMM d, yyyy"); // e.g. "April 7, 2026"
 };
+
+export const formatUSD = (val: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(val);
+  };
+
+export const formatUgx = (val: number) => {
+      const ugxVal = val * USD_TO_UGX_EXCHANGE_RATE;
+      return new Intl.NumberFormat("en-UG", {
+        style: "currency",
+        currency: "UGX",
+        maximumFractionDigits: 0
+      }).format(ugxVal);
+    };

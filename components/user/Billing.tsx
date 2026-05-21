@@ -26,22 +26,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   user,
   transactionsList,
 }) => {
-  // State
-  // const [simulatedUsage, setSimulatedUsage] = useState(0);
+  const [balance, setBalance] = useState(user.balance);
 
   // Feedback State
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // --- Real World Simulation Effects ---
-
-  // 1. Simulate real-time usage (cost ticker) based on $0.05/min voice rate
-  // useEffect(() => {
-  //   // $0.05 per minute = ~$0.00083 per second for active session
-  //   const interval = setInterval(() => {
-  //     setSimulatedUsage((prev) => prev + 0.00083);
-  //   }, 1000);
-  //   return () => clearInterval(interval);
-  // }, []);
 
   return (
     <div className="md:p-8 px-2 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
@@ -58,29 +46,23 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             </p>
           </div>
         </div>
-        {/* <div className="flex items-center space-x-3 bg-orange-50 dark:bg-orange-900/20 px-4 py-2 rounded-lg border border-orange-100 dark:border-orange-800 animate-in slide-in-from-right-4 duration-500">
-          <Activity className="text-orange-500 w-5 h-5 animate-pulse" />
-          <div className="flex flex-col">
-            <span className="text-xs text-orange-600 dark:text-orange-400 font-bold uppercase tracking-wider">
-              Session Usage
-            </span>
-            <span className="text-sm font-mono font-medium text-slate-700 dark:text-slate-200">
-              ${simulatedUsage.toFixed(5)}
-            </span>
-          </div>
-        </div> */}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Stats & Charts */}
         <div className="lg:col-span-2 space-y-8">
           {/* Main Balance Card */}
-          <BillingCard user={user} />
+          <BillingCard
+            user={user}
+            balance={balance}
+          />
 
-          {/* Usage Chart */}
-          <UsageChart />
-          {/* Transaction History Table (Server-Rendered) */}
-          {transactionsList}
+          <div className="space-y-8">
+            {/* Usage Chart */}
+            <UsageChart />
+            {/* Transaction History Table (Server-Rendered) */}
+            {transactionsList}
+          </div>
         </div>
 
         {/* Right Column: Payment Methods */}
