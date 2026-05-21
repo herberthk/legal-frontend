@@ -6,6 +6,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import { generateTxRef } from "@/utils";
 import { createNotification } from "./notifications";
+import { stripe } from "@/lib/stripe";
 
 export async function processDeposit(
   userId: string,
@@ -148,5 +149,134 @@ export async function getUserTransactions(
       totalCount: 0,
       totalPages: 0,
     };
+  }
+}
+
+export async function initiateStripePayment(userId: string, amountInDollars: number) {
+  try {
+    const amountInCents = Math.round(amountInDollars * 100);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: "usd",
+      metadata: {
+        userId,
+      },
+    });
+
+    const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(paymentIntent.id);
+    const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
+      userId,
+      type: "DEPOSIT",
+      description: "Funds Deposit via Credit Card (Stripe)",
+      amount: amountInCents,
+      createdAt: FieldValue.serverTimestamp(),
+      details: "Card Payment Initiated",
+      reference: paymentIntent.id,
+      status: "pending",
+    };
+
+    await transactionRef.set(transaction);
+
+    return {
+      success: true,
+      clientSecret: paymentIntent.client_secret,
+      transactionId: transactionRef.id,
+    };
+  } catch (error) {
+    console.error("Error initiating Stripe payment:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to initiate Card payment",
+    };
+  }
+}
+
+export async function initiateMobileMoneyPayment(
+  userId: string,
+  amountInDollars: number,
+  phoneNumber: string,
+  network: "MTN" | "AIRTEL",
+) {
+  try {
+    const amountInCents = Math.round(amountInDollars * 100);
+    const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
+
+    const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
+      userId,
+      type: "DEPOSIT",
+      description: `Funds Deposit via Mobile Money (${network})`,
+      amount: amountInCents,
+      createdAt: FieldValue.serverTimestamp(),
+      details: `Phone: ${phoneNumber}`,
+      reference: generateTxRef(),
+      status: "pending",
+    };
+
+    await transactionRef.set(transaction);
+
+    // Simulate direct MTN / Airtel USSD push payment completion process
+    // In a real setup, their gateway triggers a PIN prompt and alerts our webhook.
+    // Here we wait 4 seconds (time for user PIN entry) and update the balance/transaction.
+    setTimeout(async () => {
+      try {
+        const batch = db.batch();
+        const tDocRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(transactionRef.id);
+        const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
+
+        batch.update(tDocRef, {
+          status: "completed",
+        });
+
+        batch.update(userRef, {
+          balance: FieldValue.increment(amountInCents),
+        });
+
+        await batch.commit();
+
+        // Create a notification for successful deposit
+        await createNotification(userId, {
+          title: "Deposit Successful",
+          message: `Your Mobile Money deposit of $${amountInDollars.toLocaleString()} was successful.`,
+          type: "SUCCESS",
+          url: "/dashboard/user/billing",
+        });
+      } catch (err) {
+        console.error("Error in Mobile Money simulated completion:", err);
+      }
+    }, 4000);
+
+    return {
+      success: true,
+      transactionId: transactionRef.id,
+      message: "USSD PIN prompt sent. Please check your phone.",
+    };
+  } catch (error) {
+    console.error("Error initiating Mobile Money payment:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to initiate Mobile Money payment",
+    };
+  }
+}
+
+export async function getTransactionStatus(transactionId: string) {
+  try {
+    const doc = await db.collection(COLLECTIONS.TRANSACTIONS).doc(transactionId).get();
+    if (!doc.exists) {
+      return { success: false, message: "Transaction not found" };
+    }
+    const data = doc.data();
+    return {
+      success: true,
+      status: data?.status || "pending",
+      transaction: {
+        ...data,
+        id: doc.id,
+        createdAt: (data?.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      },
+    };
+  } catch (error) { 
+    console.error("Error getting transaction status:", error);
+    return { success: false, message: "Failed to fetch status" };
   }
 }
