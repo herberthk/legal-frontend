@@ -76,6 +76,7 @@ declare global {
     cost?: number;
   };
 
+  type TransactionMethod = "STRIPE" | "AIRTEL" | "MTN";
   type Transaction = {
     id: string;
     userId: string;
@@ -85,6 +86,7 @@ declare global {
     createdAt: string;
     details: string; // e.g., "1.5k tokens" or "4m 20s"
     status: "pending" | "completed" | "failed";
+    method: TransactionMethod
     reference: string;
   };
 

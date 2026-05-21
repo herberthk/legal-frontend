@@ -11,7 +11,7 @@ import { stripe } from "@/lib/stripe";
 export async function processDeposit(
   userId: string,
   amount: number,
-  method: string,
+  method: TransactionMethod,
   details: string,
 ) {
   try {
@@ -27,6 +27,7 @@ export async function processDeposit(
       details: details,
       reference: generateTxRef(),
       status: "pending",
+      method
     };
 
     // We use a batch to ensure both updates happen atomically
@@ -173,6 +174,7 @@ export async function initiateStripePayment(userId: string, amountInDollars: num
       details: "Card Payment Initiated",
       reference: paymentIntent.id,
       status: "pending",
+      method: "STRIPE"
     };
 
     await transactionRef.set(transaction);
@@ -181,6 +183,7 @@ export async function initiateStripePayment(userId: string, amountInDollars: num
       success: true,
       clientSecret: paymentIntent.client_secret,
       transactionId: transactionRef.id,
+      reference: transaction.reference,
     };
   } catch (error) {
     console.error("Error initiating Stripe payment:", error);
@@ -209,6 +212,7 @@ export async function initiateMobileMoneyPayment(
       createdAt: FieldValue.serverTimestamp(),
       details: `Phone: ${phoneNumber}`,
       reference: generateTxRef(),
+      method: network,
       status: "pending",
     };
 
@@ -249,6 +253,7 @@ export async function initiateMobileMoneyPayment(
       success: true,
       transactionId: transactionRef.id,
       message: "USSD PIN prompt sent. Please check your phone.",
+      reference: transaction.reference,
     };
   } catch (error) {
     console.error("Error initiating Mobile Money payment:", error);
@@ -278,5 +283,24 @@ export async function getTransactionStatus(transactionId: string) {
   } catch (error) { 
     console.error("Error getting transaction status:", error);
     return { success: false, message: "Failed to fetch status" };
+  }
+}
+
+export async function getTransactionByReference(reference: string) {
+  try {
+    const snapshot = await db.collection(COLLECTIONS.TRANSACTIONS).where("reference", "==", reference).limit(1).get();
+    if (snapshot.empty) {
+      return { success: false, message: "Transaction not found" };
+    }
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+    return {
+        ...data,
+        id: doc.id,
+        createdAt: (data?.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+    };
+  } catch (error) { 
+    console.error("Error getting transaction by reference:", error);
+    return { success: false, message: "Failed to fetch transaction by reference" };
   }
 }

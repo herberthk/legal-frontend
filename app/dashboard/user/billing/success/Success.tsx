@@ -7,11 +7,12 @@ import React from 'react'
 
 type Props = {
     amount: number;
-    method: string;
+    method: TransactionMethod;
     user: User;
 }
 
 const Success = ({amount,method,user}: Props) => {
+  const dollarAmount= amount/100
   return (
      <div className="min-h-[80vh] flex items-center justify-center p-4">
       <div className="rounded-2xl p-8 md:p-12 shadow-2xl  relative overflow-hidden w-full max-w-lg text-center animate-in zoom-in-95 duration-500">
@@ -31,7 +32,7 @@ const Success = ({amount,method,user}: Props) => {
         <p className="text-sm text-muted-foreground mb-8">
           Awesome! A deposit of{" "}
           <span className="font-bold text-emerald-400">
-            {formatUSD(amount)}
+            {formatUSD(dollarAmount)}
           </span>{" "}
           has been securely credited to your wallet balance.
         </p>
@@ -40,13 +41,13 @@ const Success = ({amount,method,user}: Props) => {
           <div className="flex justify-between pb-3">
             <span className="text-muted-foreground">Amount Credited</span>
             <span className="font-semibold text-foreground">
-              {formatUSD(amount)} ({formatUgx(amount)})
+              {formatUSD(dollarAmount)} ({formatUgx(dollarAmount)})
             </span>
           </div>
           <div className="flex justify-between py-3">
             <span className="text-muted-foreground">Payment Method</span>
             <span className="font-semibold text-foreground uppercase">
-              {method === "card" ? "Credit Card" : "Mobile Money"}
+              {method === "AIRTEL" || method === "MTN" ? "Mobile Money" : "Card"}
             </span>
           </div>
           <div className="flex justify-between pt-3">

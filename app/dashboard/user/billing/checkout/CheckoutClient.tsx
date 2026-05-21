@@ -14,158 +14,29 @@ import {
   ChevronRight,
   ShieldCheck,
   PhoneCall,
-  Wallet,
-  DollarSign
+  Wallet
 } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
+import type { Appearance } from "@stripe/stripe-js";
 import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements
-} from "@stripe/react-stripe-js";
+  Elements} from "@stripe/react-stripe-js";
 import {
   initiateStripePayment,
   initiateMobileMoneyPayment,
   getTransactionStatus
 } from "@/lib/actions/wallet";
-import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants/constants";
 import { toast } from "sonner";
 import { useRouter } from "nextjs-toploader/app";
 import { getStripe } from "@/lib/stripe-client";
 import { formatUgx, formatUSD } from "@/utils";
+import { StripePaymentForm } from "./StripePaymentForm";
 
 
 
 type Props = {
   user: User;
   balance: number;
-};
-
-// --- Stripe Card Form ---
-const CardPaymentForm: FC<{
-  amount: number;
-  clientSecret: string;
-  onSuccess: () => void;
-  onFailure: (msg: string) => void;
-  onBack: () => void;
-}> = ({ amount, clientSecret, onSuccess, onFailure, onBack }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [name, setName] = useState("");
-  const [isPaying, setIsPaying] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-
-    if (!name.trim()) {
-      toast.error("Please enter the cardholder's name");
-      return;
-    }
-
-    setIsPaying(true);
-
-    try {
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) throw new Error("Card elements not loaded");
-
-      const { error, paymentIntent } = await stripe.confirmCardPayment(
-        clientSecret,
-        {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name,
-            },
-          },
-        }
-      );
-
-      if (error) {
-        onFailure(error.message || "Card verification failed");
-      } else if (paymentIntent && paymentIntent.status === "succeeded") {
-        onSuccess();
-      } else {
-        onFailure("Unexpected payment verification status");
-      }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      console.error("Stripe payment error:", err);
-      onFailure(err.message || "Payment processing failed");
-    } finally {
-      setIsPaying(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Cardholder Name
-          </label>
-          <Input
-            placeholder="John Doe"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={isPaying}
-            className="w-full bg-slate-500/5 border-slate-700/50 text-foreground h-12"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Card Details
-          </label>
-          <div className="p-4 rounded-xl bg-slate-500/5 border border-slate-700/50 min-h-[50px] flex flex-col justify-center transition-all focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/50">
-            <CardElement
-              options={{
-                style: {
-                  base: {
-                    color: "var(--foreground, #ffffff)",
-                    fontFamily: "Inter, sans-serif",
-                    fontSmoothing: "antialiased",
-                    fontSize: "15px",
-                    "::placeholder": {
-                      color: "var(--muted-foreground, #64748b)",
-                    },
-                  },
-                  invalid: {
-                    color: "#ef4444",
-                    iconColor: "#ef4444",
-                  },
-                },
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="pt-2 flex items-center justify-between gap-4">
-        <CustomButton
-          type="button"
-          variant="outline"
-          onClick={onBack}
-          disabled={isPaying}
-          className="flex-1 border-slate-700 hover:bg-slate-500/10 text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
-        </CustomButton>
-
-        <CustomButton
-          type="submit"
-          variant="gradient-indigo"
-          isLoading={isPaying}
-          fullWidth
-          className="flex-1 shadow-indigo-600/20"
-        >
-          Top Up ${amount.toFixed(2)}
-        </CustomButton>
-      </div>
-    </form>
-  );
 };
 
 // --- CheckoutClient Component ---
@@ -184,6 +55,7 @@ export const CheckoutClient: FC<Props> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [transactionId, setTransactionId] = useState<string | null>(null);
+   const [txRef, setTxRef] = useState<string>("");
 
   const [stripePromise] = useState(() => getStripe());
   
@@ -235,6 +107,7 @@ export const CheckoutClient: FC<Props> = ({
         if (res.success && res.clientSecret && res.transactionId) {
           setClientSecret(res.clientSecret);
           setTransactionId(res.transactionId);
+          setTxRef(res.reference);
           setStep(3);
         } else {
           toast.error(res.message || "Failed to initialize Stripe Payment");
@@ -270,7 +143,7 @@ export const CheckoutClient: FC<Props> = ({
       );
       if (res.success && res.transactionId) {
         setTransactionId(res.transactionId);
-        startPollingTransaction(res.transactionId, "mobile_money");
+        startPollingTransaction({txId: res.transactionId, type: "mobile_money",ref: res.reference});
       } else {
         toast.error(res.message || "Failed to initialize Mobile Money");
       }
@@ -283,7 +156,7 @@ export const CheckoutClient: FC<Props> = ({
   };
 
   // Start polling Firestore status
-  const startPollingTransaction = (txId: string, type: "card" | "mobile_money") => {
+  const startPollingTransaction = ({txId, type, ref}: {txId: string, type: "card" | "mobile_money",ref: string | null}) => {
     setStep(4);
     
     if (type === "mobile_money") {
@@ -311,7 +184,7 @@ export const CheckoutClient: FC<Props> = ({
           setStatusChecklist((prev) => prev.map((item) => ({ ...item, done: true, loading: false })));
           
           setTimeout(() => {
-            router.push(`/dashboard/user/billing/success?amount=${amount}&method=${type}`);
+            router.push(`/dashboard/user/billing/success?ref=${ref}`);
           }, 800);
         } else if (res.success && res.status === "failed") {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -342,7 +215,7 @@ export const CheckoutClient: FC<Props> = ({
 
   const handleStripeSuccess = () => {
     if (transactionId) {
-      startPollingTransaction(transactionId, "card");
+      startPollingTransaction({txId: transactionId, type: "card", ref: txRef});
     }
   };
 
@@ -700,20 +573,52 @@ export const CheckoutClient: FC<Props> = ({
                       </div>
                     </div>
                   ) : (
-                    // Card details form wrapped in Stripe Elements
-                    <div className="flex-1 flex flex-col justify-between">
-                      {clientSecret && (
-                        <Elements stripe={stripePromise} options={{ clientSecret }}>
-                          <CardPaymentForm
-                            amount={amount}
-                            clientSecret={clientSecret}
-                            onSuccess={handleStripeSuccess}
-                            onFailure={handleStripeFailure}
-                            onBack={() => setStep(2)}
-                          />
-                        </Elements>
-                      )}
-                    </div>
+                   <motion.div
+                key="step2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-slate-800"
+              >
+                   {clientSecret && <Elements
+                      stripe={stripePromise}
+                      options={{
+                        clientSecret,
+                        appearance: {
+                          theme: "night",
+                          variables: {
+                            colorPrimary: "#4f46e5",
+                            colorBackground: "#0f172a",
+                            colorText: "#ffffff",
+                            colorDanger: "#ef4444",
+                            fontFamily: "Inter, system-ui, sans-serif",
+                            spacingUnit: "4px",
+                            borderRadius: "16px",
+                          },
+                          rules: {
+                            ".Input": {
+                              border: "1px solid #1e293b",
+                              backgroundColor: "#1e293b",
+                              padding: "12px",
+                            },
+                          },
+                        } as Appearance,
+                      }}
+                    >
+                      <StripePaymentForm
+                        amount={amount}
+                        transactionReference={txRef}
+                        onCancel={() => setStep(1)}
+                        onSuccess={(reference) => {
+                          router.push(
+                            `/dashboard/user/billing/success?ref=${reference}`,
+                          );
+                        }}
+                        // onSuccess={handleStripeSuccess}
+                    //         onFailure={handleStripeFailure}
+                      />
+                    </Elements>}
+                    </motion.div>
                   )}
                 </motion.div>
               )}
