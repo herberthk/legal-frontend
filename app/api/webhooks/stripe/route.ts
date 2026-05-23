@@ -6,6 +6,7 @@ import { COLLECTIONS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 import { createNotification } from "@/lib/actions/notifications";
 import { stripe } from "@/lib/stripe";
+import { sendTransactionReceiptEmail } from "@/lib/actions/email";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -104,6 +105,35 @@ export async function POST(req: Request) {
       });
 
       console.log(`Successfully processed completed payment intent: ${paymentIntent.id}`);
+
+      // Fetch updated user balance for the email
+      const updatedUserDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+      const newBalanceInCents = (updatedUserDoc.data()?.balance as number) ?? 0;
+
+      // Retrieve the charge to get the Stripe receipt URL
+      let receiptUrl: string | undefined;
+      try {
+        if (paymentIntent.latest_charge) {
+          const charge = await stripe.charges.retrieve(
+            typeof paymentIntent.latest_charge === "string"
+              ? paymentIntent.latest_charge
+              : paymentIntent.latest_charge.id
+          );
+          receiptUrl = charge.receipt_url ?? undefined;
+        }
+      } catch (chargeErr) {
+        console.error("Could not retrieve Stripe charge for receipt URL:", chargeErr);
+      }
+
+      // Send receipt email — non-blocking, errors are swallowed internally
+      await sendTransactionReceiptEmail({
+        userId,
+        amountInCents,
+        paymentMethod: "Stripe Credit/Debit Card",
+        reference: paymentIntent.metadata?.reference ?? paymentIntent.id,
+        receiptUrl,
+        newBalanceInCents,
+      });
     } else if (event.type === "payment_intent.payment_failed") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       const userId = paymentIntent.metadata?.userId;

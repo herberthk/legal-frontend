@@ -4,8 +4,10 @@ import nodemailer from "nodemailer";
 import { db } from "@/firebase/admin";
 import { generateOTP, hashOTP, verifyOTP } from "@/utils/helpers";
 import { OTPEmail } from "@/components/global";
+import { TransactionReceiptEmail } from "@/components/emails/TransactionReceiptEmail";
 import { COLLECTIONS } from "@/constants";
 import { Timestamp } from "firebase-admin/firestore";
+import { formatUSD, formatUgx } from "@/utils";
 
 const SMTP_HOST = process.env.SMTP_HOST!;
 const SMTP_PORT = process.env.SMTP_PORT!;
@@ -117,5 +119,71 @@ export const verifyOtp = async (email: string, otpInput: string) => {
       success: false,
       message: "An unexpected error occurred while verifying the code.",
     };
+  }
+};
+
+// ── Transaction Receipt Email ────────────────────────────────────────────────
+
+export interface SendReceiptParams {
+  userId: string;
+  amountInCents: number;       // e.g. 2000 = $20.00
+  paymentMethod: string;       // e.g. "MTN Mobile Money" | "Airtel Money" | "Stripe Card"
+  reference: string;
+  receiptUrl?: string;         // Stripe receipt URL — only for card payments
+  newBalanceInCents: number;
+}
+
+export const sendTransactionReceiptEmail = async ({
+  userId,
+  amountInCents,
+  paymentMethod,
+  reference,
+  receiptUrl,
+  newBalanceInCents,
+}: SendReceiptParams): Promise<void> => {
+  try {
+    // Fetch user details from Firestore
+    const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+    if (!userDoc.exists) {
+      console.error(`sendTransactionReceiptEmail: user ${userId} not found`);
+      return;
+    }
+    const userData = userDoc.data() as { name: string; email: string };
+
+    const amountDollars = amountInCents / 100;
+    const newBalanceDollars = newBalanceInCents / 100;
+
+    const date = new Date().toLocaleString("en-US", {
+      dateStyle: "long",
+      timeStyle: "short",
+      timeZone: "Africa/Nairobi",
+    });
+
+    const emailHtml = await render(
+      TransactionReceiptEmail({
+        userName: userData.name,
+        userEmail: userData.email,
+        amountUSD: formatUSD(amountDollars),
+        amountUGX: formatUgx(amountDollars),
+        paymentMethod,
+        reference,
+        date,
+        newBalanceUSD: formatUSD(newBalanceDollars),
+        receiptUrl,
+        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://legaladviser.app"}/dashboard/user/billing`,
+      })
+    );
+
+    await transporter.sendMail({
+      from: '"Legal Adviser" <info@netbritz.com>',
+      to: userData.email,
+      subject: `Deposit Confirmed — ${formatUSD(amountDollars)} credited to your wallet`,
+      html: emailHtml,
+    });
+
+    console.log(`Receipt email sent to ${userData.email} for ref ${reference}`);
+  } catch (error) {
+    // Non-fatal — log but do not throw so payment flow is not disrupted
+    console.error("sendTransactionReceiptEmail error:", error);
   }
 };
