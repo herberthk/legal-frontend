@@ -251,6 +251,7 @@ export async function initiateMobileMoneyPayment(
           paymentMethod: network === "MTN" ? "MTN Mobile Money" : "Airtel Money",
           reference: transaction.reference as string,
           newBalanceInCents,
+          transactionId: transactionRef.id,
         });
 
         // Create a notification for successful deposit
@@ -258,7 +259,7 @@ export async function initiateMobileMoneyPayment(
           title: "Deposit Successful",
           message: `Your Mobile Money deposit of $${amountInDollars.toLocaleString()} was successful.`,
           type: "SUCCESS",
-          url: "/dashboard/user/billing",
+          url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${transactionRef.id}`,
         });
       } catch (err) {
         console.error("Error in Mobile Money simulated completion:", err);

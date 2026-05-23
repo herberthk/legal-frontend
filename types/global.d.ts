@@ -27,5 +27,14 @@ declare namespace NodeJS {
     SMTP_PASSWORD: string;
     SMTP_USER: string;
     SMTP_PORT: string;
+
+    // App
+    NEXT_PUBLIC_APP_URL: string;
+
+    // Stripe
+    STRIPE_SECRET_KEY: string;
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: string;
+    STRIPE_WEBHOOK_SECRET: string;
+
   }
 }

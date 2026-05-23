@@ -136,7 +136,7 @@ export const TransactionReceiptEmail = ({
           {/* ── CTA ── */}
           <Section style={{ textAlign: "center", marginBottom: "32px" }}>
             <Button href={dashboardUrl} style={ctaButton}>
-              Go to My Wallet
+              View Transaction
             </Button>
           </Section>
 
@@ -185,12 +185,13 @@ const main: React.CSSProperties = {
 };
 
 const container: React.CSSProperties = {
-  maxWidth: "600px",
+  maxWidth: "700px",
   margin: "0 auto",
   backgroundColor: "#ffffff",
   borderRadius: "16px",
-  overflow: "hidden",
+  // overflow: "hidden",
   boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
+  padding: "10px",
 };
 
 const header: React.CSSProperties = {
@@ -287,10 +288,10 @@ const body: React.CSSProperties = {
 };
 
 const detailsCard: React.CSSProperties = {
-  margin: "24px 40px",
+  margin: "14px 20px",
   border: "1px solid #e2e8f0",
   borderRadius: "12px",
-  overflow: "hidden",
+  // overflow: "hidden",
   padding: "0",
 };
 

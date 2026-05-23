@@ -131,6 +131,7 @@ export interface SendReceiptParams {
   reference: string;
   receiptUrl?: string;         // Stripe receipt URL — only for card payments
   newBalanceInCents: number;
+  transactionId: string;
 }
 
 export const sendTransactionReceiptEmail = async ({
@@ -140,6 +141,7 @@ export const sendTransactionReceiptEmail = async ({
   reference,
   receiptUrl,
   newBalanceInCents,
+  transactionId,
 }: SendReceiptParams): Promise<void> => {
   try {
     // Fetch user details from Firestore
@@ -170,7 +172,7 @@ export const sendTransactionReceiptEmail = async ({
         date,
         newBalanceUSD: formatUSD(newBalanceDollars),
         receiptUrl,
-        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://legaladviser.app"}/dashboard/user/billing`,
+        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${transactionId}`,
       })
     );
 
