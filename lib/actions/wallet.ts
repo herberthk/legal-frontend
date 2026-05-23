@@ -155,12 +155,14 @@ export async function getUserTransactions(
 
 export async function initiateStripePayment(userId: string, amountInDollars: number) {
   try {
+    const reference = generateTxRef();
     const amountInCents = Math.round(amountInDollars * 100);
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents,
       currency: "usd",
       metadata: {
         userId,
+        reference,
       },
     });
 

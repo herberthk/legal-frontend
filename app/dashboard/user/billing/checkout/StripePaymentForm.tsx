@@ -8,6 +8,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatUgx, formatUSD } from "@/utils";
 
 interface StripePaymentFormProps {
   amount: number;
@@ -79,7 +80,7 @@ export const StripePaymentForm = ({
             Recharge Amount
           </p>
           <p className="text-2xl font-black text-gray-900 dark:text-white">
-            UGX {amount.toLocaleString()}
+        {formatUSD(amount)} ({formatUgx(amount)})
           </p>
         </div>
         <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400">
