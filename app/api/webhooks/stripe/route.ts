@@ -16,6 +16,7 @@ export async function POST(req: Request) {
     const sig = headersList.get("stripe-signature");
 
     if (!sig) {
+      console.log('Missing stripe-signature header', sig);
       return NextResponse.json(
         { error: "Missing stripe-signature header" },
         { status: 400 }
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(`Received Stripe webhook event: ${event.type}`);
+    console.log(`Received Stripe webhook event: ${event}`);
 
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -74,15 +75,18 @@ export async function POST(req: Request) {
           });
         } else {
           // If transaction didn't exist in Firestore for some reason, create it completed
-          dbTransaction.set(transactionRef, {
-            userId,
+           const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
+                userId,
             type: "DEPOSIT",
-            description: "Funds Deposit via Credit Card (Stripe Webhook)",
+            description: "Funds Deposit via Card Payment (Stripe)",
             amount: amountInCents,
             createdAt: FieldValue.serverTimestamp(),
             details: "Stripe Card Payment Succeeded",
             reference: paymentIntent.id,
-            status: "completed",
+            status: "completed",method: "STRIPE"
+              };
+          dbTransaction.set(transactionRef, {
+            ...transaction
           });
         }
 
