@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { generateTxRef } from "@/utils";
 import { createNotification } from "./notifications";
 import { stripe } from "@/lib/stripe";
+import { sendTransactionReceiptEmail } from "@/lib/actions/email";
 
 export async function processDeposit(
   userId: string,
@@ -238,6 +239,19 @@ export async function initiateMobileMoneyPayment(
         });
 
         await batch.commit();
+
+        // Fetch updated balance for email
+        const updatedUserDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+        const newBalanceInCents = (updatedUserDoc.data()?.balance as number) ?? 0;
+
+        // Send receipt email (non-blocking)
+        await sendTransactionReceiptEmail({
+          userId,
+          amountInCents,
+          paymentMethod: network === "MTN" ? "MTN Mobile Money" : "Airtel Money",
+          reference: transaction.reference as string,
+          newBalanceInCents,
+        });
 
         // Create a notification for successful deposit
         await createNotification(userId, {
