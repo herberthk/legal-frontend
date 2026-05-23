@@ -320,3 +320,25 @@ export async function getTransactionByReference(reference: string) {
     return { success: false, message: "Failed to fetch transaction by reference" };
   }
 }
+
+export async function getTransaction(transactionId: string) {
+  try {
+    const doc = await db.collection(COLLECTIONS.TRANSACTIONS).doc(transactionId).get();
+    if (!doc.exists) {
+      return { success: false, message: "Transaction not found" };
+    }
+    const data = doc.data();
+    return {
+      success: true,
+      transaction: {
+        ...data,
+        id: doc.id,
+        createdAt: (data?.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      } as Transaction,
+    };
+  } catch (error) {
+    console.error("Error getting transaction by ID:", error);
+    return { success: false, message: "Failed to fetch transaction details" };
+  }
+}
+
