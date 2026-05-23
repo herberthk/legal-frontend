@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(`Received Stripe webhook event: ${event}`);
+    // console.log(`Received Stripe webhook event: ${event}`);
 
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
         title: "Deposit Successful",
         message: `Your Stripe Card deposit of $${(amountInCents / 100).toFixed(2)} was successful.`,
         type: "SUCCESS",
-        url: "/dashboard/user/billing",
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${paymentIntent.id}`,
       });
 
       console.log(`Successfully processed completed payment intent: ${paymentIntent.id}`);
@@ -133,6 +133,7 @@ export async function POST(req: Request) {
         reference: paymentIntent.metadata?.reference ?? paymentIntent.id,
         receiptUrl,
         newBalanceInCents,
+        transactionId: paymentIntent.id,
       });
     } else if (event.type === "payment_intent.payment_failed") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -152,7 +153,7 @@ export async function POST(req: Request) {
             title: "Deposit Failed",
             message: `Your credit card deposit of $${(paymentIntent.amount / 100).toFixed(2)} failed.`,
             type: "ERROR",
-            url: "/dashboard/user/billing",
+            url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${paymentIntent.id}`,
           });
         }
       }
