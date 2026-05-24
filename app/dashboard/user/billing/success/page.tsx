@@ -1,4 +1,4 @@
-import { getCurrentUser, getTransactionByReference } from "@/lib";
+import { getCurrentUser, getTransactionStatusByReference } from "@/lib";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import Success from "./Success";
@@ -47,15 +47,20 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     return <ErrorState message="Missing transaction reference" />;
   }
   // Get transaction details from the reference ID
-  const result = await getTransactionByReference({ref: reference})
+  const result = await getTransactionStatusByReference(reference)
 
+  if (!result.success) {
+    return <ErrorState message={result.message || "Transaction Not Found"} />;
+  }
   
-  if (!result.success || !result.transaction) {
+  if (result.success && result.transaction) {
     // If transaction not found, show the waiter to poll for it
-    if (result.message === "Transaction not found") {
+    if (result.transaction.status === "pending") {
       return <TransactionWaiter txnRef={reference} />;
     }
-    return <ErrorState message={result.message || "Transaction not found"} />;
+    if (result.transaction.status === "failed") { 
+      return <ErrorState message="Transaction failed" />;
+    }
   }
 
 const transaction = result.transaction as Transaction
