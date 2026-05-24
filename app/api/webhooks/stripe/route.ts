@@ -39,21 +39,28 @@ export async function POST(req: Request) {
 
     // console.log(`Received Stripe webhook event: ${event}`);
 
-    if (event.type === "payment_intent.succeeded") {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const userId = paymentIntent.metadata?.userId;
-      const amountInCents = paymentIntent.amount;
+    if (event.type === "charge.succeeded") {
+      const charge = event.data.object as Stripe.Charge;
+      const paymentIntentId = typeof charge.payment_intent === "string"
+        ? charge.payment_intent
+        : charge.payment_intent?.id;
+      
+      const userId = charge.metadata?.userId as string;
+      const reference = charge.metadata?.reference as string;
+      const amountInCents = charge.amount;
+      const receiptUrl = charge.receipt_url;
 
-      if (!userId) {
-        console.error("Missing userId in PaymentIntent metadata");
+      if (!userId || !reference || !paymentIntentId) {
+        console.error("Missing userId, reference, or paymentIntentId in charge webhook");
         return NextResponse.json({ received: true });
       }
 
-      const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(paymentIntent.id);
+      console.log('Receipt_url:', receiptUrl);
+      const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(paymentIntentId);
       const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
 
-      // Perform transaction atomically in a Firestore transaction
-      await db.runTransaction(async (dbTransaction) => {
+      // Perform transaction atomically in a Firestore transaction and compute new balance directly
+      const newBalanceInCents = await db.runTransaction(async (dbTransaction) => {
         const txDoc = await dbTransaction.get(transactionRef);
         const userDoc = await dbTransaction.get(userRef);
 
@@ -61,12 +68,15 @@ export async function POST(req: Request) {
           throw new Error("User not found");
         }
 
+        const previousBalance = (userDoc.data()?.balance as number) ?? 0;
+        const targetBalance = previousBalance + amountInCents;
+
         if (txDoc.exists) {
           const currentStatus = txDoc.data()?.status;
           if (currentStatus === "completed") {
             // Already processed
-            console.log(`Stripe payment transaction ${paymentIntent.id} already marked completed.`);
-            return;
+            console.log(`Stripe payment transaction ${paymentIntentId} already marked completed.`);
+            return targetBalance;
           }
 
           // If pending, mark as completed and credit user balance
@@ -75,66 +85,52 @@ export async function POST(req: Request) {
             details: "Stripe Card Payment Succeeded",
           });
         } else {
-          // If transaction didn't exist in Firestore for some reason, create it completed
-           const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
-                userId,
+          // If transaction didn't exist in Firestore yet (race condition), create it completed
+          const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
+            userId,
             type: "DEPOSIT",
-            description: "Funds Deposit via Card Payment (Stripe)",
+            description: "Funds Deposit via Credit Card (Stripe)",
             amount: amountInCents,
             createdAt: FieldValue.serverTimestamp(),
             details: "Stripe Card Payment Succeeded",
-            reference: paymentIntent.id,
-            status: "completed",method: "STRIPE"
-              };
-          dbTransaction.set(transactionRef, {
-            ...transaction
-          });
+            reference,
+            status: "completed",
+            method: "STRIPE"
+          };
+          dbTransaction.set(transactionRef, transaction);
         }
 
         dbTransaction.update(userRef, {
           balance: FieldValue.increment(amountInCents),
         });
+
+        return targetBalance;
       });
 
-      // Create a notification for successful deposit
-      await createNotification(userId, {
-        title: "Deposit Successful",
-        message: `Your Stripe Card deposit of $${(amountInCents / 100).toFixed(2)} was successful.`,
-        type: "SUCCESS",
-        url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${paymentIntent.id}`,
-      });
+      console.log(`Successfully processed completed payment intent: ${paymentIntentId}`);
 
-      console.log(`Successfully processed completed payment intent: ${paymentIntent.id}`);
-
-      // Fetch updated user balance for the email
-      const updatedUserDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
-      const newBalanceInCents = (updatedUserDoc.data()?.balance as number) ?? 0;
-
-      // Retrieve the charge to get the Stripe receipt URL
-      let receiptUrl: string | undefined;
+      // Perform post-processing notification and email tasks concurrently to maximize performance
       try {
-        if (paymentIntent.latest_charge) {
-          const charge = await stripe.charges.retrieve(
-            typeof paymentIntent.latest_charge === "string"
-              ? paymentIntent.latest_charge
-              : paymentIntent.latest_charge.id
-          );
-          receiptUrl = charge.receipt_url ?? undefined;
-        }
-      } catch (chargeErr) {
-        console.error("Could not retrieve Stripe charge for receipt URL:", chargeErr);
+        await Promise.all([
+          createNotification(userId, {
+            title: "Deposit Successful",
+            message: `Your Stripe Card deposit of $${(amountInCents / 100).toFixed(2)} was successful.`,
+            type: "SUCCESS",
+            url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${paymentIntentId}`,
+          }).catch(err => console.error("Error creating successful deposit notification:", err)),
+          sendTransactionReceiptEmail({
+            userId,
+            amountInCents,
+            paymentMethod: "Stripe Credit/Debit Card",
+            reference,
+            receiptUrl: receiptUrl ?? undefined,
+            newBalanceInCents,
+            transactionId: paymentIntentId,
+          }).catch(err => console.error("Error sending transaction receipt email:", err))
+        ]);
+      } catch (postProcessErr) {
+        console.error("Error in webhook post-processing tasks:", postProcessErr);
       }
-
-      // Send receipt email — non-blocking, errors are swallowed internally
-      await sendTransactionReceiptEmail({
-        userId,
-        amountInCents,
-        paymentMethod: "Stripe Credit/Debit Card",
-        reference: paymentIntent.metadata?.reference ?? paymentIntent.id,
-        receiptUrl,
-        newBalanceInCents,
-        transactionId: paymentIntent.id,
-      });
     } else if (event.type === "payment_intent.payment_failed") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       const userId = paymentIntent.metadata?.userId;
@@ -144,17 +140,18 @@ export async function POST(req: Request) {
         const txDoc = await transactionRef.get();
 
         if (txDoc.exists && txDoc.data()?.status === "pending") {
-          await transactionRef.update({
-            status: "failed",
-            details: paymentIntent.last_payment_error?.message || "Stripe Payment Failed",
-          });
-
-          await createNotification(userId, {
-            title: "Deposit Failed",
-            message: `Your credit card deposit of $${(paymentIntent.amount / 100).toFixed(2)} failed.`,
-            type: "ERROR",
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${paymentIntent.id}`,
-          });
+          await Promise.all([
+            transactionRef.update({
+              status: "failed",
+              details: paymentIntent.last_payment_error?.message || "Stripe Payment Failed",
+            }),
+            createNotification(userId, {
+              title: "Deposit Failed",
+              message: `Your credit card deposit of $${(paymentIntent.amount / 100).toFixed(2)} failed.`,
+              type: "ERROR",
+              url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${paymentIntent.id}`,
+            })
+          ]).catch(err => console.error("Error updating failed payment state in Firestore:", err));
         }
       }
     }

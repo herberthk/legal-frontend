@@ -175,7 +175,7 @@ export async function initiateStripePayment(userId: string, amountInDollars: num
       amount: amountInCents,
       createdAt: FieldValue.serverTimestamp(),
       details: "Card Payment Initiated",
-      reference: paymentIntent.id,
+      reference,
       status: "pending",
       method: "STRIPE"
     };
@@ -303,18 +303,22 @@ export async function getTransactionStatus(transactionId: string) {
   }
 }
 
-export async function getTransactionByReference(reference: string) {
+export async function getTransactionByReference({ref}: {ref: string}) {
   try {
-    const snapshot = await db.collection(COLLECTIONS.TRANSACTIONS).where("reference", "==", reference).limit(1).get();
+    const snapshot = await db.collection(COLLECTIONS.TRANSACTIONS).where("reference", "==", ref).limit(1).get();
     if (snapshot.empty) {
       return { success: false, message: "Transaction not found" };
     }
     const doc = snapshot.docs[0];
     const data = doc.data();
     return {
+      success: true,
+      message: "Transaction found",
+      transaction: {
         ...data,
         id: doc.id,
         createdAt: (data?.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      },
     };
   } catch (error) { 
     console.error("Error getting transaction by reference:", error);
