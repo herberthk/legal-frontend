@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import Link from "next/link";
+import { CustomButton } from "../ui/custom-button";
 
 interface TransactionTableBodyProps {
   transactions: Transaction[];
@@ -240,13 +241,23 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                       </div>
 
                       <div className="pt-2 md:pt-0">
-                        <Link
+                        <CustomButton
+                        component={Link}
+                        size="sm"
                           href={`/dashboard/user/transactions/${t.id}`}
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-orange-600 to-indigo-600 hover:from-orange-700 hover:to-indigo-700 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 group transform active:scale-[0.98]"
+                           variant="transparent"
+          shape="pill"
+          borderLeftWidth="4px"
+          borderLeftColor="#4f46e5"
+          borderRightWidth="4px"
+          borderRightColor="#ea580c"
+          className="bg-slate-100/50 dark:bg-slate-800/50"
+          rightIcon={<ExternalLink size={16} />}
+          hoverEffect="glow"
                         >
-                          View Full Details &amp; Receipt
-                          <ExternalLink size={13} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                        </Link>
+                          View Full Details
+                       
+                        </CustomButton>
                       </div>
                     </div>
                   </div>
