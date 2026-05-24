@@ -303,6 +303,28 @@ export async function getTransactionStatus(transactionId: string) {
   }
 }
 
+export async function getTransactionStatusByReference(reference: string) {
+  try {
+    const snapshot = await db.collection(COLLECTIONS.TRANSACTIONS).where("reference", "==", reference).limit(1).get();
+    if (snapshot.empty) {
+      return { success: false, message: "Transaction not found by reference" };
+    }
+    const data = snapshot.docs[0].data()
+    return {
+      success: true,
+      status: data.status,
+      transaction: {
+        ...data,
+        id: snapshot.docs[0].id,
+        createdAt: (data?.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      } as Transaction,
+    };
+  } catch (error) { 
+    console.error("Error getting transaction status:", error);
+    return { success: false, message: "Failed to fetch transaction status" };
+  }
+}
+
 export async function getTransactionByReference({ref}: {ref: string}) {
   try {
     const snapshot = await db.collection(COLLECTIONS.TRANSACTIONS).where("reference", "==", ref).limit(1).get();
