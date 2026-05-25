@@ -116,7 +116,9 @@ function shouldBypassServiceWorker(url: URL): boolean {
     hostname === "storage.googleapis.com" ||
     hostname.endsWith(".googleapis.com") ||
     hostname.endsWith(".firebaseio.com") ||
-    hostname.endsWith(".firebaseapp.com")
+    hostname.endsWith(".firebaseapp.com") ||
+    hostname === "www.google.com" ||
+    hostname.endsWith(".google.com")
   ) {
     return true;
   }
