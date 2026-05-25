@@ -90,41 +90,66 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Domains that must bypass the service worker entirely.
+ * Helper to determine if a request must bypass the service worker.
  *
- * Firebase Authentication uses popup/redirect flows that load scripts and
- * iframes from Google's infrastructure. If the SW intercepts those requests
- * it re-fetches them under its own execution context, which may be subject
- * to a restrictive Content-Security-Policy set on the sw.js response.
- * By responding with a plain `fetch()` BEFORE Serwist registers its router
- * we ensure the browser handles these requests natively and the auth flow
- * completes successfully.
+ * We bypass all external APIs (Firebase Firestore/Auth, Google/GCM, Stripe) and
+ * tracking scripts. If the service worker intercepts these requests (especially
+ * long-lived SSE/realtime streams like Firestore channel listeners or tracking domains
+ * blocked by browser ad-blockers/ETP), it can cause unexpected errors or performance bottlenecks.
+ *
+ * By stopping immediate propagation of the fetch event and returning without calling
+ * event.respondWith(), we instruct the browser to handle these requests natively.
  */
-const GOOGLE_FIREBASE_ORIGINS = [
-  "https://apis.google.com",
-  "https://www.googleapis.com",
-  "https://securetoken.googleapis.com",
-  "https://identitytoolkit.googleapis.com",
-  "https://firebaseinstallations.googleapis.com",
-  "https://firebasestorage.googleapis.com",
-  "https://firebaselogging.googleapis.com",
-  "https://www.gstatic.com",
-  "https://accounts.google.com",
-  "https://storage.googleapis.com",
-  // FCM push registration & delivery endpoints
-  "https://fcm.googleapis.com",
-  "https://fcmregistrations.googleapis.com",
-];
+function shouldBypassServiceWorker(url: URL): boolean {
+  const { hostname, pathname } = url;
 
-// This listener is registered BEFORE serwist.addEventListeners() so it runs
-// first. The first handler to call event.respondWith() wins — Serwist never
-// sees these requests.
+  // 1. Firebase Auth local proxy path
+  if (pathname.startsWith("/__/auth")) {
+    return true;
+  }
+
+  // 2. Google / Firebase APIs & domains
+  if (
+    hostname === "apis.google.com" ||
+    hostname === "www.gstatic.com" ||
+    hostname === "accounts.google.com" ||
+    hostname === "storage.googleapis.com" ||
+    hostname.endsWith(".googleapis.com") ||
+    hostname.endsWith(".firebaseio.com") ||
+    hostname.endsWith(".firebaseapp.com")
+  ) {
+    return true;
+  }
+
+  // 3. Analytics & Tag Manager
+  if (
+    hostname === "www.googletagmanager.com" ||
+    hostname === "www.google-analytics.com" ||
+    hostname === "ssl.google-analytics.com"
+  ) {
+    return true;
+  }
+
+  // 4. Stripe
+  if (
+    hostname === "js.stripe.com" ||
+    hostname === "api.stripe.com"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+// This listener is registered BEFORE serwist.addEventListeners() so it runs first.
 self.addEventListener("fetch", (event: FetchEvent) => {
   try {
-    const { origin } = new URL(event.request.url);
-    if (GOOGLE_FIREBASE_ORIGINS.includes(origin)) {
-      // Bypass the SW router and go straight to the network.
-      event.respondWith(fetch(event.request));
+    const url = new URL(event.request.url);
+    if (shouldBypassServiceWorker(url)) {
+      // Stop Serwist from intercepting this fetch event.
+      event.stopImmediatePropagation();
+      // Delegate to native browser fetching.
+      return;
     }
   } catch {
     // Ignore non-absolute URLs (e.g. extension: or blob: schemes).

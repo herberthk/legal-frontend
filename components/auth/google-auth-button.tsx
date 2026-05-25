@@ -82,6 +82,8 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
         const firebaseError = error as { code: string };
         if (firebaseError.code === "auth/popup-closed-by-user") {
           errorMessage = "Sign-in cancelled.";
+        } else if (firebaseError.code === "auth/popup-blocked") {
+          errorMessage = "Sign-in popup was blocked by your browser. Please allow popups for this site.";
         } else if (
           firebaseError.code === "auth/account-exists-with-different-credential"
         ) {
