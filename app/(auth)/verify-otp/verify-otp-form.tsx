@@ -173,7 +173,7 @@ export const VerifyOtpForm = () => {
               },
             });
             setTimeout(() => {
-              router.push(returnTo || "/dashboard/user");
+              router.push(returnTo || "/dashboard");
             }, 1000);
           } else {
             throw new Error(

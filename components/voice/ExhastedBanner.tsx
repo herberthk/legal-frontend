@@ -31,7 +31,7 @@ const ExhastedBanner = () => {
           <div className="flex flex-col gap-3">
             <CustomButton
               component={Link}
-              href="/dashboard/user/billing"
+              href="/dashboard/billing"
               variant="transparent"
               shape="pill"
               borderLeftWidth="4px"

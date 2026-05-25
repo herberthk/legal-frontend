@@ -405,7 +405,7 @@ const UsageCards: FC<Prop> = ({ user }) => {
 
                   <div className="mt-4 flex justify-center">
                     <Link 
-                      href="/dashboard/user/freecredits"
+                      href="/dashboard/freecredits"
                       className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-1 transition-colors uppercase tracking-widest"
                     >
                       <Sparkles size={10} />
@@ -432,7 +432,7 @@ const UsageCards: FC<Prop> = ({ user }) => {
                         </div>
                       </div>
                       <Link
-                        href="/dashboard/user/billing"
+                        href="/dashboard/billing"
                         className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all transform hover:scale-110 active:scale-95 shadow-lg shadow-blue-500/20"
                       >
                         <ArrowRight size={14} />

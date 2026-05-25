@@ -25,7 +25,7 @@ export async function sendPushToUser({
   userId,
   title,
   body,
-  url = "/dashboard/user/voice",
+  url = "/dashboard/voice",
   data,
 }: SendPushOptions): Promise<{ sent: number; failed: number }> {
   // Fetch stored FCM tokens for this user

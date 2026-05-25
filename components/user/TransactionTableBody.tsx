@@ -244,7 +244,7 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                         <CustomButton
                         component={Link}
                         size="sm"
-                          href={`/dashboard/user/transactions/${t.id}`}
+                          href={`/dashboard/transactions/${t.id}`}
                            variant="transparent"
           shape="pill"
           borderLeftWidth="4px"

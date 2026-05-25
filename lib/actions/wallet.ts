@@ -47,13 +47,13 @@ export async function processDeposit(
       title: "Deposit Successful",
       message: `Your deposit of $${amount.toLocaleString()} was successful.`,
       type: "SUCCESS",
-      url: "/dashboard/user/billing",
+      url: "/dashboard/billing",
     });
 
     // Fetch the latest balance
     const userDoc = await userRef.get();
     const newBalance = (userDoc.data()?.balance as number) || 0;
-    revalidatePath("/dashboard/user/billing");
+    revalidatePath("/dashboard/billing");
     return {
       success: true,
       message: "Deposit successful",
@@ -259,7 +259,7 @@ export async function initiateMobileMoneyPayment(
           title: "Deposit Successful",
           message: `Your Mobile Money deposit of $${amountInDollars.toLocaleString()} was successful.`,
           type: "SUCCESS",
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${transactionRef.id}`,
+          url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/transactions/${transactionRef.id}`,
         });
       } catch (err) {
         console.error("Error in Mobile Money simulated completion:", err);

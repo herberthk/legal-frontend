@@ -22,7 +22,7 @@ export default function ChatInterfaceWrapper({
     <ChatInterface
       chatId={chatId}
       onChatCreated={(newId) => {
-        router.push(`/dashboard/user/chat/${newId}`);
+        router.push(`/dashboard/chat/${newId}`);
       }}
       serverChatId={serverChatId}
       serverMessages={serverMessages}

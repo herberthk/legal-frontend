@@ -56,7 +56,7 @@ export default function TransactionWaiter({ txnRef }: TransactionWaiterProps) {
         </h2>
         <p className="text-gray-500 dark:text-gray-400 mb-8">{error}</p>
         <Link
-          href="/user/dashboard"
+          href="/dashboard"
           className="block w-full bg-gray-900 dark:bg-white dark:text-gray-900 text-white font-bold py-4 rounded-2xl transition-all hover:scale-[1.02] text-center"
         >
           Back to Dashboard

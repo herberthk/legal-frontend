@@ -17,7 +17,7 @@ interface ChatLayoutClientProps {
   serverSessions?: ChatSession[];
 }
 
-const CHAT_BASE = "/dashboard/user/chat";
+const CHAT_BASE = "/dashboard/chat";
 
 const ChatLayoutClient = ({
   children,
@@ -34,10 +34,10 @@ const ChatLayoutClient = ({
     if (chatId === activeChatId) return; // Already on this chat
 
     if (chatId) {
-      // Navigate to /dashboard/user/chat/[chatId]
+      // Navigate to /dashboard/chat/[chatId]
       router.push(`${CHAT_BASE}/${chatId}`);
     } else {
-      // Navigate to /dashboard/user/chat (start a new chat)
+      // Navigate to /dashboard/chat (start a new chat)
       router.push(CHAT_BASE);
     }
   };

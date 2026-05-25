@@ -67,7 +67,7 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
       {isSummary ? (
         <div className="p-2 md:p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex justify-center">
           <Link
-            href="/dashboard/user/transactions"
+            href="/dashboard/transactions"
             className="md:text-sm text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors flex items-center gap-2"
           >
             View All Transactions

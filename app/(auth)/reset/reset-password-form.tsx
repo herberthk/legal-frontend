@@ -81,7 +81,7 @@ export const ResetPasswordForm = () => {
           const sessionResult = await signIn({ idToken });
 
           if (sessionResult.success) {
-            router.push("/dashboard/user");
+            router.push("/dashboard");
           } else {
             throw new Error(sessionResult.message);
           }

@@ -118,7 +118,7 @@ export function ProcessingStep({
 
                   <div className="space-y-4">
                     <Link
-                      href="/dashboard/user/billing"
+                      href="/dashboard/billing"
                       className="flex items-center justify-center gap-3 w-full py-5 rounded-[1.25rem] bg-indigo-600 dark:bg-indigo-500 text-white font-bold text-lg hover:bg-indigo-700 transition-all shadow-xl hover:-translate-y-1"
                     >
                       <span>Top Up Credits</span>
