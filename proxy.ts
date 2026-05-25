@@ -12,17 +12,22 @@ export const proxy = async (request: NextRequest) => {
   const parser = new UAParser(ua);
   const result = parser.getResult();
 
-  // 1. If trying to access dashboard without a session
-  // if (pathname.startsWith("/dashboard") && !session) {
-  //   const loginUrl = new URL("/login", request.url);
-  //   loginUrl.searchParams.set("returnTo", pathname);
-  //   return NextResponse.redirect(loginUrl);
-  // }
+  // routes that are protected and require authentication
+const protectedRoutes = ["/dashboard", "/admin", "/notifications"];
+// routes that are public and can be accessed without authentication
+// const publicRoutes = ["/login", "/signup", "/"];
+
+//if user is not authenticated redirect to login page
+  if (protectedRoutes.some((route) => pathname.startsWith(route)) && !session) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("returnTo", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   // 2. If trying to access login/signup WITH a session
   // if (
   //   (pathname === "/login" || pathname === "/signup" || pathname === "/") &&
-  //   user
+  //   session
   // ) {
   //   try {
   //     const dashboardPath =
