@@ -13,3 +13,5 @@ Incorrect CVC: 4000 0000 0000 0127
 
 
 npx skills add -y https://docs.stripe.com
+
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
