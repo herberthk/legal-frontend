@@ -20,6 +20,9 @@ class PCMProcessor extends AudioWorkletProcessor {
     this.isSpeaking = false;
     this.silenceFrameCount = 0;
 
+    // Resampling state for phase continuity
+    this.resampleOffset = 0.0;
+
     // In AudioWorkletGlobalScope, sampleRate is available globally.
     this.releaseFrames = Math.ceil((sampleRate * this.vadReleaseMs) / 1000 / 128);
   }
@@ -50,15 +53,17 @@ class PCMProcessor extends AudioWorkletProcessor {
       }
 
       // 3. Resample & Buffer
-      // Simple linear interpolation downsampling (maintaining 16kHz)
+      // Stateful linear interpolation downsampling (maintaining 16kHz)
       const ratio = sampleRate / this.sampleRateOut;
-      let ratioIdx = 0;
+      let ratioIdx = this.resampleOffset;
 
       while (ratioIdx < channelData.length) {
         const i1 = Math.floor(ratioIdx);
-        const i2 = Math.min(i1 + 1, channelData.length - 1);
         const fraction = ratioIdx - i1;
-        const val = channelData[i1] + fraction * (channelData[i2] - channelData[i1]);
+        const s1 = channelData[i1];
+        const s2 = (i1 + 1 < channelData.length) ? channelData[i1 + 1] : s1;
+
+        const val = s1 + fraction * (s2 - s1);
 
         // Convert to Int16
         const intVal = Math.max(-1, Math.min(1, val));
@@ -66,6 +71,8 @@ class PCMProcessor extends AudioWorkletProcessor {
 
         ratioIdx += ratio;
       }
+
+      this.resampleOffset = ratioIdx - channelData.length;
 
       // 4. Send Chunks when buffer fills
       while (this.buffer.length >= this.bufferSize) {
