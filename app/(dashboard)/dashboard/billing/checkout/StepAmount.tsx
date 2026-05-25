@@ -63,7 +63,7 @@ export const StepAmount = memo(function StepAmount({
                   ~{formatUgx(val).split(" ")[1] || formatUgx(val)}
                 </span>
                 {/* Hover flare */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
               </button>
             ))}
           </div>
