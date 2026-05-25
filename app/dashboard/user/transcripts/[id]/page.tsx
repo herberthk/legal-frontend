@@ -9,10 +9,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/utils";
-import { formatCost, formatUniversalDate } from "@/utils";
+import { formatCost } from "@/utils";
 import { getVoiceSessionById } from "@/lib/actions/voice";
 import Link from "next/link";
 import SessionDetailClient from "@/components/user/SessionDetailClient";
+import ClientFormattedDate from "@/components/global/ClientFormattedDate";
 import { Metadata } from "next";
 
 interface PageProps {
@@ -99,9 +100,10 @@ const SessionDetailPage = async ({ params }: PageProps) => {
             <div className="flex flex-wrap items-center gap-6">
               <div className="flex items-center gap-2 text-slate-500">
                 <Calendar size={16} />
-                <span className="text-sm font-medium" suppressHydrationWarning>
-                  {formatUniversalDate(session.createdAt)}
-                </span>
+                <ClientFormattedDate
+                  date={session.createdAt}
+                  className="text-sm font-medium"
+                />
               </div>
               <div className="flex items-center gap-2 text-slate-500">
                 <Clock size={16} />
