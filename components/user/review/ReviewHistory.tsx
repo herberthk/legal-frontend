@@ -154,7 +154,7 @@ export const ReviewHistory = ({
             <BackButton />
             <h1 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
               Review{" "}
-              <span className="text-emerald-600 dark:text-emerald-400">
+              <span className="text-orange-600 dark:text-orange-400">
                 History
               </span>
             </h1>
@@ -196,8 +196,8 @@ export const ReviewHistory = ({
       <div className="flex-1">
         {reviews.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-            <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-950/30 rounded-full flex items-center justify-center mb-6">
-              <Scale className="w-10 h-10 text-emerald-500 dark:text-emerald-400" />
+            <div className="w-20 h-20 bg-orange-50 dark:bg-orange-950/30 rounded-full flex items-center justify-center mb-6">
+              <Scale className="w-10 h-10 text-orange-400 dark:text-orange-400" />
             </div>
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
               {searchQuery ? "No results found" : "No reviews yet"}
@@ -210,7 +210,7 @@ export const ReviewHistory = ({
             {!searchQuery && (
               <button
                 onClick={onNewReview}
-                className="mt-6 text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+                className="mt-6 text-orange-600 dark:text-orange-400 font-bold hover:underline"
               >
                 Get Started &rarr;
               </button>
@@ -226,11 +226,11 @@ export const ReviewHistory = ({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   onClick={() => onViewReview(record)}
-                  className="group cursor-pointer bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 hover:border-emerald-200 dark:hover:border-emerald-500/30 transition-all duration-300 flex flex-col h-full"
+                  className="group cursor-pointer bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:shadow-orange-500/5 hover:border-orange-200 dark:hover:border-orange-500/30 transition-all duration-300 flex flex-col h-full"
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl text-emerald-600 dark:text-emerald-400">
+                      <div className="p-3 bg-orange-50 dark:bg-orange-500/10 rounded-2xl text-orange-600 dark:text-orange-400">
                         <Scale className="w-6 h-6" />
                       </div>
                       <div>
@@ -255,7 +255,7 @@ export const ReviewHistory = ({
                     </button>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 line-clamp-1 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                     {record.fileName || "Untitled Document"}
                   </h3>
 
@@ -279,7 +279,7 @@ export const ReviewHistory = ({
                       {record.pageCount} Pages
                     </span>
                     {record.tokensUsed !== undefined && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50/50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-orange-50/50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-bold">
                         {record.tokensUsed.toLocaleString()} Tokens
                       </span>
                     )}
@@ -302,7 +302,7 @@ export const ReviewHistory = ({
             <button
               onClick={() => fetchReviews(true)}
               disabled={isLoadingMore}
-              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 font-bold rounded-xl border border-emerald-100 dark:border-emerald-900/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors shadow-sm disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 font-bold rounded-xl border border-orange-100 dark:border-orange-900/50 hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors shadow-sm disabled:opacity-50"
             >
               {isLoadingMore ? (
                 <>

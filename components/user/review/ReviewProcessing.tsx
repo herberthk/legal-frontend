@@ -90,8 +90,8 @@ export function ReviewProcessing({
     >
       {/* Header */}
       <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 text-sm font-semibold mb-5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 text-sm font-semibold mb-5">
+          <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
           Processing your document
         </div>
         {fileName && (
@@ -120,7 +120,7 @@ export function ReviewProcessing({
         </div>
         <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
           <motion.div
-            className="h-full bg-linear-to-r from-emerald-500 to-teal-500 rounded-full"
+            className="h-full bg-linear-to-r from-orange-500 to-orange-400 rounded-full"
             animate={{ width: `${Math.min(progress, 95)}%` }}
             transition={{ duration: 0.6, ease: "easeInOut" }}
           />
@@ -153,9 +153,9 @@ export function ReviewProcessing({
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${
                     isDone
-                      ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400"
+                      ? "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400"
                       : isActive
-                        ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                        ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
                         : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600"
                   }`}
                 >
@@ -182,7 +182,7 @@ export function ReviewProcessing({
                   <p
                     className={`text-sm font-semibold ${
                       isDone
-                        ? "text-emerald-700 dark:text-emerald-400"
+                        ? "text-orange-700 dark:text-orange-400"
                         : isActive
                           ? "text-slate-900 dark:text-slate-50"
                           : "text-slate-400 dark:text-slate-600"
@@ -197,11 +197,11 @@ export function ReviewProcessing({
                   <motion.div
                     animate={{ scale: [1, 1.3, 1] }}
                     transition={{ duration: 1.2, repeat: Infinity }}
-                    className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"
+                    className="w-2 h-2 rounded-full bg-orange-500 shrink-0"
                   />
                 )}
                 {isDone && (
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
                 )}
               </motion.div>
             );

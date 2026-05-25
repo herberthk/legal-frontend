@@ -39,17 +39,17 @@ export function ReviewUploadZone({
     >
       {/* Hero heading */}
       <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 text-sm font-semibold mb-6">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 text-sm font-semibold mb-6">
+          <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
           Powered by Most advanced AI Models
         </div>
         <h2 className="font-serif text-3xl md:text-5xl mb-5 font-bold tracking-tight text-slate-900 dark:text-slate-50">
-          Review any legal document{" "}
-          <span className="italic text-emerald-600 dark:text-emerald-400">
+          <span className="italic">Review any legal document</span>{" "}
+          <span className="italic text-orange-600 dark:text-orange-400">
             instantly.
           </span>
         </h2>
-        <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
+        <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed italic">
           Upload your PDF and receive a comprehensive compliance score, risk
           analysis, key clauses, and recommendations — all grounded in Ugandan
           law.
@@ -61,14 +61,14 @@ export function ReviewUploadZone({
         {...getRootProps()}
         className={`relative group border-2 border-dashed rounded-[2.5rem] p-12 md:p-16 text-center cursor-pointer transition-all duration-500 overflow-hidden ${
           isDragActive
-            ? "border-emerald-500 bg-emerald-50/30 dark:bg-emerald-500/5 scale-[1.01]"
-            : "border-slate-200 dark:border-slate-700 hover:border-emerald-400/60 bg-white dark:bg-slate-900 shadow-2xl shadow-slate-500/5 hover:shadow-emerald-500/10"
+            ? "border-orange-500 bg-orange-50/30 dark:bg-orange-500/5 scale-[1.01]"
+            : "border-slate-200 dark:border-slate-700 hover:border-orange-400/60 bg-white dark:bg-slate-900 shadow-2xl shadow-slate-500/5 hover:shadow-orange-500/10"
         }`}
       >
         <input {...getInputProps()} />
 
         {/* Gradient glow */}
-        <div className="absolute inset-0 bg-linear-to-br from-emerald-50/60 to-transparent dark:from-emerald-500/5 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-br from-orange-50/60 to-transparent dark:from-orange-500/5 dark:to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
         <div className="relative z-10">
           {file ? (
@@ -77,8 +77,8 @@ export function ReviewUploadZone({
               animate={{ scale: 1, opacity: 1 }}
               className="flex flex-col items-center gap-4"
             >
-              <div className="w-20 h-20 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center shadow-inner">
-                <FileText className="w-9 h-9 text-emerald-600 dark:text-emerald-400" />
+              <div className="w-20 h-20 rounded-2xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 flex items-center justify-center shadow-inner">
+                <FileText className="w-9 h-9 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
                 <p className="text-slate-800 dark:text-slate-100 font-bold text-lg">
@@ -88,7 +88,7 @@ export function ReviewUploadZone({
                   {(file.size / 1024 / 1024).toFixed(2)} MB · PDF
                 </p>
               </div>
-              <p className="text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+              <p className="text-orange-600 dark:text-orange-400 text-sm font-medium">
                 Drop a different file to replace
               </p>
             </motion.div>
@@ -106,7 +106,7 @@ export function ReviewUploadZone({
               </p>
               <button
                 type="button"
-                className="px-9 py-3.5 rounded-full bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-all duration-300 shadow-xl shadow-emerald-500/25 hover:shadow-emerald-600/40 hover:-translate-y-0.5 active:scale-95"
+                className="px-9 py-3.5 rounded-full bg-orange-600 text-white font-bold hover:bg-orange-700 transition-all duration-300 shadow-xl shadow-orange-500/25 hover:shadow-orange-600/40 hover:-translate-y-0.5 active:scale-95"
               >
                 Browse File
               </button>
@@ -136,7 +136,7 @@ export function ReviewUploadZone({
         >
           <button
             onClick={onStart}
-            className="group flex items-center gap-3 px-10 py-4 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 shadow-2xl shadow-emerald-500/30 hover:shadow-emerald-600/50 hover:-translate-y-1 active:scale-95"
+            className="group flex items-center gap-3 px-10 py-4 rounded-full bg-linear-to-r from-orange-600 to-orange-400 text-white font-bold text-lg hover:from-orange-700 hover:to-orange-700 transition-all duration-300 shadow-2xl shadow-orange-500/30 hover:shadow-orange-600/50 hover:-translate-y-1 active:scale-95"
           >
             <span className="w-2 h-2 rounded-full bg-white/70 group-hover:bg-white transition-colors" />
             Start Legal Review
