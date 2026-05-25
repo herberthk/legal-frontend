@@ -23,43 +23,51 @@ declare const self: ServiceWorkerGlobalScope;
 // } satisfies CacheQueryOptions;
 
 // ─── Firebase Cloud Messaging — Background Push Handler ───────────────────────
-const firebaseApp = initializeApp({
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-});
+let messaging: ReturnType<typeof getMessaging> | null = null;
 
-const messaging = getMessaging(firebaseApp);
+try {
+  const firebaseApp = initializeApp({
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  });
+
+  messaging = getMessaging(firebaseApp);
+} catch (error) {
+  console.warn("[FCM] Firebase Cloud Messaging is not supported or failed to initialize:", error);
+}
 
 /**
  * Background message handler — fires when the web app is NOT in focus.
  * FCM automatically creates a notification from the `notification` field;
  * we override the options here to provide consistent icon / badge branding.
  */
-onBackgroundMessage(messaging, (payload) => {
-  console.log("[FCM] Background message received:", payload);
-  const { title, body, icon } = payload.notification ?? {};
-  const notificationTitle: string = title ?? "Legal Adviser";
-  const notificationOptions: NotificationOptions & {
-    vibrate?: number[];
-    renotify?: boolean;
-  } = {
-    body: body ?? "",
-    icon: icon ?? "/icons/apple-icon-180.png",
-    badge: "/icons/mstile-icon-128.png",
-    data: payload.data ?? {},
-    // Professional feel: vibrate the device and allow re-notification
-    vibrate: [200, 100, 200],
-    renotify: true,
-    // Replace any previous notification from this app so the tray stays tidy
-    tag: "legal-adviser-push",
-  };
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
+if (messaging) {
+  onBackgroundMessage(messaging, (payload) => {
+    console.log("[FCM] Background message received:", payload);
+    const { title, body, icon } = payload.notification ?? {};
+    const notificationTitle: string = title ?? "Legal Adviser";
+    const notificationOptions: NotificationOptions & {
+      vibrate?: number[];
+      renotify?: boolean;
+    } = {
+      body: body ?? "",
+      icon: icon ?? "/icons/apple-icon-180.png",
+      badge: "/icons/mstile-icon-128.png",
+      data: payload.data ?? {},
+      // Professional feel: vibrate the device and allow re-notification
+      vibrate: [200, 100, 200],
+      renotify: true,
+      // Replace any previous notification from this app so the tray stays tidy
+      tag: "legal-adviser-push",
+    };
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  });
+}
 
 /** Navigate / focus the app tab when a notification is clicked. */
 self.addEventListener("notificationclick", (event: NotificationEvent) => {

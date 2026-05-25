@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import {
   getAnalytics,
-  isSupported,
+  isSupported as isAnalyticsSupported,
   Analytics,
   logEvent,
 } from "firebase/analytics";
@@ -14,6 +14,7 @@ import {
   getToken,
   onMessage,
   MessagePayload,
+  isSupported as isMessagingSupported,
 } from "firebase/messaging";
 import { getFunctions } from "firebase/functions";
 
@@ -44,7 +45,7 @@ export const functions = getFunctions(app, "europe-west3");
 export const analyticsPromise: Promise<Analytics | null> =
   typeof window !== "undefined" &&
   process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-    ? isSupported().then((supported) => (supported ? getAnalytics(app) : null))
+    ? isAnalyticsSupported().then((supported) => (supported ? getAnalytics(app) : null))
     : Promise.resolve(null);
 
 export const logAnalyticsEvent = async (
@@ -61,7 +62,7 @@ export default app;
 
 // ─── Firebase Cloud Messaging ─────────────────────────────────────────────────
 export const messaging = async () => {
-  const supported = await isSupported();
+  const supported = await isMessagingSupported();
   return supported ? getMessaging(app) : null;
 };
 /**
@@ -140,7 +141,10 @@ export const getFCMToken = async (): Promise<string | null> => {
 export const onForegroundMessage = (
   callback: (payload: MessagePayload) => void,
 ): (() => void) => {
-  const messagingInst = getMessaging();
-  if (!messagingInst) return () => {};
-  return onMessage(messagingInst, callback);
+  try {
+    const messagingInst = getMessaging(app);
+    return onMessage(messagingInst, callback);
+  } catch {
+    return () => {};
+  }
 };
