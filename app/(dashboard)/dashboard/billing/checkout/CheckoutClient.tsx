@@ -246,7 +246,7 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-md min-h-[500px] flex flex-col"
+          className="rounded-3 p-2 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-md min-h-[500px] flex flex-col"
         >
           {/* Background gradients */}
           <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
@@ -302,7 +302,7 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-xl border border-gray-100 dark:border-slate-800"
+                  className="bg-white dark:bg-slate-900 rounded-3xl p-2 md:p-8 shadow-xl border border-gray-100 dark:border-slate-800"
                 >
                   <Elements
                     stripe={stripePromise}

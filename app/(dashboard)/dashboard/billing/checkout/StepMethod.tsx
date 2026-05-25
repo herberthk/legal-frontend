@@ -44,7 +44,7 @@ export const StepMethod = memo(function StepMethod({
                 : "bg-slate-500/5 shadow-lg hover:shadow-2xl hover:bg-slate-500/10"
             }`}
           >
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="flex items-center gap-5 relative z-10">
               <div
                 className={`p-3.5 rounded-xl transition-colors ${
@@ -83,7 +83,7 @@ export const StepMethod = memo(function StepMethod({
                 : "bg-slate-500/5 shadow-xl hover:shadow-2xl hover:bg-slate-500/10"
             }`}
           >
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="flex items-center gap-5 relative z-10">
               <div
                 className={`p-3.5 rounded-xl transition-colors ${

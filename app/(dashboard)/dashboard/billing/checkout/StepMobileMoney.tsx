@@ -54,7 +54,7 @@ export const StepMobileMoney = memo(function StepMobileMoney({
                   : "bg-slate-500/5 shadow-xl hover:shadow-2xl hover:bg-slate-500/10 text-muted-foreground hover:text-foreground"
               }`}
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
               <span className={`font-extrabold text-base block mb-1 tracking-tight ${network === "MTN" ? "text-yellow-500" : ""}`}>
                 MTN MoMo
               </span>
@@ -76,7 +76,7 @@ export const StepMobileMoney = memo(function StepMobileMoney({
                   : "bg-slate-500/5 shadow-xl hover:shadow-2xl hover:bg-slate-500/10 text-muted-foreground hover:text-foreground"
               }`}
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
               <span className={`font-extrabold text-base block mb-1 tracking-tight ${network === "AIRTEL" ? "text-red-500" : ""}`}>
                 Airtel Money
               </span>
