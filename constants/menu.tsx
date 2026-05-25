@@ -90,7 +90,7 @@ export const sideBarItems = (role: Role): MenuItems[] => {
         },
         {
           id: "transcribe-documents",
-          label: "Transcribe documents",
+          label: "Digitise documents",
           icon: <FileText size={20} />,
           href: "",
           subItems: [

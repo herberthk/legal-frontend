@@ -42,7 +42,7 @@ export function ReviewScoreGauge({ score }: ReviewScoreGaugeProps) {
 
       {/* Circular SVG gauge */}
       <div className="relative">
-        <svg height={radius * 2} width={radius * 2} className="rotate-[-90deg]">
+        <svg height={radius * 2} width={radius * 2} className="-rotate-90">
           {/* Background ring */}
           <circle
             stroke="currentColor"

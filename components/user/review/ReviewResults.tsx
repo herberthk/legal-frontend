@@ -47,7 +47,7 @@ export function ReviewResults({
           <ReviewPdfExport review={review} />
 
           {isSaved ? (
-            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-sm font-semibold border border-emerald-200 dark:border-emerald-800">
+            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 text-sm font-semibold border border-orange-200 dark:border-orange-800">
               <CheckCircle2 className="w-4 h-4" />
               Saved
             </div>
@@ -55,7 +55,7 @@ export function ReviewResults({
             <button
               onClick={onSave}
               disabled={isSaving}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 disabled:opacity-50 transition-all duration-200 shadow-lg shadow-emerald-500/20 hover:-translate-y-0.5 active:scale-95"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-semibold text-sm hover:bg-orange-700 disabled:opacity-50 transition-all duration-200 shadow-lg shadow-orange-500/20 hover:-translate-y-0.5 active:scale-95"
             >
               {isSaving ? (
                 <motion.div
