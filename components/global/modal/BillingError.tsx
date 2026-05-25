@@ -66,7 +66,7 @@ const BillingError = ({ billingError, dismissBillingBanner }: Props) => {
             {/* Actions */}
             <div className="flex flex-col gap-3">
               <Link
-                href="/dashboard/user/billing"
+                href="/dashboard/billing"
                 className="flex items-center justify-center gap-2 w-full py-3 px-5 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold text-sm shadow-md shadow-orange-500/30 transition-all duration-200 hover:shadow-orange-500/50 hover:-translate-y-0.5"
               >
                 <CreditCard size={15} />

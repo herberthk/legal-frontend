@@ -37,7 +37,7 @@ const BillingCard: React.FC<BillingCardProps> = ({
           </p>
           <div className="flex space-x-3">
             <CustomButton
-              onClick={() => router.push("/dashboard/user/billing/checkout")}
+              onClick={() => router.push("/dashboard/billing/checkout")}
               variant="transparent"
               shape="pill"
               borderLeftWidth="4px"

@@ -14,7 +14,7 @@ export const ReviewDetailView = ({ review }: ReviewDetailViewProps) => {
     <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16">
       <div className="mb-8">
         <button
-          onClick={() => router.push("/dashboard/user/reviews")}
+          onClick={() => router.push("/dashboard/reviews")}
           className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline mb-4 inline-flex items-center gap-2"
         >
           &larr; Back to History
@@ -25,7 +25,7 @@ export const ReviewDetailView = ({ review }: ReviewDetailViewProps) => {
         isSaving={false}
         isSaved={true}
         onSave={() => {}}
-        onReset={() => router.push("/dashboard/user/review")}
+        onReset={() => router.push("/dashboard/review")}
       />
     </div>
   );

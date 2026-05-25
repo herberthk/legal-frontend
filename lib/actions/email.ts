@@ -172,7 +172,7 @@ export const sendTransactionReceiptEmail = async ({
         date,
         newBalanceUSD: formatUSD(newBalanceDollars),
         receiptUrl,
-        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${transactionId}`,
+        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/transactions/${transactionId}`,
       })
     );
 

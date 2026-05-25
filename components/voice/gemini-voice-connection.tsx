@@ -456,7 +456,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
           to: userId,
           title: "Your AI voice Session is Available",
           message: `Your AI legal consultation session that lasted for (${durationLabel}) is now available.`,
-          link: `/dashboard/user/transcripts/${voiceSessionId}`,
+          link: `/dashboard/transcripts/${voiceSessionId}`,
         }).catch((err) =>
           console.error("[FCM] Post-call push notification failed:", err),
         );

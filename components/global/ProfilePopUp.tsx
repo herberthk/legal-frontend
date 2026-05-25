@@ -94,7 +94,7 @@ const ProfilePopUp = ({ user, ref }: Props) => {
 
         <div className="p-2">
           <div className="px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors mb-1 group">
-            <Link href="/dashboard/user/settings">
+            <Link href="/dashboard/settings">
               <p
                 className={`text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors ${isAdmin ? "group-hover:text-indigo-600" : "group-hover:text-orange-600"}`}
               >

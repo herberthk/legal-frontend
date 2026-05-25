@@ -22,7 +22,7 @@ export const createSupportTicket = async (
     };
 
     await ticketRef.set(newTicket);
-    revalidatePath("/dashboard/user/help");
+    revalidatePath("/dashboard/help");
     return { success: true, ticketId: ticketRef.id };
   } catch (error) {
     console.error("Error creating support ticket:", error);

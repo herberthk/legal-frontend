@@ -189,7 +189,7 @@ const VoiceConsultations = ({
                         <div className="flex flex-row items-center justify-between">
                           <CustomButton
                             component={Link}
-                            href={`/dashboard/user/transcripts/${session.id}`}
+                            href={`/dashboard/transcripts/${session.id}`}
                             variant="transparent"
                             shape="rounded"
                             borderLeftWidth="4px"
@@ -227,7 +227,7 @@ const VoiceConsultations = ({
                 <div className="mt-6 flex justify-center">
                   <CustomButton
                     component={Link}
-                    href="/dashboard/user/transcripts"
+                    href="/dashboard/transcripts"
                     variant="transparent"
                     shape="rounded"
                     size="sm"

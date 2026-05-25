@@ -13,11 +13,11 @@ export const proxy = async (request: NextRequest) => {
   const result = parser.getResult();
 
   // 1. If trying to access dashboard without a session
-  if (pathname.startsWith("/dashboard") && !session) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("returnTo", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
+  // if (pathname.startsWith("/dashboard") && !session) {
+  //   const loginUrl = new URL("/login", request.url);
+  //   loginUrl.searchParams.set("returnTo", pathname);
+  //   return NextResponse.redirect(loginUrl);
+  // }
 
   // 2. If trying to access login/signup WITH a session
   // if (
@@ -26,7 +26,7 @@ export const proxy = async (request: NextRequest) => {
   // ) {
   //   try {
   //     const dashboardPath =
-  //       user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard/user";
+  //       user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard";
   //     return NextResponse.redirect(new URL(dashboardPath, request.url));
   //   } catch {
   //     return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -51,5 +51,5 @@ export const proxy = async (request: NextRequest) => {
 };
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/signup", "/"],
+  matcher: ["/dashboard/:path*", "/login", "/signup", "/" , "/admin/:path*", "/notifications/:path*"],
 };

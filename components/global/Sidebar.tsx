@@ -122,23 +122,6 @@ const iconVariants: Variants = {
   },
 };
 
-// const floatingVariants: Variants = {
-//   initial: { y: 0, filter: "drop-shadow(0 0 0px rgba(99, 102, 241, 0))" },
-//   animate: {
-//     y: [0, -4, 0],
-//     filter: [
-//       "drop-shadow(0 4px 6px rgba(99, 102, 241, 0.1))",
-//       "drop-shadow(0 10px 15px rgba(99, 102, 241, 0.3))",
-//       "drop-shadow(0 4px 6px rgba(99, 102, 241, 0.1))",
-//     ],
-//     transition: {
-//       duration: 4,
-//       repeat: Infinity,
-//       ease: "easeInOut",
-//     },
-//   },
-// };
-
 const CollapsibleMenu = ({
   link,
   pathname,
@@ -538,7 +521,7 @@ const GlobalSidebar = ({ user }: Props) => {
                       {userName}
                     </span>
                     <span className="truncate text-[10px] opacity-60 uppercase tracking-tighter font-black">
-                      {isAdmin ? "Administrator" : "Legal Professional"}
+                      {isAdmin ? "Administrator" : "Legal client"}
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4 opacity-40" />

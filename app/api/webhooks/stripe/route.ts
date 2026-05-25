@@ -116,7 +116,7 @@ export async function POST(req: Request) {
             title: "Deposit Successful",
             message: `Your Stripe Card deposit of $${(amountInCents / 100).toFixed(2)} was successful.`,
             type: "SUCCESS",
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${paymentIntentId}`,
+            url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/transactions/${paymentIntentId}`,
           }).catch(err => console.error("Error creating successful deposit notification:", err)),
           sendTransactionReceiptEmail({
             userId,
@@ -149,7 +149,7 @@ export async function POST(req: Request) {
               title: "Deposit Failed",
               message: `Your credit card deposit of $${(paymentIntent.amount / 100).toFixed(2)} failed.`,
               type: "ERROR",
-              url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/user/transactions/${paymentIntent.id}`,
+              url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/transactions/${paymentIntent.id}`,
             })
           ]).catch(err => console.error("Error updating failed payment state in Firestore:", err));
         }

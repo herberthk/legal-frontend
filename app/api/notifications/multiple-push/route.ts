@@ -58,12 +58,12 @@ export async function POST(req: Request) {
       tokens,
       notification: { title, body: msgBody },
       data: {
-        url: url ?? "/dashboard/user/voice",
+        url: url ?? "/dashboard/voice",
         ...data,
       },
       webpush: {
         fcmOptions: {
-          link: url ?? "/dashboard/user/voice",
+          link: url ?? "/dashboard/voice",
         },
         notification: {
           title,

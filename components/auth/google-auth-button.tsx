@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { auth } from "@/firebase/client";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { signIn, signUp, recordUserStats } from "@/lib/actions/auth";
+import { signIn, signUp, recordUserStats, getCurrentUser } from "@/lib/actions/auth";
 import { useRouter } from "nextjs-toploader/app";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,13 +48,16 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       const sessionResult = await signIn({ idToken });
 
       if (sessionResult.success) {
+       
         // 4. Record User Statistics
         const stats = getDeviceStats();
         if (stats) {
           recordUserStats(user.uid, { ...stats });
         }
 
-        // 5. Update Local State & Redirect
+         // 5. Fetch user profile to determine role-based redirection
+                const currentUser = await getCurrentUser();
+        // 6. Update Local State & Redirect
         // For Google Auth, we might need a small delay to ensure Firestore is synced if it was a new user
         // But the signUp action handles creation synchronously.
 
@@ -68,7 +71,10 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
           },
         );
 
-        const redirectPath = returnTo || "/dashboard/user";
+            const defaultPath =
+            currentUser?.role === "ADMIN" ? "/admin" : "/dashboard";
+
+        const redirectPath = returnTo || defaultPath;
         router.push(redirectPath);
       } else {
         throw new Error(sessionResult.message);

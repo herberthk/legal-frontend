@@ -45,7 +45,7 @@ const UserDashboard: FC<Props> = ({ user, recentSessions }) => {
 
         <CustomButton
           component={Link}
-          href="/dashboard/user/billing"
+          href="/dashboard/billing"
           variant="transparent"
           shape="pill"
           borderLeftWidth="4px"

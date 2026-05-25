@@ -22,53 +22,53 @@ type MenuItems = {
 export const sideBarItems = (role: Role): MenuItems[] => {
   const globalItems: MenuItems[] = [
     {
-      id: "/dashboard/notifications",
+      id: "/notifications",
       label: "Notifications",
       icon: <Bell size={20} />,
-      href: "/dashboard/notifications",
+      href: "/notifications",
     },
   ];
 
   return role === "ADMIN"
     ? [
         {
-          id: "/dashboard/admin",
+          id: "/admin",
           label: "Dashboard",
           icon: <LayoutDashboard size={20} />,
-          href: "/dashboard/admin",
+          href: "/admin",
         },
         {
-          id: "/dashboard/admin/users",
+          id: "/admin/users",
           label: "User Management",
           icon: <Users size={20} />,
-          href: "/dashboard/admin/users",
+          href: "/admin/users",
         },
         ...globalItems,
         {
-          id: "/dashboard/admin/complaints",
+          id: "/admin/complaints",
           label: "User Complaints",
           icon: <FileWarning size={20} />,
-          href: "/dashboard/admin/complaints",
+          href: "/admin/complaints",
         },
         {
-          id: "/dashboard/admin/configuration",
+          id: "/admin/configuration",
           label: "Configuration",
           icon: <Settings size={20} />,
-          href: "/dashboard/admin/configuration",
+          href: "/admin/configuration",
         },
       ]
     : [
         {
-          id: "/dashboard/user",
+          id: "/dashboard",
           label: "Dashboard",
           icon: <LayoutDashboard size={20} />,
-          href: "/dashboard/user",
+          href: "/dashboard",
         },
         {
-          id: "/dashboard/user/chat",
+          id: "/dashboard/chat",
           label: "Chat with AI",
           icon: <MessageSquareIcon size={20} />,
-          href: "/dashboard/user/chat",
+          href: "/dashboard/chat",
         },
         {
           id: "voice-chat",
@@ -77,14 +77,14 @@ export const sideBarItems = (role: Role): MenuItems[] => {
           href: "",
           subItems: [
             {
-              id: "/dashboard/user/voice",
+              id: "/dashboard/voice",
               label: "Voice",
-              href: "/dashboard/user/voice",
+              href: "/dashboard/voice",
             },
             {
-              id: "/dashboard/user/transcripts",
+              id: "/dashboard/transcripts",
               label: "Transcripts",
-              href: "/dashboard/user/transcripts",
+              href: "/dashboard/transcripts",
             },
           ],
         },
@@ -95,22 +95,22 @@ export const sideBarItems = (role: Role): MenuItems[] => {
           href: "",
           subItems: [
             {
-              id: "/dashboard/user/transcribe",
+              id: "/dashboard/transcribe",
               label: "Transcribe",
-              href: "/dashboard/user/transcribe",
+              href: "/dashboard/transcribe",
             },
             {
-              id: "/dashboard/user/transcriptions",
+              id: "/dashboard/transcriptions",
               label: "Transcriptions",
-              href: "/dashboard/user/transcriptions",
+              href: "/dashboard/transcriptions",
             },
           ],
         },
         {
-          id: "/dashboard/user/transactions",
+          id: "/dashboard/transactions",
           label: "Transactions",
           icon: <CreditCard size={20} />,
-          href: "/dashboard/user/transactions",
+          href: "/dashboard/transactions",
         },
         {
           id: "legal-review-group",
@@ -119,41 +119,41 @@ export const sideBarItems = (role: Role): MenuItems[] => {
           href: "",
           subItems: [
             {
-              id: "/dashboard/user/review",
+              id: "/dashboard/review",
               label: "New Review",
-              href: "/dashboard/user/review",
+              href: "/dashboard/review",
             },
             {
-              id: "/dashboard/user/reviews",
+              id: "/dashboard/reviews",
               label: "Review History",
-              href: "/dashboard/user/reviews",
+              href: "/dashboard/reviews",
             },
           ],
         },
         {
-          id: "/dashboard/user/billing",
+          id: "/dashboard/billing",
           label: "Billing & Usage",
           icon: <CreditCard size={20} />,
-          href: "/dashboard/user/billing",
+          href: "/dashboard/billing",
         },
         ...globalItems,
         {
-          id: "/dashboard/user/help",
+          id: "/dashboard/help",
           label: "Help & Support",
           icon: <LifeBuoy size={20} />,
-          href: "/dashboard/user/help",
+          href: "/dashboard/help",
         },
         {
-          id: "/dashboard/user/freecredits",
+          id: "/dashboard/freecredits",
           label: "Free Credits",
           icon: <Sparkles size={20} />,
-          href: "/dashboard/user/freecredits",
+          href: "/dashboard/freecredits",
         },
         {
-          id: "/dashboard/user/settings",
+          id: "/dashboard/settings",
           label: "Settings",
           icon: <Settings size={20} />,
-          href: "/dashboard/user/settings",
+          href: "/dashboard/settings",
         },
       ];
 };

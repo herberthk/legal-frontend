@@ -75,14 +75,14 @@ const NotFoundPage = () => {
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-sm">
               <Link
-                href="/dashboard/user"
+                href="/dashboard"
                 className="text-orange-600 dark:text-orange-500 hover:text-orange-700 dark:hover:text-orange-400 transition-colors hover:underline"
               >
                 Dashboard
               </Link>
               <span className="text-slate-300 dark:text-slate-600">•</span>
               <Link
-                href="/dashboard/user/help"
+                href="/dashboard/help"
                 className="text-orange-600 dark:text-orange-500 hover:text-orange-700 dark:hover:text-orange-400 transition-colors hover:underline"
               >
                 Help & Support
