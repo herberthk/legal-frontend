@@ -6,7 +6,7 @@ const config: Config = {
   injectGlobals: true,
   // If using ts-jest
   preset: 'ts-jest',
-  testEnvironment:  "jsdom",
+  testEnvironment:  "bun",
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
     // Strip .js extensions from imports (TypeScript ESM -> Jest CJS interop)
