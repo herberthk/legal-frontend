@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // ─────────────────────────────────────────────
 //  Ssentezo Wallet SDK — Test Suite
 //  Run with: npm test
@@ -41,12 +42,12 @@ function mockFetch(body: MockBody, status = 202): void {
     ok:     status >= 200 && status < 300,
     status,
     json:   async () => body,
-  } as Response);
+  } as Response) as any;
 }
 
 /** Make every fetch call reject with a network error. */
 function mockFetchNetworkError(): void {
-  global.fetch = jest.fn().mockRejectedValue(new Error("ECONNREFUSED"));
+  global.fetch = jest.fn().mockRejectedValue(new Error("ECONNREFUSED")) as any;
 }
 
 /** Build a wallet configured against sandbox with fake credentials. */
@@ -63,6 +64,10 @@ function makeWallet(): SsentezoWallet {
 // ─────────────────────────────────────────────
 //  SsentezoWallet — Instantiation
 // ─────────────────────────────────────────────
+
+beforeEach(() => {
+  global.fetch = jest.fn() as any;
+});
 
 describe("SsentezoWallet — instantiation", () => {
   const original = { ...process.env };
@@ -128,7 +133,7 @@ describe("wallet.balance.check()", () => {
     const wallet = makeWallet();
     await wallet.balance.check();
 
-    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body as string) as MockBody;
+    const body = JSON.parse((global.fetch as unknown as jest.Mock).mock.calls[0][1].body as string) as MockBody;
     expect(body.currency).toBe("UGX");
   });
 });
@@ -210,7 +215,7 @@ describe("wallet.transactions.deposit()", () => {
     });
 
     const body = JSON.parse(
-      (global.fetch as jest.Mock).mock.calls[0][1].body as string
+      (global.fetch as unknown as jest.Mock).mock.calls[0][1].body as string
     ) as MockBody;
 
     expect(body.success_callback).toBe("https://example.com/success");
@@ -308,7 +313,7 @@ describe("wallet.transactions.withdraw()", () => {
       reason:            "Payout",
     });
 
-    const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    const url = (global.fetch as unknown as jest.Mock).mock.calls[0][0] as string;
     expect(url).toContain("/withdraw");
   });
 });
@@ -345,7 +350,7 @@ describe("wallet.transactions.getStatus()", () => {
     const wallet = makeWallet();
     await wallet.transactions.getStatus("order 1");
 
-    const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    const url = (global.fetch as unknown as jest.Mock).mock.calls[0][0] as string;
     expect(url).toContain("order%201");
   });
 });
@@ -441,7 +446,7 @@ describe("wallet.bankTransfer.requestTransfer()", () => {
     await wallet.bankTransfer.requestTransfer(validParams);
 
     const body = JSON.parse(
-      (global.fetch as jest.Mock).mock.calls[0][1].body as string
+      (global.fetch as unknown as jest.Mock).mock.calls[0][1].body as string
     ) as MockBody;
 
     expect(typeof body.amount).toBe("string");
@@ -534,7 +539,7 @@ describe("SsentezoTimeoutError", () => {
     // Simulate AbortError
     global.fetch = jest.fn().mockRejectedValue(
       Object.assign(new Error("The operation was aborted"), { name: "AbortError" })
-    );
+    ) as any;
 
     const wallet = new SsentezoWallet({
       apiUser: "u", apiKey: "k", environment: "sandbox", maxRetries: 0, timeout: 100,
