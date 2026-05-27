@@ -28,13 +28,39 @@ declare namespace NodeJS {
     SMTP_USER: string;
     SMTP_PORT: string;
 
-    // App
-    NEXT_PUBLIC_APP_URL: string;
-
     // Stripe
     STRIPE_SECRET_KEY: string;
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
 
+     /**
+     * Ssentezo API username.
+     * Generated from the "API Access" menu in your Ssentezo merchant dashboard.
+     * SERVER-SIDE ONLY — never prefix with NEXT_PUBLIC_.
+     */
+    SSENTEZO_API_USER?: string;
+
+    /**
+     * Ssentezo API key / secret.
+     * Generated from the "API Access" menu in your Ssentezo merchant dashboard.
+     * SERVER-SIDE ONLY — never prefix with NEXT_PUBLIC_.
+     */
+    SSENTEZO_API_KEY?: string;
+
+    /**
+     * Ssentezo environment to target.
+     * - "live"    — real money, production API  (default)
+     * - "sandbox" — test API, no real money
+     */
+    SSENTEZO_ENV?: "live" | "sandbox";
+
+    /**
+     * Your app's public base URL.
+     * Used to construct absolute callback URLs, e.g.:
+     *   `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/callback`
+     *
+     * Example: "https://yourapp.com"  (no trailing slash)
+     */
+    NEXT_PUBLIC_APP_URL?: string;
   }
 }
