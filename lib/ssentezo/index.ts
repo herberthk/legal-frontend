@@ -14,12 +14,12 @@
 //
 // ─────────────────────────────────────────────
 
-import { SsentezoClient } from "./client.js";
-import { BalanceResource } from "./resources/balance.js";
-import { BankTransferResource } from "./resources/bank-transfer.js";
-import { MsisdnResource } from "./resources/msisdn.js";
-import { TransactionsResource } from "./resources/transactions.js";
-import type { SsentezoConfig } from "./types.js";
+import { SsentezoClient } from "./client";
+import { BalanceResource } from "./resources/balance";
+import { BankTransferResource } from "./resources/bank-transfer";
+import { MsisdnResource } from "./resources/msisdn";
+import { TransactionsResource } from "./resources/transactions";
+import type { SsentezoConfig } from "./types";
 
 // ── Re-exports (single import surface for consumers) ──────────────────────────
 
@@ -40,7 +40,7 @@ export type {
   TransactionParams,
   TransactionStatus,
   TransactionStatusResult,
-} from "./types.js";
+} from "./types";
 
 export {
   SsentezoError,
@@ -54,25 +54,25 @@ export {
   isSsentezoNetworkError,
   isSsentezoRateLimitError,
   isSsentezoValidationError,
-} from "./errors.js";
+} from "./errors";
 
 export {
   generatePrefixedReference,
   generateReference,
   parseCallbackPayload,
-} from "./utils.js";
+} from "./utils";
 
 export {
   handleSsentezoError,
   handleSsentezoRouteError,
   publicMessage,
   withSsentezo,
-} from "./error-handler.js";
+} from "./error-handler";
 
 export type {
   SsentezoActionResult,
   SsentezoErrorResult,
-} from "./error-handler.js";
+} from "./error-handler";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

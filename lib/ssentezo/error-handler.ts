@@ -27,7 +27,7 @@ import {
   SsentezoRateLimitError,
   SsentezoTimeoutError,
   SsentezoValidationError,
-} from "./errors.js";
+} from "./errors";
 
 // ── Shared result type ────────────────────────────────────────────────────────
 
