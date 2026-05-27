@@ -12,7 +12,7 @@ import {
   type SsentezoActionResult,
   type TransactionStatus,
   type Bank,
-} from "../";
+} from "..";
 
 const wallet = getSsentezoWallet();
 

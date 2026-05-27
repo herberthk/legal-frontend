@@ -28,7 +28,7 @@ import {
   parseCallbackPayload,
   isSsentezoValidationError,
   isSsentezoError,
-} from "../";
+} from "..";
 
 // ─────────────────────────────────────────────
 //  Helpers
