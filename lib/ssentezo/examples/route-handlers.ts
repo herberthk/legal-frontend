@@ -13,7 +13,7 @@ import {
   generatePrefixedReference,
   handleSsentezoRouteError,
   parseCallbackPayload,
-} from "../";
+} from "..";
 
 const wallet = getSsentezoWallet();
 

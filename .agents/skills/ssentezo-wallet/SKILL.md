@@ -32,7 +32,15 @@ lib/ssentezo/
 │   ├── transactions.ts           ← wallet.transactions  (deposit / withdraw / getStatus / poll)
 │   └── bank-transfer.ts         ← wallet.bankTransfer  (getBanks / requestTransfer / checkStatus)
 └── hooks/
-    └── useTransactionStatus.ts  ← Client-side React polling hook
+│   └── useTransactionStatus.ts  ← Client-side React polling hook
+└── test/
+|    ├── sdk.test.ts             ← Jest unit tests for the SDK
+|    |__ error-handler.test.ts   ← Jest unit tests for the error handler
+|__ examples/
+|    |__ server-actions.ts       ← Next.js server action example
+|    |__ checkout-ui.tsx         ← Next.js server component example
+|    |__ route-handlers.ts       ← Next.js route handler example
+|    |__
 ```
 
 Everything a consumer needs is re-exported from `index.ts`.

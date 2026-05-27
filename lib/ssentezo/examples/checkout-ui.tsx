@@ -22,7 +22,7 @@ import {
   generatePrefixedReference,
   isSsentezoValidationError,
   SsentezoError,
-} from "../";
+} from "..";
 
 const wallet = getSsentezoWallet();
 
