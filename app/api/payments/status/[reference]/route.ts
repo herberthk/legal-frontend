@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ reference: string }> }
-) {
+): Promise<Response> {
   const { reference } = await params;
 
   try {
@@ -17,6 +17,6 @@ export async function GET(
       timestamp: status.transactionTime,
     });
   } catch (err) {
-    return handleSsentezoRouteError(err, NextResponse);
+    return NextResponse.json({ status: "ERROR", message: handleSsentezoRouteError(err, NextResponse) });
   }
 }
