@@ -65,25 +65,6 @@ export const verifyOTPWithSalt = async (
 export const generateTransactionReference = (length = 8) =>
   crypto.randomBytes(length).toString("hex").toUpperCase();
 
-export const generateTxRef = (length = 8) => {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let bytes: Uint8Array;
-
-  if (typeof window !== "undefined" && window.crypto) {
-    bytes = window.crypto.getRandomValues(new Uint8Array(length));
-  } else {
-    // Standard Node.js crypto
-    bytes = new Uint8Array(crypto.randomBytes(length));
-  }
-
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars[bytes[i] % chars.length];
-  }
-
-  return `TX_${result}`;
-};
-
 export const formatRelativeDate = (dateValue: string) => {
   if (!dateValue) {
     return new Date().toLocaleTimeString([], {
@@ -217,3 +198,11 @@ export const formatUgx = (val: number) => {
         maximumFractionDigits: 0
       }).format(ugxVal);
     };
+
+export const getInitials = (name: string) => {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+};
