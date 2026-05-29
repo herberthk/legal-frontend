@@ -32,6 +32,7 @@ export async function verifyPhoneNumber(
   msisdn: string
 ): Promise<SsentezoActionResult<{ fullName: string; msisdn: string }>> {
   return withSsentezo(async () => {
+
     const data = await wallet.msisdn.verify(msisdn);
     return { fullName: `${data.FirstName} ${data.Surname}`.trim(), msisdn: data.msisdn };
   });
