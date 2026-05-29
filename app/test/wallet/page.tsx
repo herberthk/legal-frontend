@@ -58,7 +58,6 @@ type Step = "form" | "verify" | "awaiting" | "complete" | "failed";
 
 // ── Component ──────────────────────────────────────────────────────────────────
 const Page = () => {
-  const router = useRouter();
 
   const [step,        setStep]        = useState<Step>("form");
   const [msisdn,      setMsisdn]      = useState("");
@@ -112,7 +111,7 @@ const Page = () => {
   const handlePay = async() => {
     setErrorMsg(null);
     startTransition(async () => {
-      const result = await initiatePayment({ msisdn, amount, reason, orderId });
+      const result = await initiatePayment({ msisdn, amount });
      console.log('initiatePayment',result);
       if (!result.success) {
         setErrorMsg(result.error ?? "Payment failed.");

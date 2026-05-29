@@ -3,12 +3,11 @@
 import { CALLBACK_URL } from "@/constants";
 import { wallet } from "@/lib/payments";
 import {
-  generatePrefixedReference,
-  isSsentezoValidationError,
   SsentezoActionResult,
   TransactionStatus,
   withSsentezo,
 } from "@/lib/ssentezo";
+import { generateTxRef } from "@/utils";
 
 export interface InitiatePaymentResult {
   success:   boolean;
@@ -19,7 +18,7 @@ export interface InitiatePaymentResult {
 
 export interface VerifyNumberResult {
   success:  boolean;
-  fullName?: string;
+  fullName?: string; 
   error?:   string;
 }
 
@@ -74,10 +73,9 @@ export async function verifyPhoneNumber(
 export async function initiatePayment(params: {
   msisdn: string;
   amount: number;
-  reason: string;
-  orderId: string;
 }): Promise<SsentezoActionResult<{ reference: string; status: TransactionStatus }>> {
-  const externalReference = generatePrefixedReference(`order_${params.orderId}`);
+  const externalReference = generateTxRef();
+  const reason = "Consultation Fee";
 
   // withSsentezo catches, classifies, and returns { success, error, kind, fieldErrors }
   // — no try/catch needed here at all.
@@ -86,7 +84,7 @@ export async function initiatePayment(params: {
       externalReference,
       msisdn:          params.msisdn,
       amount:          params.amount,
-      reason:          params.reason,
+      reason:          reason,
       successCallback: CALLBACK_URL,
       failureCallback:  CALLBACK_URL,
     });
