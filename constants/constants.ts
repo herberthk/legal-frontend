@@ -31,3 +31,5 @@ export const MAX_REVIEW_FILE_SIZE_MB = 10;
 export const MAX_REVIEW_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
 export const MAX_REVIEW_PAGES = 15;
 export const CHARS_PER_TOKEN = 4; // ~4 characters per token (standard LLM estimate)
+
+export const CALLBACK_URL = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/callback`
