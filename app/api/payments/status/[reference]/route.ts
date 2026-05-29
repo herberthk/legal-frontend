@@ -10,6 +10,8 @@ export async function GET(
 
   try {
     const status = await wallet.transactions.getStatus(reference);
+
+    console.log("Transaction Status:", status);
     return NextResponse.json({
       status:    status.transactionStatus,
       amount:    status.amount,

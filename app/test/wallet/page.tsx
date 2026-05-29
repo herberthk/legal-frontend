@@ -4,13 +4,13 @@
 
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   useTransactionStatus,
   type PollingState,
 } from "@/lib/ssentezo/hooks";
 import { initiatePayment, verifyPhoneNumber } from "@/lib/actions";
+import { isValidAmount, parseUgandanNumber } from "@/utils";
 
 // ── Status badge sub-component ─────────────────────────────────────────────────
 
@@ -60,19 +60,29 @@ type Step = "form" | "verify" | "awaiting" | "complete" | "failed";
 const Page = () => {
 
   const [step,        setStep]        = useState<Step>("form");
-  const [msisdn,      setMsisdn]      = useState("");
+  // const [msisdn,      setMsisdn]      = useState("");
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [errorMsg,    setErrorMsg]    = useState<string | null>(null);
   const [isPending,   startTransition] = useTransition();
-  const [amount,setAmount] = useState(1000);
-  const orderId="";
   const reason="Consultation Fee";
+  const numberPrefix =  "256";
+  const feePercentage = 0.025 // 2.5%
+ const [value,handleValueChange] = useState<{msisdn:string,amount:string}>({msisdn:"",amount:''});
+ const [fee,setFee] = useState(0);
+ 
+ useEffect(() => {
+  if(value.amount.length) {
+    const fee = Number(value.amount) * feePercentage;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFee(fee);
+  }
+ }, [value.amount]);
 
   const { pollingState, transactionStatus, startPolling, error: pollError } =
     useTransactionStatus({
       endpoint:  "/api/payments/status/{reference}",
-      intervalMs: 5_000,
-      maxWaitMs:  120_000,
+      intervalMs: 7_000,
+      //maxWaitMs:  14_400, // 4 minutes in milliseconds
       onTerminal: (status) => {
         if (status === "SUCCEEDED") {
           setStep("complete");
@@ -95,10 +105,26 @@ const Page = () => {
 
   const handleVerify = async() => {
     setErrorMsg(null);
+    const amountResult = isValidAmount(value.amount);
+    console.log('amountResult',amountResult);
+    if(!amountResult.isValid && amountResult.error) {
+      setErrorMsg(amountResult.error);
+      return;
+    }
+    const {isValid,formattedNumber,error,provider} = parseUgandanNumber(value.msisdn);
+      console.log({isValid,formattedNumber,error,provider});
+      if(!isValid && error) {
+        setErrorMsg(error);
+        return;
+      }
+
+      if(!formattedNumber) {
+        setErrorMsg("Formatted number is required.");
+        return;
+      }
     startTransition(async () => {
-      const result = await verifyPhoneNumber(msisdn);
-      // Stub for example:
-      // const result = { success: true, fullName: "John Doe" };
+        const result = await verifyPhoneNumber(formattedNumber);
+    console.log('result',result);
       if (!result.success) {
         setErrorMsg(result.error ?? "Verification failed.");
         return;
@@ -110,8 +136,27 @@ const Page = () => {
 
   const handlePay = async() => {
     setErrorMsg(null);
+
+    const amountResult = isValidAmount(value.amount);
+    console.log('amountResult',amountResult);
+    if(!amountResult.isValid && amountResult.error) {
+      setErrorMsg(amountResult.error);
+      return;
+    }
+    const {isValid,formattedNumber,error,provider} = parseUgandanNumber(value.msisdn);
+      console.log({isValid,formattedNumber,error,provider});
+      if(!isValid && error) {
+        setErrorMsg(error);
+        return;
+      }
+
+      if(!formattedNumber) {
+        setErrorMsg("Formatted number is required.");
+        return;
+      }
     startTransition(async () => {
-      const result = await initiatePayment({ msisdn, amount });
+    
+      const result = await initiatePayment({ msisdn:formattedNumber, amount:Number(value.amount) });
      console.log('initiatePayment',result);
       if (!result.success) {
         setErrorMsg(result.error ?? "Payment failed.");
@@ -122,11 +167,20 @@ const Page = () => {
     });
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+      const allowedKeys = ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"];
+      if (allowedKeys.includes(e.key)) return;
+      if (!/^\d$/.test(e.key)) e.preventDefault();
+    }, []);
+  
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const digits = e.target.value.replace(/\D/g, "");
+       handleValueChange((prev) => ({ ...prev, [e.target.name]: digits }));
+    };
 
   return (
     <div className="p-4 flex flex-col items-center justify-center gap-4">
-      <h2 className="text-2xl font-bold">Pay UGX {amount.toLocaleString("en-UG")}</h2>
+      <h2 className="text-2xl font-bold">Pay UGX {Number(value.amount).toLocaleString("en-UG")}</h2>
       <p className="text-gray-600">{reason}</p>
 
       {errorMsg && (
@@ -140,17 +194,33 @@ const Page = () => {
           <input
             id="msisdn"
             type="tel"
-            placeholder="256709920188"
-            value={msisdn}
-            onChange={(e) => setMsisdn(e.target.value)}
+            name="msisdn"
+            placeholder="0709920188"
+            value={value.msisdn}
+            maxLength={9}
+            minLength={9}
             className="w-full p-2 mb-3 text-lg"
+             onKeyDown={handleKeyDown}
+              onChange={handleChange}
+              inputMode="numeric"
+          />
+           <input
+            id="amount"
+            type="text"
+            name="amount"
+            placeholder="Enter Amount"
+            value={value.amount}
+            className="w-full p-2 mb-3 text-lg"
+             onKeyDown={handleKeyDown}
+              onChange={handleChange}
+              inputMode="numeric"
           />
           <button
             onClick={handleVerify}
-            disabled={isPending || msisdn.length < 12}
-            className="w-full p-3 text-lg cursor-pointer"
+            disabled={isPending || value.msisdn.length !== 9 || Number(value.amount) < 1000}
+            className="w-full p-3 text-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isPending ? "Verifying…" : "Verify Number →"}
+            {isPending ? "Verifying…" : "Verify Number"}
           </button>
         </div>
       )}
@@ -160,14 +230,17 @@ const Page = () => {
         <div className="p-4 flex flex-col items-center justify-center gap-4">
           <p>Paying to:</p>
           <p className="text-2xl font-bold">{verifiedName}</p>
-          <p className="text-gray-600">{msisdn}</p>
+          <p className="text-gray-600">{numberPrefix + value.msisdn}</p>
+           
+            <p>Transaction Charge: {fee.toLocaleString("en-UG")}</p>
+            <p>Amount to be deducted: {(Number(value.amount) + fee).toLocaleString("en-UG")}</p>
           <button
             onClick={handlePay}
             disabled={isPending}
             className="w-full p-3 text-lg border-none rounded cursor-pointer bg-blue-500 text-white"
            
           >
-            {isPending ? "Initiating…" : `Pay UGX ${amount.toLocaleString("en-UG")}`}
+            {isPending ? "Initiating…" : `Pay UGX ${(Number(value.amount) + fee).toLocaleString("en-UG")}`}
           </button>
           <button
             onClick={() => setStep("form")}
@@ -184,7 +257,7 @@ const Page = () => {
         <div className="p-4 flex flex-col items-center justify-center gap-4">
           <PollingStatusBadge state={pollingState} status={transactionStatus} />
           <p className="mt-4">
-            A prompt has been sent to <strong>{msisdn}</strong>.
+            A prompt has been sent to <strong>{value.msisdn}</strong>.
             <br />
             Enter your Mobile Money PIN to complete payment.
           </p>
