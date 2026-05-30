@@ -109,7 +109,7 @@ console.log("amount in fmobile money final  step", amount)
                   value={phoneNumber}
                   onKeyDown={handleKeyDown}
                   onChange={handleChange}
-                  className="ml-16 bg-transparent border-none outline-none focus:ring-0 text-foreground font-bold text-base w-full placeholder:text-muted-foreground/40 tracking-widest"
+                  className="ml-16 bg-transparent border-none outline-none focus:ring-0 text-muted-foreground font-bold text-base w-full placeholder:text-muted-foreground/40 tracking-widest"
                 />
 
                 {/* Provider badge */}

@@ -41,15 +41,15 @@ export async function POST(req: NextRequest): Promise<Response> {
 
     const txDoc = snapshot.docs[0];
     const txData = txDoc.data();
-    const { userId, amount: amountUgx, amountUsd, method } = txData;
+    const { userId, amount, method } = txData;
 
     if (transactionStatus === "SUCCEEDED") {
       // Atomically: mark completed + credit user balance (USD cents)
       const batch = db.batch();
       batch.update(txDoc.ref, { status: "completed" });
       const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
-      const creditAmount = amountUsd ?? Math.round((amountUgx / USD_TO_UGX_EXCHANGE_RATE) * 100);
-      batch.update(userRef, { balance: FieldValue.increment(creditAmount) });
+      // const creditAmount = amountUsd ?? Math.round((amountUgx / USD_TO_UGX_EXCHANGE_RATE) * 100);
+      batch.update(userRef, { balance: FieldValue.increment(amount) });
       await batch.commit();
 
       // Fetch updated balance for the receipt email
@@ -59,11 +59,12 @@ export async function POST(req: NextRequest): Promise<Response> {
       const paymentMethodLabel =
         method === "MTN" ? "MTN Mobile Money" : "Airtel Money";
 
+        const amountUGX = (Number(amount)/100) * USD_TO_UGX_EXCHANGE_RATE;
       // Non-blocking side-effects (fire and forget — callback must respond fast)
       Promise.all([
         sendTransactionReceiptEmail({
           userId,
-          amountInCents: amountUsd ?? amountUgx,
+          amountInCents: amount,
           paymentMethod: paymentMethodLabel,
           reference: externalReference,
           newBalanceInCents: newBalance,
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         }),
         createNotification(userId, {
           title: "Deposit Successful",
-          message: `Your Mobile Money deposit of UGX ${(amountUgx as number).toLocaleString("en-UG")} was successful.`,
+          message: `Your Mobile Money deposit of UGX ${(amountUGX).toLocaleString("en-UG")} was successful.`,
           type: "SUCCESS",
           url: "/dashboard/billing",
         }),

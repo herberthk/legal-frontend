@@ -88,6 +88,8 @@ declare global {
     status: "pending" | "completed" | "failed";
     method: TransactionMethod
     reference: string;
+    ssentezoWalletReference?:string;
+    financialTransactionId?:string;
   };
 
   type ConnectionState = "disconnected" | "connecting" | "connected" | "error";
