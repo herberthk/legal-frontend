@@ -6,12 +6,15 @@ import type { Appearance } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import {
   initiateStripePayment,
-  initiateMobileMoneyPayment,
-  getTransactionStatus,
 } from "@/lib/actions/wallet";
+import {
+  verifyPhoneNumber,
+  initiateCheckoutPayment,
+} from "@/lib/actions";
 import { toast } from "sonner";
 import { useRouter } from "nextjs-toploader/app";
 import { getStripe } from "@/lib/stripe-client";
+import { parseUgandanNumber } from "@/utils";
 
 // Sub-components
 import { CheckoutHeader } from "./CheckoutHeader";
@@ -25,6 +28,7 @@ import { StripePaymentForm } from "./StripePaymentForm";
 
 // Zustand persisted store
 import { useCheckoutStore } from "@/store/checkout";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
 const STRIPE_APPEARANCE: Appearance = {
   theme: "night",
@@ -61,7 +65,6 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     step, setStep,
     amount, setAmount,
     paymentMethod, setPaymentMethod,
-    network, setNetwork,
     phoneNumber, setPhoneNumber,
     goBack, resetCheckout,
   } = useCheckoutStore();
@@ -72,7 +75,12 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
   const [transactionId, setTransactionId] = useState<string | null>(null);
   const [txRef, setTxRef] = useState<string>("");
   const [statusChecklist, setStatusChecklist] = useState<ChecklistItem[]>([]);
-   const [stripePromise] = useState(() => getStripe());
+  const [stripePromise] = useState(() => getStripe());
+
+  // Phone Verification States
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifiedName, setVerifiedName] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -86,6 +94,11 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
+  }, []);
+
+  const resetVerification = useCallback(() => {
+    setVerifiedName(null);
+    setVerifyError(null);
   }, []);
 
   // ── Amount handlers ─────────────────────────────────────────────────────
@@ -114,9 +127,10 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
       resetCheckout();
       router.push("/dashboard/billing");
     } else {
+      resetVerification();
       goBack();
     }
-  }, [step, goBack, resetCheckout, router]);
+  }, [step, goBack, resetCheckout, router, resetVerification]);
 
   const handleProceedToMethod = useCallback(() => {
     if (!validateAmount()) return;
@@ -146,88 +160,106 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     }
   }, [paymentMethod, user.id, amount, setStep]);
 
-  // ── Mobile Money ────────────────────────────────────────────────────────
-  const handleInitiateMobileMoney = useCallback(async () => {
-    const rawPhone = phoneNumber.replace(/\D/g, "");
-    if (rawPhone.length < 9 || rawPhone.length > 12) {
-      toast.error("Please enter a valid Ugandan phone number");
+  // ── Mobile Money Verification & Initiation ──────────────────────────────
+  const handleVerifyPhone = useCallback(async () => {
+    setVerifyError(null);
+    const parsed = parseUgandanNumber(phoneNumber);
+    if (!parsed.isValid) {
+      setVerifyError(parsed.error ?? "Invalid phone number format");
       return;
     }
+
+    setIsVerifying(true);
+    try {
+      const res = await verifyPhoneNumber(parsed.formattedNumber!);
+      if (res.success && res.data?.fullName) {
+        setVerifiedName(res.data.fullName);
+      } else {
+        setVerifyError("Phone number verification failed.");
+      }
+    } catch {
+      setVerifyError("Network error verifying phone number");
+    } finally {
+      setIsVerifying(false);
+    }
+  }, [phoneNumber]);
+
+  const handleInitiateMobileMoney = useCallback(async () => {
+    const parsed = parseUgandanNumber(phoneNumber);
+    if (!parsed.isValid) {
+      toast.error(parsed.error ?? "Invalid phone number format");
+      return;
+    }
+
     setIsProcessing(true);
     try {
-      const res = await initiateMobileMoneyPayment(user.id, amount, phoneNumber, network);
-      if (res.success && res.transactionId) {
-        setTransactionId(res.transactionId);
-        startPollingTransaction({ txId: res.transactionId, type: "mobile_money", ref: res.reference ?? null });
+      const amountUgx = Math.round(amount * USD_TO_UGX_EXCHANGE_RATE);
+      const res = await initiateCheckoutPayment({
+        userId: user.id,
+        msisdn: parsed.formattedNumber!,
+        amountUgx,
+        amountUsd: amount,
+        userName: verifiedName || undefined,
+      });
+
+      if (res.success && res.data?.reference) {
+        resetCheckout();
+        resetVerification();
+        router.push(`/dashboard/billing/checkout/waiting?ref=${res.data.reference}`);
       } else {
-        toast.error(res.message || "Failed to initialize Mobile Money");
+        toast.error( "Failed to initialize Mobile Money");
       }
     } catch {
       toast.error("Error connecting to Mobile Money gateway");
     } finally {
       setIsProcessing(false);
     }
-  }, [user.id, amount, phoneNumber, network]);
+  }, [user.id, amount, phoneNumber, verifiedName, resetCheckout, resetVerification, router]);
 
-  // ── Polling ─────────────────────────────────────────────────────────────
-  const startPollingTransaction = useCallback(
-    ({ txId, type, ref }: { txId: string; type: "card" | "mobile_money"; ref: string | null }) => {
-      setStep(4);
+  // ── Stripe Polling (Step 4) ─────────────────────────────────────────────
+  // const startPollingTransaction = useCallback(
+  //   ({ txId, ref }: { txId: string; ref: string | null }) => {
+  //     setStep(4);
 
-      if (type === "mobile_money") {
-        setStatusChecklist([
-          { label: "Initiating Mobile Money request", done: true, loading: false },
-          { label: "USSD PIN prompt pushed to phone", done: false, loading: true },
-          { label: "Waiting for your confirmation PIN", done: false, loading: false },
-        ]);
-      } else {
-        setStatusChecklist([
-          { label: "Confirming payment with Stripe", done: true, loading: false },
-          { label: "Stripe checkout successful", done: true, loading: false },
-          { label: "Waiting for secure webhook receipt", done: false, loading: true },
-        ]);
-      }
+  //     setStatusChecklist([
+  //       { label: "Confirming payment with Stripe", done: true, loading: false },
+  //       { label: "Stripe checkout successful", done: true, loading: false },
+  //       { label: "Waiting for secure webhook receipt", done: false, loading: true },
+  //     ]);
 
-      let pollCount = 0;
-      pollIntervalRef.current = setInterval(async () => {
-        pollCount++;
-        try {
-          const res = await getTransactionStatus(txId);
-          if (res.success && res.status === "completed") {
-            clearInterval(pollIntervalRef.current!);
-            setStatusChecklist((prev) =>
-              prev.map((item) => ({ ...item, done: true, loading: false }))
-            );
-            setTimeout(() => {
-              resetCheckout();
-              router.push(`/dashboard/billing/success?ref=${ref}`);
-            }, 800);
-          } else if (res.success && res.status === "failed") {
-            clearInterval(pollIntervalRef.current!);
-            toast.error("Transaction failed or was canceled by user.");
-            setStep(3);
-          } else {
-            if (type === "mobile_money" && pollCount === 2) {
-              setStatusChecklist([
-                { label: "Initiating Mobile Money request", done: true, loading: false },
-                { label: "USSD PIN prompt pushed to phone", done: true, loading: false },
-                { label: "Waiting for your confirmation PIN", done: false, loading: true },
-              ]);
-            }
-            if (pollCount >= 14) {
-              clearInterval(pollIntervalRef.current!);
-              toast.info("Payment submitted! Processing in the background.");
-              resetCheckout();
-              router.push("/dashboard/billing");
-            }
-          }
-        } catch {
-          console.error("Polling error");
-        }
-      }, 1500);
-    },
-    [setStep, resetCheckout, router]
-  );
+  //     let pollCount = 0;
+  //     pollIntervalRef.current = setInterval(async () => {
+  //       pollCount++;
+  //       try {
+  //         const res = await getTransactionStatus(txId);
+  //         if (res.success && res.status === "completed") {
+  //           clearInterval(pollIntervalRef.current!);
+  //           setStatusChecklist((prev) =>
+  //             prev.map((item) => ({ ...item, done: true, loading: false }))
+  //           );
+  //           setTimeout(() => {
+  //             resetCheckout();
+  //             router.push(`/dashboard/billing/success?ref=${ref}`);
+  //           }, 800);
+  //         } else if (res.success && res.status === "failed") {
+  //           clearInterval(pollIntervalRef.current!);
+  //           toast.error("Transaction failed or was canceled by user.");
+  //           setStep(3);
+  //         } else {
+  //           if (pollCount >= 14) {
+  //             clearInterval(pollIntervalRef.current!);
+  //             toast.info("Payment submitted! Processing in the background.");
+  //             resetCheckout();
+  //             router.push("/dashboard/billing");
+  //           }
+  //         }
+  //       } catch {
+  //         console.error("Polling error");
+  //       }
+  //     }, 1500);
+  //   },
+  //   [setStep, resetCheckout, router]
+  // );
 
   // ── Stripe success callback ─────────────────────────────────────────────
   const handleStripeSuccess = useCallback(
@@ -285,13 +317,16 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
                   className="flex-1 flex flex-col justify-between"
                 >
                   <StepMobileMoney
-                    network={network}
                     phoneNumber={phoneNumber}
                     amount={amount}
                     isProcessing={isProcessing}
-                    onSelectNetwork={setNetwork}
+                    isVerifying={isVerifying}
+                    verifiedName={verifiedName}
+                    verifyError={verifyError}
                     onPhoneChange={setPhoneNumber}
-                    onSubmit={handleInitiateMobileMoney}
+                    onVerify={handleVerifyPhone}
+                    onConfirm={handleInitiateMobileMoney}
+                    onChangeNumber={resetVerification}
                   />
                 </motion.div>
               )}

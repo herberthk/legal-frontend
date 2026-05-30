@@ -4,21 +4,18 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 export type CheckoutStep = 1 | 2 | 3 | 4;
 export type PaymentMethodType = "card" | "mobile_money";
-export type NetworkType = "MTN" | "AIRTEL";
 
 interface CheckoutState {
   // Persisted across refreshes (session only)
   step: CheckoutStep;
   amount: number;
   paymentMethod: PaymentMethodType;
-  network: NetworkType;
   phoneNumber: string;
 
   // Actions
   setStep: (step: CheckoutStep) => void;
   setAmount: (amount: number) => void;
   setPaymentMethod: (method: PaymentMethodType) => void;
-  setNetwork: (network: NetworkType) => void;
   setPhoneNumber: (phone: string) => void;
   resetCheckout: () => void;
   goBack: () => void;
@@ -26,9 +23,8 @@ interface CheckoutState {
 
 const DEFAULT_STATE = {
   step: 1 as CheckoutStep,
-  amount: 20,
+  amount: 75000, // Default to 75,000 UGX ($20 USD)
   paymentMethod: "mobile_money" as PaymentMethodType,
-  network: "MTN" as NetworkType,
   phoneNumber: "",
 };
 
@@ -40,7 +36,6 @@ export const useCheckoutStore = create<CheckoutState>()(
       setStep: (step) => set({ step }),
       setAmount: (amount) => set({ amount }),
       setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
-      setNetwork: (network) => set({ network }),
       setPhoneNumber: (phoneNumber) => set({ phoneNumber }),
 
       resetCheckout: () => set(DEFAULT_STATE),
@@ -70,7 +65,6 @@ export const useCheckoutStore = create<CheckoutState>()(
         step: state.step,
         amount: state.amount,
         paymentMethod: state.paymentMethod,
-        network: state.network,
         phoneNumber: state.phoneNumber,
       }),
       // Skip server-side hydration to avoid mismatch

@@ -1,142 +1,269 @@
 "use client";
-import { memo, useCallback } from "react";
-import { motion } from "framer-motion";
-import { Smartphone } from "lucide-react";
+
+import { memo, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Smartphone, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
-import { formatUgx, formatUSD } from "@/utils";
-import type { NetworkType } from "@/store/checkout";
+import { parseUgandanNumber } from "@/utils";
+
+const FEE_PERCENTAGE = 0.025; // 2.5% Ssentezo transaction fee
+const USD_TO_UGX = 3750;
 
 interface StepMobileMoneyProps {
-  network: NetworkType;
-  phoneNumber: string;
-  amount: number;
+  phoneNumber:  string;
+  amount:       number; // USD
   isProcessing: boolean;
-  onSelectNetwork: (network: NetworkType) => void;
-  onPhoneChange: (digits: string) => void;
-  onSubmit: () => void;
+  isVerifying:  boolean;
+  verifiedName: string | null;
+  verifyError:  string | null;
+  onPhoneChange:    (digits: string) => void;
+  onVerify:         () => void;
+  onConfirm:        () => void;
+  onChangeNumber:   () => void;
 }
 
 export const StepMobileMoney = memo(function StepMobileMoney({
-  network,
   phoneNumber,
   amount,
   isProcessing,
-  onSelectNetwork,
+  isVerifying,
+  verifiedName,
+  verifyError,
   onPhoneChange,
-  onSubmit,
+  onVerify,
+  onConfirm,
+  onChangeNumber,
 }: StepMobileMoneyProps) {
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    const allowedKeys = ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"];
-    if (allowedKeys.includes(e.key)) return;
+    const allowed = ["Backspace","Delete","Tab","ArrowLeft","ArrowRight","Home","End"];
+    if (allowed.includes(e.key)) return;
     if (!/^\d$/.test(e.key)) e.preventDefault();
   }, []);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, "");
-    onPhoneChange(digits);
+    onPhoneChange(e.target.value.replace(/\D/g, ""));
   }, [onPhoneChange]);
 
+  // Auto-detect network as user types
+  const detectedProvider = useMemo(() => {
+    if (phoneNumber.length < 2) return null;
+    const { provider } = parseUgandanNumber(phoneNumber);
+    return provider;
+  }, [phoneNumber]);
+
+  // Amount maths
+  const amountUgx  = Math.round(amount * USD_TO_UGX);
+  const feeUgx     = Math.round(amountUgx * FEE_PERCENTAGE);
+  const totalUgx   = amountUgx + feeUgx;
+  const canVerify  = phoneNumber.length === 9 && !isVerifying && !isProcessing;
+
   return (
-    <div className="space-y-8 flex-1 flex flex-col justify-between">
-      <div className="space-y-8">
-        {/* Network Selector */}
-        <div>
-          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
-            Select Network Provider
-          </label>
-          <div className="grid grid-cols-2 gap-4">
-            {/* MTN */}
-            <button
-              onClick={() => onSelectNetwork("MTN")}
-              className={`p-5 rounded-2xl text-center transition-all relative overflow-hidden group ${
-                network === "MTN"
-                  ? "bg-yellow-500/10 shadow-lg shadow-yellow-500/20"
-                  : "bg-slate-500/5 shadow-xl hover:shadow-2xl hover:bg-slate-500/10 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              <span className={`font-extrabold text-base block mb-1 tracking-tight ${network === "MTN" ? "text-yellow-500" : ""}`}>
-                MTN MoMo
-              </span>
-              <span className="text-[11px] font-medium opacity-80">Direct push USSD prompt</span>
-              {network === "MTN" && (
-                <motion.div
-                  layoutId="networkDot"
-                  className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]"
-                />
-              )}
-            </button>
+    <div className="flex-1 flex flex-col justify-between space-y-6">
+      <AnimatePresence mode="wait">
 
-            {/* Airtel */}
-            <button
-              onClick={() => onSelectNetwork("AIRTEL")}
-              className={`p-5 rounded-2xl text-center transition-all relative overflow-hidden group ${
-                network === "AIRTEL"
-                  ? "bg-red-500/10 shadow-lg shadow-red-500/20"
-                  : "bg-slate-500/5 shadow-xl hover:shadow-2xl hover:bg-slate-500/10 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              <span className={`font-extrabold text-base block mb-1 tracking-tight ${network === "AIRTEL" ? "text-red-500" : ""}`}>
-                Airtel Money
-              </span>
-              <span className="text-[11px] font-medium opacity-80">Direct push USSD prompt</span>
-              {network === "AIRTEL" && (
-                <motion.div
-                  layoutId="networkDot"
-                  className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"
-                />
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Phone Number Input */}
-        <div>
-          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">
-            Enter Phone Number
-          </label>
-          <div className="relative rounded-full shadow-2xl px-12 py-4 border border-slate-400/30">
-            <div className="absolute left-6 top-1/2 -translate-y-1/2 text-muted-foreground text-lg font-bold select-none pr-3">
-              +256
+        {/* ── A: Phone Entry ── */}
+        {!verifiedName ? (
+          <motion.div
+            key="phone-entry"
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -16 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Info banner */}
+            <div className="rounded-2xl bg-indigo-500/5 border border-indigo-500/20 px-4 py-3 flex items-start gap-3">
+              <Smartphone className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Works with{" "}
+                <span className="font-semibold text-yellow-400">MTN MoMo</span> &amp;{" "}
+                <span className="font-semibold text-red-400">Airtel Money</span> Uganda.
+                Network is auto-detected — no selection needed.
+              </p>
             </div>
-            <input
-              maxLength={9}
-              minLength={9}
-              placeholder={network === "AIRTEL" ? "701 234567" : "771 234567"}
-              value={phoneNumber}
-              onKeyDown={handleKeyDown}
-              onChange={handleChange}
-              inputMode="numeric"
-              className="ml-8 bg-transparent border-none outline-none focus:ring-0 text-foreground font-bold text-lg w-full placeholder:text-muted-foreground"
-            />
-          </div>
-          <p className="text-[11px] font-medium text-muted-foreground mt-3 px-1 flex items-start gap-2">
-            <Smartphone className="h-3.5 w-3.5 shrink-0 mt-0.5 opacity-70" />
-            A USSD PIN prompt will pop up on this phone to complete the payment.
-          </p>
-        </div>
-      </div>
 
-      {/* Submit */}
-      <div className="pt-6 mt-8 flex items-center justify-between gap-4">
-        <CustomButton
-          variant="transparent"
-          shape="pill"
-          borderLeftWidth="4px"
-          borderLeftColor="#4f46e5"
-          borderRightWidth="4px"
-          borderRightColor="#ea580c"
-          className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
-          hoverEffect="glow"
-          disabled={isProcessing}
-          fullWidth
-          isLoading={isProcessing}
-          onClick={onSubmit}
-        >
-          Topup {formatUSD(amount)} ({formatUgx(amount)})
-        </CustomButton>
-      </div>
+            {/* Phone input */}
+            <div>
+              <label
+                htmlFor="momo-phone"
+                className="block text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3"
+              >
+                Mobile Money Number
+              </label>
+
+              <div className="relative rounded-full shadow-2xl px-5 py-4 border border-slate-400/30 focus-within:border-indigo-500/50 transition-colors">
+                {/* Prefix */}
+                <div className="absolute left-5 top-1/2 -translate-y-1/2 select-none flex items-center gap-1.5 text-muted-foreground font-bold">
+                  <span className="text-base">🇺🇬</span>
+                  <span className="text-base">+256</span>
+                </div>
+
+                <input
+                  id="momo-phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  maxLength={9}
+                  placeholder="7X XXX XXXX"
+                  value={phoneNumber}
+                  onKeyDown={handleKeyDown}
+                  onChange={handleChange}
+                  className="ml-16 bg-transparent border-none outline-none focus:ring-0 text-foreground font-bold text-base w-full placeholder:text-muted-foreground/40 tracking-widest"
+                />
+
+                {/* Provider badge */}
+                <AnimatePresence>
+                  {detectedProvider && (
+                    <motion.span
+                      key={detectedProvider}
+                      initial={{ opacity: 0, scale: 0.75 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.75 }}
+                      className={`absolute right-5 top-1/2 -translate-y-1/2 text-[11px] font-extrabold px-2.5 py-1 rounded-full ${
+                        detectedProvider === "MTN"
+                          ? "bg-yellow-500/20 text-yellow-400"
+                          : "bg-red-500/20 text-red-400"
+                      }`}
+                    >
+                      {detectedProvider}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Error / hint */}
+              <AnimatePresence>
+                {verifyError ? (
+                  <motion.p
+                    key="err"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-1.5 text-red-400 text-xs mt-2 px-2"
+                  >
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {verifyError}
+                  </motion.p>
+                ) : (
+                  <motion.p
+                    key="hint"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-[11px] text-muted-foreground/60 mt-2 px-2"
+                  >
+                    Enter 9 digits — do not include leading 0 or country code
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Verify button */}
+            <CustomButton
+              variant="transparent"
+              shape="pill"
+              borderLeftWidth="4px"
+              borderLeftColor="#4f46e5"
+              borderRightWidth="4px"
+              borderRightColor="#ea580c"
+              className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+              hoverEffect="glow"
+              disabled={!canVerify}
+              fullWidth
+              isLoading={isVerifying}
+              onClick={onVerify}
+            >
+              {isVerifying ? "Verifying…" : "Verify Number"}
+            </CustomButton>
+          </motion.div>
+        ) : (
+
+          /* ── B: Confirm ── */
+          <motion.div
+            key="confirm"
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -16 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Verified card */}
+            <div className="rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-5 flex items-start gap-4">
+              <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
+                  Verified Mobile Money Information
+                </p>
+                <p className="text-xl font-extrabold text-foreground tracking-tight leading-tight">
+                  {verifiedName}
+                </p>
+                <p className="text-sm text-muted-foreground font-medium mt-0.5">
+                  +256 {phoneNumber}
+                </p>
+              </div>
+            </div>
+
+            {/* Amount breakdown */}
+            <div className="rounded-2xl bg-slate-500/5 border border-slate-500/10 p-5 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Deposit amount</span>
+                <span className="font-semibold">
+                  UGX {amountUgx.toLocaleString("en-UG")}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Transaction fee (2.5%)</span>
+                <span className="font-semibold text-orange-400">
+                  + UGX {feeUgx.toLocaleString("en-UG")}
+                </span>
+              </div>
+              <div className="border-t border-slate-500/20 pt-3 flex justify-between">
+                <span className="font-bold text-foreground">Total deducted</span>
+                <span className="font-extrabold text-foreground text-base">
+                  UGX {totalUgx.toLocaleString("en-UG")}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-center text-muted-foreground/70 leading-relaxed">
+              A USSD prompt will appear on your phone.
+              Enter your Mobile Money PIN to confirm.
+            </p>
+
+            {/* CTA */}
+            <div className="space-y-3">
+              <CustomButton
+                variant="transparent"
+                shape="pill"
+                borderLeftWidth="4px"
+                borderLeftColor="#4f46e5"
+                borderRightWidth="4px"
+                borderRightColor="#ea580c"
+                className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+                hoverEffect="glow"
+                disabled={isProcessing}
+                fullWidth
+                isLoading={isProcessing}
+                onClick={onConfirm}
+              >
+                {isProcessing
+                  ? "Initiating payment…"
+                  : `Pay UGX ${totalUgx.toLocaleString("en-UG")}`}
+              </CustomButton>
+
+              <button
+                type="button"
+                onClick={onChangeNumber}
+                disabled={isProcessing}
+                className="w-full flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors py-2 disabled:opacity-40"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Change number
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });
