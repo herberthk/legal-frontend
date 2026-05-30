@@ -1,6 +1,6 @@
 import { parseCallbackPayload } from "@/lib/ssentezo";
 import { db } from "@/firebase/admin";
-import { COLLECTIONS } from "@/constants";
+import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
 import { sendTransactionReceiptEmail } from "@/lib/actions/email";
@@ -44,11 +44,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     const { userId, amount: amountUgx, amountUsd, method } = txData;
 
     if (transactionStatus === "SUCCEEDED") {
-      // Atomically: mark completed + credit user balance (UGX)
+      // Atomically: mark completed + credit user balance (USD cents)
       const batch = db.batch();
       batch.update(txDoc.ref, { status: "completed" });
       const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
-      batch.update(userRef, { balance: FieldValue.increment(amountUgx) });
+      const creditAmount = amountUsd ?? Math.round((amountUgx / USD_TO_UGX_EXCHANGE_RATE) * 100);
+      batch.update(userRef, { balance: FieldValue.increment(creditAmount) });
       await batch.commit();
 
       // Fetch updated balance for the receipt email

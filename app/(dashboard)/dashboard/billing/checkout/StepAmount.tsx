@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
 const PRESET_AMOUNTS = [10, 20, 50, 100] as const;
 
@@ -16,7 +17,6 @@ interface StepAmountProps {
 
 export const StepAmount = memo(function StepAmount({
   amount,
-  onAmountSelect,
   onCustomAmountChange,
   onContinue,
 }: StepAmountProps) {
@@ -44,13 +44,13 @@ export const StepAmount = memo(function StepAmount({
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {PRESET_AMOUNTS.map((val) => {
-              const presetUgx = val * 3750;
+              const presetUgx = val * USD_TO_UGX_EXCHANGE_RATE;
               const isSelected = Math.round(amount / 100) === Math.round(presetUgx / 100);
 
               return (
                 <button
                   key={val}
-                  onClick={() => onAmountSelect(val)}
+                  onClick={() => onCustomAmountChange(String(presetUgx))}
                   className={`py-4 px-2 rounded-2xl transition-all duration-300 flex flex-col items-center justify-center gap-1.5 overflow-hidden relative group ${
                     isSelected
                       ? "bg-indigo-600/15 text-indigo-300 shadow-lg shadow-indigo-600/20 scale-105 border border-indigo-500/30"
@@ -83,16 +83,16 @@ export const StepAmount = memo(function StepAmount({
               UGX
             </span>
             <Input
-              type="number"
+              inputMode="numeric"
               placeholder="10,000"
-              value={amount || ""}
+              value={amount === 0 ? "" : String(amount)}
               onChange={handleCustomChange}
               className="py-6 pl-16 pr-5 bg-slate-500/5 shadow-lg hover:shadow-2xl hover:bg-slate-500/10 text-foreground font-semibold text-lg rounded-full transition-all border border-slate-700/30 focus:border-indigo-500/50"
             />
           </div>
           {amount > 0 && (
             <p className="text-xs text-indigo-400 mt-2 font-medium px-2">
-              Equivalent to: ${(amount / 3750).toFixed(2)} USD
+              Equivalent to: ${(amount / USD_TO_UGX_EXCHANGE_RATE).toFixed(2)} USD
             </p>
           )}
         </div>

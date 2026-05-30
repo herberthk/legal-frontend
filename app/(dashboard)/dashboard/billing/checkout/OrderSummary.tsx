@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Wallet } from "lucide-react";
 import { formatUSD } from "@/utils";
 import { useCheckoutStore } from "@/store/checkout";
+import { MOBILE_MONEY_FEE_PERCENTAGE, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
 interface OrderSummaryProps {
   balance: number;
@@ -17,17 +18,16 @@ export const OrderSummary = memo(function OrderSummary({
   const { paymentMethod } = useCheckoutStore();
 
   const isMobile = paymentMethod === "mobile_money";
-  const exchangeRate = 3750;
   
   // Calculate amounts in UGX
   const amountUgx = amount || 0;
-  const feeUgx = isMobile ? Math.round(amountUgx * 0.025) : 0;
+  const feeUgx = isMobile ? Math.round(amountUgx * MOBILE_MONEY_FEE_PERCENTAGE) : 0;
   const totalUgx = amountUgx + feeUgx;
 
   // Convert to USD equivalents
-  const amountUsd = amountUgx / exchangeRate;
-  const feeUsd = feeUgx / exchangeRate;
-  const totalUsd = totalUgx / exchangeRate;
+  const amountUsd = amountUgx / USD_TO_UGX_EXCHANGE_RATE;
+  const feeUsd = feeUgx / USD_TO_UGX_EXCHANGE_RATE;
+  const totalUsd = totalUgx / USD_TO_UGX_EXCHANGE_RATE;
 
   return (
     <motion.div
