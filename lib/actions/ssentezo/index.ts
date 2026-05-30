@@ -83,30 +83,41 @@ export async function initiateCheckoutPayment(params: {
   // Pre-create Firestore transaction record in "pending" state.
   // If Ssentezo later fails, we mark it "failed" below.
   const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
-
-  await transactionRef.set({
-    userId:      params.userId,
-    type:        "DEPOSIT",
-    description: `Funds Deposit via Mobile Money (${method})`,
-    amount:      params.amountUgx,
-    amountUsd:   Math.round(params.amountUsd * 100), // stored in cents for email
-    createdAt:   FieldValue.serverTimestamp(),
-    details:     `Phone: ${params.msisdn}`,
-    reference:   externalReference,
-    method,
-    status:      "pending",
-  });
-
+  const fee = params.amountUgx * 0.025;
+const total = params.amountUgx + fee;
   const result = await withSsentezo(async () => {
     const res = await wallet.transactions.deposit({
       externalReference,
       msisdn:          params.msisdn,
-      amount:          params.amountUgx,
+      amount:          total,
       reason:          "Wallet Top Up",
       name:            params.userName,
       successCallback: CALLBACK_URL,
       failureCallback: CALLBACK_URL,
     });
+
+    console.log("transaction result", res);
+    console.log("Amount UGX", params.amountUgx);
+    console.log("Amount USD", params.amountUsd);
+    console.log("Amount Total", total);
+
+     const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
+            userId: params.userId,
+            type: "DEPOSIT",
+            description: `Funds Deposit via Mobile Money (${method})`,
+            amount: params.amountUsd * 100,
+            createdAt: FieldValue.serverTimestamp(),
+            details: `Phone: ${params.msisdn}`,
+            reference: externalReference,
+            status: "pending",
+            method,
+            ssentezoWalletReference: res.ssentezoWalletReference,
+            financialTransactionId: res.financialTransactionId,
+          };
+
+      await transactionRef.set({
+      ...transaction
+      });
 
     return {
       reference:     externalReference,
