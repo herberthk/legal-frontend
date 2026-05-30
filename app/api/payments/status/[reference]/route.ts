@@ -1,7 +1,9 @@
-import { handleSsentezoRouteError } from "@/lib";
+import { handleSsentezoRouteError } from "@/lib/ssentezo";
 import { wallet } from "@/lib/payments";
 import { NextRequest, NextResponse } from "next/server";
 
+// GET /api/payments/status/[reference]
+// Polled by useTransactionStatus hook on the client
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ reference: string }> }
@@ -11,7 +13,6 @@ export async function GET(
   try {
     const status = await wallet.transactions.getStatus(reference);
 
-    console.log("Transaction Status:", status);
     return NextResponse.json({
       status:    status.transactionStatus,
       amount:    status.amount,
@@ -19,6 +20,8 @@ export async function GET(
       timestamp: status.transactionTime,
     });
   } catch (err) {
-    return NextResponse.json({ status: "ERROR", message: handleSsentezoRouteError(err, NextResponse) });
+    console.error("[Status Route] Error in GET /api/payments/status/[reference]:", err);
+    //@ts-ignore
+    return handleSsentezoRouteError(err as Error, NextResponse);
   }
 }

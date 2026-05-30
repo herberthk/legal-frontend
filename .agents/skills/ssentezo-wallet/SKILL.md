@@ -407,3 +407,447 @@ MsisdnData; // { msisdn, FirstName, Surname }
 Bank; // { id, bank_name, address, swift_code }
 CallbackPayload; // webhook body shape
 ```
+
+## Amount Constraints
+
+- Minimum: **UGX 500**
+- Maximum: **UGX 7,000,000**
+- Bank transfers minimum: **UGX 50,000**
+- No negative numbers, exponential notation (e.g. `1e5`), or non-numeric characters
+- Only supported currency: **UGX**
+
+---
+
+## HTTP Status Codes
+
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| 202  | Transaction succeeded                   |
+| 400  | Transaction failed                      |
+| 401  | Missing Authorization header            |
+| 403  | Invalid credentials                     |
+| 422  | Unprocessable entity (validation error) |
+| 429  | Rate limit exceeded                     |
+| 500  | Internal server error                   |
+
+## Transaction Statuses
+
+| Status          | Description                                             |
+| --------------- | ------------------------------------------------------- |
+| `PENDING`       | Initiated; waiting for user PIN or network confirmation |
+| `SUCCEEDED`     | Completed successfully                                  |
+| `FAILED`        | Did not complete                                        |
+| `INDETERMINATE` | Status unknown; can take up to 48 hours to resolve      |
+
+## Standard Response Shape
+
+```typescript
+// Success
+{ response: "OK"; data: Record<string, unknown> }
+
+// Error
+{ response: "ERROR"; error: { message: string; code?: string; errors?: Record<string, string[]> } }
+```
+
+---
+
+## Rate Limiting
+
+Ssentezo does not publish exact limits. When exceeded, HTTP 429 is returned:
+
+```json
+{
+  "response": "ERROR",
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Too many requests. You have exceeded the rate limit."
+  }
+}
+```
+
+## MSISDN / Phone Number Verification
+
+**POST** `/api/msisdn-verification`
+
+Looks up the name registered to a phone number. Call this **before** disbursing funds to confirm the recipient.
+
+#### Request body
+
+| Field    | Type   | Required | Notes                                     |
+| -------- | ------ | -------- | ----------------------------------------- |
+| `msisdn` | string | ✅       | International format, e.g. `256709920188` |
+
+### Success response
+
+```json
+{
+  "response": "OK",
+  "data": {
+    "msisdn": "256712345678",
+    "FirstName": "John",
+    "Surname": "Doe"
+  }
+}
+```
+
+### Error responses
+
+```json
+{ "response": "ERROR", "error": { "message": "The msisdn field format is invalid." } }
+{ "response": "ERROR", "error": { "message": "Failed to verify the name of the holder of the MSISDN" } }
+```
+
+## Withdraw Funds (Disburse to Mobile Money)
+
+**POST** `/api/withdraw`
+
+Sends money **from** your Ssentezo wallet **to** a mobile money phone number.
+
+#### Request body
+
+| Field               | Type   | Required | Notes                                        |
+| ------------------- | ------ | -------- | -------------------------------------------- |
+| `externalReference` | string | ✅       | Unique per transaction, max 250 chars        |
+| `msisdn`            | string | ✅       | Recipient phone in international format      |
+| `amount`            | number | ✅       | UGX 500 – 7,000,000                          |
+| `currency`          | string | ✅       | `"UGX"`                                      |
+| `reason`            | string | ✅       | Transaction description                      |
+| `name`              | string | ❌       | Recipient's name (optional but recommended)  |
+| `success_callback`  | string | ❌       | Publicly accessible URL, must respond in <5s |
+| `failure_callback`  | string | ❌       | Publicly accessible URL, must respond in <5s |
+
+#### Success response
+
+```json
+{
+  "response": "OK",
+  "data": {
+    "transactionStatus": "PENDING",
+    "ssentezoWalletReference": "f245ddac-1622-4dad-9a94-4e289bb6b8a4",
+    "financialTransactionId": "b997c60c6f445185fcd9a3a595533734"
+  }
+}
+```
+
+#### Common error codes
+
+| Code                   | Meaning                                            |
+| ---------------------- | -------------------------------------------------- |
+| `UPPER_CEILING_BREACH` | Amount exceeds UGX 7,000,000                       |
+| (validation errors)    | See `error.errors` object for field-level messages |
+
+---
+
+## Collect Money (Request Payment / Deposit)
+
+**POST** `/api/deposit`
+
+Pulls money **from** a mobile money phone number **into** your Ssentezo wallet. The payer receives a USSD prompt and must enter their Mobile Money PIN to confirm.
+
+#### Request body
+
+| Field               | Type   | Required | Notes                                        |
+| ------------------- | ------ | -------- | -------------------------------------------- |
+| `externalReference` | string | ✅       | Unique per transaction, max 250 chars        |
+| `msisdn`            | string | ✅       | Payer's phone in international format        |
+| `amount`            | number | ✅       | UGX 500 – 7,000,000                          |
+| `currency`          | string | ✅       | `"UGX"`                                      |
+| `reason`            | string | ✅       | Collection reason                            |
+| `name`              | string | ❌       | Payer's name                                 |
+| `success_callback`  | string | ❌       | Publicly accessible URL, must respond in <5s |
+| `failure_callback`  | string | ❌       | Publicly accessible URL, must respond in <5s |
+
+### Success response
+
+```json
+{
+  "response": "OK",
+  "data": {
+    "transactionStatus": "PENDING",
+    "ssentezoWalletReference": "f245ddac-1622-4dad-9a94-4e289bb6b8a4",
+    "financialTransactionId": "b997c60c6f445185fcd9a3a595533734"
+  }
+}
+```
+
+> A `PENDING` status with HTTP 202 is **normal and expected**. It means the prompt has been sent to the payer's phone. Do not treat it as a failure. Use the callback URLs or poll `/api/get_status/{externalReference}` to track completion.
+
+---
+
+### Check Transaction Status
+
+**POST** `/api/get_status/{externalReference}`
+
+Checks the status of a mobile money transaction (deposit or withdraw) by your `externalReference`.
+
+### URL parameter
+
+| Parameter           | Type   | Required |
+| ------------------- | ------ | -------- |
+| `externalReference` | string | ✅       |
+
+No request body is needed.
+
+### Success response
+
+```json
+{
+  "response": "OK",
+  "data": {
+    "transactionStatus": "SUCCEEDED",
+    "ssentezoWalletReference": "3181ead4-eff9-4b9b-b926-53b41e632ca5",
+    "externalReference": "rfg54rj59033w4672326hi45h6j6456",
+    "financialTransactionId": "QkK0UVtkMlCZN...",
+    "amount": 3000,
+    "reason": "Sending money to someone",
+    "currency": "UGX",
+    "msisdn": "256770691484",
+    "transactionTime": "2024-04-24T16:24:58.000000Z"
+  }
+}
+```
+
+## Bank Transfer (Push to Bank)
+
+Sending money to a bank account is a **two-step process**: first fetch the bank list to get the `bank_id`, then initiate the transfer.
+
+---
+
+### Get Supported Banks
+
+**POST** `/api/push-to-bank/get-banks`
+
+No request body required. Returns all banks Ssentezo supports.
+
+##### Example
+
+```typescript
+async function getBanks(apiUser: string, apiKey: string) {
+  const res = await fetch(
+    "https://wallet.ssentezo.com/api/push-to-bank/get-banks",
+    {
+      method: "POST",
+      headers: {
+        Authorization: buildAuthHeader(apiUser, apiKey),
+        "Content-Type": "application/json",
+      },
+    },
+  );
+  return res.json();
+}
+```
+
+##### Success response shape
+
+```json
+{
+  "response": "OK",
+  "data": {
+    "banks": [
+      {
+        "id": 3,
+        "bank_name": "Equity",
+        "address": "Church House",
+        "swift_code": "QW2456"
+      },
+      {
+        "id": 4,
+        "bank_name": "Stanbic Bank",
+        "address": "Church House",
+        "swift_code": "QW2456"
+      },
+      {
+        "id": 5,
+        "bank_name": "Housing Finance Bank",
+        "address": "Ntinda",
+        "swift_code": "QWE34E"
+      }
+    ]
+  }
+}
+```
+
+> Cache this list — it changes infrequently and repeated calls count against rate limits.
+
+---
+
+#### 6b. Request Bank Transfer
+
+**POST** `/api/push-to-bank/request-bank-transfer`
+
+Initiates a transfer from your wallet to a bank account.
+
+##### Request body
+
+| Field                | Type           | Required | Notes                              |
+| -------------------- | -------------- | -------- | ---------------------------------- |
+| `external_reference` | string         | ✅       | Unique transaction identifier      |
+| `bank_id`            | number         | ✅       | From `/api/push-to-bank/get-banks` |
+| `account_name`       | string         | ✅       | Bank account holder's name         |
+| `account_number`     | string         | ✅       | Bank account number                |
+| `amount`             | number\|string | ✅       | Minimum UGX 50,000                 |
+| `reason`             | string         | ✅       | Transaction narration              |
+
+##### Example
+
+```typescript
+async function requestBankTransfer(
+  params: {
+    externalReference: string;
+    bankId: number;
+    accountName: string;
+    accountNumber: string;
+    amount: number;
+    reason: string;
+  },
+  apiUser: string,
+  apiKey: string,
+) {
+  const res = await fetch(
+    "https://wallet.ssentezo.com/api/push-to-bank/request-bank-transfer",
+    {
+      method: "POST",
+      headers: {
+        Authorization: buildAuthHeader(apiUser, apiKey),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        external_reference: params.externalReference,
+        bank_id: params.bankId,
+        account_name: params.accountName,
+        account_number: params.accountNumber,
+        amount: String(params.amount),
+        reason: params.reason,
+      }),
+    },
+  );
+  return res.json();
+}
+```
+
+##### Success response
+
+```json
+{
+  "response": "OK",
+  "data": {
+    "transactionStatus": "PENDING",
+    "ssentezoWalletReference": "21537d54-bcd1-44a5-8614-717e093483ac",
+    "externalReference": "82c7d1d6-850b-4e14-a0b7-5379058b17be"
+  }
+}
+```
+
+---
+
+#### 6c. Check Bank Transfer Status
+
+**POST** `/api/push-to-bank/check-bank-transfer-status`
+
+##### Request body
+
+| Field                | Type   | Required |
+| -------------------- | ------ | -------- |
+| `external_reference` | string | ✅       |
+
+##### Example
+
+```typescript
+async function checkBankTransferStatus(
+  externalReference: string,
+  apiUser: string,
+  apiKey: string,
+) {
+  const res = await fetch(
+    "https://wallet.ssentezo.com/api/push-to-bank/check-bank-transfer-status",
+    {
+      method: "POST",
+      headers: {
+        Authorization: buildAuthHeader(apiUser, apiKey),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ external_reference: externalReference }),
+    },
+  );
+  return res.json();
+}
+```
+
+##### Success response
+
+```json
+{
+  "response": "OK",
+  "data": {
+    "transactionStatus": "SUCCEEDED",
+    "ssentezoWalletReference": "51c3d7b3-e70a-4016-8839-fe27a5c610fd",
+    "externalReference": "c734d323-8c1c-4160-8649-4df22443aa57",
+    "amount": 85000,
+    "transactionTime": "2024-09-30T12:40:48.000000Z"
+  }
+}
+```
+
+---
+
+## Callbacks
+
+When you provide `success_callback` or `failure_callback` URLs on deposit/withdraw requests:
+
+- The Ssentezo server will POST to your URL when status changes from `PENDING`
+- Your endpoint **must respond within 5 seconds** or the request times out
+- Callback endpoints **must not require authentication**
+- Callback body matches the standard transaction status response shape
+
+### Sample callback payload
+
+```json
+{
+  "response": "OK",
+  "data": {
+    "transactionStatus": "SUCCEEDED",
+    "ssentezoWalletReference": "f245ddac-1622-4dad-9a94-4e289bb6b8a4",
+    "externalReference": "16011650463271",
+    "financialTransactionId": "f245ddac-..."
+  }
+}
+```
+
+## Common Pitfalls
+
+| Mistake                                             | Fix                                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Polling status in a tight loop                      | Use callbacks; if polling, use exponential backoff with at least 5s intervals   |
+| Treating HTTP 202 + PENDING as a failure            | PENDING is the **initial success state**; it means the transaction was accepted |
+| Reusing `externalReference` on retry                | Generate a new unique reference for each attempt                                |
+| Missing `Authorization` header                      | Returns 401; double-check base64 encoding includes the colon separator          |
+| Amount with formatting (e.g. `"1,000"`)             | Send raw number `1000` — no commas, no currency symbols                         |
+| Not URL-encoding `externalReference` in status path | Use `encodeURIComponent()` if the reference contains special characters         |
+| Callback endpoint requiring auth                    | Ssentezo cannot authenticate; endpoint must be open                             |
+| Callback slow to respond                            | Must respond in <5 seconds or the notification is dropped                       |
+
+---
+
+## Quick Reference — All Endpoints
+
+| Method | Path                                           | Purpose                               |
+| ------ | ---------------------------------------------- | ------------------------------------- |
+| POST   | `/api/acc_balance`                             | Get wallet balance                    |
+| POST   | `/api/msisdn-verification`                     | Verify phone number name              |
+| POST   | `/api/withdraw`                                | Send money to mobile money            |
+| POST   | `/api/deposit`                                 | Collect money from mobile money       |
+| POST   | `/api/get_status/{externalReference}`          | Check mobile money transaction status |
+| POST   | `/api/push-to-bank/get-banks`                  | List supported banks                  |
+| POST   | `/api/push-to-bank/request-bank-transfer`      | Send money to a bank account          |
+| POST   | `/api/push-to-bank/check-bank-transfer-status` | Check bank transfer status            |
+
+---
+
+## Idempotency & `externalReference`
+
+- The `externalReference` (or `external_reference` for bank transfers) is **your unique ID** for each transaction.
+- It must be unique across all transactions in your account.
+- If you retry a failed HTTP request with the same `externalReference`, Ssentezo will reject it with a duplicate error.
+- Use a UUID v4 or a time-based unique string (e.g. `order_${orderId}_${Date.now()}`).
+
+---

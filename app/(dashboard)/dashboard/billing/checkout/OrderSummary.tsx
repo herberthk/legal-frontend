@@ -2,24 +2,40 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Wallet } from "lucide-react";
-import { formatUSD, formatUgx } from "@/utils";
+import { formatUSD } from "@/utils";
+import { useCheckoutStore } from "@/store/checkout";
 
 interface OrderSummaryProps {
   balance: number;
-  amount: number;
+  amount: number; // amount is now in UGX
 }
 
 export const OrderSummary = memo(function OrderSummary({
   balance,
   amount,
 }: OrderSummaryProps) {
+  const { paymentMethod } = useCheckoutStore();
+
+  const isMobile = paymentMethod === "mobile_money";
+  const exchangeRate = 3750;
+  
+  // Calculate amounts in UGX
+  const amountUgx = amount || 0;
+  const feeUgx = isMobile ? Math.round(amountUgx * 0.025) : 0;
+  const totalUgx = amountUgx + feeUgx;
+
+  // Convert to USD equivalents
+  const amountUsd = amountUgx / exchangeRate;
+  const feeUsd = feeUgx / exchangeRate;
+  const totalUsd = totalUgx / exchangeRate;
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 15 }}
       animate={{ opacity: 1, x: 0 }}
-      className="sticky top-8 backdrop-blur-2xl shadow-xl rounded-3xl p-6 transition-all duration-300 ease-in-out"
+      className="sticky top-8 backdrop-blur-2xl shadow-xl rounded-3xl p-6 transition-all duration-300 ease-in-out bg-slate-900 border border-slate-800"
     >
-      <div className="flex items-center gap-3 border-b border-slate-400/50 pb-5">
+      <div className="flex items-center gap-3 border-b border-slate-800 pb-5">
         <div className="p-2.5 bg-indigo-500/10 rounded-xl">
           <Wallet className="h-5 w-5 text-indigo-400" />
         </div>
@@ -29,32 +45,50 @@ export const OrderSummary = memo(function OrderSummary({
       </div>
 
       <div className="py-6 space-y-5">
+        {/* Current Balance */}
         <div className="flex justify-between items-center text-sm font-medium">
           <span className="text-muted-foreground">Current Balance</span>
           <span className="text-foreground">{formatUSD(balance / 100)}</span>
         </div>
 
+        {/* Top-up Amount */}
         <div className="flex justify-between items-center text-sm font-medium">
           <span className="text-muted-foreground">Top-up Amount</span>
-          <span className="text-foreground">{formatUSD(amount)}</span>
+          <div className="text-right">
+            <span className="text-foreground font-bold">{formatUSD(amountUsd)}</span>
+            <div className="text-[10px] text-muted-foreground">
+              UGX {amountUgx.toLocaleString("en-UG")}
+            </div>
+          </div>
         </div>
 
-        {amount > 0 && (
-          <div className="flex justify-between items-center text-[13px] font-medium">
-            <span className="text-muted-foreground/70">Local Equivalent</span>
-            <span className="text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-md">
-              {formatUgx(amount)}
-            </span>
+        {/* Ssentezo Fee (2.5%) for Mobile Money */}
+        {isMobile && amountUgx > 0 && (
+          <div className="flex justify-between items-center text-sm font-medium">
+            <span className="text-muted-foreground">Transaction Fee (2.5%)</span>
+            <div className="text-right">
+              <span className="text-orange-400 font-bold">{formatUSD(feeUsd)}</span>
+              <div className="text-[10px] text-orange-400/80">
+                + UGX {feeUgx.toLocaleString("en-UG")}
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="pt-5 mt-2 border-t border-slate-400/50 flex justify-between items-center">
+        {/* Total to be Paid */}
+        <div className="pt-5 mt-2 border-t border-slate-800 flex justify-between items-center">
           <span className="font-bold text-foreground">Total:</span>
-          <span className="font-black text-2xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-orange-400">
-            {formatUSD(amount)}
-          </span>
+          <div className="text-right">
+            <span className="font-black text-2xl bg-clip-text text-transparent bg-linear-to-r from-indigo-400 to-orange-400">
+              {formatUSD(totalUsd)}
+            </span>
+            <div className="text-[11px] text-muted-foreground font-semibold mt-0.5">
+              UGX {totalUgx.toLocaleString("en-UG")}
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>
   );
 });
+

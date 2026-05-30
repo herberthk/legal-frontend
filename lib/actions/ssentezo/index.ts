@@ -1,98 +1,126 @@
 "use server";
 
-import { CALLBACK_URL } from "@/constants";
+import { db } from "@/firebase/admin";
+import { COLLECTIONS, CALLBACK_URL } from "@/constants";
+import { FieldValue } from "firebase-admin/firestore";
 import { wallet } from "@/lib/payments";
 import {
-  SsentezoActionResult,
-  TransactionStatus,
   withSsentezo,
+  type SsentezoActionResult,
+  type TransactionStatus,
 } from "@/lib/ssentezo";
 import { generateTxRef } from "@/utils";
-
-export interface InitiatePaymentResult {
-  success:   boolean;
-  reference?: string;
-  error?:    string;
-  fieldErrors?: Record<string, string[]>;
-}
-
-export interface VerifyNumberResult {
-  success:  boolean;
-  fullName?: string; 
-  error?:   string;
-}
+import { parseUgandanNumber } from "@/utils";
 
 // ── Verify a phone number ─────────────────────────────────────────────────────
 
 /**
- * Verify the name on a mobile money number before showing a payment
+ * Verify the name on a mobile money number before showing the payment
  * confirmation step to the user.
  */
 export async function verifyPhoneNumber(
   msisdn: string
 ): Promise<SsentezoActionResult<{ fullName: string; msisdn: string }>> {
   return withSsentezo(async () => {
-
     const data = await wallet.msisdn.verify(msisdn);
     return { fullName: `${data.FirstName} ${data.Surname}`.trim(), msisdn: data.msisdn };
   });
 }
 
-/**
- * Initiate a mobile money payment collection.
- */
-// export async function initiatePayment(params: {
-//   msisdn:  string;
-//   amount:  number;
-//   reason:  string;
-//   orderId: string;
-// }): Promise<InitiatePaymentResult> {
-//   const externalReference = generatePrefixedReference(`order_${params.orderId}`);
-
-//   try {
-//     await wallet.transactions.deposit({
-//       externalReference,
-//       msisdn:          params.msisdn,
-//       amount:          params.amount,
-//       reason:          params.reason,
-//       successCallback: CALLBACK_URL,
-//       failureCallback:  CALLBACK_URL,
-//     });
-
-//     return { success: true, reference: externalReference };
-//   } catch (err) {
-//     if (isSsentezoValidationError(err)) {
-//       return { success: false, error: err.message, fieldErrors: err.fieldErrors };
-//     }
-//     if (err instanceof SsentezoError) {
-//       return { success: false, error: err.message };
-//     }
-//     return { success: false, error: "Payment initiation failed. Please try again." };
-//   }
-// }
+// ── Test-page initiatePayment (no Firestore — kept for app/test/wallet) ───────
 
 export async function initiatePayment(params: {
   msisdn: string;
   amount: number;
 }): Promise<SsentezoActionResult<{ reference: string; status: TransactionStatus }>> {
   const externalReference = generateTxRef();
-  const reason = "Consultation Fee";
 
-  // withSsentezo catches, classifies, and returns { success, error, kind, fieldErrors }
-  // — no try/catch needed here at all.
   return withSsentezo(async () => {
     const result = await wallet.transactions.deposit({
       externalReference,
       msisdn:          params.msisdn,
       amount:          params.amount,
-      reason:          reason,
+      reason:          "Wallet Top Up",
       successCallback: CALLBACK_URL,
-      failureCallback:  CALLBACK_URL,
+      failureCallback: CALLBACK_URL,
     });
-
-    // Persist the reference in your DB here before returning:
-    // await db.order.update({ where: { id: params.orderId }, data: { paymentRef: externalReference } });
 
     return { reference: externalReference, status: result.transactionStatus };
   });
+}
+
+// ── Full checkout payment (with Firestore persistence) ────────────────────────
+
+/**
+ * Initiates a real mobile money deposit via Ssentezo and records the
+ * pending transaction in Firestore. The callback route will finalise it.
+ *
+ * @param params.userId      - Firebase UID of the paying user
+ * @param params.msisdn      - Phone in 256XXXXXXXXX format (already validated)
+ * @param params.amountUgx   - Raw UGX integer (500–7,000,000). Min enforced: 1000
+ * @param params.amountUsd   - Original USD amount for receipt display
+ * @param params.userName    - Optional display name sent to Ssentezo
+ */
+export async function initiateCheckoutPayment(params: {
+  userId:     string;
+  msisdn:     string;
+  amountUgx:  number;
+  amountUsd:  number;
+  userName?:  string;
+}): Promise<
+  SsentezoActionResult<{
+    reference:     string;
+    transactionId: string;
+    status:        TransactionStatus;
+  }>
+> {
+  const externalReference = generateTxRef();
+
+  // Detect provider from phone prefix for storage/display purposes
+  const { provider } = parseUgandanNumber(params.msisdn);
+  const method: TransactionMethod = provider === "MTN" ? "MTN" : "AIRTEL";
+
+  // Pre-create Firestore transaction record in "pending" state.
+  // If Ssentezo later fails, we mark it "failed" below.
+  const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
+
+  await transactionRef.set({
+    userId:      params.userId,
+    type:        "DEPOSIT",
+    description: `Funds Deposit via Mobile Money (${method})`,
+    amount:      params.amountUgx,
+    amountUsd:   Math.round(params.amountUsd * 100), // stored in cents for email
+    createdAt:   FieldValue.serverTimestamp(),
+    details:     `Phone: ${params.msisdn}`,
+    reference:   externalReference,
+    method,
+    status:      "pending",
+  });
+
+  const result = await withSsentezo(async () => {
+    const res = await wallet.transactions.deposit({
+      externalReference,
+      msisdn:          params.msisdn,
+      amount:          params.amountUgx,
+      reason:          "Wallet Top Up",
+      name:            params.userName,
+      successCallback: CALLBACK_URL,
+      failureCallback: CALLBACK_URL,
+    });
+
+    return {
+      reference:     externalReference,
+      transactionId: transactionRef.id,
+      status:        res.transactionStatus,
+    };
+  });
+
+  // Best-effort: if Ssentezo rejected the request, mark the pre-created doc failed
+  if (!result.success) {
+    await transactionRef.update({ status: "failed" }).catch((err) =>
+      console.error("[initiateCheckoutPayment] Failed to mark tx as failed:", err)
+    );
+  }
+
+  return result;
 }

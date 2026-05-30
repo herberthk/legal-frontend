@@ -64,7 +64,7 @@ const Page = () => {
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [errorMsg,    setErrorMsg]    = useState<string | null>(null);
   const [isPending,   startTransition] = useTransition();
-  const reason="Consultation Fee";
+  const reason="Wallet Top Up";
   const numberPrefix =  "256";
   const feePercentage = 0.025 // 2.5%
  const [value,handleValueChange] = useState<{msisdn:string,amount:string}>({msisdn:"",amount:''});
@@ -81,8 +81,8 @@ const Page = () => {
   const { pollingState, transactionStatus, startPolling, error: pollError } =
     useTransactionStatus({
       endpoint:  "/api/payments/status/{reference}",
-      intervalMs: 7_000,
-      //maxWaitMs:  14_400, // 4 minutes in milliseconds
+      intervalMs: 7_000, // 7 seconds interval
+      //maxWaitMs:  14_400,
       onTerminal: (status) => {
         if (status === "SUCCEEDED") {
           setStep("complete");
