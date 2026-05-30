@@ -5,9 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Smartphone, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { parseUgandanNumber } from "@/utils";
-
-const FEE_PERCENTAGE = 0.025; // 2.5% Ssentezo transaction fee
-const USD_TO_UGX = 3750;
+import { MOBILE_MONEY_FEE_PERCENTAGE, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
 interface StepMobileMoneyProps {
   phoneNumber:  string;
@@ -53,11 +51,13 @@ export const StepMobileMoney = memo(function StepMobileMoney({
   }, [phoneNumber]);
 
   // Amount maths
-  const amountUgx  = Math.round(amount * USD_TO_UGX);
-  const feeUgx     = Math.round(amountUgx * FEE_PERCENTAGE);
-  const totalUgx   = amountUgx + feeUgx;
+  const amountUSD  = amount / USD_TO_UGX_EXCHANGE_RATE;
+  const feeUgx     = amount * MOBILE_MONEY_FEE_PERCENTAGE;
+  const feeUSD = feeUgx / USD_TO_UGX_EXCHANGE_RATE;
+  const totalUgx   = amount + feeUgx;
+  const totalUSD = amountUSD + feeUSD;
   const canVerify  = phoneNumber.length === 9 && !isVerifying && !isProcessing;
-
+console.log("amount in fmobile money final  step", amount)
   return (
     <div className="flex-1 flex flex-col justify-between space-y-6">
       <AnimatePresence mode="wait">
@@ -206,22 +206,39 @@ export const StepMobileMoney = memo(function StepMobileMoney({
             {/* Amount breakdown */}
             <div className="rounded-2xl bg-slate-500/5 border border-slate-500/10 p-5 space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Deposit amount</span>
-                <span className="font-semibold">
-                  UGX {amountUgx.toLocaleString("en-UG")}
-                </span>
+                <div className="text-muted-foreground">Deposit amount</div>
+                <div className="flex flex-col">
+                    <span className="font-semibold">
+                        ${amountUSD.toFixed(2)}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                        UGX {amount.toLocaleString("en-UG")}
+                    </span>
+                </div>
+                
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Transaction fee (2.5%)</span>
-                <span className="font-semibold text-orange-400">
-                  + UGX {feeUgx.toLocaleString("en-UG")}
-                </span>
+                <div className="flex flex-col">
+                  <span className="font-semibold text-orange-400">
+                   + ${feeUSD.toFixed(2)} 
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                   + UGX {feeUgx.toLocaleString("en-UG")}
+                  </span>
+                </div>
               </div>
               <div className="border-t border-slate-500/20 pt-3 flex justify-between">
                 <span className="font-bold text-foreground">Total deducted</span>
-                <span className="font-extrabold text-foreground text-base">
-                  UGX {totalUgx.toLocaleString("en-UG")}
-                </span>
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-foreground text-base">
+                   
+                    ${totalUSD.toFixed(2)}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                     UGX {totalUgx.toLocaleString("en-UG")}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -248,7 +265,7 @@ export const StepMobileMoney = memo(function StepMobileMoney({
               >
                 {isProcessing
                   ? "Initiating payment…"
-                  : `Pay UGX ${totalUgx.toLocaleString("en-UG")}`}
+                  : `Pay $${totalUSD.toFixed(2)} (UGX ${totalUgx.toLocaleString("en-UG")})`}
               </CustomButton>
 
               <button

@@ -27,7 +27,7 @@ import { TrustCenter } from "./TrustCenter";
 import { StripePaymentForm } from "./StripePaymentForm";
 
 // Zustand persisted store
-import { useCheckoutStore } from "@/store/checkout";
+import { useCheckoutStore, PaymentMethodType } from "@/store/checkout";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
 const STRIPE_APPEARANCE: Appearance = {
@@ -103,21 +103,54 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
 
   // ── Amount handlers ─────────────────────────────────────────────────────
   const handleAmountSelect = useCallback(
-    (val: number) => setAmount(val),
+    (valInUsd: number) => setAmount(valInUsd * USD_TO_UGX_EXCHANGE_RATE),
     [setAmount]
   );
 
   const handleCustomAmountChange = useCallback(
-    (val: string) => {
-      const parsed = parseFloat(val);
-      if (!isNaN(parsed) && parsed > 0) setAmount(parsed);
+    (valInUgx: string) => {
+      if (valInUgx === "") {
+        setAmount(0);
+        return;
+      }
+      const parsed = parseFloat(valInUgx);
+      if (!isNaN(parsed)) setAmount(parsed);
     },
     [setAmount]
   );
 
-  const validateAmount = (): boolean => {
-    if (amount < 5) { toast.error("Minimum top-up is $5.00"); return false; }
-    if (amount > 1000) { toast.error("Maximum top-up is $1,000.00"); return false; }
+  const validateAmount = (method?: PaymentMethodType): boolean => {
+    if (!method) {
+      if (amount < 1000) {
+        toast.error("Minimum amount is 1,000 UGX");
+        return false;
+      }
+      if (amount > 70000000) {
+        toast.error("Maximum amount is 70,000,000 UGX");
+        return false;
+      }
+      return true;
+    }
+
+    if (method === "mobile_money") {
+      if (amount < 1000) {
+        toast.error("Mobile Money minimum is 1,000 UGX");
+        return false;
+      }
+      if (amount > 7000000) {
+        toast.error("Mobile Money maximum is 7,000,000 UGX");
+        return false;
+      }
+    } else if (method === "card") {
+      if (amount < 10000) {
+        toast.error("Stripe card minimum is 10,000 UGX");
+        return false;
+      }
+      if (amount > 70000000) {
+        toast.error("Stripe card maximum is 70,000,000 UGX");
+        return false;
+      }
+    }
     return true;
   };
 
@@ -138,10 +171,11 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
   }, [amount, setStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleProceedToDetails = useCallback(async () => {
+    if (!validateAmount(paymentMethod)) return;
     if (paymentMethod === "card") {
       setIsProcessing(true);
       try {
-        const res = await initiateStripePayment(user.id, amount);
+        const res = await initiateStripePayment(user.id, amount / USD_TO_UGX_EXCHANGE_RATE);
         if (res.success && res.clientSecret && res.transactionId) {
           setClientSecret(res.clientSecret);
           setTransactionId(res.transactionId);
@@ -193,12 +227,13 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
 
     setIsProcessing(true);
     try {
-      const amountUgx = Math.round(amount * USD_TO_UGX_EXCHANGE_RATE);
+      const amountUgx = amount;
+      const amountUsd = amount / USD_TO_UGX_EXCHANGE_RATE;
       const res = await initiateCheckoutPayment({
         userId: user.id,
         msisdn: parsed.formattedNumber!,
         amountUgx,
-        amountUsd: amount,
+        amountUsd,
         userName: verifiedName || undefined,
       });
 
@@ -207,7 +242,7 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
         resetVerification();
         router.push(`/dashboard/billing/checkout/waiting?ref=${res.data.reference}`);
       } else {
-        toast.error( "Failed to initialize Mobile Money");
+        toast.error("Failed to initialize Mobile Money");
       }
     } catch {
       toast.error("Error connecting to Mobile Money gateway");
