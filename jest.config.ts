@@ -43,6 +43,11 @@ const config: Config = {
   //     statements: 90,
   //   },
   // },
+
+  coveragePathIgnorePatterns:[
+    "lib/flutterwave/**",
+    "node_modules/**"
+    ]
 };
 
 export default config;

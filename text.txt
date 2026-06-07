@@ -20,3 +20,16 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 **gcloud login
 **gcloud storage buckets update gs://legal-51aee.firebasestorage.app --cors-file=storage-cors.json
 \_\_gcloud storage buckets describe gs://legal-51aee.firebasestorage.app --format="default(cors_config)"
+
+
+Fluter wave
+password: #hzYbN5W6UchgXe
+
+clientId: 6e6b2ced-5865-47a9-9245-8de6fddfda90
+
+Client Secret: 8ngwdGTUVX8GaV0gGh6w1LBLUtIWsZkS
+
+Encryption Key: aJPa0pJvo4zKmww8zPmqO+47V1BcguTVKMEXzVc1SF4=
+
+webhook secret hash: eaGxEHNv4r31waebGxMH7oUWPTF8vPQnH6mWWb1QiMNMiqVytRgzB0RosaeHLb
+
