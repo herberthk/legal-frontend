@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 // ─────────────────────────────────────────────────────────────────────────────
 // PawaPay SDK – Types  (v2 API)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -132,13 +133,25 @@ export interface DepositInitiationResponse {
   failureReason?: FailureReason;
 }
 
-export interface DepositStatusResponse extends DepositInitiationResponse {
-  /** Present once in a final state */
+export interface DepositStatusResponse {
+  depositId: PaymentId;
+  /**
+   * On callbacks pawaPay sends the final status directly in `status`
+   * (e.g. "COMPLETED", "FAILED") — NOT wrapped in `finalStatus`.
+   * On status-check responses the initiation status appears here.
+   */
+  status: TransactionStatus | FinalTransactionStatus | string;
+  created?: Timestamp;
+  failureReason?: FailureReason;
+  /** Present on status-check responses once the transaction is final */
   finalStatus?: FinalTransactionStatus | string;
   payer?: PayerOrRecipient;
   amount?: Amount;
   currency?: Currency;
   country?: Country;
+  customerMessage?: string;
+  /** Provider's own transaction reference (e.g. "airtel.money.id.EX4A8lk3isWM2flQ8coD") */
+  providerTransactionId?: string;
   correspondent?: string;
   statementDescription?: string;
   customerTimestamp?: Timestamp;
@@ -166,12 +179,18 @@ export interface PayoutInitiationResponse {
   failureReason?: FailureReason;
 }
 
-export interface PayoutStatusResponse extends PayoutInitiationResponse {
+export interface PayoutStatusResponse {
+  payoutId: PaymentId;
+  status: TransactionStatus | FinalTransactionStatus | string;
+  created?: Timestamp;
+  failureReason?: FailureReason;
   finalStatus?: FinalTransactionStatus | string;
   recipient?: PayerOrRecipient;
   amount?: Amount;
   currency?: Currency;
   country?: Country;
+  customerMessage?: string;
+  providerTransactionId?: string;
   correspondent?: string;
   statementDescription?: string;
   customerTimestamp?: Timestamp;
@@ -209,11 +228,16 @@ export interface RefundInitiationResponse {
   failureReason?: FailureReason;
 }
 
-export interface RefundStatusResponse extends RefundInitiationResponse {
+export interface RefundStatusResponse {
+  refundId: PaymentId;
+  status: TransactionStatus | FinalTransactionStatus | string;
+  created?: Timestamp;
+  failureReason?: FailureReason;
   finalStatus?: FinalTransactionStatus | string;
   amount?: Amount;
   currency?: Currency;
   country?: Country;
+  providerTransactionId?: string;
   correspondent?: string;
   metadata?: MetadataItem[];
 }

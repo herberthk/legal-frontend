@@ -5,13 +5,13 @@
 
 import { describe, it, expect } from "vitest";
 import { ToolkitResource } from "../src/resources/toolkit";
-import { FinancesResource } from "../src/resources/finances";
+import { FinancesResource } from "../src/resources/finances.js";
 import { PaymentPageResource } from "../src/resources/payment-page";
-import { HttpClient } from "../src/http-client";
+import { HttpClient } from "../src/http-client.js";
 import { PawaPayValidationError } from "../src/errors";
-import { isValidUUID } from "../src/utils";
+import { isValidUUID } from "../src/utils/index.js";
 import { mockFetch, STATEMENT_ID, DEPOSIT_ID } from "./fixtures";
-import { OperationType } from "../src/types/index.js";
+import { OperationType } from "../src/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

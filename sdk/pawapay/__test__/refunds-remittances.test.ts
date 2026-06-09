@@ -19,8 +19,8 @@ import {
   REFUND_ID,
   DEPOSIT_ID,
   REMIT_ID,
-} from "./fixtures.js";
-import { TransactionStatus } from "../src/types/index.js";
+} from "./fixtures";
+import { TransactionStatus } from "../src/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

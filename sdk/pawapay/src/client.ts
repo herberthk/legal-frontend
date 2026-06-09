@@ -11,12 +11,12 @@ import { RemittancesResource } from "./resources/remittances";
 import { ToolkitResource } from "./resources/toolkit";
 import { FinancesResource } from "./resources/finances";
 import { PaymentPageResource } from "./resources/payment-page";
+
 import {
   calculateFee as _calculateFee,
   netAmount as _netAmount,
 } from "./utils/fees";
 import type { FeeCountry, FeeResult } from "./utils/fees";
-
 
 export type { PawaPayConfig } from "./types";
 

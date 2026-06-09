@@ -61,7 +61,8 @@ export async function verifyContentDigest(
   if (!digestHeader) return false;
 
   // Parse header: sha-256=:<base64>:  or  sha-512=:<base64>:
-  const match = digestHeader.match(/^(sha-256|sha-512)=:([A-Za-z0-9+/=]+):$/);
+  // RFC-9421 format: sha-256=:<base64>:  – base64 may contain +, /, = anywhere
+  const match = digestHeader.match(/^(sha-256|sha-512)=:([A-Za-z0-9+\/]+=*):$/);
   if (!match) return false;
 
   const [, algorithm, encodedDigest] = match;
@@ -99,6 +100,53 @@ export function hasSignatureHeaders(
     return Array.isArray(val) ? val[0] : val;
   };
   return !!(get("signature") && get("signature-input"));
+}
+
+/**
+ * Extract structured metadata from the `signature-input` header.
+ *
+ * From the real pawaPay callback:
+ *   sig-pp=("@method" "@authority" "@path" "signature-date" "content-digest" "content-type");
+ *          alg="ecdsa-p256-sha256";keyid="HTTP_EC_P256_KEY:1";created=...;expires=...
+ *
+ * Returns `null` if the header is absent or malformed.
+ */
+export function parseSignatureInput(signatureInput: string): {
+  label: string;
+  coveredComponents: string[];
+  alg: string;
+  keyid: string;
+  created?: number;
+  expires?: number;
+} | null {
+  if (!signatureInput) return null;
+  try {
+    const labelMatch = signatureInput.match(/^([^=]+)=/);
+    if (!labelMatch?.[1]) return null;
+    const label = labelMatch[1];
+
+    const componentsMatch = signatureInput.match(/\(([^)]+)\)/);
+    const coveredComponents = componentsMatch?.[1]
+      ?.split(" ")
+      .map((c) => c.replace(/"/g, ""))
+      ?? [];
+
+    const alg = signatureInput.match(/alg="([^"]+)"/)?.[1] ?? "";
+    const keyid = signatureInput.match(/keyid="([^"]+)"/)?.[1] ?? "";
+    const created = signatureInput.match(/created=(\d+)/)?.[1];
+    const expires = signatureInput.match(/expires=(\d+)/)?.[1];
+
+    return {
+      label,
+      coveredComponents,
+      alg,
+      keyid,
+      created: created ? Number(created) : undefined,
+      expires: expires ? Number(expires) : undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

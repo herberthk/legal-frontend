@@ -15,7 +15,7 @@ import {
   makePayoutCompleted,
   PAYOUT_ID,
   ugaAirtelRecipient,
-} from "./fixtures.js";
+} from "./fixtures";
 import { TransactionStatus } from "../src/types";
 
 function makeResource(fetchImpl: typeof fetch) {
