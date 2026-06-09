@@ -2,7 +2,7 @@
 
 // const r = flw.phone.validate("0702123456");
 
-import { flw } from "./payments";
+// import { flw } from "./payments";
 
 // if (!r.valid) {
 //   console.log(r.error);
@@ -18,15 +18,15 @@ import { flw } from "./payments";
 
 // console.log(network);
 
-const amount = 78000;
-const fee = await flw.previewFees(amount, "bank");
+// const amount = 78000;
+// const fee = await flw.previewFees(amount, "bank");
 
 // console.log(flw.formatFee(fee));
 // // "UGX 10,000 + UGX 150 fee = UGX 10,150 total"
 
-const chargeAmount = fee.chargeAmount
-console.log("flutterwave charges:", chargeAmount)
-console.log("totalFee:", fee.totalFee);
+// const chargeAmount = fee.chargeAmount
+// console.log("flutterwave charges:", chargeAmount)
+// console.log("totalFee:", fee.totalFee);
 // console.log("breakdown:", fee.breakdown);
 
 // Charge — Mobile Money (MTN / Airtel)
@@ -136,77 +136,77 @@ console.log("totalFee:", fee.totalFee);
 // }
 
 // ── 1. Fetch Supported Banks, Branches & Resolve Account ─────────────────────
-console.log("\n--- Fetching Supported Banks ---");
-try {
-  const banks = await flw.getBanks();
-  console.log(`Found ${banks.length} supported banks in Uganda.`);
-  console.log("First 2 banks:", banks.slice(0, 2).map(b => `${b.code}: ${b.name}`));
+// console.log("\n--- Fetching Supported Banks ---");
+// try {
+//   const banks = await flw.getBanks();
+//   console.log(`Found ${banks.length} supported banks in Uganda.`);
+//   console.log("First 2 banks:", banks.slice(0, 2).map(b => `${b.code}: ${b.name}`));
 
-  // If banks were found, let's try fetching branches for the first one
-  if (banks.length > 0) {
-    const firstBank = banks[0];
-    console.log(`\n--- Fetching Branches for ${firstBank.name} (${firstBank.id}) ---`);
-    try {
-      const branches = await flw.getBankBranches(firstBank.id);
-      console.log(`Found ${branches.length} branches.`);
-      if (branches.length > 0) {
-        console.log("First first branch:", branches[0]);
-      }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      console.log("Could not fetch branches:", err.message);
-    }
+//   // If banks were found, let's try fetching branches for the first one
+//   if (banks.length > 0) {
+//     const firstBank = banks[0];
+//     console.log(`\n--- Fetching Branches for ${firstBank.name} (${firstBank.id}) ---`);
+//     try {
+//       const branches = await flw.getBankBranches(firstBank.id);
+//       console.log(`Found ${branches.length} branches.`);
+//       if (branches.length > 0) {
+//         console.log("First first branch:", branches[0]);
+//       }
+//     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//     } catch (err: any) {
+//       console.log("Could not fetch branches:", err.message);
+//     }
     
-    // Let's test resolving a dummy account
-    console.log(`\n--- Resolving Account at ${firstBank.name} ---`);
-    try {
-      const resolved = await flw.resolveBankAccount("1234567890", firstBank.name);
-      console.log("Resolved Account:", resolved);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      console.log("Account resolve failed (expected for dummy data):", err.sdkError?.raw?.error?.message || err.message);
-    }
-  }
+//     // Let's test resolving a dummy account
+//     console.log(`\n--- Resolving Account at ${firstBank.name} ---`);
+//     try {
+//       const resolved = await flw.resolveBankAccount("1234567890", firstBank.name);
+//       console.log("Resolved Account:", resolved);
+//     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//     } catch (err: any) {
+//       console.log("Account resolve failed (expected for dummy data):", err.sdkError?.raw?.error?.message || err.message);
+//     }
+//   }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-} catch (err: any) {
-  console.error("Failed to fetch banks:", err.message);
-}
+// // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// } catch (err: any) {
+//   console.error("Failed to fetch banks:", err.message);
+// }
 
 // ── 2. Charge — Bank / USSD ──────────────────────────────────────────────────
-try {
-const result = await flw.charge({
-  type:        "bank",
-  amount:      chargeAmount,
-  accountBank: "STANBIC BANK LIMITED",  // You should use a valid bank code from getBanks()
-  customer: {
-    email:     "peter@example.com",
-    firstName: "Peter",
-    lastName:  "Ssekandi",
-    phone:     "0772000001",
-  },
-  narration: "Invoice #1042",
-});
+// try {
+// const result = await flw.charge({
+//   type:        "bank",
+//   amount:      chargeAmount,
+//   accountBank: "STANBIC BANK LIMITED",  // You should use a valid bank code from getBanks()
+//   customer: {
+//     email:     "peter@example.com",
+//     firstName: "Peter",
+//     lastName:  "Ssekandi",
+//     phone:     "0772000001",
+//   },
+//   narration: "Invoice #1042",
+// });
 
-if (result.nextAction.redirectUrl) {
-  window.location.href = result.nextAction.redirectUrl;
-}
+// if (result.nextAction.redirectUrl) {
+//   window.location.href = result.nextAction.redirectUrl;
+// }
 
 // ── 3. Verify Transaction Status ───────────────────────────────────────────────
 // You should verify the transaction using the chargeId before giving value
 // to the user. This is crucial for security!
-console.log("\n--- Verifying Transaction ---");
-  // Pass the chargeId returned from the charge method
-  const verification = await flw.verify(result.chargeId);
-  console.log("Verification Status:", verification.status);
-  console.log("Amount Paid:", verification.amount);
+// console.log("\n--- Verifying Transaction ---");
+//   // Pass the chargeId returned from the charge method
+//   const verification = await flw.verify(result.chargeId);
+//   console.log("Verification Status:", verification.status);
+//   console.log("Amount Paid:", verification.amount);
   
-  if (verification.status === "successful") {
-    console.log("Payment successful! Fulfilling order...");
-  } else {
-    console.log(`Payment is ${verification.status}. Waiting for user action.`);
-  }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-} catch (err: any) {
-  console.error("SDK Error details:", JSON.stringify(err.sdkError?.raw, null, 2));
-}
+//   if (verification.status === "successful") {
+//     console.log("Payment successful! Fulfilling order...");
+//   } else {
+//     console.log(`Payment is ${verification.status}. Waiting for user action.`);
+//   }
+// // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// } catch (err: any) {
+//   console.error("SDK Error details:", JSON.stringify(err.sdkError?.raw, null, 2));
+// }

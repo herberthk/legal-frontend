@@ -11,6 +11,12 @@ import { RemittancesResource } from "./resources/remittances";
 import { ToolkitResource } from "./resources/toolkit";
 import { FinancesResource } from "./resources/finances";
 import { PaymentPageResource } from "./resources/payment-page";
+import {
+  calculateFee as _calculateFee,
+  netAmount as _netAmount,
+} from "./utils/fees";
+import type { FeeCountry, FeeResult } from "./utils/fees";
+
 
 export type { PawaPayConfig } from "./types";
 
@@ -100,5 +106,42 @@ export class PawaPayClient {
   /** Hosted Payment Page sessions */
   get paymentPage(): PaymentPageResource {
     return (this._paymentPage ??= new PaymentPageResource(this._http));
+  }
+
+  // ── Fee helpers ─────────────────────────────────────────────────────────────
+
+  /**
+   * Calculates the PawaPay platform fee for a transaction.
+   *
+   * @param amount  - Transaction amount in the country's currency (must be > 0)
+   * @param country - ISO country code. Currently supported: `"UGA"`
+   * @returns       A {@link FeeResult} with `fee`, `total`, `currency`, and a
+   *                human-readable `formatted` summary string.
+   *
+   * @throws {PawaPayValidationError} if `amount` ≤ 0 or is not finite
+   * @throws {PawaPayValidationError} if `country` is not supported
+   *
+   * @example
+   * ```ts
+   * const result = pawapay.calculateFee(150_000, "UGA");
+   * console.log(result.fee);       // 4500
+   * console.log(result.total);     // 154500
+   * console.log(result.formatted); // "UGX 150,000 + UGX 4,500 fee (3%) = UGX 154,500 total"
+   * ```
+   */
+  calculateFee(amount: number, country: FeeCountry): FeeResult {
+    return _calculateFee(amount, country);
+  }
+
+  /**
+   * Returns the net amount the merchant receives after PawaPay deducts its fee.
+   *
+   * @example
+   * ```ts
+   * const net = pawapay.netAmount(150_000, "UGA"); // 145_500
+   * ```
+   */
+  netAmount(amount: number, country: FeeCountry): number {
+    return _netAmount(amount, country);
   }
 }
