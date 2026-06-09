@@ -14,6 +14,7 @@ import {
   validateCustomerMessage,
   validateMetadata,
   generateUUID,
+  resolveAccountDetails,
 } from "../utils";
 import { PawaPayValidationError } from "../errors";
 
@@ -29,10 +30,10 @@ export class RemittancesResource {
   async initiate(
     request: RemittanceRequest
   ): Promise<RemittanceInitiationResponse> {
-    this.validate(request);
+    const validatedRequest = this.validate(request);
     return this.http.request<RemittanceInitiationResponse>("/v2/remittances", {
       method: "POST",
-      body: request,
+      body: validatedRequest,
     });
   }
 
@@ -77,10 +78,14 @@ export class RemittancesResource {
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
-  private validate(req: RemittanceRequest): void {
+  private validate(req: RemittanceRequest): RemittanceRequest {
     validatePaymentId(req.remittanceId, "remittanceId");
     validateAmount(req.amount);
-    validatePhoneNumber(req.recipient.accountDetails.phoneNumber);
+    
+    if (req.recipient && req.recipient.type === "MMO") {
+      req.recipient.accountDetails = resolveAccountDetails(req.recipient.accountDetails);
+    }
+    
     if (req.customerMessage) validateCustomerMessage(req.customerMessage);
     if (req.metadata) validateMetadata(req.metadata);
     if (!req.currency || req.currency.length !== 3) {
@@ -89,5 +94,6 @@ export class RemittancesResource {
         "currency"
       );
     }
+    return req;
   }
 }

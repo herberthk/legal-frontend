@@ -79,6 +79,65 @@ export function validatePhoneNumber(phone: string, field = "phoneNumber"): void 
   }
 }
 
+// ── Provider Auto-Detection ───────────────────────────────────────────────────
+
+/**
+ * Predicts the MNO provider internally based on the phone number prefix.
+ * Currently supports major networks in Uganda.
+ */
+export function detectProvider(phoneNumber: string): string {
+  const sanitised = sanitisePhoneNumber(phoneNumber);
+  
+  if (sanitised.startsWith("256")) {
+    const prefix = sanitised.slice(3, 5); // next 2 digits after country code
+    
+    // MTN Uganda: 077, 078, 076, 039, 031
+    if (["77", "78", "76", "39", "31"].includes(prefix)) {
+      return "MTN_MOMO_UGA";
+    }
+    
+    // Airtel Uganda: 070, 075, 074
+    if (["70", "75", "74"].includes(prefix)) {
+      return "AIRTEL_OAPI_UGA";
+    }
+
+    // Default to unknown if prefix doesn't match standard mapping
+    throw new PawaPayValidationError(
+      `Could not automatically determine provider for Uganda phone number: ${phoneNumber}. Unrecognized prefix "0${prefix}". Please provide the provider explicitly.`,
+      "phoneNumber"
+    );
+  }
+
+  // Fallback for non-Ugandan numbers: require explicit provider
+  throw new PawaPayValidationError(
+    `Automatic provider detection is currently supported primarily for Uganda (+256). Please specify the "provider" manually for ${phoneNumber}.`,
+    "provider"
+  );
+}
+
+/**
+ * Ensures the account details have a provider, auto-detecting it if missing.
+ * Also overwrites the provider if auto-detection identifies a mismatch,
+ * preventing wrong values from being sent to the API.
+ */
+import type { AccountDetails } from "../types";
+
+export function resolveAccountDetails(details: AccountDetails): AccountDetails {
+  validatePhoneNumber(details.phoneNumber);
+  
+  const autoDetected = detectProvider(details.phoneNumber);
+  
+  if (details.provider && details.provider !== autoDetected) {
+    // If the user provided a value but it conflicts with standard prefixes, 
+    // we can either overwrite or throw. Overwriting is safer for the "avoid passing wrong values" request.
+    // However, if we're not sure, throwing might be better. Since the user specifically asked 
+    // "to avoid passing wrong values that dont match the phone number", we will overwrite with the detected one.
+    return { ...details, provider: autoDetected };
+  }
+
+  return { ...details, provider: details.provider || autoDetected };
+}
+
 // ── UUID validation ───────────────────────────────────────────────────────────
 
 export function validatePaymentId(id: string, field: string): void {

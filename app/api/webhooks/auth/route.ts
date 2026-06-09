@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     
     // Convert the raw Buffer back to a UTF-8 string
     const rawBody = await req.json();
-    console.log('rawBody: ',rawBody.toString('utf8'))
+    console.log('rawBody: ',rawBody)
 
     return NextResponse.json({ message: "Webhook received" });
 }   

@@ -17,6 +17,7 @@ import {
   validateCustomerMessage,
   validateMetadata,
   generateUUID,
+  resolveAccountDetails,
 } from "../utils";
 import { PawaPayValidationError } from "../errors";
 
@@ -43,10 +44,10 @@ export class PayoutsResource {
    * ```
    */
   async initiate(request: PayoutRequest): Promise<PayoutInitiationResponse> {
-    this.validateSingle(request);
+    const validatedRequest = this.validateSingle(request);
     return this.http.request<PayoutInitiationResponse>("/v2/payouts", {
       method: "POST",
-      body: request,
+      body: validatedRequest,
     });
   }
 
@@ -67,7 +68,7 @@ export class PayoutsResource {
         "payouts"
       );
     }
-    request.payouts.forEach((p, i) => this.validateSingle(p, i));
+    request.payouts = request.payouts.map((p, i) => this.validateSingle(p, i));
     return this.http.request<BulkPayoutResponse>("/v2/payouts/bulk", {
       method: "POST",
       body: request,
@@ -114,14 +115,15 @@ export class PayoutsResource {
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
-  private validateSingle(req: PayoutRequest, index?: number): void {
+  private validateSingle(req: PayoutRequest, index?: number): PayoutRequest {
     const ctx = index !== undefined ? `payouts[${index}].` : "";
     validatePaymentId(req.payoutId, `${ctx}payoutId`);
     validateAmount(req.amount, `${ctx}amount`);
-    validatePhoneNumber(
-      req.recipient.accountDetails.phoneNumber,
-      `${ctx}recipient.accountDetails.phoneNumber`
-    );
+    
+    if (req.recipient && req.recipient.type === "MMO") {
+      req.recipient.accountDetails = resolveAccountDetails(req.recipient.accountDetails);
+    }
+    
     if (req.customerMessage) validateCustomerMessage(req.customerMessage);
     if (req.metadata) validateMetadata(req.metadata);
     if (!req.currency || req.currency.length !== 3) {
@@ -130,5 +132,6 @@ export class PayoutsResource {
         `${ctx}currency`
       );
     }
+    return req;
   }
 }

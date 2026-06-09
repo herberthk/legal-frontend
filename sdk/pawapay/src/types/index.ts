@@ -100,7 +100,11 @@ export interface FailureReason {
 
 export interface AccountDetails {
   phoneNumber: string;
-  provider: string;
+  /**
+   * The MNO provider identifier (e.g., "MTN_MOMO_UGA").
+   * If omitted, the SDK will attempt to automatically detect it from the phone number prefix.
+   */
+  provider?: string;
 }
 
 export interface PayerOrRecipient {

@@ -50,7 +50,7 @@ const deposit = await pawapay.deposits.initiate({
     type: "MMO",
     accountDetails: {
       phoneNumber: "256700123456", // digits-only, with country code
-      provider: "MTN_MOMO_UGA",
+      // provider: "MTN_MOMO_UGA", // Optional: Auto-detected for Uganda (MTN/Airtel) based on prefix
     },
   },
   amount: "5000",
@@ -127,7 +127,7 @@ const payout = await pawapay.payouts.initiate({
   payoutId,
   recipient: {
     type: "MMO",
-    accountDetails: { phoneNumber: "256700123456", provider: "MTN_MOMO_UGA" },
+    accountDetails: { phoneNumber: "256700123456" }, // provider auto-detected
   },
   amount: "10000",
   currency: "UGX",
@@ -185,7 +185,7 @@ const remittance = await pawapay.remittances.initiate({
   remittanceId,
   recipient: {
     type: "MMO",
-    accountDetails: { phoneNumber: "256700123456", provider: "MTN_MOMO_UGA" },
+    accountDetails: { phoneNumber: "256700123456" }, // provider auto-detected
   },
   amount: "50000",
   currency: "UGX",
