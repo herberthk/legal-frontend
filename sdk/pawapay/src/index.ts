@@ -56,7 +56,7 @@ export type {
   PredictProviderResponse,
   WalletBalancesResponse,
   WalletBalance,
-} from "./types/index.js";
+} from "./types";
 
 export {
   TransactionStatus,
@@ -98,11 +98,6 @@ export {
 } from "./utils/polling";
 export type { PollOptions, PollResult, FinalStatus } from "./utils/polling";
 
-// ── Fee Calculator ────────────────────────────────────────────────────────────
-export { calculateFee, netAmount, FEE_SCHEDULES } from "./utils/fees";
-export type { FeeResult, FeeCountry, FeeSchedule } from "./utils/fees";
-
-
 // ── Webhook / Callback helpers ────────────────────────────────────────────────
 export {
   parseDepositCallback,
@@ -110,6 +105,7 @@ export {
   parseRefundCallback,
   verifyContentDigest,
   hasSignatureHeaders,
+  parseSignatureInput,
 } from "./utils/webhooks";
 
 // ── Finance types ─────────────────────────────────────────────────────────────

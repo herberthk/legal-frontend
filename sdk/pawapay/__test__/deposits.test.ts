@@ -15,7 +15,7 @@ import {
   makeDepositCompleted,
   makeDepositFailed,
   DEPOSIT_ID,
-} from "./fixtures.js";
+} from "./fixtures";
 
 function makeResource(fetchImpl: typeof fetch) {
   const client = new HttpClient({
