@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
-    "test:sdk": "cd lib/pawapay && vitest run"
+    "test:sdk": "cd sdk/pawapay && vitest run"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.29",
