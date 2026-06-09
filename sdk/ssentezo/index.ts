@@ -23,56 +23,14 @@ import type { SsentezoConfig } from "./types";
 
 // ── Re-exports (single import surface for consumers) ──────────────────────────
 
-export type {
-  BalanceData,
-  Bank,
-  BankTransferInitResult,
-  BankTransferParams,
-  BankTransferStatusResult,
-  CallbackPayload,
-  Currency,
-  Environment,
-  MsisdnData,
-  SsentezoConfig,
-  SsentezoErrorBody,
-  SsentezoRawResponse,
-  TransactionInitResult,
-  TransactionParams,
-  TransactionStatus,
-  TransactionStatusResult,
-} from "./types";
+export * from "./types";
 
-export {
-  SsentezoError,
-  SsentezoAuthError,
-  SsentezoNetworkError,
-  SsentezoRateLimitError,
-  SsentezoTimeoutError,
-  SsentezoValidationError,
-  isSsentezoAuthError,
-  isSsentezoError,
-  isSsentezoNetworkError,
-  isSsentezoRateLimitError,
-  isSsentezoValidationError,
-} from "./errors";
+export * from "./errors";
 
-export {
-  generatePrefixedReference,
-  generateReference,
-  parseCallbackPayload,
-} from "./utils";
+export * from "./utils";
 
-export {
-  handleSsentezoError,
-  handleSsentezoRouteError,
-  publicMessage,
-  withSsentezo,
-} from "./error-handler";
+export * from "./error-handler";
 
-export type {
-  SsentezoActionResult,
-  SsentezoErrorResult,
-} from "./error-handler";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

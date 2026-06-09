@@ -1,4 +1,4 @@
-import { parseCallbackPayload } from "@/lib/ssentezo";
+import { parseCallbackPayload } from "@/sdk/ssentezo";
 import { db } from "@/firebase/admin";
 import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";

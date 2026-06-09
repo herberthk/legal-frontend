@@ -1,7 +1,8 @@
 export * from './pawapay'
 
 // import "server-only";                  // Build-time guard: import fails on client
-import { getSsentezoWallet } from "./ssentezo";
+import { getSsentezoWallet, withSsentezo, SsentezoActionResult, handleSsentezoRouteError, parseCallbackPayload  } from "./ssentezo";
+export {getSsentezoWallet, withSsentezo, type SsentezoActionResult, handleSsentezoRouteError, parseCallbackPayload}
 export const wallet = getSsentezoWallet();
 
 // export const flw = new FlwUganda({

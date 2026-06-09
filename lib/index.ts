@@ -1,4 +1,3 @@
 export * from "./utils";
 export * from "./actions";
 export * from "./errors";
-export * from "./ssentezo";

@@ -13,7 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useRouter } from "nextjs-toploader/app";
-import { useTransactionStatus } from "@/lib/ssentezo/hooks";
+import { useTransactionStatus } from "@/sdk/ssentezo/hooks";
 import { CustomButton } from "@/components/ui/custom-button";
 
 interface WaitingClientProps {
