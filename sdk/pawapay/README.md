@@ -451,10 +451,19 @@ const pawapay = new PawaPayClient({
 ```
 src/
 ├── index.ts              ← barrel export (single import surface)
-├── client.ts             ← PawaPayClient (lazy resource initialisation + fee helpers)
+├── client.ts             ← PawaPayClient (lazy resource initialisation)
 ├── http-client.ts        ← HttpClient (fetch, auth, retry, timeout)
 ├── types/
 │   └── index.ts          ← all request/response types + enums
+├── errors/
+│   └── index.ts          ← PawaPayError hierarchy
+├── resources/
+│   ├── deposits.ts
+│   ├── payouts.ts
+│   ├── refunds.ts
+│   ├── remittances.ts
+│   ├── toolkit.ts
+│   ├── finances.ts
 │   └── payment-page.ts
 └── utils/
     ├── index.ts          ← UUID, amount, phone, retry helpers
