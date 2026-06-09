@@ -33,3 +33,10 @@ Encryption Key: aJPa0pJvo4zKmww8zPmqO+47V1BcguTVKMEXzVc1SF4=
 
 webhook secret hash: eaGxEHNv4r31waebGxMH7oUWPTF8vPQnH6mWWb1QiMNMiqVytRgzB0RosaeHLb
 
+
+Pawapay
+api token: eyJraWQiOiIxIiwiYWxnIjoiRVMyNTYifQ.eyJ0dCI6IkFBVCIsInN1YiI6IjIyNzI4IiwibWF2IjoiMSIsImV4cCI6MjA5NjU0MjQ5NiwiaWF0IjoxNzgwOTIzMjk2LCJwbSI6IkRBRixQQUYiLCJqdGkiOiI5MTJlYjI3NS05ZGY4LTQ1MGYtYmY1Yy1lNDI4ZGRiMjNlYWIifQ.kS-dclKCW34SaBmEtZTue1TudtJ5nWw4SbIqPW3MS78ZxAp09oy95BhTuLv2sdXIzFRvhyjeuQnMOyKTaxhH4A
+
+
+ngrok
+ngrok http 3000 --domain=niece-recipient-contents.ngrok-free.dev

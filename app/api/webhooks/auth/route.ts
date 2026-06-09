@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
+    // It is usually 'x-pawapay-signature' or 'X-Signature'.
+    const signature = req.headers; 
+
+    console.log('signature: ',signature)
     
-    const signature = req.headers.get("verif-hash") || req.headers.get("verif-signature");
-
-    if (!signature) {
-        return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-    }
-    
-    // const body = await req.text();
-
-    // if (!verifyFlutterwaveSignature(body, signature)) {
-    //     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-    // }
-
-    // const payload = JSON.parse(body) as WebhookPayload;
+    // Convert the raw Buffer back to a UTF-8 string
+    const rawBody = await req.json();
+    console.log('rawBody: ',rawBody.toString('utf8'))
 
     return NextResponse.json({ message: "Webhook received" });
 }   
