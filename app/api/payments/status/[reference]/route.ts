@@ -1,5 +1,5 @@
-import { handleSsentezoRouteError } from "@/lib/ssentezo";
-import { wallet } from "@/lib/payments";
+import { handleSsentezoRouteError } from "@/sdk/ssentezo";
+import { wallet } from "@/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/payments/status/[reference]

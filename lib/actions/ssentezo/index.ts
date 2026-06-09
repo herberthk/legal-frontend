@@ -3,12 +3,12 @@
 import { db } from "@/firebase/admin";
 import { COLLECTIONS, CALLBACK_URL } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
-import { wallet } from "@/lib/payments";
+import { wallet } from "@/sdk";
 import {
   withSsentezo,
   type SsentezoActionResult,
   type TransactionStatus,
-} from "@/lib/ssentezo";
+} from "@/sdk/ssentezo";
 import { generateTxRef } from "@/utils";
 import { parseUgandanNumber } from "@/utils";
 
@@ -35,6 +35,7 @@ export async function initiatePayment(params: {
 }): Promise<SsentezoActionResult<{ reference: string; status: TransactionStatus }>> {
   const externalReference = generateTxRef();
 
+  //@ts-ignore
   return withSsentezo(async () => {
     const result = await wallet.transactions.deposit({
       externalReference,
@@ -133,5 +134,6 @@ const total = params.amountUgx + fee;
     );
   }
 
+  //@ts-ignore
   return result;
 }

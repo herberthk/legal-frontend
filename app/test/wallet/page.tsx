@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   useTransactionStatus,
   type PollingState,
-} from "@/lib/ssentezo/hooks";
+} from "@/sdk/ssentezo/hooks";
 import { initiatePayment, verifyPhoneNumber } from "@/lib/actions";
 import { isValidAmount, parseUgandanNumber } from "@/utils";
 
