@@ -113,7 +113,7 @@ export class TokenManager {
     }
 
     const data = (await res.json()) as TokenResponse;
-
+// console.log('access token:', data.access_token);
     return {
       accessToken: data.access_token,
       // Subtract 5 s buffer to account for clock skew
@@ -191,13 +191,22 @@ export async function apiRequest<T>(
   }
   clearTimeout(timer);
 
-  let json: ApiResponse<T>;
+  let json: ApiResponse<T> | null;
   try {
-    json = (await res.json()) as ApiResponse<T>;
+    json = (await res.json()) as ApiResponse<T> | null;
   } catch {
     throw new FlwUgSdkError({
       code: "API_ERROR",
       message: `HTTP ${res.status}: response was not valid JSON`,
+      httpStatus: res.status,
+    });
+  }
+
+  // Guard: some error responses parse to null
+  if (!json) {
+    throw new FlwUgSdkError({
+      code: "API_ERROR",
+      message: `HTTP ${res.status}: empty response body`,
       httpStatus: res.status,
     });
   }

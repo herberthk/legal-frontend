@@ -62,5 +62,12 @@ declare namespace NodeJS {
      * Example: "https://yourapp.com"  (no trailing slash)
      */
     NEXT_PUBLIC_APP_URL?: string;
+
+    //Flutterwave
+    FLW_CLIENT_ID: string;
+    FLW_CLIENT_SECRET: string;
+    FLW_ENCRYPTION_KEY: string;
+    FLW_WEBHOOK_SECRET: string;
+    FLW_ENV: "sandbox" | "live";
   }
 }

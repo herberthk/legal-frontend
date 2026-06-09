@@ -38,7 +38,8 @@ import { normalizeChargeResponse, normalizeVerifyResponse } from "./normalize";
 export function generateTxRef(prefix = "FLW"): string {
   const ts = Date.now().toString(36).toUpperCase();
   const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `${prefix}-${ts}-${rand}`;
+  // v4 requires strict alphanumeric references (no hyphens)
+  return `${prefix}${ts}${rand}`;
 }
 
 // ── Main SDK class ────────────────────────────────────────────────────────────
@@ -112,6 +113,68 @@ export class FlwUganda {
       detectUgandaNetwork(phone),
   };
 
+  // ── Utility ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Retrieve a list of supported banks in Uganda for bank transfers.
+   * Useful for populating a dropdown in your UI.
+   */
+  async getBanks(): Promise<Array<{ id: string | number; code: string; name: string }>> {
+    type BankArray = Array<{ id: string | number; code: string; name: string }>;
+    
+    try {
+      // Use the official v4 endpoint
+      const res = await this.get<BankArray>("/banks?country=UG");
+      return res || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.log('can not get banks', err)
+      if (err.sdkError?.httpStatus === 404) {
+        // return [
+        //   { id: "1008", code: "UG04000", name: "STANBIC BANK LIMITED" },
+        //   { id: "1016", code: "UG16000", name: "CENTENARY RURAL DEVELOPMENT" },
+        //   { id: "1012", code: "UG08000", name: "STANDARD CHARTERED BANK" },
+        // ];
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Retrieve branches for a specific bank ID.
+   */
+  async getBankBranches(bankId: string | number): Promise<Array<{ id: string | number; branch_code: string; branch_name: string; bic: string }>> {
+    type BranchArray = Array<{ id: string | number; branch_code: string; branch_name: string; bic: string }>;
+    
+    const res = await this.get<BranchArray>(`/banks/${bankId}/branches`);
+    return res || [];
+  }
+
+  /**
+   * Resolve a customer's bank account information.
+   * Validates the account number against the bank before making a transfer.
+   */
+  async resolveBankAccount(
+    accountNumber: string,
+    bankCode: string,
+    currency = "UGX"
+  ): Promise<{ account_name: string; account_number: string; bank_name?: string }> {
+    type ResolveData = {
+      account_name: string;
+      account_number: string;
+      bank_name?: string;
+    };
+
+    const payload = {
+      account_number: accountNumber,
+      account_bank: bankCode,
+      currency: currency,
+    };
+
+    const res = await this.post<ResolveData>("/banks/account-resolve", payload);
+    return res;
+  }
+
   // ── Fee preview ─────────────────────────────────────────────────────────────
 
   /**
@@ -131,29 +194,72 @@ export class FlwUganda {
     amount: number,
     type: "mobile_money" | "card" | "bank" = "mobile_money"
   ): Promise<FeeInfo> {
-    // Map our type to Flutterwave ptype values
-    const ptypeMap: Record<string, string> = {
-      mobile_money: "2",
-      card: "1",
-      bank: "3",
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /fees — official Flutterwave v4 endpoint.
+    //
+    // Docs: https://developer.flutterwave.com/v4.0/reference/fees
+    // Base: https://developersandbox-api.flutterwave.com (sandbox)
+    //       https://api.flutterwave.com              (production)
+    //
+    // Required params: amount, currency, payment_method
+    // Optional params: card6, country, network
+    //
+    // Response: { status, message, data: { charge_amount, fee: [{type, amount}] } }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Exact payment_method values per v4 API reference
+    const methodMap: Record<string, string> = {
+      mobile_money: "mobile_money",
+      card: "card",
+      bank: "account",
     };
 
-    interface FeeRaw {
+    interface FeeData {
       charge_amount: number;
-      fee: number;
-      merchantfee: number;
-      ravefee: number;
+      fee: Array<{ type: string; amount: number }>;
     }
 
-    const data = await this.get<FeeRaw>(
-      `/transactions/fee?amount=${amount}&currency=UGX&payment_type=${ptypeMap[type] ?? "2"}`
-    );
+    const method = methodMap[type] ?? "mobile_money";
 
-    // Build a synthetic breakdown from the flat response
-    const breakdown = [
-      { type: "app", amount: data.ravefee ?? 0 },
-      ...(data.merchantfee > 0 ? [{ type: "merchant", amount: data.merchantfee }] : []),
-    ];
+    // Build query — add network hint for mobile money so Flutterwave can
+    // return Uganda-specific rates; country=UG anchors the lookup.
+    const params = new URLSearchParams({
+      amount: String(amount),
+      currency: "UGX",
+      payment_method: method,
+      country: "UG",
+    });
+
+    let data: FeeData | null = null;
+    try {
+      data = await this.get<FeeData>(`/fees?${params.toString()}`);
+    } catch {
+      // Sandbox may return 501 for certain payment methods — fall back to
+      // locally computed Uganda rates (see below).
+    }
+
+    // Parse API response when available
+    if (data && Array.isArray(data.fee) && data.fee.length > 0) {
+      const breakdown = data.fee.filter((f) => f.amount > 0);
+      return parseFees(amount, breakdown);
+    }
+
+    // ── Local fallback (Uganda published rates) ───────────────────────────────
+    // Used when the sandbox doesn't return fee data for the requested method.
+    //   • Mobile Money  – 3.0 % of amount
+    //   • Card          – 4.8 % of amount
+    //   • Bank / USSD   – 3.0 % of amount
+
+    let appFee = 0;
+    
+    if (type === "card") {
+      appFee = Math.round(amount * 0.048);
+    } else {
+      // mobile_money and bank share the same rate
+      appFee = Math.round(amount * 0.03);
+    }
+    
+    const breakdown = [{ type: "flutterwave", amount: appFee }];
 
     return parseFees(amount, breakdown);
   }
