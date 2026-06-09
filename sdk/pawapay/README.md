@@ -11,6 +11,7 @@ A comprehensive, production-grade TypeScript SDK for the [pawaPay Merchant API v
 - **Type-safe** — every request and response is fully typed from the OpenAPI spec
 - **Retry with jitter** — automatic exponential backoff on 5xx / network errors
 - **Client-side validation** — catches bad amounts, phone numbers, UUIDs, and metadata _before_ the network round-trip
+- **Fee calculator** — `calculateFee()` computes the PawaPay platform fee before you initiate a transaction
 - **Polling helper** — `pollUntilFinal()` waits for async transactions to complete
 - **Webhook helpers** — `Content-Digest` verification and typed callback parsers
 - **Works everywhere** — Node ≥ 18, Bun, Deno, Cloudflare Workers, Next.js edge runtime
@@ -358,6 +359,55 @@ try {
 }
 ```
 
+## Fee Calculator
+
+PawaPay charges a **3% platform fee** on all Uganda (UGX) transactions. Use `calculateFee` to show customers the exact fee and total _before_ initiating a transaction.
+
+```ts
+import { calculateFee, netAmount } from "pawapay-sdk";
+
+// ── Standalone functions ────────────────────────────────────────────────────
+const result = calculateFee(150_000, "UGA");
+
+console.log(result.amount); // 150000  (original)
+console.log(result.fee); // 4500    (3% platform fee)
+console.log(result.total); // 154500  (amount + fee)
+console.log(result.currency); // "UGX"
+console.log(result.formatted); // "UGX 150,000 + UGX 4,500 fee (3%) = UGX 154,500 total"
+
+// Net amount the merchant receives after PawaPay deducts its fee
+const net = netAmount(150_000, "UGA"); // 145_500
+
+// ── Via the client (same result) ───────────────────────────────────────────
+const pawapay = new PawaPayClient({ apiToken: "..." });
+
+const fee = pawapay.calculateFee(150_000, "UGA");
+const net2 = pawapay.netAmount(150_000, "UGA");
+```
+
+### Fee schedule
+
+| Country        | Currency | Rate | Fixed fee | Min | Max |
+| -------------- | -------- | ---- | --------- | --- | --- |
+| Uganda (`UGA`) | UGX      | 3%   | —         | —   | —   |
+
+> **Note:** More countries will be added as PawaPay expands coverage.
+
+### FeeResult type
+
+```ts
+interface FeeResult {
+  amount: number; // Original transaction amount
+  fee: number; // Platform fee charged by PawaPay
+  total: number; // amount + fee (what the customer pays)
+  currency: string; // ISO 4217 currency code (e.g. "UGX")
+  country: FeeCountry; // Country the schedule applies to
+  percentageRate: number; // Percentage applied (e.g. 3)
+  fixedFee: number; // Fixed component (0 for Uganda)
+  formatted: string; // Human-readable summary
+}
+```
+
 ---
 
 ## Utility helpers
@@ -401,22 +451,14 @@ const pawapay = new PawaPayClient({
 ```
 src/
 ├── index.ts              ← barrel export (single import surface)
-├── client.ts             ← PawaPayClient (lazy resource initialisation)
+├── client.ts             ← PawaPayClient (lazy resource initialisation + fee helpers)
 ├── http-client.ts        ← HttpClient (fetch, auth, retry, timeout)
 ├── types/
 │   └── index.ts          ← all request/response types + enums
-├── errors/
-│   └── index.ts          ← PawaPayError hierarchy
-├── resources/
-│   ├── deposits.ts
-│   ├── payouts.ts
-│   ├── refunds.ts
-│   ├── remittances.ts
-│   ├── toolkit.ts
-│   ├── finances.ts
 │   └── payment-page.ts
 └── utils/
     ├── index.ts          ← UUID, amount, phone, retry helpers
+    ├── fees.ts           ← calculateFee / netAmount (country fee schedules)
     ├── polling.ts        ← pollUntilFinal / pollUntilFinalOrThrow
     └── webhooks.ts       ← Content-Digest verification, callback parsers
 ```
