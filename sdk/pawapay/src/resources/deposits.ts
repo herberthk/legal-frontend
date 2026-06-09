@@ -15,6 +15,7 @@ import {
   validateCustomerMessage,
   validateMetadata,
   generateUUID,
+  resolveAccountDetails,
 } from "../utils";
 
 export class DepositsResource {
@@ -43,10 +44,10 @@ export class DepositsResource {
   async initiate(
     request: DepositRequest
   ): Promise<DepositInitiationResponse> {
-    this.validate(request);
+    const validatedRequest = this.validate(request);
     return this.http.request<DepositInitiationResponse>("/v2/deposits", {
       method: "POST",
-      body: request,
+      body: validatedRequest,
     });
   }
 
@@ -85,10 +86,15 @@ export class DepositsResource {
 
   // ── Validation ─────────────────────────────────────────────────────────────
 
-  private validate(req: DepositRequest): void {
+  private validate(req: DepositRequest): DepositRequest {
     validatePaymentId(req.depositId, "depositId");
     validateAmount(req.amount);
-    validatePhoneNumber(req.payer.accountDetails.phoneNumber);
+    
+    // Auto-detect and resolve provider, validate phone number
+    if (req.payer && req.payer.type === "MMO") {
+      req.payer.accountDetails = resolveAccountDetails(req.payer.accountDetails);
+    }
+    
     if (req.customerMessage) validateCustomerMessage(req.customerMessage);
     if (req.metadata) validateMetadata(req.metadata);
     if (!req.currency || req.currency.length !== 3) {
@@ -96,5 +102,6 @@ export class DepositsResource {
         `currency must be a 3-character ISO 4217 code (got "${req.currency}").`
       );
     }
+    return req;
   }
 }

@@ -18,6 +18,8 @@ import {
   sleep,
   createTimeoutSignal,
   BASE_URLS,
+  detectProvider,
+  resolveAccountDetails,
 } from "../src/utils";
 import { PawaPayValidationError } from "../src/errors";
 
@@ -175,6 +177,73 @@ describe("validatePhoneNumber", () => {
 
   it.each(invalid)('rejects invalid phone "%s"', (phone) => {
     expect(() => validatePhoneNumber(phone)).toThrow(PawaPayValidationError);
+  });
+});
+
+// ── detectProvider ────────────────────────────────────────────────────────────
+
+describe("detectProvider", () => {
+  it("detects MTN Uganda correctly", () => {
+    expect(detectProvider("256770123456")).toBe("MTN_MOMO_UGA");
+    expect(detectProvider("+256781123456")).toBe("MTN_MOMO_UGA");
+    expect(detectProvider("256760123456")).toBe("MTN_MOMO_UGA");
+    expect(detectProvider("256392123456")).toBe("MTN_MOMO_UGA");
+    expect(detectProvider("256312123456")).toBe("MTN_MOMO_UGA");
+  });
+
+  it("detects Airtel Uganda correctly", () => {
+    expect(detectProvider("256700123456")).toBe("AIRTEL_OAPI_UGA");
+    expect(detectProvider("+256751123456")).toBe("AIRTEL_OAPI_UGA");
+    expect(detectProvider("256740123456")).toBe("AIRTEL_OAPI_UGA");
+  });
+
+  it("throws validation error for unrecognized Uganda prefix", () => {
+    expect(() => detectProvider("256712345678")).toThrow(PawaPayValidationError);
+    expect(() => detectProvider("256712345678")).toThrow(/Unrecognized prefix "071"/);
+  });
+
+  it("throws validation error for non-Uganda numbers", () => {
+    expect(() => detectProvider("260971234567")).toThrow(PawaPayValidationError);
+    expect(() => detectProvider("260971234567")).toThrow(/currently supported primarily for Uganda/);
+  });
+});
+
+// ── resolveAccountDetails ─────────────────────────────────────────────────────
+
+describe("resolveAccountDetails", () => {
+  it("auto-detects provider if omitted", () => {
+    const resolved = resolveAccountDetails({ phoneNumber: "256770123456" });
+    expect(resolved.provider).toBe("MTN_MOMO_UGA");
+    expect(resolved.phoneNumber).toBe("256770123456");
+  });
+
+  it("replaces provider if it does not match standard detection", () => {
+    // If a user provides an incorrect provider by accident
+    const resolved = resolveAccountDetails({
+      phoneNumber: "256751123456",
+      provider: "MTN_MOMO_UGA",
+    });
+    expect(resolved.provider).toBe("AIRTEL_OAPI_UGA");
+  });
+
+  it("preserves explicitly provided valid provider", () => {
+    const resolved = resolveAccountDetails({
+      phoneNumber: "256700123456",
+      provider: "AIRTEL_OAPI_UGA",
+    });
+    expect(resolved.provider).toBe("AIRTEL_OAPI_UGA");
+  });
+
+  it("throws if phone number is invalid", () => {
+    expect(() => resolveAccountDetails({ phoneNumber: "0770123456" })).toThrow(
+      PawaPayValidationError
+    );
+  });
+
+  it("throws if provider cannot be auto-detected", () => {
+    expect(() => resolveAccountDetails({ phoneNumber: "260971234567" })).toThrow(
+      PawaPayValidationError
+    );
   });
 });
 
