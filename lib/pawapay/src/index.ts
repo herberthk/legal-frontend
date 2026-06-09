@@ -98,6 +98,11 @@ export {
 } from "./utils/polling";
 export type { PollOptions, PollResult, FinalStatus } from "./utils/polling";
 
+// ── Fee Calculator ────────────────────────────────────────────────────────────
+export { calculateFee, netAmount, FEE_SCHEDULES } from "./utils/fees";
+export type { FeeResult, FeeCountry, FeeSchedule } from "./utils/fees";
+
+
 // ── Webhook / Callback helpers ────────────────────────────────────────────────
 export {
   parseDepositCallback,
