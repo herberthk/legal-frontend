@@ -129,7 +129,7 @@ export class PawaPayClient {
    * console.log(result.formatted); // "UGX 150,000 + UGX 4,500 fee (3%) = UGX 154,500 total"
    * ```
    */
-  calculateFee(amount: number, country: FeeCountry): FeeResult {
+  calculateFee(amount: number, country: FeeCountry = 'UGA'): FeeResult {
     return _calculateFee(amount, country);
   }
 

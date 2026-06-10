@@ -2,7 +2,7 @@
 import { render } from "@react-email/render";
 import nodemailer from "nodemailer";
 import { db } from "@/firebase/admin";
-import { generateOTP, hashOTP, verifyOTP } from "@/utils/helpers";
+import { generateOTP, hashOTP, verifyOTP } from "@/utils/crypto";
 import { OTPEmail } from "@/components/global";
 import { TransactionReceiptEmail } from "@/components/emails/TransactionReceiptEmail";
 import { COLLECTIONS } from "@/constants";
