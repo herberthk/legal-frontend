@@ -70,13 +70,14 @@ export function sanitisePhoneNumber(raw: string): string {
 }
 
 /** Basic check: digits only, no leading zero, 7–15 chars */
-export function validatePhoneNumber(phone: string, field = "phoneNumber"): void {
+export function validatePhoneNumber(phone: string, field = "phoneNumber") {
   if (!/^[1-9][0-9]{6,14}$/.test(phone)) {
     throw new PawaPayValidationError(
       `Invalid phone number "${phone}". Must be digits only, no leading zero, with country code (e.g. "256700123456").`,
       field
     );
   }
+  return true
 }
 
 // ── Provider Auto-Detection ───────────────────────────────────────────────────
