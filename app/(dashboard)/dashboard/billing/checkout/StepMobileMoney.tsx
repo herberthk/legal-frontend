@@ -6,6 +6,7 @@ import { Smartphone, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { parseUgandanNumber } from "@/utils";
 import { MOBILE_MONEY_FEE_PERCENTAGE, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import { calculateFee } from "@/sdk/pawapay/src/utils/fees";
 
 interface StepMobileMoneyProps {
   phoneNumber:  string;
@@ -52,7 +53,7 @@ export const StepMobileMoney = memo(function StepMobileMoney({
 
   // Amount maths
   const amountUSD  = amount / USD_TO_UGX_EXCHANGE_RATE;
-  const feeUgx     = amount * MOBILE_MONEY_FEE_PERCENTAGE;
+   const feeUgx = calculateFee(amount).fee;
   const feeUSD = feeUgx / USD_TO_UGX_EXCHANGE_RATE;
   const totalUgx   = amount + feeUgx;
   const totalUSD = amountUSD + feeUSD;
@@ -218,7 +219,7 @@ export const StepMobileMoney = memo(function StepMobileMoney({
                 
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Transaction fee (2.5%)</span>
+                <span className="text-muted-foreground">Transaction fee (3%)</span>
                 <div className="flex flex-col">
                   <span className="font-semibold text-orange-400">
                    + ${feeUSD.toFixed(2)} 
