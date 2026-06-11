@@ -14,8 +14,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TransactionStatus } from "../types";
 
+
+/**
+ * ACCEPTED - The deposit has been accepted by pawaPay for processing.
+PROCESSING - The deposit has been submitted to the provider and is being processed.
+IN_RECONCILIATION - The deposit is being reconciled currently to determine it's final status.
+COMPLETED - The deposit has been successfully processed. This is a final status.
+FAILED - The deposit has been processed, but failed. This is a final status. See failureReason for details.
+ */
+
+type TransactionStatus = "PENDING" | "COMPLETED" | "FAILED" | "ERROR"
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type PollingState = "idle" | "polling" | "succeeded" | "failed" | "indeterminate" | "timeout" | "error";
@@ -67,9 +76,10 @@ export interface UseTransactionStatusReturn {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TERMINAL: Set<TransactionStatus> = new Set([
-  "SUCCEEDED",
+  "PENDING",
+  "COMPLETED",
   "FAILED",
-  "INDETERMINATE",
+  "ERROR",
 ]);
 
 const DEFAULT_ENDPOINT  = "/api/payments/status/{reference}";
@@ -169,9 +179,11 @@ export function useTransactionStatus(
         timerRef.current = null;
 
         const next: PollingState =
-          status === "SUCCEEDED"     ? "succeeded"    :
+          status === "COMPLETED"     ? "succeeded"    :
           status === "FAILED"        ? "failed"       :
-                                       "indeterminate";
+          status === "ERROR"         ? "failed"       :
+          status ==='PENDING'          ? 'polling'      : "indeterminate"
+        
         setPollingState(next);
         onTerminalRef.current?.(status);
       }

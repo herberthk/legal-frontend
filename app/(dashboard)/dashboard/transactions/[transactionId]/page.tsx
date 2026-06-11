@@ -77,9 +77,9 @@ const TransactionDetailPage: FC<PageProps> = async ({ params }) => {
             <div className="absolute top-6 right-6 select-none opacity-90">
               <span
                 className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-widest border ${
-                  t.status === "completed"
+                  t.status === "COMPLETED"
                     ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                    : t.status === "failed"
+                    : t.status === "FAILED"
                     ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
                     : "bg-amber-500/10 text-amber-500 border-amber-500/30 animate-pulse"
                 }`}

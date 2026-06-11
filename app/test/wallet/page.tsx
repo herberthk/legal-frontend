@@ -8,8 +8,8 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   useTransactionStatus,
   type PollingState,
-} from "@/sdk/ssentezo/hooks";
-import { initiatePayment, verifyPhoneNumber } from "@/lib/actions";
+} from "@/sdk/hooks";
+import { verifyPhoneNumber } from "@/lib/actions";
 import { isValidAmount, parseUgandanNumber } from "@/utils";
 
 // ── Status badge sub-component ─────────────────────────────────────────────────
@@ -84,7 +84,7 @@ const Page = () => {
       intervalMs: 7_000, // 7 seconds interval
       //maxWaitMs:  14_400,
       onTerminal: (status) => {
-        if (status === "SUCCEEDED") {
+        if (status === "COMPLETED") {
           setStep("complete");
           // Give the user a moment to see the success state, then redirect
         //   setTimeout(() => router.push(`/orders/${orderId}/confirmation`), 2000);
@@ -123,14 +123,14 @@ const Page = () => {
         return;
       }
     startTransition(async () => {
-        const result = await verifyPhoneNumber(formattedNumber);
-    console.log('result',result);
-      if (!result.success) {
-        setErrorMsg(result.error ?? "Verification failed.");
-        return;
-      }
-      setVerifiedName(result.data.fullName ?? null);
-      setStep("verify");
+    //     const result = await verifyPhoneNumber(formattedNumber);
+    // console.log('result',result);
+    //   if (!result.success) {
+    //     setErrorMsg(result.error ?? "Verification failed.");
+    //     return;
+    //   }
+    //   setVerifiedName(result.data.fullName ?? null);
+    //   setStep("verify");
     });
   }
 
@@ -156,14 +156,14 @@ const Page = () => {
       }
     startTransition(async () => {
     
-      const result = await initiatePayment({ msisdn:formattedNumber, amount:Number(value.amount) });
-     console.log('initiatePayment',result);
-      if (!result.success) {
-        setErrorMsg(result.error ?? "Payment failed.");
-        return;
-      }
-      setStep("awaiting");
-      startPolling(result.data.reference);
+    //   const result = await initiatePayment({ msisdn:formattedNumber, amount:Number(value.amount) });
+    //  console.log('initiatePayment',result);
+    //   if (!result.success) {
+    //     setErrorMsg(result.error ?? "Payment failed.");
+    //     return;
+    //   }
+    //   setStep("awaiting");
+    //   startPolling(result.data.reference);
     });
   }
 

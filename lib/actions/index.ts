@@ -9,5 +9,5 @@ export * from "./notifications";
 export * from "./transcribe";
 export * from "./pushNotification";
 export * from "./review";
-export * from "./ssentezo";
+export * from "./payment";
 

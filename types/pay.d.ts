@@ -1,3 +1,7 @@
+type MetadataItem = 
+| { baseAmount: number, fee?: number }
+| Record<string, string | boolean>;
+
 // Response body
 type DepositPayLoad = {
   amount: string,
@@ -15,6 +19,7 @@ type DepositPayLoad = {
   },
   providerTransactionId: string,
   status: "COMPLETED" | "PENDING" | "FAILED"
+  metadata?: MetadataItem[];
 }
 
 type PayoutPayLoad = {

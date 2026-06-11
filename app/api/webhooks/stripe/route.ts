@@ -81,7 +81,7 @@ export async function POST(req: Request) {
 
           // If pending, mark as completed and credit user balance
           dbTransaction.update(transactionRef, {
-            status: "completed",
+            status: "COMPLETED",
             details: "Stripe Card Payment Succeeded",
           });
         } else {
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
             createdAt: FieldValue.serverTimestamp(),
             details: "Stripe Card Payment Succeeded",
             reference,
-            status: "completed",
+            status: "COMPLETED",
             method: "STRIPE"
           };
           dbTransaction.set(transactionRef, transaction);
@@ -139,10 +139,10 @@ export async function POST(req: Request) {
         const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(paymentIntent.id);
         const txDoc = await transactionRef.get();
 
-        if (txDoc.exists && txDoc.data()?.status === "pending") {
+        if (txDoc.exists && txDoc.data()?.status === "PENDING") {
           await Promise.all([
             transactionRef.update({
-              status: "failed",
+              status: "FAILED",
               details: paymentIntent.last_payment_error?.message || "Stripe Payment Failed",
             }),
             createNotification(userId, {

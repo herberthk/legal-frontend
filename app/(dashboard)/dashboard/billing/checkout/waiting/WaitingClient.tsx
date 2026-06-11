@@ -13,7 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useRouter } from "nextjs-toploader/app";
-import { useTransactionStatus } from "@/sdk/ssentezo/hooks";
+import { useTransactionStatus } from "@/sdk/hooks";
 import { CustomButton } from "@/components/ui/custom-button";
 
 interface WaitingClientProps {
@@ -30,7 +30,7 @@ export const WaitingClient = memo(function WaitingClient({ reference }: WaitingC
     intervalMs: 7000,
     maxWaitMs: 180000,
     onTerminal: (status) => {
-      if (status === "SUCCEEDED") {
+      if (status === "COMPLETED") {
         router.push(`/dashboard/billing/success?ref=${reference}`);
       }
     },

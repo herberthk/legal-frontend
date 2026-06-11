@@ -267,3 +267,16 @@ export const BASE_URLS = {
   sandbox: "https://api.sandbox.pawapay.io",
   production: "https://api.pawapay.io",
 } as const;
+
+/**
+ * Encode a string to base64.
+ * Uses Node.js Buffer when available (Next.js server / Edge Runtime + Node.js),
+ * falls back to the Web Crypto-based `btoa` for pure Edge environments.
+ */
+export function base64Encode(value: string): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(value, "utf8").toString("base64");
+  }
+  // Pure Edge Runtime (no Buffer) — btoa is available globally
+  return btoa(unescape(encodeURIComponent(value)));
+}

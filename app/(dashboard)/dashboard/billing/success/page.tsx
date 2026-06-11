@@ -55,10 +55,10 @@ export default async function SuccessPage({ searchParams }: PageProps) {
   
   if (result.success && result.transaction) {
     // If transaction not found, show the waiter to poll for it
-    if (result.transaction.status === "pending") {
+    if (result.transaction.status === "PENDING") {
       return <TransactionWaiter txnRef={reference} />;
     }
-    if (result.transaction.status === "failed") { 
+    if (result.transaction.status === "FAILED") { 
       return <ErrorState message="Transaction failed" />;
     }
   }
