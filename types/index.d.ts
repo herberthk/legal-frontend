@@ -83,14 +83,15 @@ declare global {
     userId: string;
     type: "TEXT_CHAT" | "VOICE_SESSION" | "DEPOSIT";
     description: string;
-    amount: number; // Cost (negative) or Deposit (positive)
+    amount: number;
     createdAt: string;
     details: string; // e.g., "1.5k tokens" or "4m 20s"
-    status: "pending" | "completed" | "failed";
+    status: "PENDING" | "COMPLETED" | "FAILED";
     method: TransactionMethod
     reference: string;
-    ssentezoWalletReference?:string;
-    financialTransactionId?:string;
+    providerTransactionId?:string;
+    country?: string;
+    fee?:number
   };
 
   type ConnectionState = "disconnected" | "connecting" | "connected" | "error";

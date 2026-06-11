@@ -2,7 +2,7 @@
 // PawaPay SDK – PawaPayClient  (main entry point)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { PawaPayConfig } from "./types";
+import type { MsisdnData, PawaPayConfig } from "./types";
 import { HttpClient } from "./http-client";
 import { DepositsResource } from "./resources/deposits";
 import { PayoutsResource } from "./resources/payouts";
@@ -17,6 +17,7 @@ import {
   netAmount as _netAmount,
 } from "./utils/fees";
 import type { FeeCountry, FeeResult } from "./utils/fees";
+import { MsisdnResource } from "./resources/msisdn";
 
 export type { PawaPayConfig } from "./types";
 
@@ -60,6 +61,7 @@ export class PawaPayClient {
   private _toolkit?: ToolkitResource;
   private _finances?: FinancesResource;
   private _paymentPage?: PaymentPageResource;
+  private _verifyMsdn?: MsisdnResource 
 
   constructor(config: PawaPayConfig) {
     if (!config.apiToken || typeof config.apiToken !== "string") {
@@ -106,6 +108,44 @@ export class PawaPayClient {
   /** Hosted Payment Page sessions */
   get paymentPage(): PaymentPageResource {
     return (this._paymentPage ??= new PaymentPageResource(this._http));
+  }
+
+  /**
+   * 
+   * 
+   * Verifies the name associated with a Ugandan mobile money number.
+   *
+   * @param msisdn  - The mobile number to verify, in MSISDN format (e.g., "+256770123456").
+   *
+   * @returns A promise that resolves to a {@link VerifyMsisdnResponse} object
+   *          containing the name verification result.
+   *
+   * @throws {@link PawaPayValidationError} if the msisdn is invalid.
+   * @throws {@link PawaPayAPIError} if the API request fails.
+   *
+   * @example
+   * ```ts
+   * // Initialize the client
+   * const pawapay = new PawaPayClient({
+   *   apiToken: 'your-api-token',
+   *   environment: 'sandbox',
+   * });
+   *
+   * try {
+   *   // Verify a mobile number
+   *   const result = await pawapay.msisdn.verify('+256770123456');
+   *
+   *   // Display the result
+   *   console.log('Name:', result.name);
+   *   console.log('Status:', result.status);
+   *   console.log('Reason:', result.reason);
+   * } catch (error) {
+   *   console.error('Error verifying MSISDN:', error);
+   * }
+   * ```
+   */
+  get msisdn(): MsisdnResource {
+    return (this._verifyMsdn ??= new MsisdnResource());
   }
 
   // ── Fee helpers ─────────────────────────────────────────────────────────────

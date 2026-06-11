@@ -206,8 +206,9 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     setIsVerifying(true);
     try {
       const res = await verifyPhoneNumber(parsed.formattedNumber!);
-      if (res.success && res.data?.fullName) {
-        setVerifiedName(res.data.fullName);
+      
+      if (res.success && 'data' in res ) {
+        setVerifiedName(res.data?.fullName || null);
       } else {
         setVerifyError("Phone number verification failed.");
       }

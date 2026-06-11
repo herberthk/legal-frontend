@@ -7,7 +7,6 @@ import { revalidatePath } from "next/cache";
 import { generateTxRef } from "@/utils";
 import { createNotification } from "./notifications";
 import { stripe } from "@/lib/stripe";
-import { sendTransactionReceiptEmail } from "@/lib/actions/email";
 
 export async function processDeposit(
   userId: string,
@@ -27,7 +26,7 @@ export async function processDeposit(
       createdAt: FieldValue.serverTimestamp(),
       details: details,
       reference: generateTxRef(),
-      status: "pending",
+      status: "PENDING",
       method
     };
 
@@ -176,7 +175,7 @@ export async function initiateStripePayment(userId: string, amountInDollars: num
       createdAt: FieldValue.serverTimestamp(),
       details: "Card Payment Initiated",
       reference,
-      status: "pending",
+      status: "PENDING",
       method: "STRIPE"
     };
 
@@ -197,89 +196,89 @@ export async function initiateStripePayment(userId: string, amountInDollars: num
   }
 }
 
-export async function initiateMobileMoneyPayment(
-  userId: string,
-  amountInDollars: number,
-  phoneNumber: string,
-  network: "MTN" | "AIRTEL",
-) {
-  try {
-    const amountInCents = Math.round(amountInDollars * 100);
-    const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
+// export async function initiateMobileMoneyPayment(
+//   userId: string,
+//   amountInDollars: number,
+//   phoneNumber: string,
+//   network: "MTN" | "AIRTEL",
+// ) {
+//   try {
+//     const amountInCents = Math.round(amountInDollars * 100);
+//     const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
 
-    const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
-      userId,
-      type: "DEPOSIT",
-      description: `Funds Deposit via Mobile Money (${network})`,
-      amount: amountInCents,
-      createdAt: FieldValue.serverTimestamp(),
-      details: `Phone: ${phoneNumber}`,
-      reference: generateTxRef(),
-      method: network,
-      status: "pending",
-    };
+//     const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
+//       userId,
+//       type: "DEPOSIT",
+//       description: `Funds Deposit via Mobile Money (${network})`,
+//       amount: amountInCents,
+//       createdAt: FieldValue.serverTimestamp(),
+//       details: `Phone: ${phoneNumber}`,
+//       reference: generateTxRef(),
+//       method: network,
+//       status: "PENDING",
+//     };
 
-    await transactionRef.set(transaction);
+//     await transactionRef.set(transaction);
 
-    // Simulate direct MTN / Airtel USSD push payment completion process
-    // In a real setup, their gateway triggers a PIN prompt and alerts our webhook.
-    // Here we wait 4 seconds (time for user PIN entry) and update the balance/transaction.
-    setTimeout(async () => {
-      try {
-        const batch = db.batch();
-        const tDocRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(transactionRef.id);
-        const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
+//     // Simulate direct MTN / Airtel USSD push payment completion process
+//     // In a real setup, their gateway triggers a PIN prompt and alerts our webhook.
+//     // Here we wait 4 seconds (time for user PIN entry) and update the balance/transaction.
+//     setTimeout(async () => {
+//       try {
+//         const batch = db.batch();
+//         const tDocRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(transactionRef.id);
+//         const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
 
-        batch.update(tDocRef, {
-          status: "completed",
-        });
+//         batch.update(tDocRef, {
+//           status: "completed",
+//         });
 
-        batch.update(userRef, {
-          balance: FieldValue.increment(amountInCents),
-        });
+//         batch.update(userRef, {
+//           balance: FieldValue.increment(amountInCents),
+//         });
 
-        await batch.commit();
+//         await batch.commit();
 
-        // Fetch updated balance for email
-        const updatedUserDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
-        const newBalanceInCents = (updatedUserDoc.data()?.balance as number) ?? 0;
+//         // Fetch updated balance for email
+//         const updatedUserDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+//         const newBalanceInCents = (updatedUserDoc.data()?.balance as number) ?? 0;
 
-        // Send receipt email (non-blocking)
-        await sendTransactionReceiptEmail({
-          userId,
-          amountInCents,
-          paymentMethod: network === "MTN" ? "MTN Mobile Money" : "Airtel Money",
-          reference: transaction.reference as string,
-          newBalanceInCents,
-          transactionId: transactionRef.id,
-        });
+//         // Send receipt email (non-blocking)
+//         await sendTransactionReceiptEmail({
+//           userId,
+//           amountInCents,
+//           paymentMethod: network === "MTN" ? "MTN Mobile Money" : "Airtel Money",
+//           reference: transaction.reference as string,
+//           newBalanceInCents,
+//           transactionId: transactionRef.id,
+//         });
 
-        // Create a notification for successful deposit
-        await createNotification(userId, {
-          title: "Deposit Successful",
-          message: `Your Mobile Money deposit of $${amountInDollars.toLocaleString()} was successful.`,
-          type: "SUCCESS",
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/transactions/${transactionRef.id}`,
-        });
-      } catch (err) {
-        console.error("Error in Mobile Money simulated completion:", err);
-      }
-    }, 4000);
+//         // Create a notification for successful deposit
+//         await createNotification(userId, {
+//           title: "Deposit Successful",
+//           message: `Your Mobile Money deposit of $${amountInDollars.toLocaleString()} was successful.`,
+//           type: "SUCCESS",
+//           url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/transactions/${transactionRef.id}`,
+//         });
+//       } catch (err) {
+//         console.error("Error in Mobile Money simulated completion:", err);
+//       }
+//     }, 4000);
 
-    return {
-      success: true,
-      transactionId: transactionRef.id,
-      message: "USSD PIN prompt sent. Please check your phone.",
-      reference: transaction.reference,
-    };
-  } catch (error) {
-    console.error("Error initiating Mobile Money payment:", error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Failed to initiate Mobile Money payment",
-    };
-  }
-}
+//     return {
+//       success: true,
+//       transactionId: transactionRef.id,
+//       message: "USSD PIN prompt sent. Please check your phone.",
+//       reference: transaction.reference,
+//     };
+//   } catch (error) {
+//     console.error("Error initiating Mobile Money payment:", error);
+//     return {
+//       success: false,
+//       message: error instanceof Error ? error.message : "Failed to initiate Mobile Money payment",
+//     };
+//   }
+// }
 
 export async function getTransactionStatus(transactionId: string) {
   try {

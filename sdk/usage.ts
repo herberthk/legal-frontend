@@ -1,31 +1,35 @@
+import { generateTxRef } from "@/utils";
 import { formatAmount, OperationType, pawapay, pollUntilFinal, pollUntilFinalOrThrow, validatePhoneNumber, verifyContentDigest } from ".";
 import { customPawapayError } from "./error";
 
 // 1. Collect from a customer (deposit)
-//const depositId = pawapay.deposits.generateId(); // UUIDv4
+const depositId = pawapay.deposits.generateId(); // UUIDv4
 
-const result = pawapay.calculateFee(190000);
-// try {
-//   const deposit = await pawapay.deposits.initiate({
-//   depositId,
-//   payer: {
-//     type: "MMO",
-//     accountDetails: {
-//       phoneNumber: "256700123456", // digits-only, with country code (auto-detects AIRTEL_OAPI_UGA)
-//     },
-//   },
-//   amount: result.total.toString(),
-//   currency: "UGX",
-//   customerMessage: "Wallet topup",
-//   // metadata: [{ orderId: "ORD-001" }],
-// });
-// console.log(deposit)
-// // if (deposit.status === TransactionStatus.ACCEPTED) {
-// //   console.log("Deposit accepted — waiting for callback or polling...");
-// // }
-// } catch (err) {
-// customPawapayError(err)
+const amount = 190000
+const result = pawapay.calculateFee(amount);
+try {
+  const deposit = await pawapay.deposits.initiate({
+  depositId,
+  payer: {
+    type: "MMO",
+    accountDetails: {
+      phoneNumber: "256700123456", // digits-only, with country code (auto-detects AIRTEL_OAPI_UGA)
+    },
+  },
+  amount: result.total.toString(),
+  currency: "UGX",
+  customerMessage: "Wallet topup",
+  metadata: [
+    { baseAmount: amount }
+  ],
+});
+console.log(deposit)
+// if (deposit.status === TransactionStatus.ACCEPTED) {
+//   console.log("Deposit accepted — waiting for callback or polling...");
 // }
+} catch (err) {
+customPawapayError(err)
+}
 
 // Check Transaction status
 
@@ -65,18 +69,18 @@ const result = pawapay.calculateFee(190000);
 // }
 
 // Refunds
-try {
-const refundId = pawapay.refunds.generateId();
-const refund = await pawapay.refunds.initiate({
-  refundId,
-  depositId: 'f182d260-35b7-45af-962f-069169b2c8bb',
-  amount: "700",
-  currency: "UGX",
-});
-console.log("Refund result:", refund)
-} catch (error) {
-  customPawapayError(error)
-}
+// try {
+// const refundId = pawapay.refunds.generateId();
+// const refund = await pawapay.refunds.initiate({
+//   refundId,
+//   depositId: 'f182d260-35b7-45af-962f-069169b2c8bb',
+//   amount: "700",
+//   currency: "UGX",
+// });
+// console.log("Refund result:", refund)
+// } catch (error) {
+//   customPawapayError(error)
+// }
 
 // try {
 // const status = await pawapay.refunds.checkStatus('83987a50-dfa8-454b-bd0c-28f10e19877a');
@@ -189,3 +193,12 @@ console.log("Refund result:", refund)
 //     rawBody,
 //     (req.headers["content-digest"] as string) ?? "",
 //   );
+
+// Verify phone number
+
+// try {
+//   const result = await pawapay.msisdn.verify('256703752696')
+//   console.log(result)
+// } catch (error) {
+//   customPawapayError(error)
+// }

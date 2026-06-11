@@ -222,17 +222,17 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                         </span>
                         <span
                           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                            t.status === "completed"
+                            t.status === "COMPLETED"
                               ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                              : t.status === "failed"
+                              : t.status === "FAILED"
                               ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
                               : "bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse"
                           }`}
                         >
                           <span className={`h-1.5 w-1.5 rounded-full ${
-                            t.status === "completed"
+                            t.status === "COMPLETED"
                               ? "bg-emerald-500"
-                              : t.status === "failed"
+                              : t.status === "FAILED"
                               ? "bg-rose-500"
                               : "bg-amber-500"
                           }`} />

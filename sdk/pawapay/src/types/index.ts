@@ -112,7 +112,9 @@ export interface PayerOrRecipient {
   accountDetails: AccountDetails;
 }
 
-export type MetadataItem = Record<string, string | boolean>;
+export type MetadataItem = 
+| { baseAmount: number, fee?: number }
+| Record<string, string | boolean>;
 
 // ── Deposit ───────────────────────────────────────────────────────────────────
 
@@ -384,4 +386,12 @@ export interface PawaPayConfig {
   fetchImpl?: typeof globalThis.fetch;
   /** Global request headers merged on every call */
   extraHeaders?: Record<string, string>;
+}
+
+/** Result of a phone number verification request. */
+export interface MsisdnData {
+  /** Verified phone number in international format. */
+  msisdn: string;
+  FirstName: string;
+  Surname: string;
 }
