@@ -91,7 +91,7 @@ export interface FeeResult {
  * // result.formatted → "UGX 150,000 + UGX 4,500 fee (3%) = UGX 154,500 total"
  * ```
  */
-export function calculateFee(amount: number, country: FeeCountry): FeeResult {
+export function calculateFee(amount: number, country: FeeCountry = "UGA"): FeeResult {
   // ── Validate amount ──────────────────────────────────────────────────────
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new PawaPayValidationError(

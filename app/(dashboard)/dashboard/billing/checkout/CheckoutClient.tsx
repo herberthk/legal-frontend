@@ -252,51 +252,6 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     }
   }, [user.id, amount, phoneNumber, verifiedName, resetCheckout, resetVerification, router]);
 
-  // ── Stripe Polling (Step 4) ─────────────────────────────────────────────
-  // const startPollingTransaction = useCallback(
-  //   ({ txId, ref }: { txId: string; ref: string | null }) => {
-  //     setStep(4);
-
-  //     setStatusChecklist([
-  //       { label: "Confirming payment with Stripe", done: true, loading: false },
-  //       { label: "Stripe checkout successful", done: true, loading: false },
-  //       { label: "Waiting for secure webhook receipt", done: false, loading: true },
-  //     ]);
-
-  //     let pollCount = 0;
-  //     pollIntervalRef.current = setInterval(async () => {
-  //       pollCount++;
-  //       try {
-  //         const res = await getTransactionStatus(txId);
-  //         if (res.success && res.status === "completed") {
-  //           clearInterval(pollIntervalRef.current!);
-  //           setStatusChecklist((prev) =>
-  //             prev.map((item) => ({ ...item, done: true, loading: false }))
-  //           );
-  //           setTimeout(() => {
-  //             resetCheckout();
-  //             router.push(`/dashboard/billing/success?ref=${ref}`);
-  //           }, 800);
-  //         } else if (res.success && res.status === "failed") {
-  //           clearInterval(pollIntervalRef.current!);
-  //           toast.error("Transaction failed or was canceled by user.");
-  //           setStep(3);
-  //         } else {
-  //           if (pollCount >= 14) {
-  //             clearInterval(pollIntervalRef.current!);
-  //             toast.info("Payment submitted! Processing in the background.");
-  //             resetCheckout();
-  //             router.push("/dashboard/billing");
-  //           }
-  //         }
-  //       } catch {
-  //         console.error("Polling error");
-  //       }
-  //     }, 1500);
-  //   },
-  //   [setStep, resetCheckout, router]
-  // );
-
   // ── Stripe success callback ─────────────────────────────────────────────
   const handleStripeSuccess = useCallback(
     (reference: string) => {

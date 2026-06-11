@@ -2,9 +2,10 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Wallet } from "lucide-react";
-import { formatUSD } from "@/utils";
+import { formatUgx, formatUSD } from "@/utils";
 import { useCheckoutStore } from "@/store/checkout";
-import { MOBILE_MONEY_FEE_PERCENTAGE, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import { calculateFee } from "@/sdk/pawapay/src/utils/fees";
 
 interface OrderSummaryProps {
   balance: number;
@@ -18,10 +19,9 @@ export const OrderSummary = memo(function OrderSummary({
   const { paymentMethod } = useCheckoutStore();
 
   const isMobile = paymentMethod === "mobile_money";
-  
+  const feeUgx = calculateFee(amount).fee;
   // Calculate amounts in UGX
   const amountUgx = amount || 0;
-  const feeUgx = isMobile ? Math.round(amountUgx * MOBILE_MONEY_FEE_PERCENTAGE) : 0;
   const totalUgx = amountUgx + feeUgx;
 
   // Convert to USD equivalents
@@ -48,7 +48,12 @@ export const OrderSummary = memo(function OrderSummary({
         {/* Current Balance */}
         <div className="flex justify-between items-center text-sm font-medium">
           <span className="text-muted-foreground">Current Balance</span>
-          <span className="text-foreground">{formatUSD(balance / 100)}</span>
+          <div className="text-right">
+            <span className="text-foreground">{formatUSD(balance / 100)}</span>
+            <div className="text-[10px] text-muted-foreground">
+              UGX {formatUgx(balance/100)}
+            </div>
+          </div>
         </div>
 
         {/* Top-up Amount */}
@@ -65,7 +70,7 @@ export const OrderSummary = memo(function OrderSummary({
         {/* Ssentezo Fee (2.5%) for Mobile Money */}
         {isMobile && amountUgx > 0 && (
           <div className="flex justify-between items-center text-sm font-medium">
-            <span className="text-muted-foreground">Transaction Fee (2.5%)</span>
+            <span className="text-muted-foreground">Transaction Fee (3%)</span>
             <div className="text-right">
               <span className="text-orange-400 font-bold">{formatUSD(feeUsd)}</span>
               <div className="text-[10px] text-orange-400/80">
