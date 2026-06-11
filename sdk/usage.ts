@@ -1,35 +1,37 @@
 import { generateTxRef } from "@/utils";
 import { formatAmount, OperationType, pawapay, pollUntilFinal, pollUntilFinalOrThrow, validatePhoneNumber, verifyContentDigest } from ".";
 import { customPawapayError } from "./error";
+import { db } from "@/firebase/admin";
+import { COLLECTIONS } from "@/constants";
 
 // 1. Collect from a customer (deposit)
-const depositId = pawapay.deposits.generateId(); // UUIDv4
+// const depositId = pawapay.deposits.generateId(); // UUIDv4
 
-const amount = 190000
-const result = pawapay.calculateFee(amount);
-try {
-  const deposit = await pawapay.deposits.initiate({
-  depositId,
-  payer: {
-    type: "MMO",
-    accountDetails: {
-      phoneNumber: "256700123456", // digits-only, with country code (auto-detects AIRTEL_OAPI_UGA)
-    },
-  },
-  amount: result.total.toString(),
-  currency: "UGX",
-  customerMessage: "Wallet topup",
-  metadata: [
-    { baseAmount: amount }
-  ],
-});
-console.log(deposit)
-// if (deposit.status === TransactionStatus.ACCEPTED) {
-//   console.log("Deposit accepted — waiting for callback or polling...");
+// const amount = 190000
+// const result = pawapay.calculateFee(amount);
+// try {
+//   const deposit = await pawapay.deposits.initiate({
+//   depositId,
+//   payer: {
+//     type: "MMO",
+//     accountDetails: {
+//       phoneNumber: "256700123456", // digits-only, with country code (auto-detects AIRTEL_OAPI_UGA)
+//     },
+//   },
+//   amount: result.total.toString(),
+//   currency: "UGX",
+//   customerMessage: "Wallet topup",
+//   metadata: [
+//     { baseAmount: amount }
+//   ],
+// });
+// console.log(deposit)
+// // if (deposit.status === TransactionStatus.ACCEPTED) {
+// //   console.log("Deposit accepted — waiting for callback or polling...");
+// // }
+// } catch (err) {
+// customPawapayError(err)
 // }
-} catch (err) {
-customPawapayError(err)
-}
 
 // Check Transaction status
 
@@ -196,9 +198,37 @@ customPawapayError(err)
 
 // Verify phone number
 
+try {
+  const result = await pawapay.msisdn.verify('256703752696')
+  if(result.response === "OK") {
+    console.log(result)
+  } else {
+    throw new Error(result.response)
+  }
+  
+} catch (error) {
+  customPawapayError(error)
+}
+// Update trnsactions where status = "pending" to "PENDING", from 'completed' to "COMPLETED", and "failed" to "FAILED"
 // try {
-//   const result = await pawapay.msisdn.verify('256703752696')
-//   console.log(result)
+// await db.collection(COLLECTIONS.TRANSACTIONS).where("status", "in", ["pending", "completed", "failed"]).get().then(querySnap => {
+//   if(querySnap.empty) {
+//     console.log("No transactions found.")
+//     return;
+//   }
+//   querySnap.forEach(doc => {
+//     const data = doc.data();
+//     if (data.status === "pending") {
+//       doc.ref.update({ status: "PENDING" });
+//     } else if (data.status === "completed") {
+//       doc.ref.update({ status: "COMPLETED" });
+//     } else if (data.status === "failed") {
+//       doc.ref.update({ status: "FAILED" });
+//     }
+//   });
+//   console.log("Transactions updated successfully.")
+// })
 // } catch (error) {
-//   customPawapayError(error)
+//   console.log(error)
 // }
+

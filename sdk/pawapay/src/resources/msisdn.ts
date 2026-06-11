@@ -1,4 +1,4 @@
-import { MsisdnData } from "../types";
+import { MsisdnData, MsisdnVerificationResponse } from "../types";
 import { base64Encode } from "../utils";
 import { validateMsisdn } from "../utils/validators";
 
@@ -34,7 +34,7 @@ export class MsisdnResource {
    * @throws {PawaPayValidationError} if the MSISDN format is invalid.
    * @throws {PawaPayError}           if the number cannot be verified.
    */
- private async makeFetchRequest(msisdn: string): Promise<MsisdnData> {
+ private async makeFetchRequest(msisdn: string): Promise<MsisdnVerificationResponse> {
      return await fetch(`${API_BASE_URL}/msisdn-verification`, {
         method: 'POST',
         headers: {
@@ -48,7 +48,7 @@ export class MsisdnResource {
         }),
     }).then(res => res.json());
   }
-  async verify(msisdn: string): Promise<MsisdnData> {
+  async verify(msisdn: string): Promise<MsisdnVerificationResponse> {
     validateMsisdn(msisdn);
     return this.makeFetchRequest(msisdn);
   }

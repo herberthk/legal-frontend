@@ -395,3 +395,8 @@ export interface MsisdnData {
   FirstName: string;
   Surname: string;
 }
+
+export interface MsisdnVerificationResponse {
+  response: string,
+  data: MsisdnData
+}

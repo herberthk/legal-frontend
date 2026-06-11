@@ -57,7 +57,7 @@ export const StepMobileMoney = memo(function StepMobileMoney({
   const totalUgx   = amount + feeUgx;
   const totalUSD = amountUSD + feeUSD;
   const canVerify  = phoneNumber.length === 9 && !isVerifying && !isProcessing;
-console.log("amount in fmobile money final  step", amount)
+// console.log("amount in fmobile money final  step", amount)
   return (
     <div className="flex-1 flex flex-col justify-between space-y-6">
       <AnimatePresence mode="wait">
@@ -109,7 +109,7 @@ console.log("amount in fmobile money final  step", amount)
                   value={phoneNumber}
                   onKeyDown={handleKeyDown}
                   onChange={handleChange}
-                  className="ml-16 bg-transparent border-none outline-none focus:ring-0 text-muted-foreground font-bold text-base w-full placeholder:text-muted-foreground/40 tracking-widest"
+                  className="ml-17 bg-transparent border-none outline-none focus:ring-0 text-muted-foreground font-bold text-base w-full placeholder:text-muted-foreground/40 tracking-widest"
                 />
 
                 {/* Provider badge */}
