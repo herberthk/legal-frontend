@@ -2,34 +2,30 @@ import { formatAmount, OperationType, pawapay, pollUntilFinal, pollUntilFinalOrT
 import { customPawapayError } from "./error";
 
 // 1. Collect from a customer (deposit)
-const depositId = pawapay.deposits.generateId(); // UUIDv4
+//const depositId = pawapay.deposits.generateId(); // UUIDv4
 
-const result = pawapay.calculateFee(90000);
-console.log(result.formatted)
-console.log(result.amount)
-console.log(result.fee)
-console.log(result.total)
-try {
-  const deposit = await pawapay.deposits.initiate({
-  depositId,
-  payer: {
-    type: "MMO",
-    accountDetails: {
-      phoneNumber: "256700123456", // digits-only, with country code (auto-detects AIRTEL_OAPI_UGA)
-    },
-  },
-  amount: result.total.toString(),
-  currency: "UGX",
-  customerMessage: "Wallet topup",
-  // metadata: [{ orderId: "ORD-001" }],
-});
-console.log(deposit)
-// if (deposit.status === TransactionStatus.ACCEPTED) {
-//   console.log("Deposit accepted — waiting for callback or polling...");
+const result = pawapay.calculateFee(190000);
+// try {
+//   const deposit = await pawapay.deposits.initiate({
+//   depositId,
+//   payer: {
+//     type: "MMO",
+//     accountDetails: {
+//       phoneNumber: "256700123456", // digits-only, with country code (auto-detects AIRTEL_OAPI_UGA)
+//     },
+//   },
+//   amount: result.total.toString(),
+//   currency: "UGX",
+//   customerMessage: "Wallet topup",
+//   // metadata: [{ orderId: "ORD-001" }],
+// });
+// console.log(deposit)
+// // if (deposit.status === TransactionStatus.ACCEPTED) {
+// //   console.log("Deposit accepted — waiting for callback or polling...");
+// // }
+// } catch (err) {
+// customPawapayError(err)
 // }
-} catch (err) {
-customPawapayError(err)
-}
 
 // Check Transaction status
 
@@ -69,25 +65,25 @@ customPawapayError(err)
 // }
 
 // Refunds
-// try {
-// const refundId = pawapay.refunds.generateId();
-// const refund = await pawapay.refunds.initiate({
-//   refundId,
-//   depositId: "e5c019f8-bf67-4b30-80cb-0841b3bd4087",
-//   amount: "5000",
-//   currency: "UGX",
-// });
-// console.log("Refund result:", refund)
-// } catch (error) {
-//   customPawapayError(error)
-// }
+try {
+const refundId = pawapay.refunds.generateId();
+const refund = await pawapay.refunds.initiate({
+  refundId,
+  depositId: 'f182d260-35b7-45af-962f-069169b2c8bb',
+  amount: "190000",
+  currency: "UGX",
+});
+console.log("Refund result:", refund)
+} catch (error) {
+  customPawapayError(error)
+}
 
-// try {
-// const status = await pawapay.refunds.checkStatus('83987a50-dfa8-454b-bd0c-28f10e19877a');
-// console.log("Refund status:", status)
-// } catch (error) {
-//   customPawapayError(error)
-// }
+try {
+const status = await pawapay.refunds.checkStatus('83987a50-dfa8-454b-bd0c-28f10e19877a');
+console.log("Refund status:", status)
+} catch (error) {
+  customPawapayError(error)
+}
 
 // Predict provider and sanitise phone number
 // try {
