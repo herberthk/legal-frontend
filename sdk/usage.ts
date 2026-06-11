@@ -70,7 +70,7 @@ const refundId = pawapay.refunds.generateId();
 const refund = await pawapay.refunds.initiate({
   refundId,
   depositId: 'f182d260-35b7-45af-962f-069169b2c8bb',
-  amount: "190000",
+  amount: "700",
   currency: "UGX",
 });
 console.log("Refund result:", refund)
@@ -78,12 +78,12 @@ console.log("Refund result:", refund)
   customPawapayError(error)
 }
 
-try {
-const status = await pawapay.refunds.checkStatus('83987a50-dfa8-454b-bd0c-28f10e19877a');
-console.log("Refund status:", status)
-} catch (error) {
-  customPawapayError(error)
-}
+// try {
+// const status = await pawapay.refunds.checkStatus('83987a50-dfa8-454b-bd0c-28f10e19877a');
+// console.log("Refund status:", status)
+// } catch (error) {
+//   customPawapayError(error)
+// }
 
 // Predict provider and sanitise phone number
 // try {
