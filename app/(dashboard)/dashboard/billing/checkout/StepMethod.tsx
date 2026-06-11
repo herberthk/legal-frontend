@@ -75,7 +75,7 @@ export const StepMethod = memo(function StepMethod({
           </button>
 
           {/* Credit Card */}
-          <button
+          {/* <button
             onClick={() => onSelectMethod("card")}
             className={`w-full p-5 rounded-2xl text-left transition-all duration-300 flex items-center justify-between gap-4 group overflow-hidden relative ${
               paymentMethod === "card"
@@ -111,7 +111,7 @@ export const StepMethod = memo(function StepMethod({
                 />
               )}
             </div>
-          </button>
+          </button> */}
         </div>
       </div>
 

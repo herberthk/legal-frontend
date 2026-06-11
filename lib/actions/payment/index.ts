@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/firebase/admin";
-import { COLLECTIONS, CALLBACK_URL } from "@/constants";
+import { COLLECTIONS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 
 
@@ -22,7 +22,10 @@ export async function verifyPhoneNumber(
   try {
   const result = await pawapay.msisdn.verify(msisdn)
   console.log(result)
-  return { success: true, data: { fullName: `${result.FirstName} ${result.Surname}`.trim(), msisdn: result.msisdn }};
+  if(result.response !== 'OK') {
+    throw new Error("Failed to verify phone number")
+  }
+  return { success: true, data: { fullName: `${result.data.FirstName} ${result.data.Surname}`.trim(), msisdn: result.data.msisdn }};
 } catch (error) {
   console.log(error)
   customPawapayError(error)
