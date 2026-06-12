@@ -10,11 +10,15 @@ export async function GET(
   const { reference } = await params;
 
   try {
-    const status = await db.collection(COLLECTIONS.TRANSACTIONS).doc(reference).get();
-
+    const status = await db
+      .collection(COLLECTIONS.TRANSACTIONS)
+      .doc(reference)
+      .get();
+    const txData = status.data() as Transaction;
+    console.log("status",txData)
     return NextResponse.json({
-      status:    status.data()?.status,
-      amount:    status.data()?.amount,
+      status:    txData?.status,
+      amount:    txData?.amount,
     });
   } catch (err) {
     console.error("[Status Route] Error in GET /api/payments/status/[reference]:", err);

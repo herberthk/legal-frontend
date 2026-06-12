@@ -19,7 +19,7 @@ type DepositPayLoad = {
   },
   providerTransactionId: string,
   status: "COMPLETED" | "PENDING" | "FAILED"
-  metadata?: MetadataItem[];
+  metadata?: MetadataItem;
 }
 
 type PayoutPayLoad = {
