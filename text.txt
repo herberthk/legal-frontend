@@ -40,3 +40,22 @@ api token: eyJraWQiOiIxIiwiYWxnIjoiRVMyNTYifQ.eyJ0dCI6IkFBVCIsInN1YiI6IjIyNzI4Ii
 
 ngrok
 ngrok http 3000 --domain=niece-recipient-contents.ngrok-free.dev
+
+
+deposit body {
+  amount: '195700.0000',
+  country: 'UGA',
+  created: '2026-06-11T17:46:07Z',
+  currency: 'UGX',
+  customerMessage: 'Wallet topup',
+  depositId: 'c3d51061-1ec1-4626-a4f0-02395f673126',
+  metadata: { baseAmount: '190000' },
+  payer: {
+    accountDetails: { phoneNumber: '256700123456', provider: 'AIRTEL_OAPI_UGA' },
+    type: 'MMO'
+  },
+  providerTransactionId: 'airtel.money.id.PbAVDcEdUCMNUisvDVfK',
+  status: 'COMPLETED'
+}
+
+0703769887

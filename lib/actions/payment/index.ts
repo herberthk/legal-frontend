@@ -90,7 +90,7 @@ export const initiateCheckoutPayment = async (params: {
 
   // Pre-create Firestore transaction record in "pending" state.
   // If Ssentezo later fails, we mark it "failed" below.
-  const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc();
+  const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference);
   const total = params.amountUgx + feeResult.fee;
      const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
             userId: params.userId,
@@ -121,7 +121,7 @@ export const initiateCheckoutPayment = async (params: {
       currency: "UGX",
       customerMessage: "Wallet Topup",
       metadata: [
-    { baseAmount: params.amountUgx, fee: feeResult.fee }
+    { baseAmount: params.amountUgx }
   ]
     });
      console.log("transaction result", result);
