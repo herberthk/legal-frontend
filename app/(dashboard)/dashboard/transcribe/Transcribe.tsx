@@ -55,6 +55,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
     showPageNumbers,
     pageNumberPosition,
     documentTitle,
+    tokensUsed,
   } = useDocumentTranscribe();
 
   useEffect(() => {
@@ -114,6 +115,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
         fileUrl: fileUrl || initialRecord?.fileUrl,
         transcribedText: transcription,
         formatMode,
+        tokensUsed: tokensUsed || initialRecord?.tokensUsed,
       });
 
       if (res.success) {

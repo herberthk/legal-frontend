@@ -159,6 +159,7 @@ declare global {
     fileUrl?: string; // Original document URL
     transcribedText: string;
     formatMode: "professional" | "original";
+    tokensUsed?: number; // Added token consumption
     createdAt: string; // ISO string
     updatedAt: string; // ISO string
   };

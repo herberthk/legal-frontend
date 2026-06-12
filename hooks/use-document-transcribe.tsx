@@ -56,6 +56,7 @@ interface UseDocumentTranscribeReturn {
   footerText: string;
   showPageNumbers: boolean;
   pageNumberPosition: string;
+  tokensUsed: number;
 }
 
 export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
@@ -66,6 +67,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
   const [formatMode, setFormatMode] = useState<FormatMode>("professional");
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<TranscribeErrorType | null>(null);
+  const [tokensUsed, setTokensUsed] = useState<number>(0);
   const user = useAuthStore((state) => state.user);
 
   const [showPageNumbers, setShowPageNumbers] = useState<boolean>(true);
@@ -90,6 +92,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       setTranscription("");
       setError(null);
       setErrorType(null);
+      setTokensUsed(0);
     }
   }, []);
 
@@ -114,6 +117,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
 
       if (result.success && result.text) {
         setTranscription(result.text);
+        setTokensUsed(result.totalTokens || 0);
 
         // Extract title from first heading
         const headingMatch =
@@ -209,6 +213,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     setTranscription("");
     setError(null);
     setErrorType(null);
+    setTokensUsed(0);
   }, []);
 
   return useMemo(
@@ -240,6 +245,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       showPageNumbers,
       pageNumberPosition,
       documentTitle,
+      tokensUsed,
     }),
     [
       file,
@@ -258,6 +264,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       showPageNumbers,
       pageNumberPosition,
       documentTitle,
+      tokensUsed,
     ],
   );
 };
