@@ -71,21 +71,21 @@ import { COLLECTIONS } from "@/constants";
 // }
 
 // Refunds
-// try {
-// const refundId = pawapay.refunds.generateId();
-// const refund = await pawapay.refunds.initiate({
-//   refundId,
-//   depositId: 'f182d260-35b7-45af-962f-069169b2c8bb',
-//   amount: "700",
-//   currency: "UGX",
-// });
-// console.log("Refund result:", refund)
-// } catch (error) {
-//   customPawapayError(error)
-// }
+try {
+const refundId = pawapay.refunds.generateId();
+const refund = await pawapay.refunds.initiate({
+  refundId,
+  depositId: '11b5a85a-25c1-4c73-8194-ab5a8d08e6d9',
+  amount: "2000",
+  currency: "UGX",
+});
+console.log("Refund result:", refund)
+} catch (error) {
+  customPawapayError(error)
+}
 
 // try {
-// const status = await pawapay.refunds.checkStatus('83987a50-dfa8-454b-bd0c-28f10e19877a');
+// const status = await pawapay.refunds.checkStatus('11b5a85a-25c1-4c73-8194-ab5a8d08e6d9');
 // console.log("Refund status:", status)
 // } catch (error) {
 //   customPawapayError(error)
@@ -198,17 +198,17 @@ import { COLLECTIONS } from "@/constants";
 
 // Verify phone number
 
-try {
-  const result = await pawapay.msisdn.verify('256703752696')
-  if(result.response === "OK") {
-    console.log(result)
-  } else {
-    throw new Error(result.response)
-  }
+// try {
+//   const result = await pawapay.msisdn.verify('256703752696')
+//   if(result.response === "OK") {
+//     console.log(result)
+//   } else {
+//     throw new Error(result.response)
+//   }
   
-} catch (error) {
-  customPawapayError(error)
-}
+// } catch (error) {
+//   customPawapayError(error)
+// }
 // Update trnsactions where status = "pending" to "PENDING", from 'completed' to "COMPLETED", and "failed" to "FAILED"
 // try {
 // await db.collection(COLLECTIONS.TRANSACTIONS).where("status", "in", ["pending", "completed", "failed"]).get().then(querySnap => {

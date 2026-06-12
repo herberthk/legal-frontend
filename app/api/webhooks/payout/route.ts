@@ -19,3 +19,18 @@ console.log( 'payout body', cb);
 
   return NextResponse.json({}, { status: 200 });
 }
+
+// payout body {
+//   amount: '170000.00',
+//   country: 'UGA',
+//   created: '2026-06-12T15:23:40Z',
+//   currency: 'UGX',
+//   customerMessage: 'Payout Request',
+//   payoutId: 'ccf73261-dec0-46d2-9e0c-cb3706370c74',
+//   providerTransactionId: 'CI210729.1311.C00007',
+//   recipient: {
+//     accountDetails: { phoneNumber: '256700123456', provider: 'AIRTEL_OAPI_UGA' },
+//     type: 'MMO'
+//   },
+//   status: 'COMPLETED'
+// }

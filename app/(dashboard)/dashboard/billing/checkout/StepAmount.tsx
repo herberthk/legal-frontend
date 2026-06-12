@@ -46,7 +46,9 @@ export const StepAmount = memo(function StepAmount({
             {PRESET_AMOUNTS.map((val) => {
               const presetUgx = val * USD_TO_UGX_EXCHANGE_RATE;
               const isSelected = Math.round(amount / 100) === Math.round(presetUgx / 100);
-
+console.log("isSelected",isSelected)
+console.log('amount usd', amount)
+console.log('presetUgx', presetUgx)
               return (
                 <button
                   key={val}

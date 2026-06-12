@@ -76,7 +76,6 @@ export interface UseTransactionStatusReturn {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TERMINAL: Set<TransactionStatus> = new Set([
-  "PENDING",
   "COMPLETED",
   "FAILED",
   "ERROR",
@@ -131,7 +130,9 @@ export function useTransactionStatus(
 
   // ── Refs (survive re-renders, safe to read inside setInterval) ─────────────
   const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef  = useRef<number>(0);
+  const isPollingRef = useRef<boolean>(false);
   const referenceRef = useRef<string>("");
   const onTerminalRef = useRef(onTerminal);
 
@@ -140,17 +141,20 @@ export function useTransactionStatus(
 
   // ── Core poll function ─────────────────────────────────────────────────────
   const poll = useCallback(async () => {
+    if (isPollingRef.current) return;
     const ref = referenceRef.current;
     if (!ref) return;
 
     // Check deadline
     if (Date.now() > deadlineRef.current) {
-      clearInterval(timerRef.current!);
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
       timerRef.current = null;
       setPollingState("timeout");
       return;
     }
 
+    isPollingRef.current = true;
     try {
       const url = endpoint.replace("{reference}", encodeURIComponent(ref));
       const res = await fetch(url, { cache: "no-store" });
@@ -160,7 +164,8 @@ export function useTransactionStatus(
         setError(body.error ?? `HTTP ${res.status}`);
         // Keep polling on transient server errors; stop on 4xx
         if (res.status >= 400 && res.status < 500) {
-          clearInterval(timerRef.current!);
+          if (timerRef.current) clearInterval(timerRef.current);
+          if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
           timerRef.current = null;
           setPollingState("error");
         }
@@ -175,14 +180,15 @@ export function useTransactionStatus(
       setError(null);
 
       if (TERMINAL.has(status)) {
-        clearInterval(timerRef.current!);
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
         timerRef.current = null;
 
         const next: PollingState =
           status === "COMPLETED"     ? "succeeded"    :
           status === "FAILED"        ? "failed"       :
           status === "ERROR"         ? "failed"       :
-          status ==='PENDING'          ? 'polling'      : "indeterminate"
+          "indeterminate";
         
         setPollingState(next);
         onTerminalRef.current?.(status);
@@ -190,14 +196,17 @@ export function useTransactionStatus(
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
       // Don't stop — transient network error, try again next tick
+    } finally {
+      isPollingRef.current = false;
     }
   }, [endpoint]);
 
   // ── startPolling ───────────────────────────────────────────────────────────
   const startPolling = useCallback(
     (reference: string) => {
-      // Clear any existing timer
+      // Clear any existing timers
       if (timerRef.current) clearInterval(timerRef.current);
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
 
       referenceRef.current = reference;
       deadlineRef.current  = Date.now() + maxWaitMs;
@@ -210,6 +219,15 @@ export function useTransactionStatus(
       // Poll immediately, then on interval
       void poll();
       timerRef.current = setInterval(poll, intervalMs);
+
+      // Strict timeout enforcement independent of interval ticks
+      timeoutTimerRef.current = setTimeout(() => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+        timerRef.current = null;
+        timeoutTimerRef.current = null;
+        setPollingState("timeout");
+      }, maxWaitMs);
     },
     [poll, intervalMs, maxWaitMs]
   );
@@ -220,6 +238,10 @@ export function useTransactionStatus(
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (timeoutTimerRef.current) {
+      clearTimeout(timeoutTimerRef.current);
+      timeoutTimerRef.current = null;
+    }
     setPollingState("idle");
   }, []);
 
@@ -228,6 +250,10 @@ export function useTransactionStatus(
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (timeoutTimerRef.current) {
+      clearTimeout(timeoutTimerRef.current);
+      timeoutTimerRef.current = null;
     }
     referenceRef.current = "";
     setPollingState("idle");
@@ -240,6 +266,7 @@ export function useTransactionStatus(
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
     };
   }, []);
 
