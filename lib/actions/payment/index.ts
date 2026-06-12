@@ -124,20 +124,23 @@ export const initiateCheckoutPayment = async (params: {
     { baseAmount: params.amountUgx }
   ]
     });
-    //  console.log("transaction result", result);
-    // console.log("Amount UGX", params.amountUgx);
-    // console.log("Amount USD", params.amountUsd);
-    // console.log("Amount Total", total);
+
     if(result.status !=='ACCEPTED'){
       await transactionRef.update({ status: "FAILED" }).catch((err) =>
       console.error("[initiateCheckoutPayment] Failed to mark tx as failed:", err)
     );
+    
+    return {
+      success:false, 
+      error: "Failed to initiate payment, Try again"}
     }
     
-    return {success:true, data: {
-      reference:     result.depositId,
-      transactionId: transactionRef.id,
-      status:        result.status,
+    return {
+      success:true, 
+      data: {
+        reference:     result.depositId,
+        transactionId: transactionRef.id,
+        status:        result.status,
     }}
   }catch(err){
     console.log(err)

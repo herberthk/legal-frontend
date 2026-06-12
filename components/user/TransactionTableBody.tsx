@@ -155,11 +155,11 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
                     <div className="space-y-4">
                       <div>
                         <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">
-                          Transaction Reference
+                          Reference
                         </span>
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200 select-all">
-                            {t.reference || t.id}
+                            {t.reference.slice(0, 8).toLocaleUpperCase()}
                           </span>
                           <button
                             onClick={(e) => handleCopy(e, t.reference || t.id, t.id)}

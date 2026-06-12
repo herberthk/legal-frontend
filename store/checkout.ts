@@ -23,7 +23,7 @@ interface CheckoutState {
 
 const DEFAULT_STATE = {
   step: 1 as CheckoutStep,
-  amount: 75000, // Default to 75,000 UGX ($20 USD)
+  amount: 38000, // Default to 38,000 UGX ($10 USD)
   paymentMethod: "mobile_money" as PaymentMethodType,
   phoneNumber: "",
 };

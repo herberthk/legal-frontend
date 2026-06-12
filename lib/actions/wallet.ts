@@ -289,7 +289,7 @@ export async function getTransactionStatus(transactionId: string) {
     const data = doc.data();
     return {
       success: true,
-      status: data?.status || "pending",
+      status: data?.status || "PENDING",
       transaction: {
         ...data,
         id: doc.id,
