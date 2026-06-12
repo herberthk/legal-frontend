@@ -53,7 +53,7 @@ export const StepMobileMoney = memo(function StepMobileMoney({
 
   // Amount maths
   const amountUSD  = amount / USD_TO_UGX_EXCHANGE_RATE;
-   const feeUgx = calculateFee(amount).fee;
+   const feeUgx = calculateFee(amount || 1).fee;
   const feeUSD = feeUgx / USD_TO_UGX_EXCHANGE_RATE;
   const totalUgx   = amount + feeUgx;
   const totalUSD = amountUSD + feeUSD;
