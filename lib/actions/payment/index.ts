@@ -21,7 +21,7 @@ export async function verifyPhoneNumber(
 
   try {
   const result = await pawapay.msisdn.verify(msisdn)
-  console.log(result)
+  // console.log(result)
   if(result.response !== 'OK') {
     throw new Error("Failed to verify phone number")
   }
@@ -124,10 +124,10 @@ export const initiateCheckoutPayment = async (params: {
     { baseAmount: params.amountUgx }
   ]
     });
-     console.log("transaction result", result);
-    console.log("Amount UGX", params.amountUgx);
-    console.log("Amount USD", params.amountUsd);
-    console.log("Amount Total", total);
+    //  console.log("transaction result", result);
+    // console.log("Amount UGX", params.amountUgx);
+    // console.log("Amount USD", params.amountUsd);
+    // console.log("Amount Total", total);
     if(result.status !=='ACCEPTED'){
       await transactionRef.update({ status: "FAILED" }).catch((err) =>
       console.error("[initiateCheckoutPayment] Failed to mark tx as failed:", err)

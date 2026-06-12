@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid deposit ID' }, { status: 401 });
   }
   const { depositId: externalReference, status,providerTransactionId,country } = cb;
-  console.log('[pawaPay callback] deposit body', cb);
+  // console.log('[pawaPay callback] deposit body', cb);
   // Idempotency check: Ensure we don't process the same transaction twice
   const transaction = await db
     .collection(COLLECTIONS.PROCCESSED_TRANSACTIONS)
@@ -111,10 +111,6 @@ export async function POST(req: NextRequest) {
         userId: userId,
         createdAt: new Date().toISOString(),
       });
-
-      // Check updated transaction for debuging purposes
-      const txSnap = await db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference).get();
-      console.log("updated transaction", txSnap.data());
   
   } catch (dbErr) {
     // Log but still return 200 — never let our DB errors cause pawaPay retries
