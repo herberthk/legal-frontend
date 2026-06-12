@@ -21,7 +21,7 @@ import { CheckoutHeader } from "./CheckoutHeader";
 import { StepAmount } from "./StepAmount";
 import { StepMethod } from "./StepMethod";
 import { StepMobileMoney } from "./StepMobileMoney";
-import { StepPolling } from "./StepPolling";
+// import { StepPolling } from "./StepPolling";
 import { OrderSummary } from "./OrderSummary";
 import { TrustCenter } from "./TrustCenter";
 import { StripePaymentForm } from "./StripePaymentForm";
@@ -50,7 +50,7 @@ const STRIPE_APPEARANCE: Appearance = {
   },
 };
 
-type ChecklistItem = { label: string; done: boolean; loading: boolean };
+// type ChecklistItem = { label: string; done: boolean; loading: boolean };
 
 interface Props {
   user: User;
@@ -72,9 +72,7 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
   // ── Sensitive/transient state (never persisted) ─────────────────────────
   const [isProcessing, setIsProcessing] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [transactionId, setTransactionId] = useState<string | null>(null);
   const [txRef, setTxRef] = useState<string>("");
-  const [statusChecklist, setStatusChecklist] = useState<ChecklistItem[]>([]);
   const [stripePromise] = useState(() => getStripe());
 
   // Phone Verification States
@@ -178,7 +176,6 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
         const res = await initiateStripePayment(user.id, amount / USD_TO_UGX_EXCHANGE_RATE);
         if (res.success && res.clientSecret && res.transactionId) {
           setClientSecret(res.clientSecret);
-          setTransactionId(res.transactionId);
           setTxRef(res.reference ?? "");
           setStep(3);
         } else {
@@ -344,12 +341,12 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
                 </motion.div>
               )}
 
-              {step === 4 && (
+              {/* {step === 4 && (
                 <StepPolling
                   paymentMethod={paymentMethod}
                   statusChecklist={statusChecklist}
                 />
-              )}
+              )} */}
             </AnimatePresence>
           </div>
         </motion.div>
