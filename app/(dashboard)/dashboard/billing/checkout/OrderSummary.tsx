@@ -19,7 +19,7 @@ export const OrderSummary = memo(function OrderSummary({
   const { paymentMethod } = useCheckoutStore();
 
   const isMobile = paymentMethod === "mobile_money";
-  const feeUgx = calculateFee(amount).fee;
+  const feeUgx = calculateFee(amount || 1).fee;
   // Calculate amounts in UGX
   const amountUgx = amount || 0;
   const totalUgx = amountUgx + feeUgx;

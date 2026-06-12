@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if(!cb.depositId) {
     return NextResponse.json({ error: 'Invalid deposit ID' }, { status: 401 });
   }
-  const { depositId: externalReference, status } = cb;
+  const { depositId: externalReference, status,providerTransactionId,country } = cb;
   console.log('[pawaPay callback] deposit body', cb);
   // Idempotency check: Ensure we don't process the same transaction twice
   const transaction = await db
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     const txData = snapshot.data() as Transaction;
-    console.log("tx data", txData)
+    // console.log("tx data", txData)
 
     const { userId, amount, method } = txData;
 
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         const currentBalance = userSnap.data()?.balance || 0;
         newBalance = currentBalance + creditAmount;
 
-        transaction.update(snapshot.ref, { status: "COMPLETED" });
+        transaction.update(snapshot.ref, { status: "COMPLETED",providerTransactionId,country });
         transaction.update(userRef, { balance: newBalance });
       });
 
@@ -91,13 +91,7 @@ export async function POST(req: NextRequest) {
 
     } else if (status === "FAILED") {
       await db.runTransaction(async (transaction) => {
-        const txDocSnap = await transaction.get(snapshot.ref);
-        const currentTxData = txDocSnap.data() as Transaction;
-
-        if (currentTxData?.status === "COMPLETED" || currentTxData?.status === "FAILED") {
-          return;
-        }
-        transaction.update(snapshot.ref, { status: "FAILED" });
+        transaction.update(snapshot.ref, { status: "FAILED", providerTransactionId,country });
       });
 
       createNotification(userId, {
@@ -110,12 +104,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Update user transaction record
       await db.collection(COLLECTIONS.PROCCESSED_TRANSACTIONS).doc(externalReference).set({
         reference: externalReference,
         status: status,
         userId: userId,
         createdAt: new Date().toISOString(),
       });
+
+      // Check updated transaction for debuging purposes
+      const txSnap = await db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference).get();
+      console.log("updated transaction", txSnap.data());
   
   } catch (dbErr) {
     // Log but still return 200 — never let our DB errors cause pawaPay retries
