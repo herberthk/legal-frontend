@@ -4,6 +4,11 @@ import { withSerwist } from "@serwist/turbopack";
 const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ["pdf-parse"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
   images: {
     remotePatterns: [
       {
