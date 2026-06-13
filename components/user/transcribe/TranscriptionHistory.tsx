@@ -17,6 +17,8 @@ import { TranscriptionFilters } from "./TranscriptionFilters";
 import { TranscriptionEmptyState } from "./TranscriptionEmptyState";
 import { TranscriptionCard } from "./TranscriptionCard";
 import DeleteModal from "./Delete";
+import { pdf } from "@react-pdf/renderer";
+import { PDFDocument } from "@/components/editor/PDFDocument";
 
 interface TranscriptionHistoryProps {
   onNewTranscription: () => void;
@@ -204,7 +206,41 @@ export const TranscriptionHistory = ({
     } finally {
       setEditingTitleId(null);
     }
-  }, [editingTitleValue]);
+  }, [editingTitleValue, transcriptions]);
+
+  const handleDownload = useCallback(async (record: TranscriptionRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const toastId = toast.loading("Generating PDF...");
+    try {
+      const blob = await pdf(
+        <PDFDocument
+          content={record.transcribedText}
+          filename={record.title || record.fileName || "document"}
+          showPageNumbers={true}
+          pageNumberPosition="bottom-center"
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safeTitle = (record.title || record.fileName || "document")
+        .replace(/[^a-z0-9]/gi, "_")
+        .toLowerCase();
+      link.download = `scribe-${safeTitle}-${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("PDF downloaded successfully!", { id: toastId });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error("--- PDF Generation Error ---", err);
+      toast.error(
+        `Failed to generate PDF: ${err?.message || "Unknown rendering error"}`,
+        { id: toastId }
+      );
+    }
+  }, []);
 
   if (isLoading) {
     return <HistorySkeleton />;
@@ -270,6 +306,7 @@ export const TranscriptionHistory = ({
                   setEditingTitleId={setEditingTitleId}
                   setEditingTitleValue={setEditingTitleValue}
                   onSaveTitle={handleSaveTitle}
+                  onDownload={handleDownload}
                 />
               ))}
             </AnimatePresence>

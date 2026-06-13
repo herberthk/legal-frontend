@@ -32,6 +32,7 @@ interface TranscriptionCardProps {
     record: TranscriptionRecord,
     e?: React.MouseEvent | React.KeyboardEvent,
   ) => Promise<void>;
+  onDownload: (record: TranscriptionRecord, e: React.MouseEvent) => void;
 }
 
 export const TranscriptionCard = memo(({
@@ -44,6 +45,7 @@ export const TranscriptionCard = memo(({
   setEditingTitleId,
   setEditingTitleValue,
   onSaveTitle,
+  onDownload,
 }: TranscriptionCardProps) => {
   const formatDate = (isoString: string) => {
     return new Date(isoString).toLocaleDateString("en-US", {
@@ -97,7 +99,7 @@ export const TranscriptionCard = memo(({
                 Share
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => onDownload(record, e as unknown as React.MouseEvent)}
                 className="cursor-pointer text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
               >
                 <Download className="w-4 h-4 mr-2" />
