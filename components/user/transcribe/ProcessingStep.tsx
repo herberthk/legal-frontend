@@ -52,14 +52,30 @@ export function ProcessingStep({
           <div className="w-full lg:w-3/5 aspect-3/4 rounded-[2rem] overflow-hidden bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 relative shadow-inner">
             {previewUrl && (
               <div className="relative w-full h-full">
-                <Image
-                  src={previewUrl}
-                  alt="Document preview"
-                  fill
-                  style={{ objectFit: "cover" }}
-                  unoptimized
-                  className={`transition-all duration-1000 ${status === "processing" ? "scale-110 blur-[1px] brightness-[0.4] dark:brightness-[0.3]" : ""}`}
-                />
+                {file?.type === "application/pdf" ||
+                previewUrl.toLowerCase().includes(".pdf") ? (
+                  <iframe
+                    src={`${previewUrl}#toolbar=0`}
+                    className={`w-full h-full border-0 transition-all duration-1000 ${
+                      status === "processing"
+                        ? "scale-110 blur-[1px] brightness-[0.4] dark:brightness-[0.3]"
+                        : ""
+                    }`}
+                  />
+                ) : (
+                  <Image
+                    src={previewUrl}
+                    alt="Document preview"
+                    fill
+                    style={{ objectFit: "cover" }}
+                    unoptimized
+                    className={`transition-all duration-1000 ${
+                      status === "processing"
+                        ? "scale-110 blur-[1px] brightness-[0.4] dark:brightness-[0.3]"
+                        : ""
+                    }`}
+                  />
+                )}
               </div>
             )}
 

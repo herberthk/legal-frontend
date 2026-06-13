@@ -1,11 +1,16 @@
 import { google, GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, UIMessage } from "ai";
-import { LEGAL_ADVISER_SYSTEM_INSTRUCTION } from "@/constants";
 import {
   getAuthenticatedUserId,
   recordUsageAndDeduct,
   saveChatMessage,
+  checkUserCanSend,
 } from "@/lib";
+import {
+  LEGAL_ADVISER_SYSTEM_INSTRUCTION,
+  CHARS_PER_TOKEN,
+  COST_PER_THOUSAND_TOKENS_IN_CENTS,
+} from "@/constants";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -41,7 +46,7 @@ export async function POST(req: Request) {
       (p: { type: string }) => p.type === "text",
     ) as { type: "text"; text: string } | undefined;
     const textToSend = textPart?.text || "";
-    const estimatedInputTokens = Math.ceil(textToSend.length / 4);
+    let estimatedInputTokens = Math.ceil(textToSend.length / CHARS_PER_TOKEN);
 
     // Extract attachment metadata from the last user message (if any).
     // With Firebase Storage the URL is an HTTPS URL — no base64 stripping needed.
@@ -50,6 +55,54 @@ export async function POST(req: Request) {
     ) as
       | { type: "file"; mediaType: string; filename?: string; url: string }
       | undefined;
+
+    if (filePart) {
+      if (filePart.mediaType === "application/pdf") {
+        try {
+          const response = await fetch(filePart.url);
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          const pdfParseModule = await import("pdf-parse");
+          const pdfParse = pdfParseModule.default || pdfParseModule;
+          const parsed = await pdfParse(buffer);
+          estimatedInputTokens += Math.ceil(
+            parsed.text.length / CHARS_PER_TOKEN,
+          );
+        } catch (e) {
+          console.error("Failed to parse PDF for token estimation in chat:", e);
+          estimatedInputTokens += 2000; // fallback
+        }
+      } else if (filePart.mediaType.startsWith("image/")) {
+        estimatedInputTokens += 258;
+      }
+    }
+
+    const estimatedOutputTokens = 1000; // Typical chat response
+    const estimatedTotalTokens = estimatedInputTokens + estimatedOutputTokens;
+
+    const { canSend, reason, user } = await checkUserCanSend(userId);
+    if (!canSend) {
+      return new Response(JSON.stringify({ error: reason }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const freeTokens =
+      (user?.freeTextTokens ?? 0) + (user?.welcomeTextTokens ?? 0);
+    const balanceDerivedTokens = Math.floor(
+      ((user?.balance ?? 0) / COST_PER_THOUSAND_TOKENS_IN_CENTS) * 1000,
+    );
+    const totalAvailableTokens = freeTokens + balanceDerivedTokens;
+
+    if (estimatedTotalTokens > totalAvailableTokens) {
+      return new Response(
+        JSON.stringify({
+          error: `Insufficient tokens. This message requires ~${estimatedTotalTokens.toLocaleString()} tokens but you only have ~${totalAvailableTokens.toLocaleString()} available. Please add funds.`,
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     // Limit context window to the last N messages
     const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
