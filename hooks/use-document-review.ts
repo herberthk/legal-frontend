@@ -94,8 +94,9 @@ export function useDocumentReview() {
     const dropped = acceptedFiles[0];
     if (!dropped) return;
 
-    if (dropped.type !== "application/pdf") {
-      setError("Only PDF files are accepted.");
+    const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (dropped.type !== "application/pdf" && dropped.type !== DOCX_MIME) {
+      setError("Only PDF or DOCX files are accepted.");
       return;
     }
     if (dropped.size > MAX_REVIEW_FILE_SIZE) {

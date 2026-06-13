@@ -54,7 +54,7 @@ export const ChatMessage = memo(
         <div
           className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-transform hover:scale-105 ${
             msg.role === "user"
-              ? "bg-linear-to-br from-amber-500 to-orange-600 ml-3 shadow-md"
+              ? "bg-linear-to-br from-amber-500 to-orange-700 ml-3 shadow-md"
               : chatError
                 ? "bg-red-100 dark:bg-red-900/30 mr-3"
                 : "bg-orange-100 dark:bg-orange-900/30 mr-3"
@@ -90,9 +90,9 @@ export const ChatMessage = memo(
             !msgReasoning ||
             !msgReasoningStreaming) && (
             <div
-              className={`px-2 md:px-6 py-4 shadow-sm rounded-b-lg text-sm leading-relaxed w-full transition-all hover:shadow-md ${
+              className={`px-2 md:px-4 py-2 md:py-4 shadow-sm rounded-b-lg text-sm leading-relaxed w-full transition-all hover:shadow-md ${
                 msg.role === "user"
-                  ? "bg-linear-to-br from-amber-500 to-orange-600 text-white rounded-tr-none shadow-orange-500/20"
+                  ? "bg-linear-to-br from-orange-900 to-amber-600  text-white rounded-tr-none shadow-orange-500/20"
                   : chatError
                     ? "bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 text-slate-800 dark:text-slate-200 rounded-tl-none"
                     : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none"
