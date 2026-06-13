@@ -24,7 +24,10 @@ export function ReviewUploadZone({
 }: ReviewUploadZoneProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "application/pdf": [".pdf"] },
+    accept: { 
+      "application/pdf": [".pdf"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"]
+    },
     maxFiles: 1,
     maxSize: MAX_REVIEW_FILE_SIZE,
   });
@@ -50,7 +53,7 @@ export function ReviewUploadZone({
           </span>
         </h2>
         <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed italic">
-          Upload your PDF and receive a comprehensive compliance score, risk
+          Upload your PDF or DOCX and receive a comprehensive compliance score, risk
           analysis, key clauses, and recommendations — all grounded in Ugandan
           law.
         </p>
@@ -85,7 +88,7 @@ export function ReviewUploadZone({
                   {file.name}
                 </p>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB · PDF
+                  {(file.size / 1024 / 1024).toFixed(2)} MB · {file.name.split('.').pop()?.toUpperCase() || "DOCUMENT"}
                 </p>
               </div>
               <p className="text-orange-600 dark:text-orange-400 text-sm font-medium">
@@ -98,10 +101,10 @@ export function ReviewUploadZone({
                 <FileUp className="w-10 h-10 text-slate-400 dark:text-slate-500 group-hover:text-emerald-500 transition-colors" />
               </div>
               <h3 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-50">
-                Drag & drop your PDF
+                Drag & drop your document
               </h3>
               <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-sm">
-                PDF only · Max {MAX_REVIEW_FILE_SIZE_MB}MB · Up to{" "}
+                PDF or DOCX · Max {MAX_REVIEW_FILE_SIZE_MB}MB · Up to{" "}
                 {MAX_REVIEW_PAGES} pages
               </p>
               <button

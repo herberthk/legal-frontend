@@ -41,39 +41,84 @@ export async function POST(req: Request) {
 
     const lastUserMessage = messages[messages.length - 1];
     console.log("is first message", isFirstMessage);
-
-    const textPart = lastUserMessage.parts?.find(
-      (p: { type: string }) => p.type === "text",
+    
+    // Preserve the original file metadata before we mutate parts for Gemini
+    const originalFilePart = lastUserMessage.parts?.find(
+      (p) => p.type === "file"
+    ) as { type: "file"; mediaType: string; filename?: string; url: string } | undefined;
+    const originalTextPart = lastUserMessage.parts?.find(
+      (p) => p.type === "text"
     ) as { type: "text"; text: string } | undefined;
-    const textToSend = textPart?.text || "";
-    let estimatedInputTokens = Math.ceil(textToSend.length / CHARS_PER_TOKEN);
+    const originalTextToSend = originalTextPart?.text || "";
 
-    // Extract attachment metadata from the last user message (if any).
-    // With Firebase Storage the URL is an HTTPS URL — no base64 stripping needed.
-    const filePart = lastUserMessage.parts?.find(
-      (p: { type: string }) => p.type === "file",
-    ) as
-      | { type: "file"; mediaType: string; filename?: string; url: string }
-      | undefined;
+    // Limit context window to the last N messages
+    const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
+    console.log("messages", historyMessages.length);
 
-    if (filePart) {
-      if (filePart.mediaType === "application/pdf") {
-        try {
-          const response = await fetch(filePart.url);
-          const arrayBuffer = await response.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          const pdfParseModule = await import("pdf-parse");
-          const pdfParse = pdfParseModule.default || pdfParseModule;
-          const parsed = await pdfParse(buffer);
-          estimatedInputTokens += Math.ceil(
-            parsed.text.length / CHARS_PER_TOKEN,
-          );
-        } catch (e) {
-          console.error("Failed to parse PDF for token estimation in chat:", e);
-          estimatedInputTokens += 2000; // fallback
+    let estimatedInputTokens = 0;
+
+    // Process historyMessages to replace .docx file parts with extracted text
+    // Gemini API does not natively support inline .docx, so we must extract it.
+    for (const msg of historyMessages) {
+      if (!msg.parts) continue;
+      
+      for (let i = 0; i < msg.parts.length; i++) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const part = msg.parts[i] as any;
+        
+        if (part.type === "text") {
+          if (msg === lastUserMessage) {
+            estimatedInputTokens += Math.ceil((part.text || "").length / CHARS_PER_TOKEN);
+          }
+        } else if (part.type === "file") {
+          // If it's a PDF or Image, Gemini supports it natively inline, but we need to estimate tokens for the NEW file
+          if (msg === lastUserMessage) {
+            if (part.mediaType === "application/pdf" || part.filename?.toLowerCase().endsWith(".pdf")) {
+              try {
+                const response = await fetch(part.url);
+                const arrayBuffer = await response.arrayBuffer();
+                const buffer = Buffer.from(arrayBuffer);
+                const pdfParseModule = await import("pdf-parse");
+                const pdfParse = pdfParseModule.default || pdfParseModule;
+                const parsed = await pdfParse(buffer);
+                estimatedInputTokens += Math.ceil(parsed.text.length / CHARS_PER_TOKEN);
+              } catch (e) {
+                console.error("Failed to parse PDF for token estimation in chat:", e);
+                estimatedInputTokens += 2000;
+              }
+            } else if (part.mediaType.startsWith("image/")) {
+              estimatedInputTokens += 258;
+            }
+          }
+          
+          // If it's a DOCX, we MUST extract it to text for Gemini (whether it's the last message or history)
+          if (part.mediaType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || part.filename?.toLowerCase().endsWith(".docx") || part.url?.toLowerCase().includes(".docx")) {
+            try {
+              const response = await fetch(part.url);
+              const arrayBuffer = await response.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+              const mammoth = await import("mammoth");
+              const result = await mammoth.extractRawText({ buffer });
+              const docxText = result.value;
+              
+              if (msg === lastUserMessage) {
+                estimatedInputTokens += Math.ceil(docxText.length / CHARS_PER_TOKEN);
+              }
+              
+              // Replace the file part with a text part so Gemini doesn't reject the MIME type
+              msg.parts[i] = { 
+                type: "text", 
+                text: `\n\n--- Document: ${part.filename || 'document.docx'} ---\n${docxText}\n--- End Document ---\n\n` 
+              };
+            } catch (e) {
+              console.error("Failed to parse DOCX in chat:", e);
+              if (msg === lastUserMessage) {
+                estimatedInputTokens += 2000;
+              }
+              msg.parts[i] = { type: "text", text: `\n\n[Failed to read document: ${part.filename}]\n\n` };
+            }
+          }
         }
-      } else if (filePart.mediaType.startsWith("image/")) {
-        estimatedInputTokens += 258;
       }
     }
 
@@ -104,9 +149,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Limit context window to the last N messages
-    const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-    console.log("messages", historyMessages.length);
+    // We already sliced historyMessages and processed them above.
 
     // Convert UI messages → model messages.
     // Firebase Storage URLs are plain HTTPS URLs so convertToModelMessages
@@ -140,14 +183,15 @@ export async function POST(req: Request) {
             // Save user message — include attachment metadata with Firebase Storage URL
             await saveChatMessage(sessionId, {
               role: "user",
-              text: textToSend,
+              // We use the original text and original file metadata preserved at the top of the route.
+              text: originalTextToSend,
               tokenCount: estimatedInputTokens,
               isFirstMessage: isFirstMessage === "true",
-              ...(filePart && {
+              ...(originalFilePart && {
                 attachment: {
-                  name: filePart.filename || "document.pdf",
-                  contentType: filePart.mediaType,
-                  url: filePart.url, // Real Firebase Storage URL
+                  name: originalFilePart.filename || "document.pdf",
+                  contentType: originalFilePart.mediaType,
+                  url: originalFilePart.url,
                 },
               }),
             });

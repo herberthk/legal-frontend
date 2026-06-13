@@ -50,18 +50,28 @@ export async function POST(req: Request) {
     let extractedText = "";
     let pageCount = 0;
     try {
-      // Dynamic import to avoid edge runtime issues
-      const pdfParseModule = await import("pdf-parse");
-      const pdfParse = pdfParseModule.default || pdfParseModule;
-      const parsed = await pdfParse(buffer);
-      extractedText = parsed.text;
-      pageCount = parsed.numpages;
+      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+        // Dynamic import to avoid edge runtime issues
+        const pdfParseModule = await import("pdf-parse");
+        const pdfParse = pdfParseModule.default || pdfParseModule;
+        const parsed = await pdfParse(buffer);
+        extractedText = parsed.text;
+        pageCount = parsed.numpages;
+      } else if (file.name.toLowerCase().endsWith(".docx")) {
+        const mammoth = await import("mammoth");
+        const result = await mammoth.extractRawText({ buffer });
+        extractedText = result.value;
+        // docx doesn't give a simple page count, so we'll just approximate it or set it to 1
+        pageCount = Math.max(1, Math.ceil(extractedText.length / 3000));
+      } else {
+        return Response.json({ error: "Unsupported file type. Please upload a PDF or DOCX file." }, { status: 400 });
+      }
     } catch (error) {
-      console.error("PDF parsing error:", error);
+      console.error("Document parsing error:", error);
       return Response.json(
         {
           error:
-            "Failed to read PDF. Please ensure the file is a valid, non-encrypted PDF.",
+            "Failed to read document. Please ensure the file is valid and non-encrypted.",
         },
         { status: 422 },
       );
@@ -81,7 +91,7 @@ export async function POST(req: Request) {
       return Response.json(
         {
           error:
-            "No readable text found in the PDF. The file may be image-only or scanned without OCR.",
+            "No readable text found in the document. The file may be image-only or scanned without OCR.",
         },
         { status: 422 },
       );

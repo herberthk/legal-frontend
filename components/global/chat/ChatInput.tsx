@@ -134,13 +134,14 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       // Only allow PDF and image files
       const allowedTypes = [
         "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "image/png",
         "image/jpeg",
         "image/jpg",
         "image/webp",
       ];
       if (!allowedTypes.includes(file.type)) {
-        alert("Only PDF and image files are supported.");
+        alert("Only PDF, DOCX, and image files are supported.");
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
@@ -376,7 +377,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             ref={fileInputRef}
             onChange={handleFileSelect}
             className="hidden"
-            accept="application/pdf, image/png, image/jpeg, image/jpg, image/webp"
+            accept="application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/png, image/jpeg, image/jpg, image/webp"
           />
 
           <div className="relative w-full h-[50px] md:h-[58px]">
