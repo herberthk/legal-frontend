@@ -26,7 +26,10 @@ export function ReviewUploadZone({
     onDrop,
     accept: { 
       "application/pdf": [".pdf"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"]
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+      "image/png": [".png"],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/webp": [".webp"],
     },
     maxFiles: 1,
     maxSize: MAX_REVIEW_FILE_SIZE,
@@ -53,7 +56,7 @@ export function ReviewUploadZone({
           </span>
         </h2>
         <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 max-w-xl mx-auto leading-relaxed italic">
-          Upload your PDF or DOCX and receive a comprehensive compliance score, risk
+          Upload your PDF, DOCX, or image (PNG, JPG, WEBP) and receive a comprehensive compliance score, risk
           analysis, key clauses, and recommendations — all grounded in Ugandan
           law.
         </p>
@@ -104,7 +107,7 @@ export function ReviewUploadZone({
                 Drag & drop your document
               </h3>
               <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium text-sm">
-                PDF or DOCX · Max {MAX_REVIEW_FILE_SIZE_MB}MB · Up to{" "}
+                PDF, DOCX or Image · Max {MAX_REVIEW_FILE_SIZE_MB}MB · Up to{" "}
                 {MAX_REVIEW_PAGES} pages
               </p>
               <button

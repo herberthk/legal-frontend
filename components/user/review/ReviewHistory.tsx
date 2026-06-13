@@ -57,7 +57,7 @@ export const ReviewHistory = ({
             ? reviews[reviews.length - 1].id
             : undefined;
 
-        const res = await getDocumentReviews(10, beforeId);
+        const res = await getDocumentReviews(9, beforeId);
 
         // Client-side filtering since Firestore full-text search requires third-party
         const filteredData = (res.reviews || []).filter((r) =>

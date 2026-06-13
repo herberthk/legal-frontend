@@ -95,8 +95,12 @@ export function useDocumentReview() {
     if (!dropped) return;
 
     const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    if (dropped.type !== "application/pdf" && dropped.type !== DOCX_MIME) {
-      setError("Only PDF or DOCX files are accepted.");
+    const isAllowed =
+      dropped.type === "application/pdf" ||
+      dropped.type === DOCX_MIME ||
+      dropped.type.startsWith("image/");
+    if (!isAllowed) {
+      setError("Only PDF, DOCX, or image files (PNG, JPG, WEBP) are accepted.");
       return;
     }
     if (dropped.size > MAX_REVIEW_FILE_SIZE) {
