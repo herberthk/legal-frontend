@@ -4,7 +4,11 @@ import { GoogleGenAI } from "@google/genai";
 import { getAuthenticatedUserId } from "./auth";
 import { checkUserCanSend, recordUsageAndDeduct } from "./usage";
 import { db } from "@/firebase/admin";
-import { COLLECTIONS } from "@/constants";
+import {
+  COLLECTIONS,
+  CHARS_PER_TOKEN,
+  COST_PER_THOUSAND_TOKENS_IN_CENTS,
+} from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 
 interface TranscribeDocumentParams {
@@ -25,11 +29,44 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
     }
 
     // 2. Credit Check
-    const { canSend, reason } = await checkUserCanSend(userId);
+    const { canSend, reason, user } = await checkUserCanSend(userId);
     if (!canSend) {
       return {
         success: false,
         error: reason || "Insufficient tokens to process this document.",
+        errorType: "INSUFFICIENT_CREDITS" as const,
+      };
+    }
+
+    let estimatedInputTokens = 258; // default for images
+    if (mimeType === "application/pdf") {
+      const buffer = Buffer.from(base64Data, "base64");
+      try {
+        const pdfParseModule = await import("pdf-parse");
+        const pdfParse = pdfParseModule.default || pdfParseModule;
+        const parsed = await pdfParse(buffer);
+        estimatedInputTokens = Math.ceil(parsed.text.length / CHARS_PER_TOKEN);
+      } catch (e) {
+        console.error("PDF parse error:", e);
+        // Fallback estimation
+        estimatedInputTokens = Math.ceil(buffer.length / 3);
+      }
+    }
+
+    const estimatedOutputTokens = estimatedInputTokens + 500;
+    const estimatedTotalTokens = estimatedInputTokens + estimatedOutputTokens;
+
+    const freeTokens =
+      (user?.freeTextTokens ?? 0) + (user?.welcomeTextTokens ?? 0);
+    const balanceDerivedTokens = Math.floor(
+      ((user?.balance ?? 0) / COST_PER_THOUSAND_TOKENS_IN_CENTS) * 1000,
+    );
+    const totalAvailableTokens = freeTokens + balanceDerivedTokens;
+
+    if (estimatedTotalTokens > totalAvailableTokens) {
+      return {
+        success: false,
+        error: `Insufficient tokens. This document requires ~${estimatedTotalTokens.toLocaleString()} tokens but you only have ~${totalAvailableTokens.toLocaleString()} available. Please add funds or reduce document size.`,
         errorType: "INSUFFICIENT_CREDITS" as const,
       };
     }

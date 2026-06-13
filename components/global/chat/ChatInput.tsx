@@ -131,9 +131,16 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       const file = e.target.files?.[0];
       if (!file) return;
 
-      // Only allow PDF files
-      if (file.type !== "application/pdf") {
-        alert("Only PDF files are supported. Please select a PDF document.");
+      // Only allow PDF and image files
+      const allowedTypes = [
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/webp",
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        alert("Only PDF and image files are supported.");
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
@@ -369,7 +376,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             ref={fileInputRef}
             onChange={handleFileSelect}
             className="hidden"
-            accept="application/pdf"
+            accept="application/pdf, image/png, image/jpeg, image/jpg, image/webp"
           />
 
           <div className="relative w-full h-[50px] md:h-[58px]">
@@ -387,7 +394,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     ? "text-orange-500 bg-orange-50 dark:bg-orange-900/20"
                     : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 hover:rotate-12"
                 }`}
-                title="Upload legal document (PDF)"
+                title="Upload document or image"
                 disabled={isUploading || connectionStatus === "offline"}
               >
                 <Paperclip size={20} />

@@ -167,7 +167,7 @@ export const TranscriptionHistory = ({
       setDeletingId(null);
       setRecordToDelete(null);
     }
-  }, [recordToDelete, transcriptions]);
+  }, [recordToDelete]);
 
   const handleSaveTitle = useCallback(async (record: TranscriptionRecord, e?: React.MouseEvent | React.KeyboardEvent) => {
     if (e) {
@@ -206,7 +206,7 @@ export const TranscriptionHistory = ({
     } finally {
       setEditingTitleId(null);
     }
-  }, [editingTitleValue, transcriptions]);
+  }, [editingTitleValue]);
 
   const handleDownload = useCallback(async (record: TranscriptionRecord, e: React.MouseEvent) => {
     e.stopPropagation();
