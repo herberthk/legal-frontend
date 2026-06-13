@@ -31,7 +31,7 @@ export async function saveDocumentReview(
 
 // ─── Get paginated list of reviews for the current user ───────────────────────
 export async function getDocumentReviews(
-  limitCount = 10,
+  limitCount = 9,
   beforeId?: string,
 ): Promise<{
   success: boolean;

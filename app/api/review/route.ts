@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { generateObject } from "ai";
+import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { getAuthenticatedUserId } from "@/lib/actions/auth";
 import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
@@ -12,6 +12,12 @@ import {
 } from "@/constants";
 
 export const maxDuration = 120;
+
+// Cache dynamic imports so they are only loaded once per cold start, reducing per-request latency
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedPdfParse: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedMammoth: any = null;
 
 export async function POST(req: Request) {
   try {
@@ -42,43 +48,103 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Convert file to Buffer for pdf-parse
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // 4. Parallelize file buffering and user permission checks
+    // We check canSend EARLY to prevent malicious users from triggering expensive Gemini OCR calls
+    const [arrayBuffer, userCheck] = await Promise.all([
+      file.arrayBuffer(),
+      checkUserCanSend(userId)
+    ]);
 
-    // 5. Extract text via pdf-parse
-    let extractedText = "";
-    let pageCount = 0;
-    try {
-      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-        // Dynamic import to avoid edge runtime issues
-        const pdfParseModule = await import("pdf-parse");
-        const pdfParse = pdfParseModule.default || pdfParseModule;
-        const parsed = await pdfParse(buffer);
-        extractedText = parsed.text;
-        pageCount = parsed.numpages;
-      } else if (file.name.toLowerCase().endsWith(".docx")) {
-        const mammoth = await import("mammoth");
-        const result = await mammoth.extractRawText({ buffer });
-        extractedText = result.value;
-        // docx doesn't give a simple page count, so we'll just approximate it or set it to 1
-        pageCount = Math.max(1, Math.ceil(extractedText.length / 3000));
-      } else {
-        return Response.json({ error: "Unsupported file type. Please upload a PDF or DOCX file." }, { status: 400 });
-      }
-    } catch (error) {
-      console.error("Document parsing error:", error);
-      return Response.json(
-        {
-          error:
-            "Failed to read document. Please ensure the file is valid and non-encrypted.",
-        },
-        { status: 422 },
-      );
+    const { canSend, reason, user } = userCheck;
+    if (!canSend) {
+      return Response.json({ error: reason }, { status: 402 });
     }
 
-    // 6. Validate page count
-    if (pageCount > MAX_REVIEW_PAGES) {
+    const buffer = Buffer.from(arrayBuffer);
+
+    // 5. Extract text from the document
+    let extractedText = "";
+    let pageCount = 0;
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isDocx =
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.name.toLowerCase().endsWith(".docx");
+    const isImage = file.type.startsWith("image/");
+
+    if (isImage) {
+      // Images (screenshots, scanned photos) go directly to Gemini vision OCR — no text layer to parse.
+      try {
+        console.log(`Image upload detected (${file.type}) — running Gemini OCR directly...`);
+        const { text: ocrText } = await generateText({
+          model: google("gemini-3.1-flash-lite"),
+          temperature: 0,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "file",
+                  data: buffer.toString("base64"),
+                  mediaType: file.type as "image/png" | "image/jpeg" | "image/webp" | "image/gif",
+                },
+                {
+                  type: "text",
+                  text: "This is a scanned legal document or screenshot. Please extract ALL visible text from this image exactly as it appears, preserving headings, paragraph structure, clause numbers, signatures, dates, and any tabular data. Output only the extracted text with no commentary.",
+                },
+              ],
+            },
+          ],
+        });
+        if (ocrText && ocrText.trim().length > 50) {
+          extractedText = ocrText;
+          pageCount = 1; // Images are single-page by nature
+        } else {
+          return Response.json(
+            { error: "Could not extract readable text from this image. Please ensure the image is clear and contains visible text." },
+            { status: 422 },
+          );
+        }
+      } catch (imgOcrError) {
+        console.error("Gemini image OCR failed:", imgOcrError);
+        return Response.json(
+          { error: "Failed to process this image. Please try a clearer scan or a PDF/DOCX file." },
+          { status: 422 },
+        );
+      }
+    } else {
+      try {
+        if (isPdf) {
+          if (!cachedPdfParse) {
+            const pdfParseModule = await import("pdf-parse");
+            cachedPdfParse = pdfParseModule.default || pdfParseModule;
+          }
+          const parsed = await cachedPdfParse(buffer);
+          extractedText = parsed.text;
+          pageCount = parsed.numpages;
+        } else if (isDocx) {
+          if (!cachedMammoth) {
+            cachedMammoth = await import("mammoth");
+          }
+          const result = await cachedMammoth.extractRawText({ buffer });
+          extractedText = result.value;
+          pageCount = Math.max(1, Math.ceil(extractedText.length / 3000));
+        } else {
+          return Response.json(
+            { error: "Unsupported file type. Please upload a PDF, DOCX, or image file (PNG/JPG/WEBP)." },
+            { status: 400 },
+          );
+        }
+      } catch (error) {
+        console.error("Document parsing error:", error);
+        return Response.json(
+          { error: "Failed to read document. Please ensure the file is valid and non-encrypted." },
+          { status: 422 },
+        );
+      }
+    }
+
+    // 6. Validate page count (images are always page 1, skip if already processed as image)
+    if (!isImage && pageCount > MAX_REVIEW_PAGES) {
       return Response.json(
         {
           error: `Document has ${pageCount} pages. Maximum allowed is ${MAX_REVIEW_PAGES} pages.`,
@@ -87,27 +153,66 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!extractedText.trim()) {
+    // 7. OCR fallback for scanned PDFs: if pdf-parse yielded too little text, use Gemini vision.
+    // (Images are already handled above — this block only runs for PDFs/DOCX.)
+    const MIN_TEXT_LENGTH = 100;
+    const isScanned = !isImage && (!extractedText.trim() || extractedText.trim().length < MIN_TEXT_LENGTH);
+    
+    if (isScanned && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"))) {
+      try {
+        console.log("Detected scanned/image-only PDF — attempting Gemini OCR...");
+        const { text: ocrText } = await generateText({
+          model: google("gemini-3.1-flash-lite"),
+          temperature: 0,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "file",
+                  data: buffer.toString("base64"),
+                  mediaType: "application/pdf",
+                },
+
+                {
+                  type: "text",
+                  text: "This is a scanned legal document. Please extract ALL visible text from every page of this document exactly as it appears, preserving headings, paragraph structure, clause numbers, and any tabular data. Output only the extracted text with no commentary.",
+                },
+              ],
+            },
+          ],
+        });
+        if (ocrText && ocrText.trim().length > 50) {
+          extractedText = ocrText;
+          // Approximate page count from OCR output length
+          if (pageCount === 0) pageCount = Math.max(1, Math.ceil(extractedText.length / 3000));
+        } else {
+          return Response.json(
+            { error: "Could not extract text from this scanned document. Please ensure the scan quality is sufficient or use a text-based PDF." },
+            { status: 422 },
+          );
+        }
+      } catch (ocrError) {
+        console.error("Gemini OCR fallback failed:", ocrError);
+        return Response.json(
+          { error: "Failed to process scanned document. Please try a text-based PDF or DOCX instead." },
+          { status: 422 },
+        );
+      }
+    } else if (isScanned) {
+      // DOCX with no text
       return Response.json(
-        {
-          error:
-            "No readable text found in the document. The file may be image-only or scanned without OCR.",
-        },
+        { error: "No readable text found in the document. Please ensure the file is a valid, non-corrupted document." },
         { status: 422 },
       );
     }
 
-    // 7. Token estimation and credit check
+    // 8. Token estimation and credit check
     const estimatedInputTokens = Math.ceil(
       extractedText.length / CHARS_PER_TOKEN,
     );
     const estimatedOutputTokens = 2000; // structured JSON output
     const estimatedTotalTokens = estimatedInputTokens + estimatedOutputTokens;
-
-    const { canSend, reason, user } = await checkUserCanSend(userId);
-    if (!canSend) {
-      return Response.json({ error: reason }, { status: 402 });
-    }
 
     // Calculate total available tokens for this user
     const freeTokens =
@@ -126,13 +231,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // 8. Build prompt with extracted text
+    // 9. Build prompt with extracted text
     const systemPrompt = LEGAL_DOCUMENT_REVIEW_PROMPT(file.name);
     const userMessage = `DOCUMENT TEXT:\n\n${extractedText}`;
 
     // 9. Call Gemini for deep legal analysis using structured output
     const { object: reviewData, usage } = await generateObject({
       model: google("gemini-3-flash-preview"),
+      temperature: 0,
       system: systemPrompt,
       prompt: userMessage,
       schema: z.object({
