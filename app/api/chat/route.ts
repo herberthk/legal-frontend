@@ -15,8 +15,11 @@ import {
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-//force to use edge runtime
-// export const runtime = "edge";
+// Cache dynamic imports so they are only loaded once per cold start
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedPdfParse: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedMammoth: any = null;
 
 const MAX_HISTORY_MESSAGES = 6;
 
@@ -30,13 +33,21 @@ export async function POST(req: Request) {
       rawSessionId && rawSessionId.length > 0 ? rawSessionId : null;
     const isFirstMessage = req.headers.get("x-first-message");
 
-    // 1. Authenticate the user
+    // 1. Authenticate the user and check permissions EARLY
     const userId = await getAuthenticatedUserId();
     if (!userId) {
       return new Response(
         JSON.stringify({ error: "Authentication required." }),
         { status: 401, headers: { "Content-Type": "application/json" } },
       );
+    }
+
+    const { canSend, reason, user } = await checkUserCanSend(userId);
+    if (!canSend) {
+      return new Response(JSON.stringify({ error: reason }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const lastUserMessage = messages[messages.length - 1];
@@ -78,9 +89,11 @@ export async function POST(req: Request) {
                 const response = await fetch(part.url);
                 const arrayBuffer = await response.arrayBuffer();
                 const buffer = Buffer.from(arrayBuffer);
-                const pdfParseModule = await import("pdf-parse");
-                const pdfParse = pdfParseModule.default || pdfParseModule;
-                const parsed = await pdfParse(buffer);
+                if (!cachedPdfParse) {
+                  const pdfParseModule = await import("pdf-parse");
+                  cachedPdfParse = pdfParseModule.default || pdfParseModule;
+                }
+                const parsed = await cachedPdfParse(buffer);
                 estimatedInputTokens += Math.ceil(parsed.text.length / CHARS_PER_TOKEN);
               } catch (e) {
                 console.error("Failed to parse PDF for token estimation in chat:", e);
@@ -97,8 +110,10 @@ export async function POST(req: Request) {
               const response = await fetch(part.url);
               const arrayBuffer = await response.arrayBuffer();
               const buffer = Buffer.from(arrayBuffer);
-              const mammoth = await import("mammoth");
-              const result = await mammoth.extractRawText({ buffer });
+              if (!cachedMammoth) {
+                cachedMammoth = await import("mammoth");
+              }
+              const result = await cachedMammoth.extractRawText({ buffer });
               const docxText = result.value;
               
               if (msg === lastUserMessage) {
@@ -125,14 +140,6 @@ export async function POST(req: Request) {
     const estimatedOutputTokens = 1000; // Typical chat response
     const estimatedTotalTokens = estimatedInputTokens + estimatedOutputTokens;
 
-    const { canSend, reason, user } = await checkUserCanSend(userId);
-    if (!canSend) {
-      return new Response(JSON.stringify({ error: reason }), {
-        status: 402,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
     const freeTokens =
       (user?.freeTextTokens ?? 0) + (user?.welcomeTextTokens ?? 0);
     const balanceDerivedTokens = Math.floor(
@@ -158,6 +165,7 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: google("gemini-3-flash-preview"),
+      temperature: 0,
       system: LEGAL_ADVISER_SYSTEM_INSTRUCTION,
       providerOptions: {
         google: {

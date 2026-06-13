@@ -11,4 +11,3 @@
 
 3. Create a fully working billing system with stripe and google pay integration.
 4. Optimize PDF generation.
-5. Estimate tokens before inference in chat and OCR like it was done in review
