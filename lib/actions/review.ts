@@ -146,3 +146,35 @@ export async function deleteDocumentReview(id: string): Promise<{
     return { success: false, error: error.message };
   }
 }
+
+// ─── Update a review ──────────────────────────────────────────────────────────
+export async function updateDocumentReview(
+  id: string,
+  data: Partial<Omit<DocumentReview, "id" | "userId" | "createdAt" | "updatedAt">>
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) throw new Error("Unauthorized");
+
+    const docRef = db.collection(COLLECTIONS.DOCUMENT_REVIEWS).doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) return { success: false, error: "Review not found" };
+    if (doc.data()?.userId !== userId)
+      return { success: false, error: "Unauthorized" };
+
+    await docRef.update({
+      ...data,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("updateDocumentReview error:", error);
+    return { success: false, error: error.message };
+  }
+}

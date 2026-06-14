@@ -1,6 +1,6 @@
 "use server";
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { getAuthenticatedUserId } from "./auth";
 import { checkUserCanSend, recordUsageAndDeduct } from "./usage";
 import { db } from "@/firebase/admin";
@@ -91,7 +91,10 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
 
     // 4. Generate Content
     const result = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.1-flash-lite",
+      config: {
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
+      },
       contents: [
         {
           inlineData: {

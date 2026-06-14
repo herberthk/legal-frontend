@@ -10,9 +10,22 @@ import {
   Loader2,
   Calendar,
   AlertTriangle,
+  MoreVertical,
+  Edit2,
+  Share2,
+  Download,
+  X,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getDocumentReviews, deleteDocumentReview } from "@/lib/actions/review";
+import { getDocumentReviews, deleteDocumentReview, updateDocumentReview } from "@/lib/actions/review";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { CustomButton } from "@/components/ui/custom-button";
 import { ReviewHistorySkeleton } from "./ReviewHistorySkeleton";
 import { storage } from "@/firebase/client";
@@ -34,6 +47,11 @@ export const ReviewHistory = ({
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [deleteModalRecord, setDeleteModalRecord] = useState<DocumentReview | null>(null);
 
   // Debounce search query
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -91,9 +109,9 @@ export const ReviewHistory = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
-  const handleDelete = async (record: DocumentReview, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const id = record.id;
+  const executeDelete = async () => {
+    if (!deleteModalRecord) return;
+    const id = deleteModalRecord.id;
     setDeletingId(id);
     const toastId = toast.loading("Initiating deletion...");
 
@@ -102,10 +120,10 @@ export const ReviewHistory = ({
       const res = await deleteDocumentReview(id);
 
       if (res.success) {
-        if (record.fileUrl) {
+        if (deleteModalRecord.fileUrl) {
           toast.loading("Cleaning up associated files...", { id: toastId });
           try {
-            const storageRef = ref(storage, record.fileUrl);
+            const storageRef = ref(storage, deleteModalRecord.fileUrl);
             await deleteObject(storageRef);
           } catch (storageErr) {
             console.error("Storage cleanup failed:", storageErr);
@@ -131,6 +149,7 @@ export const ReviewHistory = ({
       });
     } finally {
       setDeletingId(null);
+      setDeleteModalRecord(null);
     }
   };
 
@@ -140,6 +159,63 @@ export const ReviewHistory = ({
       month: "short",
       day: "numeric",
     });
+  };
+
+  const generateAndDownloadReport = (record: DocumentReview) => {
+    let content = `Review Report: ${record.fileName}\n`;
+    content += `Date: ${formatDate(record.createdAt)}\n`;
+    content += `Document Type: ${record.documentType}\n`;
+    content += `Compliance Score: ${record.overallScore}/100\n\n`;
+    content += `Summary:\n${record.summary}\n\n`;
+    
+    content += `Key Risks:\n`;
+    record.risks.forEach(r => {
+      content += `- [${r.severity}] ${r.title}: ${r.description}\n`;
+    });
+    
+    content += `\nRecommendations:\n`;
+    record.recommendations.forEach(r => {
+      content += `- [${r.priority}] ${r.title}: ${r.description}\n`;
+    });
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Review_Report_${record.fileName.replace(/\s+/g, "_")}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleShare = (record: DocumentReview) => {
+    toast.info("Sharing functionality will be implemented soon.");
+  };
+
+  const saveEdit = async (record: DocumentReview) => {
+    if (!editTitle.trim() || editTitle === record.fileName) {
+      setEditingId(null);
+      return;
+    }
+    
+    setIsUpdating(true);
+    const toastId = toast.loading("Updating title...");
+    try {
+      const res = await updateDocumentReview(record.id, { fileName: editTitle });
+      if (res.success) {
+        setReviews(prev => prev.map(r => r.id === record.id ? { ...r, fileName: editTitle } : r));
+        toast.success("Title updated", { id: toastId });
+      } else {
+        toast.error("Failed to update title", { id: toastId, description: res.error });
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast.error("An error occurred", { id: toastId, description: err.message });
+    } finally {
+      setIsUpdating(false);
+      setEditingId(null);
+    }
   };
 
   if (isLoading) {
@@ -242,22 +318,82 @@ export const ReviewHistory = ({
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => handleDelete(record, e)}
-                      disabled={deletingId === record.id}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors"
-                    >
-                      {deletingId === record.id ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-5 h-5" />
-                      )}
-                    </button>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            disabled={deletingId === record.id}
+                            className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-slate-800 rounded-xl transition-colors"
+                          >
+                            {deletingId === record.id ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <MoreVertical className="w-5 h-5" />
+                            )}
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 z-50 bg-white dark:bg-slate-900">
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => {
+                            setEditingId(record.id);
+                            setEditTitle(record.fileName);
+                          }}>
+                            <Edit2 className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => handleShare(record)}>
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Share
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => generateAndDownloadReport(record)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => setDeleteModalRecord(record)}
+                            className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-500/10"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 line-clamp-1 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                    {record.fileName || "Untitled Document"}
-                  </h3>
+                  {editingId === record.id ? (
+                    <div className="mb-1 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="text" 
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveEdit(record);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        autoFocus
+                        className="flex-1 bg-transparent border-b border-orange-400 focus:outline-none text-lg font-bold text-slate-900 dark:text-white pb-1"
+                      />
+                      <button 
+                        onClick={() => saveEdit(record)}
+                        disabled={isUpdating}
+                        className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10 rounded"
+                      >
+                        {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      </button>
+                      <button 
+                        onClick={() => setEditingId(null)}
+                        disabled={isUpdating}
+                        className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 line-clamp-1 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                      {record.fileName || "Untitled Document"}
+                    </h3>
+                  )}
 
                   <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 line-clamp-1">
                     {record.documentType}
@@ -316,6 +452,48 @@ export const ReviewHistory = ({
           </div>
         )}
       </div>
+
+      {/* Delete Modal */}
+      <AnimatePresence>
+        {deleteModalRecord && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl relative"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center mb-6">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                Delete Review?
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 mb-8">
+                Are you sure you want to delete the review for <strong>{deleteModalRecord.fileName}</strong>? This action cannot be undone and will permanently remove the review and associated files.
+              </p>
+              <div className="flex gap-4 justify-end">
+                <button
+                  onClick={() => setDeleteModalRecord(null)}
+                  disabled={deletingId !== null}
+                  className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeDelete}
+                  disabled={deletingId !== null}
+                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-colors shadow-sm shadow-red-500/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {deletingId !== null && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Yes, Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
