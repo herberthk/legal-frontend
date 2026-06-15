@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 
 // Hooks
@@ -21,6 +21,7 @@ import { saveTranscriptionRecord } from "@/lib/actions/transcribe";
 import { useRouter } from "nextjs-toploader/app";
 import { toast } from "sonner";
 import { BUCKETS } from "@/constants";
+import { exportTranscriptionToDoc } from "@/lib/document-export";
 
 interface TranscribeProps {
   onClose?: () => void;
@@ -185,38 +186,23 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
     }
   };
 
-  const handleExportDoc = () => {
+  const handleExportDoc = useCallback(() => {
     if (!transcription) {
       toast.error("No transcription to export.");
       return;
     }
-    const title = documentTitle || initialRecord?.fileName?.replace(/\.[^/.]+$/, "") || "Transcription";
-    const html = `
-      <!DOCTYPE html>
-      <html xmlns:o='urn:schemas-microsoft-com:office:office'
-            xmlns:w='urn:schemas-microsoft-com:office:word'
-            xmlns='http://www.w3.org/TR/REC-html40'>
-      <head>
-        <meta charset='utf-8'>
-        <title>${title}</title>
-        <style>
-          body { font-family: Calibri, Arial, sans-serif; font-size: 12pt; line-height: 1.6; margin: 72pt; color: #1e293b; }
-          h1, h2, h3 { color: #0f172a; }
-          p { margin: 0 0 8pt; }
-        </style>
-      </head>
-      <body>${transcription}</body>
-      </html>
-    `;
-    const blob = new Blob(["\ufeff", html], { type: "application/msword" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title}_${new Date().toISOString().split("T")[0]}.doc`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Document exported successfully!");
-  };
+    const title =
+      documentTitle ||
+      initialRecord?.fileName?.replace(/\.[^/.]+$/, "") ||
+      "Transcription";
+    try {
+      exportTranscriptionToDoc(transcription, title);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error("--- Doc Export Error ---", err);
+      toast.error(`Failed to export document: ${err?.message || "Unknown error"}`);
+    }
+  }, [transcription, documentTitle, initialRecord]);
 
   return (
     <div className="min-h-screen flex flex-col bg-indigo-50/5 dark:bg-slate-900 transition-colors duration-500">

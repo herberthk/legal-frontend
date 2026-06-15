@@ -10,6 +10,7 @@ import {
   Loader2,
   Calendar,
   Coins,
+  FileOutput,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -33,6 +34,7 @@ interface TranscriptionCardProps {
     e?: React.MouseEvent | React.KeyboardEvent,
   ) => Promise<void>;
   onDownload: (record: TranscriptionRecord, e: React.MouseEvent) => void;
+  onDownloadDoc: (record: TranscriptionRecord, e: React.MouseEvent) => void;
 }
 
 export const TranscriptionCard = memo(({
@@ -46,6 +48,7 @@ export const TranscriptionCard = memo(({
   setEditingTitleValue,
   onSaveTitle,
   onDownload,
+  onDownloadDoc,
 }: TranscriptionCardProps) => {
   const formatDate = (isoString: string) => {
     return new Date(isoString).toLocaleDateString("en-US", {
@@ -102,8 +105,15 @@ export const TranscriptionCard = memo(({
                 onClick={(e) => onDownload(record, e as unknown as React.MouseEvent)}
                 className="cursor-pointer text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
               >
-                <Download className="w-4 h-4 mr-2" />
-                Download
+                <Download className="w-4 h-4 mr-2 text-orange-500" />
+                Export to PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => onDownloadDoc(record, e as unknown as React.MouseEvent)}
+                className="cursor-pointer text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+              >
+                <FileOutput className="w-4 h-4 mr-2 text-indigo-500" />
+                Export as Doc
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-700" />
               <DropdownMenuItem
