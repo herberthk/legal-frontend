@@ -5,7 +5,8 @@ import { Users, Mic, Server, DollarSign, Activity, ChevronRight } from "lucide-r
 import { getAdminOverviewStats, AdminOverviewStats } from "@/lib/actions/admin";
 import { useThemeStore } from "@/store";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
-import{  AreaChart,
+import {
+  AreaChart,
   Area,
   XAxis,
   YAxis,
@@ -18,6 +19,7 @@ import{  AreaChart,
   Legend,
 } from "recharts";
 import Link from "next/link";
+import AdminRevenue from "./AdminRevenue";
 
 
 interface AdminDashboardProps {
@@ -402,6 +404,8 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
           </div>
         </div>
       </div>
+
+      <AdminRevenue stats={stats} />
     </div>
   );
 };

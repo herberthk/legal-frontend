@@ -1,7 +1,12 @@
 "use server";
 
 import { db } from "@/firebase/admin";
-import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import {
+  COLLECTIONS,
+  USD_TO_UGX_EXCHANGE_RATE,
+  COST_PER_THOUSAND_TOKENS,
+  COST_PER_VOICE_MINUTE,
+} from "@/constants";
 import { AggregateField, FieldValue } from "firebase-admin/firestore";
 
 export type AdminOverviewStats = {
@@ -9,14 +14,46 @@ export type AdminOverviewStats = {
   totalTokens: number;
   totalVoiceSeconds: number;
   totalVoiceSessions: number;
-  totalCostUsd: number; // In dollars
-  totalCostUgx: number; // In UGX
+  totalCostUsd: number; // Realized Revenue (USD)
+  totalCostUgx: number; // Realized Revenue (UGX)
   chatTokens: number;
   transcriptionTokens: number;
-  chatCostUsd: number;
-  transcriptionCostUsd: number;
-  voiceCostUsd: number;
-  timeSeriesData: { date: string; chatTokens: number; transcriptionTokens: number; voiceSeconds: number; cost: number }[];
+  chatCostUsd: number; // Realized Chat Revenue
+  transcriptionCostUsd: number; // Realized Transcription Revenue
+  voiceCostUsd: number; // Realized Voice Revenue
+  
+  // Google API Costs
+  googleChatCostUsd: number;
+  googleTranscriptionCostUsd: number;
+  googleVoiceCostUsd: number;
+  googleTotalCostUsd: number;
+
+  // Expected Revenue (gross value based on our rates)
+  expectedChatRevenueUsd: number;
+  expectedTranscriptionRevenueUsd: number;
+  expectedVoiceRevenueUsd: number;
+  expectedTotalRevenueUsd: number;
+
+  // Net Profit (Realized - Google Cost)
+  realizedProfitUsd: number;
+  realizedProfitUgx: number;
+  profitMarginPercent: number;
+
+  // Expected Profit (Expected - Google Cost)
+  expectedProfitUsd: number;
+  expectedProfitUgx: number;
+  expectedProfitMarginPercent: number;
+
+  timeSeriesData: {
+    date: string;
+    chatTokens: number;
+    transcriptionTokens: number;
+    voiceSeconds: number;
+    cost: number; // Realized Revenue
+    googleCost: number;
+    expectedRevenue: number;
+    profit: number;
+  }[];
 };
 
 export type DemographicsEntry = { key: string; label: string; count: number };
@@ -68,23 +105,74 @@ export const getAdminOverviewStats = async (): Promise<
       usageRef.where("createdAt", ">=", thirtyDaysAgo).orderBy("createdAt", "asc").get(),
     ]);
 
-
     const totalVoiceSessions = voiceCountSnap.data().count;
     const voiceCostInCents   = voiceAggSnap.data().cost || 0;
-    const chatTokens         = chatAggSnap.data().tokens;
+    const chatTokens         = chatAggSnap.data().tokens || 0;
     const chatCostInCents    = chatAggSnap.data().cost || 0;
-    const transcriptionTokens    = transcriptionAggSnap.data().tokens;
+    const transcriptionTokens    = transcriptionAggSnap.data().tokens || 0;
     const transcriptionCostInCents = transcriptionAggSnap.data().cost || 0;
 
+    // Billing rates and Google cost rates
+    const GOOGLE_TOKEN_COST_RATE = 0.0000035; // $3.5 per 1M tokens
+    const GOOGLE_VOICE_COST_RATE_PER_SECOND = 0.023 / 60; // $0.023 per minute
 
-    const dayMap: Record<string, { date: string; chatTokens: number; transcriptionTokens: number; voiceSeconds: number; cost: number }> = {};
+    const OUR_TOKEN_BILLING_RATE = COST_PER_THOUSAND_TOKENS / 1000; // $0.027 per 1k tokens = $0.000027 per token
+    const OUR_VOICE_BILLING_RATE_PER_SECOND = COST_PER_VOICE_MINUTE / 60; // $0.08 per minute
+
+    // Compute Google Cost Totals
+    const googleChatCostUsd = chatTokens * GOOGLE_TOKEN_COST_RATE;
+    const googleTranscriptionCostUsd = transcriptionTokens * GOOGLE_TOKEN_COST_RATE;
+    const googleVoiceCostUsd = (totalVoiceSeconds || 0) * GOOGLE_VOICE_COST_RATE_PER_SECOND;
+    const googleTotalCostUsd = googleChatCostUsd + googleTranscriptionCostUsd + googleVoiceCostUsd;
+
+    // Compute Expected Revenue Totals (if all usage was paid)
+    const expectedChatRevenueUsd = chatTokens * OUR_TOKEN_BILLING_RATE;
+    const expectedTranscriptionRevenueUsd = transcriptionTokens * OUR_TOKEN_BILLING_RATE;
+    const expectedVoiceRevenueUsd = (totalVoiceSeconds || 0) * OUR_VOICE_BILLING_RATE_PER_SECOND;
+    const expectedTotalRevenueUsd = expectedChatRevenueUsd + expectedTranscriptionRevenueUsd + expectedVoiceRevenueUsd;
+
+    // Realized Revenue and Profits
+    const totalCostUsd = (totalCostInCents || 0) / 100;
+    const totalCostUgx = totalCostUsd * USD_TO_UGX_EXCHANGE_RATE;
+    
+    const realizedProfitUsd = totalCostUsd - googleTotalCostUsd;
+    const realizedProfitUgx = realizedProfitUsd * USD_TO_UGX_EXCHANGE_RATE;
+    const profitMarginPercent = totalCostUsd > 0 ? (realizedProfitUsd / totalCostUsd) * 100 : 0;
+
+    // Expected Profits
+    const expectedProfitUsd = expectedTotalRevenueUsd - googleTotalCostUsd;
+    const expectedProfitUgx = expectedProfitUsd * USD_TO_UGX_EXCHANGE_RATE;
+    const expectedProfitMarginPercent = expectedTotalRevenueUsd > 0 ? (expectedProfitUsd / expectedTotalRevenueUsd) * 100 : 0;
+
+    const dayMap: Record<
+      string,
+      {
+        date: string;
+        chatTokens: number;
+        transcriptionTokens: number;
+        voiceSeconds: number;
+        cost: number;
+        googleCost: number;
+        expectedRevenue: number;
+        profit: number;
+      }
+    > = {};
     
     // Initialize last 30 days with 0
     for (let i = 0; i < 30; i++) {
       const d = new Date();
       d.setDate(d.getDate() - (29 - i));
       const key = d.toISOString().split("T")[0];
-      dayMap[key] = { date: key, chatTokens: 0, transcriptionTokens: 0, voiceSeconds: 0, cost: 0 };
+      dayMap[key] = {
+        date: key,
+        chatTokens: 0,
+        transcriptionTokens: 0,
+        voiceSeconds: 0,
+        cost: 0,
+        googleCost: 0,
+        expectedRevenue: 0,
+        profit: 0,
+      };
     }
 
     recentUsageSnapshot.forEach((doc) => {
@@ -105,10 +193,23 @@ export const getAdminOverviewStats = async (): Promise<
       }
     });
 
-    const timeSeriesData = Object.values(dayMap);
+    // Populate day-by-day calculations
+    Object.keys(dayMap).forEach((key) => {
+      const day = dayMap[key];
+      const gChat = day.chatTokens * GOOGLE_TOKEN_COST_RATE;
+      const gTrans = day.transcriptionTokens * GOOGLE_TOKEN_COST_RATE;
+      const gVoice = day.voiceSeconds * GOOGLE_VOICE_COST_RATE_PER_SECOND;
+      day.googleCost = gChat + gTrans + gVoice;
 
-    const totalCostUsd = (totalCostInCents || 0) / 100;
-    const totalCostUgx = totalCostUsd * USD_TO_UGX_EXCHANGE_RATE;
+      const eChat = day.chatTokens * OUR_TOKEN_BILLING_RATE;
+      const eTrans = day.transcriptionTokens * OUR_TOKEN_BILLING_RATE;
+      const eVoice = day.voiceSeconds * OUR_VOICE_BILLING_RATE_PER_SECOND;
+      day.expectedRevenue = eChat + eTrans + eVoice;
+
+      day.profit = day.cost - day.googleCost;
+    });
+
+    const timeSeriesData = Object.values(dayMap);
 
     return {
       success: true,
@@ -124,6 +225,20 @@ export const getAdminOverviewStats = async (): Promise<
         chatCostUsd: chatCostInCents / 100,
         transcriptionCostUsd: transcriptionCostInCents / 100,
         voiceCostUsd: voiceCostInCents / 100,
+        googleChatCostUsd,
+        googleTranscriptionCostUsd,
+        googleVoiceCostUsd,
+        googleTotalCostUsd,
+        expectedChatRevenueUsd,
+        expectedTranscriptionRevenueUsd,
+        expectedVoiceRevenueUsd,
+        expectedTotalRevenueUsd,
+        realizedProfitUsd,
+        realizedProfitUgx,
+        profitMarginPercent,
+        expectedProfitUsd,
+        expectedProfitUgx,
+        expectedProfitMarginPercent,
         timeSeriesData,
       },
     };

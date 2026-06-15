@@ -7,7 +7,7 @@ const Page = async () => {
 
   if (user) {
     const dashboardPath =
-      user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard";
+      user.role === "ADMIN" ? "/admin" : "/dashboard";
     return redirect(dashboardPath);
   }
   return <LandingPage />;
