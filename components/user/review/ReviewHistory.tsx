@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getDocumentReviews, deleteDocumentReview, updateDocumentReview } from "@/lib/actions/review";
+import { downloadReviewPdf } from "./ReviewPdfExport";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,7 @@ export const ReviewHistory = ({
   const [editTitle, setEditTitle] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [deleteModalRecord, setDeleteModalRecord] = useState<DocumentReview | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // Debounce search query
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -161,32 +163,18 @@ export const ReviewHistory = ({
     });
   };
 
-  const generateAndDownloadReport = (record: DocumentReview) => {
-    let content = `Review Report: ${record.fileName}\n`;
-    content += `Date: ${formatDate(record.createdAt)}\n`;
-    content += `Document Type: ${record.documentType}\n`;
-    content += `Compliance Score: ${record.overallScore}/100\n\n`;
-    content += `Summary:\n${record.summary}\n\n`;
-    
-    content += `Key Risks:\n`;
-    record.risks.forEach(r => {
-      content += `- [${r.severity}] ${r.title}: ${r.description}\n`;
-    });
-    
-    content += `\nRecommendations:\n`;
-    record.recommendations.forEach(r => {
-      content += `- [${r.priority}] ${r.title}: ${r.description}\n`;
-    });
-
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Review_Report_${record.fileName.replace(/\s+/g, "_")}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const generateAndDownloadReport = async (record: DocumentReview) => {
+    setDownloadingId(record.id);
+    const toastId = toast.loading("Generating PDF report...");
+    try {
+      await downloadReviewPdf(record);
+      toast.success("PDF downloaded successfully", { id: toastId });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast.error("Failed to generate PDF", { id: toastId, description: err.message });
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const handleShare = (record: DocumentReview) => {
@@ -344,9 +332,17 @@ export const ReviewHistory = ({
                             <Share2 className="w-4 h-4 mr-2" />
                             Share
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => generateAndDownloadReport(record)}>
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => generateAndDownloadReport(record)}
+                            disabled={downloadingId === record.id}
+                          >
+                            {downloadingId === record.id ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4 mr-2" />
+                            )}
+                            {downloadingId === record.id ? "Generating..." : "Download PDF"}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
