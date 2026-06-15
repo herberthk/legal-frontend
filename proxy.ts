@@ -31,7 +31,7 @@ const protectedRoutes = ["/dashboard", "/admin", "/notifications"];
   // ) {
   //   try {
   //     const dashboardPath =
-  //       user.role === "ADMIN" ? "/dashboard/admin" : "/dashboard";
+  //       user.role === "ADMIN" ? "/admin" : "/dashboard";
   //     return NextResponse.redirect(new URL(dashboardPath, request.url));
   //   } catch {
   //     return NextResponse.redirect(new URL("/dashboard", request.url));
