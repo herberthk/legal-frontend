@@ -332,16 +332,23 @@ interface ReviewPdfExportProps {
   review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt">;
 }
 
+// Standalone helper — call this from anywhere to trigger a PDF download
+export async function downloadReviewPdf(
+  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt">
+) {
+  const generatedAt = formatDate(new Date().toISOString());
+  const blob = await pdf(<ReviewPdfDocument review={review} generatedAt={generatedAt} />).toBlob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Legal_Review_${review.fileName.replace(/\.pdf$/i, "")}_${new Date().toISOString().split("T")[0]}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function ReviewPdfExport({ review }: ReviewPdfExportProps) {
   const handleExport = useCallback(async () => {
-    const generatedAt = formatDate(new Date().toISOString());
-    const blob = await pdf(<ReviewPdfDocument review={review} generatedAt={generatedAt} />).toBlob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Legal_Review_${review.fileName.replace(/\.pdf$/i, "")}_${new Date().toISOString().split("T")[0]}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await downloadReviewPdf(review);
   }, [review]);
 
   return (
