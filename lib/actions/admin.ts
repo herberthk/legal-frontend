@@ -2,7 +2,7 @@
 
 import { db } from "@/firebase/admin";
 import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
-import { AggregateField } from "firebase-admin/firestore";
+import { AggregateField, FieldValue } from "firebase-admin/firestore";
 
 export type AdminOverviewStats = {
   totalUsers: number;
@@ -17,6 +17,18 @@ export type AdminOverviewStats = {
   transcriptionCostUsd: number;
   voiceCostUsd: number;
   timeSeriesData: { date: string; chatTokens: number; transcriptionTokens: number; voiceSeconds: number; cost: number }[];
+};
+
+export type DemographicsEntry = { key: string; label: string; count: number };
+
+export type AdminDemographicsStats = {
+  totalSessions: number;
+  devices: DemographicsEntry[];
+  browsers: DemographicsEntry[];
+  operatingSystems: DemographicsEntry[];
+  countries: DemographicsEntry[];
+  cities: DemographicsEntry[];
+  updatedAt: string | null;
 };
 
 export const getAdminOverviewStats = async (): Promise<
@@ -37,46 +49,33 @@ export const getAdminOverviewStats = async (): Promise<
 
     const { totalTokens, totalCost: totalCostInCents, totalSeconds: totalVoiceSeconds } = usageAggregate.data();
 
-    // 3. Aggregate specific types to get breakdowns and voice sessions count
-    // Voice Sessions
-    const voiceSessionsCountSnapshot = await usageRef.where("type", "==", "VOICE_SESSION").count().get();
-    const totalVoiceSessions = voiceSessionsCountSnapshot.data().count;
-
-    // Voice Cost
-    const voiceAggregate = await usageRef.where("type", "==", "VOICE_SESSION").aggregate({
-      cost: AggregateField.sum('cost'),
-    }).get();
-    const voiceCostInCents = voiceAggregate.data().cost || 0;
-
-    // Chat Tokens & Cost
-    const chatTokensAggregate = await usageRef.where("type", "==", "TEXT_RESPONSE").aggregate({
-      tokens: AggregateField.sum('tokens'),
-      cost: AggregateField.sum('cost'),
-    }).get();
-    const chatTokens = chatTokensAggregate.data().tokens;
-    const chatCostInCents = chatTokensAggregate.data().cost || 0;
-
-    // Transcription Tokens & Cost
-    const transcriptionAggregate = await usageRef.where("type", "==", "DOCUMENT_TRANSCRIPTION").aggregate({
-      tokens: AggregateField.sum('tokens'),
-      cost: AggregateField.sum('cost'),
-    }).get();
-    const transcriptionTokens = transcriptionAggregate.data().tokens;
-    const transcriptionCostInCents = transcriptionAggregate.data().cost || 0;
-
-    // 4. Time series data for the last 30 days
+    // 3. Run all per-type aggregates in parallel — saves ~4 round-trips
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    // We fetch the actual documents for the last 30 days to build the chart,
-    // or if there are too many, we could use aggregation grouped by day, but Firestore 
-    // doesn't support GROUP BY natively in the SDK yet. We will fetch them.
-    // If the collection is too huge, this could be slow, so we limit or optimise.
-    // For now, we will fetch last 30 days and reduce in-memory.
-    const recentUsageSnapshot = await usageRef
-      .where("createdAt", ">=", thirtyDaysAgo)
-      .orderBy("createdAt", "asc")
-      .get();
+
+    const [
+      voiceCountSnap,
+      voiceAggSnap,
+      chatAggSnap,
+      transcriptionAggSnap,
+      recentUsageSnapshot,
+    ] = await Promise.all([
+      usageRef.where("type", "==", "VOICE_SESSION").count().get(),
+      usageRef.where("type", "==", "VOICE_SESSION").aggregate({ cost: AggregateField.sum('cost') }).get(),
+      usageRef.where("type", "==", "TEXT_RESPONSE").aggregate({ tokens: AggregateField.sum('tokens'), cost: AggregateField.sum('cost') }).get(),
+      usageRef.where("type", "==", "DOCUMENT_TRANSCRIPTION").aggregate({ tokens: AggregateField.sum('tokens'), cost: AggregateField.sum('cost') }).get(),
+      // 4. Time-series: last 30 days fetched in the same round-trip batch
+      usageRef.where("createdAt", ">=", thirtyDaysAgo).orderBy("createdAt", "asc").get(),
+    ]);
+
+
+    const totalVoiceSessions = voiceCountSnap.data().count;
+    const voiceCostInCents   = voiceAggSnap.data().cost || 0;
+    const chatTokens         = chatAggSnap.data().tokens;
+    const chatCostInCents    = chatAggSnap.data().cost || 0;
+    const transcriptionTokens    = transcriptionAggSnap.data().tokens;
+    const transcriptionCostInCents = transcriptionAggSnap.data().cost || 0;
+
 
     const dayMap: Record<string, { date: string; chatTokens: number; transcriptionTokens: number; voiceSeconds: number; cost: number }> = {};
     
@@ -134,3 +133,125 @@ export const getAdminOverviewStats = async (): Promise<
     return { success: false, error: error.message };
   }
 };
+
+/** Convert a flat object of {key: count} + labels object into sorted DemographicsEntry[] */
+function toSortedEntries(
+  counts: Record<string, number>,
+  labels: Record<string, string>,
+  limit = 10,
+): DemographicsEntry[] {
+  return Object.entries(counts)
+    .map(([key, count]) => ({ key, label: labels?.[key] ?? key, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+/**
+ * Returns aggregated demographics from analytics/demographics.
+ * On first call, migrates existing userStats documents into the aggregated document.
+ */
+export const getAdminDemographicsStats = async (): Promise<
+  { success: boolean; stats?: AdminDemographicsStats; error?: string }
+> => {
+  try {
+    const analyticsRef = db.collection(COLLECTIONS.ANALYTICS).doc("demographics");
+    const snap = await analyticsRef.get();
+
+    // --- First-time migration: compile from raw userStats ---
+    if (!snap.exists) {
+      const rawSnap = await db.collection(COLLECTIONS.USER_STATS).get();
+
+      const browsers: Record<string, number> = {};
+      const browserLabels: Record<string, string> = {};
+      const operatingSystems: Record<string, number> = {};
+      const osLabels: Record<string, string> = {};
+      const devices: Record<string, number> = {};
+      const deviceLabels: Record<string, string> = {};
+      const countries: Record<string, number> = {};
+      const countryLabels: Record<string, string> = {};
+      const cities: Record<string, number> = {};
+      const cityLabels: Record<string, string> = {};
+      let totalSessions = 0;
+
+      rawSnap.forEach((doc) => {
+        const d = doc.data();
+        totalSessions++;
+
+        const norm = (v: string) => (v || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
+
+        const bKey = norm(d.browser);
+        browsers[bKey] = (browsers[bKey] || 0) + 1;
+        browserLabels[bKey] = d.browser || "Unknown";
+
+        const oKey = norm(d.os);
+        operatingSystems[oKey] = (operatingSystems[oKey] || 0) + 1;
+        osLabels[oKey] = d.os || "Unknown";
+
+        const dKey = norm(d.device);
+        devices[dKey] = (devices[dKey] || 0) + 1;
+        deviceLabels[dKey] = d.device || "Desktop";
+
+        const cKey = norm(d.country);
+        countries[cKey] = (countries[cKey] || 0) + 1;
+        countryLabels[cKey] = d.country || "Unknown";
+
+        const cityKey = norm(d.city);
+        cities[cityKey] = (cities[cityKey] || 0) + 1;
+        cityLabels[cityKey] = d.city || "Unknown";
+      });
+
+      const compiledData = {
+        totalSessions,
+        browsers,
+        browserLabels,
+        operatingSystems,
+        osLabels,
+        devices,
+        deviceLabels,
+        countries,
+        countryLabels,
+        cities,
+        cityLabels,
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+
+      // Save so future reads are O(1)
+      await analyticsRef.set(compiledData);
+
+      return {
+        success: true,
+        stats: {
+          totalSessions,
+          devices: toSortedEntries(devices, deviceLabels),
+          browsers: toSortedEntries(browsers, browserLabels),
+          operatingSystems: toSortedEntries(operatingSystems, osLabels),
+          countries: toSortedEntries(countries, countryLabels),
+          cities: toSortedEntries(cities, cityLabels),
+          updatedAt: new Date().toISOString(),
+        },
+      };
+    }
+
+    // --- Normal read path ---
+    const data = snap.data()!;
+    const updatedAtRaw = data.updatedAt?.toDate?.()?.toISOString() ?? null;
+
+    return {
+      success: true,
+      stats: {
+        totalSessions: data.totalSessions || 0,
+        devices: toSortedEntries(data.devices || {}, data.deviceLabels || {}),
+        browsers: toSortedEntries(data.browsers || {}, data.browserLabels || {}),
+        operatingSystems: toSortedEntries(data.operatingSystems || {}, data.osLabels || {}),
+        countries: toSortedEntries(data.countries || {}, data.countryLabels || {}),
+        cities: toSortedEntries(data.cities || {}, data.cityLabels || {}),
+        updatedAt: updatedAtRaw,
+      },
+    };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("Error fetching admin demographics:", error);
+    return { success: false, error: error.message };
+  }
+};
+

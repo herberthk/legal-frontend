@@ -1,13 +1,26 @@
 import AdminDashboard from "@/components/admin/AdminDashboard";
-import { getAdminOverviewStats } from "@/lib/actions/admin";
+import AdminDemographics from "@/components/admin/AdminDemographics";
+import { getAdminOverviewStats, getAdminDemographicsStats, AdminDemographicsStats } from "@/lib/actions/admin";
 
 export const dynamic = "force-dynamic";
 
+const EMPTY_DEMO_STATS: AdminDemographicsStats = {
+  totalSessions: 0,
+  devices: [],
+  browsers: [],
+  operatingSystems: [],
+  countries: [],
+  cities: [],
+  updatedAt: null,
+};
+
 const Page = async () => {
-  const res = await getAdminOverviewStats();
-  
-  // If fetch fails or no stats returned, provide sensible defaults
-  const initialStats = res.success && res.stats ? res.stats : {
+  const [overviewRes, demoRes] = await Promise.all([
+    getAdminOverviewStats(),
+    getAdminDemographicsStats(),
+  ]);
+
+  const initialStats = overviewRes.success && overviewRes.stats ? overviewRes.stats : {
     totalUsers: 0,
     totalTokens: 0,
     totalVoiceSeconds: 0,
@@ -22,7 +35,17 @@ const Page = async () => {
     timeSeriesData: [],
   };
 
-  return <AdminDashboard initialStats={initialStats} />;
+  const initialDemoStats = demoRes.success && demoRes.stats ? demoRes.stats : EMPTY_DEMO_STATS;
+
+  return (
+    <div className="space-y-8">
+      <AdminDashboard initialStats={initialStats} />
+      <div className="px-4 md:px-8 pb-8 max-w-7xl mx-auto">
+        <AdminDemographics initialStats={initialDemoStats} />
+      </div>
+    </div>
+  );
 };
 
 export default Page;
+
