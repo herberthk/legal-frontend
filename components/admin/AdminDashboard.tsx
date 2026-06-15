@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { Users, Mic, Server, DollarSign, Activity, ChevronRight } from "lucide-react";
 import { getAdminOverviewStats, AdminOverviewStats } from "@/lib/actions/admin";
-import {
-  BarChart,
-  Bar,
+import { useThemeStore } from "@/store";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import{  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,13 +19,78 @@ import {
 } from "recharts";
 import Link from "next/link";
 
+
 interface AdminDashboardProps {
   initialStats: AdminOverviewStats;
 }
 
 const COLORS = ["#3b82f6", "#8b5cf6", "#10b981"];
 
+const formatDuration = (totalSeconds: number): string => {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomAreaTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white dark:bg-slate-900 p-4 border border-slate-100 dark:border-slate-800 rounded-xl shadow-xl backdrop-blur-md bg-opacity-95">
+        <p className="text-sm font-black text-slate-900 dark:text-white mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+          {new Date(label).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+        <div className="space-y-3">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {payload.map((item: any) => {
+            if (item.name.includes("Cost")) {
+              const usd = Number(item.value);
+              const ugx = Math.round(usd * USD_TO_UGX_EXCHANGE_RATE);
+              return (
+                <div key={item.name} className="flex gap-2">
+                  <p className="text-[10px] font-bold text-slate-400 tracking-wider">
+                    {item.name}:
+                  </p>
+                  <p className="text-[10px] text-rose-500 dark:text-rose-400 leading-tight">
+                    ${usd.toFixed(2)}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    UGX {ugx.toLocaleString()}
+                  </p>
+                </div>
+              );
+            }
+            if (item.dataKey === "cost" && item.stroke === "none") return null;
+
+            return (
+              <div key={item.name} className="flex items-center gap-2">
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: item.stroke || item.fill }}
+                />
+                <p className="text-[10px] font-bold text-slate-400 tracking-wider">
+                  {item.name}
+                </p>
+                <p className="text-[10px] text-slate-900 dark:text-white">
+                  {item.dataKey === "voiceSeconds"
+                    ? formatDuration(item.value)
+                    : item.value.toLocaleString()}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
+  const theme = useThemeStore((state) => state.theme);
+  const isDark = theme === "dark";
+
   const [stats, setStats] = useState<AdminOverviewStats>(initialStats);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -48,8 +114,9 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
   }, []);
 
   const pieData = [
-    { name: "Chat Tokens", value: stats.chatTokens },
-    { name: "Transcription Tokens", value: stats.transcriptionTokens },
+    { name: "Chat ($)", value: Number(stats.chatCostUsd.toFixed(2)) },
+    { name: "Transcription ($)", value: Number(stats.transcriptionCostUsd.toFixed(2)) },
+    { name: "Voice ($)", value: Number(stats.voiceCostUsd.toFixed(2)) },
   ];
 
   return (
@@ -195,7 +262,21 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
           </div>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.timeSeriesData}>
+              <AreaChart data={stats.timeSeriesData}>
+                <defs>
+                  <linearGradient id="colorChat" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorTranscription" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorVoice" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis 
                   dataKey="date" 
@@ -209,6 +290,16 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: '#64748b' }}
+                  tickFormatter={(v: number) =>
+                    v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
+                  }
+                  label={{
+                    value: "Tokens",
+                    angle: -90,
+                    position: "insideLeft",
+                    offset: 10,
+                    style: { fontSize: 12, fill: "#64748b" },
+                  }}
                 />
                 <YAxis 
                   yAxisId="right" 
@@ -216,15 +307,59 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: '#64748b' }}
+                  tickFormatter={(v: number) => `${(v / 60).toFixed(0)}m`}
+                  label={{
+                    value: "Voice (min)",
+                    angle: 90,
+                    position: "insideRight",
+                    offset: 10,
+                    style: { fontSize: 12, fill: "#64748b" },
+                  }}
                 />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  labelFormatter={(val) => new Date(val).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                  cursor={{ stroke: isDark ? "#475569" : "#cbd5e1", strokeWidth: 1 }}
+                  content={<CustomAreaTooltip />}
                 />
                 <Legend />
-                <Bar yAxisId="left" dataKey="tokens" name="Tokens" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="cost" name="Cost (USD)" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Area 
+                  yAxisId="left" 
+                  type="monotone" 
+                  dataKey="chatTokens" 
+                  name="Chat Tokens" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorChat)" 
+                />
+                <Area 
+                  yAxisId="left" 
+                  type="monotone" 
+                  dataKey="transcriptionTokens" 
+                  name="Transcription Tokens" 
+                  stroke="#8b5cf6" 
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorTranscription)" 
+                />
+                <Area 
+                  yAxisId="right" 
+                  type="monotone" 
+                  dataKey="voiceSeconds" 
+                  name="Voice Duration" 
+                  stroke="#10b981" 
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorVoice)" 
+                />
+                <Area
+                  yAxisId="left"
+                  dataKey="cost"
+                  name="Estimated Cost (USD)"
+                  stroke="none"
+                  fill="none"
+                  legendType="none"
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -232,7 +367,7 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
         {/* Pie Chart */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">
-            Token Distribution
+            Cost Breakdown (USD)
           </h3>
           <div className="flex-1 min-h-[250px] relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -252,7 +387,14 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
                 </Pie>
                 <Tooltip 
                   formatter={(value: number) => value.toLocaleString()}
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ 
+                    backgroundColor: isDark ? '#0f172a' : '#ffffff', 
+                    borderColor: isDark ? '#1e293b' : '#f1f5f9', 
+                    color: isDark ? '#f8fafc' : '#0f172a',
+                    borderRadius: '8px', 
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
+                  }}
+                  itemStyle={{ color: isDark ? '#e2e8f0' : '#334155' }}
                 />
                 <Legend verticalAlign="bottom" height={36} />
               </PieChart>
