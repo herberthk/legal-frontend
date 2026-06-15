@@ -13,7 +13,10 @@ export type AdminOverviewStats = {
   totalCostUgx: number; // In UGX
   chatTokens: number;
   transcriptionTokens: number;
-  timeSeriesData: { date: string; tokens: number; cost: number; voiceSeconds: number }[];
+  chatCostUsd: number;
+  transcriptionCostUsd: number;
+  voiceCostUsd: number;
+  timeSeriesData: { date: string; chatTokens: number; transcriptionTokens: number; voiceSeconds: number; cost: number }[];
 };
 
 export const getAdminOverviewStats = async (): Promise<
@@ -39,17 +42,27 @@ export const getAdminOverviewStats = async (): Promise<
     const voiceSessionsCountSnapshot = await usageRef.where("type", "==", "VOICE_SESSION").count().get();
     const totalVoiceSessions = voiceSessionsCountSnapshot.data().count;
 
-    // Chat Tokens
+    // Voice Cost
+    const voiceAggregate = await usageRef.where("type", "==", "VOICE_SESSION").aggregate({
+      cost: AggregateField.sum('cost'),
+    }).get();
+    const voiceCostInCents = voiceAggregate.data().cost || 0;
+
+    // Chat Tokens & Cost
     const chatTokensAggregate = await usageRef.where("type", "==", "TEXT_RESPONSE").aggregate({
       tokens: AggregateField.sum('tokens'),
+      cost: AggregateField.sum('cost'),
     }).get();
     const chatTokens = chatTokensAggregate.data().tokens;
+    const chatCostInCents = chatTokensAggregate.data().cost || 0;
 
-    // Transcription Tokens
+    // Transcription Tokens & Cost
     const transcriptionAggregate = await usageRef.where("type", "==", "DOCUMENT_TRANSCRIPTION").aggregate({
       tokens: AggregateField.sum('tokens'),
+      cost: AggregateField.sum('cost'),
     }).get();
     const transcriptionTokens = transcriptionAggregate.data().tokens;
+    const transcriptionCostInCents = transcriptionAggregate.data().cost || 0;
 
     // 4. Time series data for the last 30 days
     const thirtyDaysAgo = new Date();
@@ -65,14 +78,14 @@ export const getAdminOverviewStats = async (): Promise<
       .orderBy("createdAt", "asc")
       .get();
 
-    const dayMap: Record<string, { date: string; tokens: number; cost: number; voiceSeconds: number }> = {};
+    const dayMap: Record<string, { date: string; chatTokens: number; transcriptionTokens: number; voiceSeconds: number; cost: number }> = {};
     
     // Initialize last 30 days with 0
     for (let i = 0; i < 30; i++) {
       const d = new Date();
       d.setDate(d.getDate() - (29 - i));
       const key = d.toISOString().split("T")[0];
-      dayMap[key] = { date: key, tokens: 0, cost: 0, voiceSeconds: 0 };
+      dayMap[key] = { date: key, chatTokens: 0, transcriptionTokens: 0, voiceSeconds: 0, cost: 0 };
     }
 
     recentUsageSnapshot.forEach((doc) => {
@@ -82,9 +95,14 @@ export const getAdminOverviewStats = async (): Promise<
 
       const key = createdAt.toISOString().split("T")[0];
       if (dayMap[key]) {
-        dayMap[key].tokens += data.tokens || 0;
+        if (data.type === "TEXT_RESPONSE") {
+          dayMap[key].chatTokens += data.tokens || 0;
+        } else if (data.type === "DOCUMENT_TRANSCRIPTION") {
+          dayMap[key].transcriptionTokens += data.tokens || 0;
+        } else if (data.type === "VOICE_SESSION") {
+          dayMap[key].voiceSeconds += data.seconds || 0;
+        }
         dayMap[key].cost += (data.cost || 0) / 100; // convert cents to dollars
-        dayMap[key].voiceSeconds += data.seconds || 0;
       }
     });
 
@@ -104,6 +122,9 @@ export const getAdminOverviewStats = async (): Promise<
         totalCostUgx,
         chatTokens: chatTokens || 0,
         transcriptionTokens: transcriptionTokens || 0,
+        chatCostUsd: chatCostInCents / 100,
+        transcriptionCostUsd: transcriptionCostInCents / 100,
+        voiceCostUsd: voiceCostInCents / 100,
         timeSeriesData,
       },
     };

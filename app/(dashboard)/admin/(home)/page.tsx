@@ -16,6 +16,9 @@ const Page = async () => {
     totalCostUgx: 0,
     chatTokens: 0,
     transcriptionTokens: 0,
+    chatCostUsd: 0,
+    transcriptionCostUsd: 0,
+    voiceCostUsd: 0,
     timeSeriesData: [],
   };
 
