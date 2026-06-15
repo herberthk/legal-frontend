@@ -19,6 +19,7 @@ import { TranscriptionCard } from "./TranscriptionCard";
 import DeleteModal from "./Delete";
 import { pdf } from "@react-pdf/renderer";
 import { PDFDocument } from "@/components/editor/PDFDocument";
+import { exportTranscriptionToDoc } from "@/lib/document-export";
 
 interface TranscriptionHistoryProps {
   onNewTranscription: () => void;
@@ -241,6 +242,22 @@ export const TranscriptionHistory = ({
       );
     }
   }, []);
+ 
+  const handleDownloadDoc = useCallback((record: TranscriptionRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      exportTranscriptionToDoc(
+        record.transcribedText,
+        record.title || record.fileName || "document"
+      );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error("--- Doc Generation Error ---", err);
+      toast.error(
+        `Failed to export Doc: ${err?.message || "Unknown error"}`
+      );
+    }
+  }, []);
 
   if (isLoading) {
     return <HistorySkeleton />;
@@ -307,6 +324,7 @@ export const TranscriptionHistory = ({
                   setEditingTitleValue={setEditingTitleValue}
                   onSaveTitle={handleSaveTitle}
                   onDownload={handleDownload}
+                  onDownloadDoc={handleDownloadDoc}
                 />
               ))}
             </AnimatePresence>
