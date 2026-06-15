@@ -17,4 +17,6 @@ export const COLLECTIONS = {
   FREE_CREDIT_HISTORY: "freeCreditHistory",
   DOCUMENT_REVIEWS: "documentReviews",
   PROCCESSED_TRANSACTIONS: "proccessedTransactions",
+  ANALYTICS: "analytics",
 } as const;
+

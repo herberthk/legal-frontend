@@ -480,21 +480,56 @@ export async function recordUserStats(
   };
 
   console.log("deviceStats", deviceStats);
+
+  // Normalise values for aggregation keys (lowercase, alphanumeric only)
+  const normBrowser = (stats.browser || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const normOs = (stats.os || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const normDevice = (stats.device || "Desktop").toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const normCountry = (country || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
+  const normCity = (city || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
+
   try {
-    await db.collection(COLLECTIONS.USER_STATS).add({
-      ...stats,
-      userId,
-      ip,
-      country,
-      city,
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    const analyticsRef = db.collection(COLLECTIONS.ANALYTICS).doc("demographics");
+
+    // Run both writes in parallel for performance
+    await Promise.all([
+      // Raw session record
+      db.collection(COLLECTIONS.USER_STATS).add({
+        ...stats,
+        userId,
+        ip,
+        country,
+        city,
+        createdAt: FieldValue.serverTimestamp(),
+      }),
+      // Aggregate counters — merge:true ensures the doc is created if missing
+      analyticsRef.set(
+        {
+          totalSessions: FieldValue.increment(1),
+          browsers: { [normBrowser]: FieldValue.increment(1) },
+          operatingSystems: { [normOs]: FieldValue.increment(1) },
+          devices: { [normDevice]: FieldValue.increment(1) },
+          countries: { [normCountry]: FieldValue.increment(1) },
+          cities: { [normCity]: FieldValue.increment(1) },
+          // Keep human-readable labels alongside the keys
+          browserLabels: { [normBrowser]: stats.browser || "Unknown" },
+          osLabels: { [normOs]: stats.os || "Unknown" },
+          deviceLabels: { [normDevice]: stats.device || "Desktop" },
+          countryLabels: { [normCountry]: country },
+          cityLabels: { [normCity]: city },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      ),
+    ]);
+
     return { success: true };
   } catch (error) {
     console.error("Error recording user stats:", error);
     return { success: false };
   }
 }
+
 /**
  * Resends an OTP for either a pending signup or a password reset.
  * @param email - The user's email address
