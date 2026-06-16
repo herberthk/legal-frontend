@@ -37,7 +37,7 @@ declare global {
     role: Role;
     balance: number; // In UGX will be converted to USD at rate of 3800
     totalSpent: number; // In UGX will be converted to USD at rate of 3800
-    status: "active" | "suspended";
+    status: "active" | "suspended" | "banned";
     preferedVoice?: PreferedVoice;
     // Tier Tracking
     welcomeTextTokens: number; // One-time welcome bonus (4000)
@@ -46,6 +46,17 @@ declare global {
     nextDailyReset: string; // ISO Date string — next reset time
     createdAt: string; // ISO Date string
     updatedAt?: string;
+    // Contact Info & Extensions
+    username?: string;
+    phoneNumber?: string;
+    isDeleted?: boolean;
+    deletedAt?: string;
+    permissions?: {
+      canManageUsers: boolean;
+      canViewBilling: boolean;
+      canManageSystemStats: boolean;
+      canManageSupport: boolean;
+    };
   };
 
   type PaymentMethod = {
