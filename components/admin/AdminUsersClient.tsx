@@ -19,6 +19,7 @@ import {
   type AdminUserListParams, type AdminUserSummaryStats,
 } from "@/lib/actions/admin";
 import UserModal, { TempPasswordModal } from "@/components/admin/UserModal";
+import ConfirmActionModal from "@/components/admin/ConfirmActionModal";
 import { toast } from "sonner";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
@@ -141,7 +142,7 @@ function ExpandedUserRow({
   onPermanentDelete: () => Promise<void>;
   showingDeleted: boolean;
 }) {
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"suspend" | "banned" | "softDelete" | "permDelete" | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const wrap = async (key: string, fn: () => Promise<void>) => {
@@ -247,10 +248,10 @@ function ExpandedUserRow({
               {user.status !== "suspended" && (
                 <button
                   disabled={!!actionLoading}
-                  onClick={() => wrap("suspended", () => onStatusChange("suspended"))}
+                  onClick={() => setPendingAction("suspend")}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/40 text-xs font-semibold text-amber-300 transition-all disabled:opacity-50"
                 >
-                  {actionLoading === "suspended" ? (
+                  {actionLoading === "suspend" ? (
                     <RefreshCw size={12} className="animate-spin" />
                   ) : (
                     <ShieldOff size={13} />
@@ -261,7 +262,7 @@ function ExpandedUserRow({
               {user.status !== "banned" && (
                 <button
                   disabled={!!actionLoading}
-                  onClick={() => wrap("banned", () => onStatusChange("banned"))}
+                  onClick={() => setPendingAction("banned")}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-xs font-semibold text-rose-300 transition-all disabled:opacity-50"
                 >
                   {actionLoading === "banned" ? (
@@ -276,7 +277,7 @@ function ExpandedUserRow({
               {/* Soft Delete */}
               <button
                 disabled={!!actionLoading}
-                onClick={() => wrap("softDelete", onSoftDelete)}
+                onClick={() => setPendingAction("softDelete")}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-rose-900/40 text-xs font-semibold text-slate-400 hover:text-rose-300 transition-all disabled:opacity-50 ml-auto"
               >
                 {actionLoading === "softDelete" ? (
@@ -305,33 +306,86 @@ function ExpandedUserRow({
                 {actionLoading === "restore" ? <RefreshCw size={12} className="animate-spin" /> : <RotateCcw size={13} />}
                 Restore Account
               </button>
-              {!confirmDelete ? (
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-900/30 hover:bg-rose-900/50 text-xs font-semibold text-rose-400 transition-all"
-                >
-                  <Flame size={13} /> Permanently Delete
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 p-2 bg-rose-900/30 border border-rose-800 rounded-lg">
-                  <AlertTriangle size={14} className="text-rose-400" />
-                  <span className="text-xs text-rose-300 font-medium">This cannot be undone.</span>
-                  <button
-                    disabled={!!actionLoading}
-                    onClick={() => wrap("permDelete", onPermanentDelete)}
-                    className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white transition-all"
-                  >
-                    {actionLoading === "permDelete" ? <RefreshCw size={12} className="animate-spin inline" /> : "Confirm"}
-                  </button>
-                  <button onClick={() => setConfirmDelete(false)} className="text-slate-400 hover:text-white">
-                    <ChevronDown size={14} />
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={() => setPendingAction("permDelete")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-900/30 hover:bg-rose-900/50 text-xs font-semibold text-rose-400 transition-all"
+              >
+                <Flame size={13} /> Permanently Delete
+              </button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Action Modals */}
+      <ConfirmActionModal
+        open={pendingAction === "suspend"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={async () => {
+          await wrap("suspend", () => onStatusChange("suspended"));
+          setPendingAction(null);
+        }}
+        title="Suspend User"
+        description={
+          <>
+            Are you sure you want to suspend <strong className="text-white">{user.name}</strong>? This will immediately disable their login access until you reactivate them.
+          </>
+        }
+        confirmText="Suspend User"
+        confirmStyle="warning"
+        icon={ShieldOff}
+      />
+      <ConfirmActionModal
+        open={pendingAction === "banned"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={async () => {
+          await wrap("banned", () => onStatusChange("banned"));
+          setPendingAction(null);
+        }}
+        title="Ban User"
+        description={
+          <>
+            Are you sure you want to ban <strong className="text-white">{user.name}</strong>? They will be entirely locked out of the platform.
+          </>
+        }
+        confirmText="Ban User"
+        confirmStyle="danger"
+        icon={Ban}
+      />
+      <ConfirmActionModal
+        open={pendingAction === "softDelete"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={async () => {
+          await wrap("softDelete", onSoftDelete);
+          setPendingAction(null);
+        }}
+        title="Move to Trash"
+        description={
+          <>
+            Are you sure you want to remove <strong className="text-white">{user.name}</strong>? Their account will be moved to the Trash and they will lose all access.
+          </>
+        }
+        confirmText="Remove to Trash"
+        confirmStyle="danger"
+        icon={Trash2}
+      />
+      <ConfirmActionModal
+        open={pendingAction === "permDelete"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={async () => {
+          await wrap("permDelete", onPermanentDelete);
+          setPendingAction(null);
+        }}
+        title="Permanently Delete User"
+        description={
+          <>
+            Are you absolutely sure you want to permanently delete <strong className="text-white">{user.name}</strong>? This action <strong className="text-rose-400">cannot be undone</strong>. All their data will be destroyed.
+          </>
+        }
+        confirmText="Permanently Delete"
+        confirmStyle="danger"
+        icon={Flame}
+      />
     </motion.div>
   );
 }
@@ -696,7 +750,7 @@ export default function AdminUsersClient({
                     >
                       {/* Avatar + Name */}
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative flex-shrink-0">
+                        <div className="relative shrink-0">
                           <Image
                             src={user.avatar}
                             alt={user.name}

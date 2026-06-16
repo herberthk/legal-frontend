@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import { toggleUserStatus, softDeleteUser, restoreUser } from "@/lib/actions/admin";
 import { toast } from "sonner";
+import ConfirmActionModal from "@/components/admin/ConfirmActionModal";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import type { AdminUserDetails } from "@/lib/actions/admin";
 import UserModal from "@/components/admin/UserModal";
@@ -160,6 +161,7 @@ export default function AdminUserDetailClient({ data: initialData }: Props) {
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"suspend" | "banned" | "softDelete" | null>(null);
   const [activeTab, setActiveTab] = useState<"transactions" | "tickets">("transactions");
 
   const wrap = async (key: string, fn: () => Promise<void>) => {
@@ -271,17 +273,17 @@ export default function AdminUserDetailClient({ data: initialData }: Props) {
                     {user.status !== "suspended" && (
                       <button
                         disabled={!!actionLoading}
-                        onClick={() => wrap("suspended", () => handleStatusChange("suspended"))}
+                        onClick={() => setPendingAction("suspend")}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/40 text-xs font-semibold text-amber-300 transition-all disabled:opacity-50"
                       >
-                        {actionLoading === "suspended" ? <RefreshCw size={12} className="animate-spin" /> : <ShieldOff size={13} />}
+                        {actionLoading === "suspend" ? <RefreshCw size={12} className="animate-spin" /> : <ShieldOff size={13} />}
                         Suspend
                       </button>
                     )}
                     {user.status !== "banned" && (
                       <button
                         disabled={!!actionLoading}
-                        onClick={() => wrap("banned", () => handleStatusChange("banned"))}
+                        onClick={() => setPendingAction("banned")}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 text-xs font-semibold text-rose-300 transition-all disabled:opacity-50"
                       >
                         {actionLoading === "banned" ? <RefreshCw size={12} className="animate-spin" /> : <Ban size={13} />}
@@ -290,7 +292,7 @@ export default function AdminUserDetailClient({ data: initialData }: Props) {
                     )}
                     <button
                       disabled={!!actionLoading}
-                      onClick={() => wrap("softDelete", handleSoftDelete)}
+                      onClick={() => setPendingAction("softDelete")}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-700 hover:bg-rose-900/30 text-xs font-semibold text-slate-400 hover:text-rose-300 transition-all disabled:opacity-50"
                     >
                       {actionLoading === "softDelete" ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={13} />}
@@ -618,6 +620,59 @@ export default function AdminUserDetailClient({ data: initialData }: Props) {
           toast.success("Profile updated");
         }}
         editUser={user}
+      />
+
+      {/* Action Modals */}
+      <ConfirmActionModal
+        open={pendingAction === "suspend"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={async () => {
+          await wrap("suspend", () => handleStatusChange("suspended"));
+          setPendingAction(null);
+        }}
+        title="Suspend User"
+        description={
+          <>
+            Are you sure you want to suspend <strong className="text-white">{user.name}</strong>? This will immediately disable their login access until you reactivate them.
+          </>
+        }
+        confirmText="Suspend User"
+        confirmStyle="warning"
+        icon={ShieldOff}
+      />
+      <ConfirmActionModal
+        open={pendingAction === "banned"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={async () => {
+          await wrap("banned", () => handleStatusChange("banned"));
+          setPendingAction(null);
+        }}
+        title="Ban User"
+        description={
+          <>
+            Are you sure you want to ban <strong className="text-white">{user.name}</strong>? They will be entirely locked out of the platform.
+          </>
+        }
+        confirmText="Ban User"
+        confirmStyle="danger"
+        icon={Ban}
+      />
+      <ConfirmActionModal
+        open={pendingAction === "softDelete"}
+        onClose={() => setPendingAction(null)}
+        onConfirm={async () => {
+          await wrap("softDelete", handleSoftDelete);
+          setPendingAction(null);
+        }}
+        title="Move to Trash"
+        description={
+          <>
+            Are you sure you want to remove <strong className="text-white">{user.name}</strong>? Their account will be moved to the Trash and they will lose all access.
+          </>
+        }
+        confirmText="Remove to Trash"
+        confirmStyle="danger"
+        icon={Trash2}
       />
     </div>
   );

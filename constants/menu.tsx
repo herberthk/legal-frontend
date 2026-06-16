@@ -56,6 +56,12 @@ export const sideBarItems = (role: Role): MenuItems[] => {
           icon: <Settings size={20} />,
           href: "/admin/configuration",
         },
+        {
+          id: "/admin/settings",
+          label: "Profile Settings",
+          icon: <Settings size={20} />,
+          href: "/admin/settings",
+        },
       ]
     : [
         {
