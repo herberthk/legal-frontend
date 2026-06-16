@@ -23,7 +23,7 @@ function generateTempPassword(): string {
 }
 
 /** Fetches the currently authenticated admin's user record for permission checks. */
-async function getAuthenticatedAdmin(): Promise<User | null> {
+export async function getAuthenticatedAdmin(): Promise<User | null> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("session")?.value;
@@ -31,7 +31,17 @@ async function getAuthenticatedAdmin(): Promise<User | null> {
     const decoded = await auth.verifySessionCookie(sessionCookie, true);
     const snap = await db.collection(COLLECTIONS.USERS).doc(decoded.uid).get();
     if (!snap.exists) return null;
-    return { id: snap.id, ...snap.data() } as User;
+    const data = snap.data();
+    if (!data) return null;
+    
+    return {
+      ...data,
+      id: snap.id,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+      nextDailyReset: data.nextDailyReset?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+      deletedAt: data.deletedAt?.toDate?.()?.toISOString() ?? undefined,
+    } as User;
   } catch {
     return null;
   }
@@ -84,6 +94,11 @@ export const getAdminUsers = async (
         deletedAt: data.deletedAt?.toDate?.()?.toISOString() ?? undefined,
       } as User;
     });
+
+    const currentAdmin = await getAuthenticatedAdmin();
+    if (currentAdmin) {
+      users = users.filter((u) => u.id !== currentAdmin.id);
+    }
 
     // Filter by deleted / active
     if (showDeleted) {
@@ -297,6 +312,29 @@ export const updateAdminUser = async (
   } catch (error: any) {
     console.error("updateAdminUser error:", error);
     return { success: false, error: error.message ?? "Failed to update user" };
+  }
+};
+
+// ─── Update Admin Password ─────────────────────────────────────────────────────
+
+export const updateAdminPassword = async (
+  newPassword: string,
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const admin = await getAuthenticatedAdmin();
+    if (!admin || admin.role !== "ADMIN") return { success: false, error: "Unauthorized" };
+
+    if (newPassword.length < 6) {
+      return { success: false, error: "Password must be at least 6 characters long." };
+    }
+
+    await auth.updateUser(admin.id, { password: newPassword });
+
+    return { success: true };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("updateAdminPassword error:", error);
+    return { success: false, error: error.message ?? "Failed to update password" };
   }
 };
 
@@ -537,7 +575,10 @@ export const getAdminUserSummaryStats = async (): Promise<{
     let bannedUsers = 0;
     let deletedUsers = 0;
 
+    const currentAdmin = await getAuthenticatedAdmin();
+
     snapshot.forEach((doc) => {
+      if (currentAdmin && doc.id === currentAdmin.id) return;
       const data = doc.data();
       totalUsers++;
       if (data.isDeleted) {
