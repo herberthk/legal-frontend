@@ -189,3 +189,51 @@ export const sendTransactionReceiptEmail = async ({
     console.error("sendTransactionReceiptEmail error:", error);
   }
 };
+
+// ── Ticket Notification Email ────────────────────────────────────────────────
+
+import { TicketNotificationEmail } from "@/components/emails/TicketNotificationEmail";
+
+export interface SendTicketNotificationParams {
+  userId: string;
+  ticketId: string;
+  ticketSubject: string;
+  messageSnippet: string;
+}
+
+export const sendTicketNotificationEmail = async ({
+  userId,
+  ticketId,
+  ticketSubject,
+  messageSnippet,
+}: SendTicketNotificationParams): Promise<void> => {
+  try {
+    const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+    if (!userDoc.exists) {
+      console.error(`sendTicketNotificationEmail: user ${userId} not found`);
+      return;
+    }
+    const userData = userDoc.data() as { name: string; email: string };
+
+    const emailHtml = await render(
+      TicketNotificationEmail({
+        userName: userData.name,
+        ticketId,
+        ticketSubject,
+        messageSnippet,
+        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/help`,
+      }) as React.ReactElement
+    );
+
+    await transporter.sendMail({
+      from: '"Legal Adviser Support" <support@netbritz.com>',
+      to: userData.email,
+      subject: `Update on your Support Ticket #${ticketId.slice(-6).toUpperCase()}`,
+      html: emailHtml,
+    });
+
+    console.log(`Ticket notification email sent to ${userData.email}`);
+  } catch (error) {
+    console.error("sendTicketNotificationEmail error:", error);
+  }
+};
