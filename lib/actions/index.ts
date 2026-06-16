@@ -10,4 +10,6 @@ export * from "./transcribe";
 export * from "./pushNotification";
 export * from "./review";
 export * from "./payment";
+export * from "./admin";
+
 
