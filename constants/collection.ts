@@ -6,6 +6,7 @@ export const COLLECTIONS = {
   USAGE: "usage",
   USER_STATS: "userStats",
   SUPPORT_TICKETS: "supportTickets",
+  SUPPORT_MESSAGES: "supportMessages",
   HELP_ARTICLES: "helpArticles",
   TRANSACTIONS: "transactions",
   NOTIFICATIONS: "notifications",

@@ -132,6 +132,16 @@ declare global {
     resolutionNote?: string;
   };
 
+  type TicketMessage = {
+    id: string;
+    ticketId: string;
+    senderId: string;
+    senderRole: "USER" | "ADMIN";
+    text: string;
+    attachments?: string[];
+    createdAt: string;
+  };
+
   type HelpArticle = {
     id: string;
     title: string;

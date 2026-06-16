@@ -112,3 +112,146 @@ export const getHelpArticles = async (
     return [];
   }
 };
+
+/**
+ * Adds a new message to a support ticket thread.
+ */
+export const addTicketMessage = async (
+  ticketId: string,
+  senderId: string,
+  senderRole: "USER" | "ADMIN",
+  text: string,
+  attachments: string[] = []
+): Promise<{ success: boolean; messageId?: string; error?: string }> => {
+  try {
+    const messageRef = db.collection(COLLECTIONS.SUPPORT_MESSAGES).doc();
+    const newMessage = {
+      id: messageRef.id,
+      ticketId,
+      senderId,
+      senderRole,
+      text,
+      attachments,
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
+    await messageRef.set(newMessage);
+
+    // Update the ticket's updatedAt timestamp
+    await db.collection(COLLECTIONS.SUPPORT_TICKETS).doc(ticketId).update({
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    revalidatePath("/dashboard/help");
+    revalidatePath("/admin/complaints");
+
+    // Trigger email notification if ADMIN replies
+    if (senderRole === "ADMIN") {
+      const ticketDoc = await db.collection(COLLECTIONS.SUPPORT_TICKETS).doc(ticketId).get();
+      if (ticketDoc.exists) {
+        const ticketData = ticketDoc.data() as Complaint;
+        // Import inline to avoid circular dependencies if any
+        const { sendTicketNotificationEmail } = await import("@/lib/actions/email");
+        await sendTicketNotificationEmail({
+          userId: ticketData.userId,
+          ticketId: ticketId,
+          ticketSubject: ticketData.subject,
+          messageSnippet: text.length > 100 ? text.substring(0, 100) + "..." : text,
+        });
+      }
+    }
+
+    return { success: true, messageId: messageRef.id };
+  } catch (error) {
+    console.error("Error adding ticket message:", error);
+    return { success: false, error: "Failed to add message" };
+  }
+};
+
+/**
+ * Fetches the message thread for a specific ticket.
+ */
+export const getTicketMessages = async (
+  ticketId: string
+): Promise<TicketMessage[]> => {
+  try {
+    const snapshot = await db
+      .collection(COLLECTIONS.SUPPORT_MESSAGES)
+      .where("ticketId", "==", ticketId)
+      .orderBy("createdAt", "asc")
+      .get();
+
+    return snapshot.docs.map((doc) => ({
+      ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data().createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+    })) as TicketMessage[];
+  } catch (error) {
+    console.error("Error fetching ticket messages:", error);
+    return [];
+  }
+};
+
+/**
+ * Fetches all support tickets for admin view.
+ */
+export const getAllSupportTickets = async (
+  status?: string
+): Promise<Complaint[]> => {
+  try {
+    let query: FirebaseFirestore.Query = db.collection(COLLECTIONS.SUPPORT_TICKETS);
+    
+    if (status) {
+      query = query.where("status", "==", status);
+    }
+    
+    const snapshot = await query.orderBy("createdAt", "desc").get();
+
+    return snapshot.docs.map((doc) => ({
+      ...doc.data(),
+      id: doc.id,
+      createdAt:
+        doc.data().createdAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+      updatedAt:
+        doc.data().updatedAt?.toDate().toISOString() ||
+        new Date().toISOString(),
+    })) as Complaint[];
+  } catch (error) {
+    console.error("Error fetching all tickets:", error);
+    return [];
+  }
+};
+
+/**
+ * Updates the status of a support ticket.
+ */
+export const updateTicketStatus = async (
+  ticketId: string,
+  status: ComplaintStatus,
+  resolutionNote?: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData:any = {
+      status,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (resolutionNote !== undefined) {
+      updateData.resolutionNote = resolutionNote;
+    }
+
+    await db.collection(COLLECTIONS.SUPPORT_TICKETS).doc(ticketId).update(updateData);
+
+    revalidatePath("/dashboard/help");
+    revalidatePath("/admin/complaints");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating ticket status:", error);
+    return { success: false, error: "Failed to update status" };
+  }
+};
+
