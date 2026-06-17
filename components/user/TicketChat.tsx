@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   Lock,
 } from "lucide-react";
+import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   collection,
   query,
@@ -74,6 +76,7 @@ const TicketChat: React.FC<TicketChatProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -291,22 +294,22 @@ const TicketChat: React.FC<TicketChatProps> = ({
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">
                         {msg.attachments.map((url, idx) => (
-                          <a
+                          <button
                             key={idx}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="relative group overflow-hidden rounded-xl border-2 border-white/20"
+                            onClick={() => setPreviewImage(url)}
+                            className="relative group overflow-hidden rounded-xl border-2 border-white/20 w-28 h-28 focus:outline-none focus:ring-2 focus:ring-orange-400"
                           >
-                            <img
+                            <Image
                               src={url}
                               alt="attachment"
-                              className="w-28 h-28 object-cover"
+                              fill
+                              className="object-cover"
+                              unoptimized
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                               <ImageIcon size={18} className="text-white" />
                             </div>
-                          </a>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -417,6 +420,45 @@ const TicketChat: React.FC<TicketChatProps> = ({
           </p>
         </div>
       )}
+
+      {/* ── Image Lightbox Modal ── */}
+      <AnimatePresence>
+        {previewImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 sm:p-8"
+            onClick={() => setPreviewImage(null)}
+          >
+            <button
+              className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-md z-[101]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewImage(null);
+              }}
+            >
+              <X size={24} />
+            </button>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-5xl h-full max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Image
+                src={previewImage}
+                alt="Attachment Preview"
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

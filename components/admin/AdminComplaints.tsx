@@ -206,7 +206,7 @@ const AdminComplaints: React.FC<AdminComplaintsProps> = ({
                   <button
                     key={opt.value}
                     onClick={() => setFilter(opt.value)}
-                    className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       filter === opt.value
                         ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
                         : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -253,7 +253,7 @@ const AdminComplaints: React.FC<AdminComplaintsProps> = ({
                     >
                       <div className="flex items-center gap-2 mb-1.5">
                         <span
-                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusCfg.dot}`}
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusCfg.dot}`}
                         />
                         <span
                           className={`font-bold text-sm truncate flex-1 ${
@@ -265,7 +265,7 @@ const AdminComplaints: React.FC<AdminComplaintsProps> = ({
                           {ticket.subject}
                         </span>
                         <span
-                          className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${PRIORITY_DOT[ticket.priority] ?? "bg-slate-400"}`}
+                          className={`shrink-0 w-1.5 h-1.5 rounded-full ${PRIORITY_DOT[ticket.priority] ?? "bg-slate-400"}`}
                           title={`${ticket.priority} priority`}
                         />
                       </div>
