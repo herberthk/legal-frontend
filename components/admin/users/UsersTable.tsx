@@ -24,7 +24,7 @@ export function statusBadge(status: User["status"] | undefined, isDeleted?: bool
 }
 
 export function roleBadge(role: User["role"]) {
-  if (role === "ADMIN")
+  if (role === "ADMIN" || role === "SUPER_ADMIN")
     return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 uppercase tracking-wide"><Shield size={9} /> Admin</span>;
   return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-700/60 text-slate-400 border border-slate-700 uppercase tracking-wide">User</span>;
 }

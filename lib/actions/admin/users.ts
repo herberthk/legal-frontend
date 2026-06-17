@@ -242,7 +242,7 @@ export const updateAdminUser = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const admin = await getAuthenticatedAdmin();
-    if (!admin || admin.role !== "ADMIN") return { success: false, error: "Unauthorized" };
+    if (!admin || (admin.role !== "ADMIN" && admin.role !== "SUPER_ADMIN")) return { success: false, error: "Unauthorized" };
 
     if (userId === admin.id && data.role && data.role !== admin.role) {
       return { success: false, error: "You cannot change your own role." };
@@ -276,7 +276,7 @@ export const updateAdminPassword = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const admin = await getAuthenticatedAdmin();
-    if (!admin || admin.role !== "ADMIN") return { success: false, error: "Unauthorized" };
+    if (!admin || (admin.role !== "ADMIN" && admin.role !== "SUPER_ADMIN")) return { success: false, error: "Unauthorized" };
 
     if (newPassword.length < 6) {
       return { success: false, error: "Password must be at least 6 characters long." };

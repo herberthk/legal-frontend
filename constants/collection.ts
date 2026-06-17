@@ -19,5 +19,6 @@ export const COLLECTIONS = {
   DOCUMENT_REVIEWS: "documentReviews",
   PROCCESSED_TRANSACTIONS: "proccessedTransactions",
   ANALYTICS: "analytics",
+  SYSTEM_CONFIG: "systemConfig",
+  SYSTEM_CONFIG_AUDITS: "systemConfigAudits",
 } as const;
-

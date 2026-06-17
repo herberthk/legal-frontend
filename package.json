@@ -46,7 +46,7 @@
     "nextjs-toploader": "^3.9.17",
     "nodemailer": "^8.0.2",
     "pdf-parse": "1.1.1",
-    "radix-ui": "^1.4.3",
+    "radix-ui": "^1.6.0",
     "react": "19.2.3",
     "react-credit-cards-2": "^1.2.0",
     "react-dom": "19.2.3",

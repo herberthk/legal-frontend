@@ -275,7 +275,7 @@ const GlobalSidebar = ({ user }: Props) => {
   }, []);
 
   const clearUser = useAuthStore((state) => state.clearUser);
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const router = useRouter();
   const { setOpenMobile, isMobile, openMobile } = useSidebar();
 

@@ -126,7 +126,7 @@ export default function AdminUserDetailClient({ data: initialData }: { data: Adm
             <div className="flex flex-col sm:flex-row sm:items-center gap-5">
               <div className="relative shrink-0">
                 <Image src={user.avatar} alt={user.name} width={72} height={72} className="rounded-2xl object-cover ring-2 ring-slate-700" />
-                {user.role === "ADMIN" && (
+                {user.role === "ADMIN" || user.role === "SUPER_ADMIN" && (
                   <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center">
                     <Shield size={12} className="text-white" />
                   </div>
@@ -136,7 +136,7 @@ export default function AdminUserDetailClient({ data: initialData }: { data: Adm
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <h1 className="text-xl font-bold text-white">{user.name}</h1>
                   <StatusBadgeLarge status={user.status} isDeleted={user.isDeleted} />
-                  {user.role === "ADMIN" && (
+                  {user.role === "ADMIN" || user.role === "SUPER_ADMIN" && (
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 uppercase">Admin</span>
                   )}
                 </div>
@@ -226,7 +226,7 @@ export default function AdminUserDetailClient({ data: initialData }: { data: Adm
         </div>
 
         {/* Admin Permissions */}
-        {user.role === "ADMIN" && user.permissions && (
+        {user.role === "ADMIN" || user.role === "SUPER_ADMIN" && user.permissions && (
           <div className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
               <Shield size={16} className="text-indigo-400" />

@@ -22,7 +22,7 @@ declare global {
   //   type?: "info" | "alert" | "success";
   // };
 
-  type Role = "ADMIN" | "USER";
+  type Role = "SUPER_ADMIN" | "ADMIN" | "USER";
 
   type PreferedVoice = {
     preferedVoiceId: Voice;
@@ -136,7 +136,7 @@ declare global {
     id: string;
     ticketId: string;
     senderId: string;
-    senderRole: "USER" | "ADMIN";
+    senderRole: Role;
     text: string;
     attachments?: string[];
     createdAt: string;
@@ -351,5 +351,36 @@ declare global {
     | "generating"
     | "complete"
     | "error";
+
+  // --- System Configuration Types ---
+  type SystemConfig = {
+    id: string; // Typically "default"
+    exchangeRateUGXtoUSD: number;
+    pricing: {
+      voiceSessionPerMinute: number;
+      textSessionPer1kTokens: number;
+      documentReviewPerPage: number;
+    };
+    freeTier: {
+      welcomeTextTokens: number;
+      freeDailyTextTokens: number;
+      welcomeVoiceSeconds: number;
+    };
+    maintenanceMode: boolean;
+    supportEmail: string;
+    supportPhone: string;
+    updatedAt: string;
+    updatedBy: string; // Admin User ID
+  };
+
+  type SystemConfigAuditLog = {
+    id: string;
+    configId: string;
+    updatedBy: string; // Admin User ID
+    updatedByName?: string;
+    updatedAt: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    changes: Record<string, { old: any; new: any }>;
+  };
 }
 export {};

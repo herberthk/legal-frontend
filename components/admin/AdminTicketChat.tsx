@@ -27,6 +27,7 @@ import { db as clientDb } from "@/firebase/client";
 import { addTicketMessage, updateTicketStatus } from "@/lib/actions/support";
 import { uploadFileToStorage } from "@/lib/firebaseStorage";
 import { formatDate } from "@/lib";
+import { useAuthStore } from "@/store";
 
 interface AdminTicketChatProps {
   ticket: Complaint;
@@ -46,6 +47,7 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
   const [attachments, setAttachments] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const userRole = useAuthStore((state) => state.user?.role) as Role
 
   // Resolve/Reject panel
   const [showResolvePanel, setShowResolvePanel] = useState(false);
@@ -138,7 +140,7 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
     await addTicketMessage(
       ticket.id,
       currentUser.id,
-      "ADMIN",
+      userRole,
       newMessage,
       uploadedUrls
     );
@@ -163,7 +165,7 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
     await addTicketMessage(
       ticket.id,
       currentUser.id,
-      "ADMIN",
+     userRole,
       resolutionMessage,
       []
     );
@@ -209,7 +211,7 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
           </div>
         ) : (
           messages.map((msg) => {
-            const isAdmin = msg.senderRole === "ADMIN";
+            const isAdmin = msg.senderRole === "ADMIN" || msg.senderRole === "SUPER_ADMIN";
             return (
               <div
                 key={msg.id}
