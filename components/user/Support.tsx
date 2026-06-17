@@ -188,7 +188,8 @@ const SupportPage: React.FC<SupportPageProps> = ({
         )}
 
         {/* ── Main Grid ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* className="grid grid-cols-1 lg:grid-cols-3 gap-6" */}
+        <div className="w-full">
 
           {/* Left: Tickets / Chat */}
           <div className="lg:col-span-2 space-y-4">
@@ -205,7 +206,7 @@ const SupportPage: React.FC<SupportPageProps> = ({
               />
             ) : tickets.length === 0 ? (
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/50 dark:to-orange-900/30 flex items-center justify-center mb-4 border border-orange-100 dark:border-orange-900">
+                <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-orange-50 to-orange-100 dark:from-orange-950/50 dark:to-orange-900/30 flex items-center justify-center mb-4 border border-orange-100 dark:border-orange-900">
                   <LifeBuoy size={28} className="text-orange-400" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
@@ -243,7 +244,7 @@ const SupportPage: React.FC<SupportPageProps> = ({
                         </div>
                         <ChevronRight
                           size={16}
-                          className="flex-shrink-0 text-slate-300 group-hover:text-orange-500 transition-colors mt-0.5"
+                          className="shrink-0 text-slate-300 group-hover:text-orange-500 transition-colors mt-0.5"
                         />
                       </div>
 
@@ -277,7 +278,7 @@ const SupportPage: React.FC<SupportPageProps> = ({
                         <div className="mt-3 flex items-start gap-2 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl px-3 py-2 border border-indigo-100 dark:border-indigo-900">
                           <CornerDownRight
                             size={12}
-                            className="text-indigo-400 mt-0.5 flex-shrink-0"
+                            className="text-indigo-400 mt-0.5 shrink-0"
                           />
                           <p className="text-xs text-indigo-700 dark:text-indigo-300 line-clamp-1">
                             {ticket.resolutionNote}
@@ -321,13 +322,13 @@ const SupportPage: React.FC<SupportPageProps> = ({
           </div>
 
           {/* Right: FAQ */}
-          <div className="space-y-4">
+          {/* <div className="space-y-4">
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <MessageSquare size={17} className="text-orange-500" />
               Frequently Asked
             </h2>
             <HelpFAQ articles={faqs} />
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -343,7 +344,7 @@ const SupportPage: React.FC<SupportPageProps> = ({
             {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-md">
+                <div className="w-9 h-9 rounded-xl bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-md">
                   <LifeBuoy size={18} className="text-white" />
                 </div>
                 <div>
@@ -485,7 +486,7 @@ const SupportPage: React.FC<SupportPageProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold text-sm rounded-xl shadow-md shadow-orange-500/25 disabled:opacity-50 transition-all active:scale-95"
+                  className="flex-1 py-2.5 bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold text-sm rounded-xl shadow-md shadow-orange-500/25 disabled:opacity-50 transition-all active:scale-95"
                 >
                   {isSubmitting ? "Submitting…" : "Submit Ticket"}
                 </button>
