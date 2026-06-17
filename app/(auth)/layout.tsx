@@ -7,7 +7,7 @@ const AuthLayout = async ({ children }: { children: React.ReactNode }) => {
 
   if (user) {
     const dashboardPath =
-      user.role === "ADMIN" ? "/admin" : "/dashboard";
+      user.role === "ADMIN" || user.role === "SUPER_ADMIN" ? "/admin" : "/dashboard";
     return redirect(dashboardPath);
   }
 

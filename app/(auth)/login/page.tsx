@@ -52,7 +52,7 @@ const LoginPage = () => {
 
           setUser(user);
           const defaultPath =
-            user.role === "ADMIN" ? "/admin" : "/dashboard";
+            user.role === "ADMIN" || user.role === "SUPER_ADMIN" ? "/admin" : "/dashboard";
           router.push(returnTo || defaultPath);
         } else {
           toast.error("User profile not found. Please contact support.", {

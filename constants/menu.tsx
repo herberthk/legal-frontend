@@ -29,7 +29,7 @@ export const sideBarItems = (role: Role): MenuItems[] => {
     },
   ];
 
-  return role === "ADMIN"
+  return role === "ADMIN" || role === "SUPER_ADMIN"
     ? [
         {
           id: "/admin",

@@ -72,7 +72,7 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
         );
 
             const defaultPath =
-            currentUser?.role === "ADMIN" ? "/admin" : "/dashboard";
+            currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN" ? "/admin" : "/dashboard";
 
         const redirectPath = returnTo || defaultPath;
         router.push(redirectPath);

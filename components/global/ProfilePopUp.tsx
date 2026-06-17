@@ -17,7 +17,7 @@ type Props = {
 };
 const ProfilePopUp = ({ user, ref }: Props) => {
   //   const user = useAuthStore((state) => state.user);
-  const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
+  const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN" || state.user?.role === "SUPER_ADMIN");
   const toggleProfile = usePopStore((state) => state.toggleProfile);
   const router = useRouter();
   const clearUser = useAuthStore((state) => state.clearUser);

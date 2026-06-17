@@ -6,7 +6,7 @@ const layout = async({ children }: { children: React.ReactNode }) => {
   const user = await getCurrentUser();
   if (!user) return redirect("/login");
   // Throw page not found if user is not admin
-  if (user.role !== "ADMIN") return notFound();
+  if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") return notFound();
 
   return <>{children}</>;
 };

@@ -15,7 +15,7 @@ type Props = {
 
 const NotificationPopUp = ({ ref, unreadCount }: Props) => {
   const toggleNotifications = usePopStore((state) => state.toggleNotifications);
-  const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN");
+  const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN" || state.user?.role === "SUPER_ADMIN");
   useLockBodyScroll();
   const {
     notifications,

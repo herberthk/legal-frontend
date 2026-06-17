@@ -119,7 +119,7 @@ export const getHelpArticles = async (
 export const addTicketMessage = async (
   ticketId: string,
   senderId: string,
-  senderRole: "USER" | "ADMIN",
+  senderRole: Role,
   text: string,
   attachments: string[] = []
 ): Promise<{ success: boolean; messageId?: string; error?: string }> => {
@@ -146,7 +146,7 @@ export const addTicketMessage = async (
     revalidatePath("/admin/complaints");
 
     // Trigger email notification if ADMIN replies
-    if (senderRole === "ADMIN") {
+    if (senderRole === "ADMIN" || senderRole === "SUPER_ADMIN") {
       const ticketDoc = await db.collection(COLLECTIONS.SUPPORT_TICKETS).doc(ticketId).get();
       if (ticketDoc.exists) {
         const ticketData = ticketDoc.data() as Complaint;

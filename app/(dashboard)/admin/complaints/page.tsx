@@ -11,7 +11,7 @@ export const metadata = {
 
 const ComplaintsPage = async () => {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
     redirect('/dashboard');
   }
 

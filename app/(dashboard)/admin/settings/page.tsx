@@ -10,7 +10,7 @@ export const metadata = {
 export default async function AdminSettingsPage() {
   const admin = await getAuthenticatedAdmin();
 
-  if (!admin || admin.role !== "ADMIN") {
+  if (!admin || (admin.role !== "ADMIN" && admin.role !== "SUPER_ADMIN")) {
     redirect("/login");
   }
 

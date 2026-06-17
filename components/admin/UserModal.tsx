@@ -98,7 +98,7 @@ export default function UserModal({ open, onClose, onSuccess, editUser }: UserMo
           name: form.name, username: form.username || undefined, phoneNumber: form.phoneNumber || undefined,
           role: form.role, status: form.status, balance: form.balance,
           welcomeTextTokens: form.welcomeTextTokens, freeTextTokens: form.freeTextTokens,
-          freeVoiceSeconds: form.freeVoiceSeconds, permissions: form.role === "ADMIN" ? form.permissions : defaultPermissions,
+          freeVoiceSeconds: form.freeVoiceSeconds, permissions: form.role === "ADMIN" || form.role === "SUPER_ADMIN" ? form.permissions : defaultPermissions,
         };
         if (form.email !== editUser.email) data.email = form.email;
         const res = await updateAdminUser(editUser.id, data);
@@ -111,7 +111,7 @@ export default function UserModal({ open, onClose, onSuccess, editUser }: UserMo
           phoneNumber: form.phoneNumber || undefined, role: form.role, status: form.status,
           balance: form.balance, welcomeTextTokens: form.welcomeTextTokens,
           freeTextTokens: form.freeTextTokens, freeVoiceSeconds: form.freeVoiceSeconds,
-          permissions: form.role === "ADMIN" ? form.permissions : defaultPermissions,
+          permissions: form.role === "ADMIN" || form.role === "SUPER_ADMIN" ? form.permissions : defaultPermissions,
         };
         const res = await createAdminUser(data);
         if (!res.success || !res.user) { toast.error(res.error ?? "Failed to create user"); return; }
@@ -204,7 +204,7 @@ export default function UserModal({ open, onClose, onSuccess, editUser }: UserMo
                       </div>
                       {!isEdit && (
                         <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                          <Key size={16} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                          <Key size={16} className="text-amber-400 mt-0.5 shrink-0" />
                           <div><p className="text-sm font-semibold text-amber-300">Auto-Generated Password</p><p className="text-xs text-amber-400/80 mt-0.5">A secure temporary password will be generated for new users.</p></div>
                         </div>
                       )}
@@ -258,7 +258,7 @@ export default function UserModal({ open, onClose, onSuccess, editUser }: UserMo
                   )}
                   {step === "permissions" && (
                     <motion.div key="permissions" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-3">
-                      {form.role !== "ADMIN" ? (
+                      {form.role !== "ADMIN" && form.role !== "SUPER_ADMIN" ? (
                         <div className="p-6 text-center rounded-xl bg-slate-800/40 border border-slate-700">
                           <Shield size={32} className="mx-auto text-slate-600 mb-3" />
                           <p className="text-sm font-medium text-slate-400">Permissions are only configurable for Admin role users.</p>

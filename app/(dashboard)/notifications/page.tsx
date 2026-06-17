@@ -46,7 +46,7 @@ const NotificationPage = async ({ searchParams }: PageProps) => {
         totalPages={result.totalPages || 0}
         currentPage={currentPage}
         currentFilter={currentFilter}
-        isAdmin={user.role === "ADMIN"}
+        isAdmin={user.role === "ADMIN" || user.role === "SUPER_ADMIN"}
         userId={user.id}
       />
     </div>
