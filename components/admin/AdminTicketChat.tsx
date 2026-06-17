@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Send,
   Paperclip,
@@ -10,19 +10,32 @@ import {
   Loader2,
   ShieldCheck,
   Lock,
+  CheckCircle2,
+  XCircle,
+  ChevronDown,
 } from "lucide-react";
-import { addTicketMessage, getTicketMessages } from "@/lib/actions/support";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+} from "firebase/firestore";
+import { db as clientDb } from "@/firebase/client";
+import { addTicketMessage, updateTicketStatus } from "@/lib/actions/support";
 import { uploadFileToStorage } from "@/lib/firebaseStorage";
 import { formatDate } from "@/lib";
 
 interface AdminTicketChatProps {
   ticket: Complaint;
   currentUser: User;
+  onStatusChange?: (newStatus: ComplaintStatus) => void;
 }
 
 const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
   ticket,
   currentUser,
+  onStatusChange,
 }) => {
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -30,28 +43,55 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [, startTransition] = useTransition();
+
+  // Resolve/Reject panel
+  const [showResolvePanel, setShowResolvePanel] = useState(false);
+  const [resolveAction, setResolveAction] = useState<"RESOLVED" | "REJECTED">(
+    "RESOLVED"
+  );
+  const [resolutionMessage, setResolutionMessage] = useState("");
+  const [isResolving, setIsResolving] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resolutionRef = useRef<HTMLTextAreaElement>(null);
 
   const isClosed =
     ticket.status === "RESOLVED" || ticket.status === "REJECTED";
 
+  // ── Real-time listener ────────────────────────────────────────────────
   useEffect(() => {
     setMessages([]);
     setIsLoading(true);
-    startTransition(async () => {
-      const msgs = await getTicketMessages(ticket.id);
+
+    const q = query(
+      collection(clientDb, "supportMessages"),
+      where("ticketId", "==", ticket.id),
+      orderBy("createdAt", "asc")
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const msgs: TicketMessage[] = snap.docs.map((doc) => ({
+        ...(doc.data() as Omit<TicketMessage, "id" | "createdAt">),
+        id: doc.id,
+        createdAt:
+          doc.data().createdAt?.toDate().toISOString() ??
+          new Date().toISOString(),
+      }));
       setMessages(msgs);
       setIsLoading(false);
     });
+
+    return () => unsub();
   }, [ticket.id]);
 
+  // ── Auto-scroll ───────────────────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // ── Input handlers ────────────────────────────────────────────────────
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value);
     e.target.style.height = "auto";
@@ -61,41 +101,38 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      handleSendMessage();
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+    if (e.target.files)
       setAttachments((prev) => [...prev, ...Array.from(e.target.files!)]);
-    }
   };
 
-  const removeAttachment = (index: number) => {
+  const removeAttachment = (index: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== index));
-  };
 
-  const handleSubmit = async () => {
+  // ── Send reply ────────────────────────────────────────────────────────
+  const handleSendMessage = async () => {
     if (!newMessage.trim() && attachments.length === 0) return;
     setIsSubmitting(true);
 
     const uploadedUrls: string[] = [];
-    if (attachments.length > 0) {
-      for (const file of attachments) {
-        try {
-          const url = await uploadFileToStorage(
-            file,
-            `tickets/${ticket.id}`,
-            setUploadProgress
-          );
-          uploadedUrls.push(url);
-        } catch (err) {
-          console.error("Upload failed", err);
-        }
+    for (const file of attachments) {
+      try {
+        const url = await uploadFileToStorage(
+          file,
+          `tickets/${ticket.id}`,
+          setUploadProgress
+        );
+        uploadedUrls.push(url);
+      } catch (e) {
+        console.error("Upload failed", e);
       }
     }
 
-    const result = await addTicketMessage(
+    await addTicketMessage(
       ticket.id,
       currentUser.id,
       "ADMIN",
@@ -103,37 +140,53 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
       uploadedUrls
     );
 
-    if (result.success && result.messageId) {
-      const newMsg: TicketMessage = {
-        id: result.messageId,
-        ticketId: ticket.id,
-        senderId: currentUser.id,
-        senderRole: "ADMIN",
-        text: newMessage,
-        attachments: uploadedUrls,
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, newMsg]);
-      setNewMessage("");
-      setAttachments([]);
-      setUploadProgress(0);
-      if (textareaRef.current) textareaRef.current.style.height = "auto";
-    }
+    // onSnapshot delivers the new message automatically
+    setNewMessage("");
+    setAttachments([]);
+    setUploadProgress(0);
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
     setIsSubmitting(false);
   };
 
+  // ── Resolve / Reject ──────────────────────────────────────────────────
+  const handleResolve = async () => {
+    if (!resolutionMessage.trim()) {
+      resolutionRef.current?.focus();
+      return;
+    }
+    setIsResolving(true);
+
+    // 1) Post the resolution message to the thread
+    await addTicketMessage(
+      ticket.id,
+      currentUser.id,
+      "ADMIN",
+      resolutionMessage,
+      []
+    );
+
+    // 2) Update ticket status + resolution note
+    await updateTicketStatus(ticket.id, resolveAction, resolutionMessage);
+
+    setShowResolvePanel(false);
+    setResolutionMessage("");
+    onStatusChange?.(resolveAction);
+    setIsResolving(false);
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth">
-        {/* Original Complaint */}
-        <div className="flex gap-3 max-w-[80%]">
-          <div className="shrink-0 w-7 h-7 rounded-full bg-linear-to-br from-slate-400 to-slate-600 flex items-center justify-center text-white text-xs font-bold">
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+        {/* Original complaint */}
+        <div className="flex gap-3">
+          <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center text-white text-xs font-bold shadow">
             {ticket.userName.charAt(0).toUpperCase()}
           </div>
-          <div>
-            <div className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3">
-              <p className="text-xs font-semibold text-slate-500 mb-1">
+          <div className="max-w-[75%]">
+            <div className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-tl-none px-4 py-3">
+              <p className="text-[11px] font-semibold text-slate-500 mb-1">
                 {ticket.userName} · Original complaint
               </p>
               <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
@@ -148,7 +201,7 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
 
         {/* Thread */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-8">
+          <div className="flex justify-center items-center py-10">
             <Loader2 className="animate-spin text-indigo-500" size={22} />
           </div>
         ) : (
@@ -157,10 +210,11 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`flex gap-3 ${isAdmin ? "flex-row-reverse ml-auto max-w-[80%]" : "max-w-[80%]"}`}
+                className={`flex gap-3 ${isAdmin ? "flex-row-reverse" : ""}`}
               >
+                {/* Avatar */}
                 <div
-                  className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center shadow-md text-white text-xs font-bold ${
+                  className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow text-white text-xs font-bold ${
                     isAdmin
                       ? "bg-linear-to-br from-indigo-500 to-indigo-600"
                       : "bg-linear-to-br from-slate-400 to-slate-600"
@@ -173,23 +227,24 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
                   )}
                 </div>
 
-                <div className={isAdmin ? "items-end flex flex-col" : ""}>
+                {/* Bubble */}
+                <div
+                  className={`flex flex-col max-w-[75%] ${isAdmin ? "items-end" : "items-start"}`}
+                >
                   <div
-                    className={`px-4 py-3 rounded-2xl ${
+                    className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                       isAdmin
-                        ? "bg-linear-to-br from-indigo-500 to-indigo-600 text-white rounded-tr-sm shadow-md shadow-indigo-500/20"
-                        : "bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-sm"
+                        ? "bg-linear-to-br from-indigo-500 to-indigo-600 text-white rounded-tr-none shadow shadow-indigo-400/30"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-200 dark:border-slate-700"
                     }`}
                   >
                     {!isAdmin && (
-                      <p className="text-xs font-semibold text-slate-500 mb-1">
+                      <p className="text-[11px] font-semibold text-slate-500 mb-1">
                         {ticket.userName}
                       </p>
                     )}
                     {msg.text && (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                        {msg.text}
-                      </p>
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
                     )}
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">
@@ -223,20 +278,110 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
           })
         )}
 
+        {/* Closed notice */}
         {isClosed && (
-          <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-2">
+          <div className="flex items-center justify-center gap-2 text-xs text-slate-400 py-3 border-t border-dashed border-slate-200 dark:border-slate-700 mt-2">
             <Lock size={12} />
             <span>
-              Ticket is {ticket.status === "RESOLVED" ? "resolved" : "closed"}.
+              Ticket{" "}
+              <strong>
+                {ticket.status === "RESOLVED" ? "resolved" : "rejected"}
+              </strong>{" "}
+              — thread locked.
             </span>
           </div>
         )}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      {!isClosed && (
-        <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+      {/* ── Resolve / Reject Panel ── */}
+      {showResolvePanel && (
+        <div className="mx-4 mb-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 overflow-hidden">
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              {/* Action toggle */}
+              <button
+                onClick={() => setResolveAction("RESOLVED")}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  resolveAction === "RESOLVED"
+                    ? "bg-emerald-600 text-white shadow"
+                    : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
+                }`}
+              >
+                <CheckCircle2 size={13} /> Resolve
+              </button>
+              <button
+                onClick={() => setResolveAction("REJECTED")}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  resolveAction === "REJECTED"
+                    ? "bg-red-600 text-white shadow"
+                    : "bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600"
+                }`}
+              >
+                <XCircle size={13} /> Reject
+              </button>
+            </div>
+            <button
+              onClick={() => setShowResolvePanel(false)}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Resolution message */}
+          <div className="p-4 space-y-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {resolveAction === "RESOLVED"
+                ? "Write a closing note to the user explaining the resolution:"
+                : "Write a note explaining why this ticket is being rejected:"}
+            </p>
+            <textarea
+              ref={resolutionRef}
+              rows={3}
+              value={resolutionMessage}
+              onChange={(e) => setResolutionMessage(e.target.value)}
+              placeholder={
+                resolveAction === "RESOLVED"
+                  ? "e.g. Your issue has been resolved. The refund has been processed and should reflect within 3-5 business days."
+                  : "e.g. After reviewing your complaint, we could not verify the reported issue. Please contact support if you need further assistance."
+              }
+              className="w-full resize-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400 placeholder:text-slate-400 dark:text-slate-100 transition-all"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowResolvePanel(false)}
+                className="flex-1 py-2 text-sm text-slate-500 font-semibold hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-colors border border-slate-200 dark:border-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResolve}
+                disabled={isResolving || !resolutionMessage.trim()}
+                className={`flex-1 py-2 text-sm text-white font-bold rounded-xl shadow transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  resolveAction === "RESOLVED"
+                    ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
+                    : "bg-red-600 hover:bg-red-700 shadow-red-500/20"
+                }`}
+              >
+                {isResolving ? (
+                  <Loader2 size={15} className="animate-spin mx-auto" />
+                ) : resolveAction === "RESOLVED" ? (
+                  "Mark as Resolved"
+                ) : (
+                  "Reject Ticket"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Input / Actions ── */}
+      {!isClosed && !showResolvePanel && (
+        <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80">
           {attachments.length > 0 && (
             <div className="flex gap-2 mb-2 flex-wrap">
               {attachments.map((file, idx) => (
@@ -283,26 +428,24 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
             >
               <Paperclip size={18} />
             </button>
-            <div className="flex-1 relative">
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                value={newMessage}
-                onChange={handleTextareaInput}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a response… (Enter to send)"
-                className="w-full resize-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-all placeholder:text-slate-400 dark:text-slate-100"
-                style={{ height: "44px", maxHeight: "120px" }}
-              />
-            </div>
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={newMessage}
+              onChange={handleTextareaInput}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a response… (Enter to send)"
+              className="flex-1 resize-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-all placeholder:text-slate-400 dark:text-slate-100"
+              style={{ height: "40px", maxHeight: "120px" }}
+            />
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={handleSendMessage}
               disabled={
                 isSubmitting ||
                 (!newMessage.trim() && attachments.length === 0)
               }
-              className="shrink-0 w-10 h-10 flex items-center justify-center bg-linear-to-br from-indigo-500 to-indigo-600 text-white rounded-xl hover:from-indigo-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-500/30 active:scale-95"
+              className="shrink-0 w-10 h-10 flex items-center justify-center bg-linear-to-br from-indigo-500 to-indigo-600 text-white rounded-xl hover:from-indigo-600 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow shadow-indigo-500/30 active:scale-95"
             >
               {isSubmitting ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -311,12 +454,42 @@ const AdminTicketChat: React.FC<AdminTicketChatProps> = ({
               )}
             </button>
           </div>
-          <p className="text-[10px] text-slate-400 text-center mt-2">
-            Replying as{" "}
-            <span className="font-semibold text-indigo-500">
-              {currentUser.name}
-            </span>{" "}
-            (Support Team) · This reply will email the user
+
+          {/* Resolve / Reject trigger */}
+          <div className="flex justify-between items-center mt-2.5">
+            <p className="text-[10px] text-slate-400">
+              Replying as{" "}
+              <span className="font-semibold text-indigo-500">
+                {currentUser.name}
+              </span>{" "}
+              (Support Team) · User will be emailed
+            </p>
+            <button
+              onClick={() => setShowResolvePanel(true)}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            >
+              Close ticket <ChevronDown size={12} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Closed state footer */}
+      {isClosed && (
+        <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 text-center">
+          <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5">
+            <Lock size={11} />
+            This ticket is{" "}
+            <strong
+              className={
+                ticket.status === "RESOLVED"
+                  ? "text-emerald-600"
+                  : "text-red-500"
+              }
+            >
+              {ticket.status === "RESOLVED" ? "Resolved" : "Rejected"}
+            </strong>{" "}
+            — No further replies can be sent
           </p>
         </div>
       )}

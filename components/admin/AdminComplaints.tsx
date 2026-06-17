@@ -378,6 +378,7 @@ const AdminComplaints: React.FC<AdminComplaintsProps> = ({
                 <AdminTicketChat
                   ticket={selectedTicket}
                   currentUser={currentUser}
+                  onStatusChange={handleStatusChange}
                 />
               </div>
             </>
