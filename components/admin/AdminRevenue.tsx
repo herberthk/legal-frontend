@@ -27,6 +27,7 @@ import { AdminOverviewStats } from "@/lib/actions/admin";
 
 interface AdminRevenueProps {
   stats: AdminOverviewStats;
+  filterLabel?: string;
 }
 
 const formatCurrency = (val: number, currency = "USD") => {
@@ -85,7 +86,7 @@ const CustomRevenueTooltip = ({ active, payload, label, isDark }: any) => {
   return null;
 };
 
-const AdminRevenue = ({ stats }: AdminRevenueProps) => {
+const AdminRevenue = ({ stats, filterLabel = "Last 30 days" }: AdminRevenueProps) => {
   const theme = useThemeStore((state) => state.theme);
   const isDark = theme === "dark";
 
@@ -292,13 +293,16 @@ const AdminRevenue = ({ stats }: AdminRevenueProps) => {
           </div>
         </div>
 
-        {/* 30-Day Financial Trend Area Chart */}
+        {/* Financial Trend Area Chart */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 lg:col-span-2">
           <div className="flex items-center gap-2 mb-6">
             <Activity className="text-slate-400" size={20} />
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Profitability Trend (Last 30 Days)
+              Profitability Trend
             </h3>
+            <span className="ml-auto text-xs font-medium text-slate-400 bg-slate-100 dark:bg-slate-700 px-2.5 py-1 rounded-full">
+              {filterLabel}
+            </span>
           </div>
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">

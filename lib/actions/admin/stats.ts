@@ -250,6 +250,178 @@ function toSortedEntries(
     .slice(0, limit);
 }
 
+// ─── Date-range-scoped overview stats ────────────────────────────────────────
+
+export type DateRangeInput = {
+  startDate: string; // ISO date string e.g. "2025-01-01"
+  endDate: string;   // ISO date string e.g. "2025-01-31"
+};
+
+export const getAdminOverviewStatsByRange = async (
+  range: DateRangeInput,
+): Promise<{ success: boolean; stats?: AdminOverviewStats; error?: string }> => {
+  try {
+    const start = new Date(range.startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(range.endDate);
+    end.setHours(23, 59, 59, 999);
+
+    const usersSnapshot = await db.collection(COLLECTIONS.USERS).count().get();
+    const totalUsers = usersSnapshot.data().count;
+
+    const usageRef = db.collection(COLLECTIONS.USAGE);
+    const rangeRef = usageRef.where("createdAt", ">=", start).where("createdAt", "<=", end);
+
+    const [
+      rangeAggregate,
+      voiceCountSnap,
+      voiceAggSnap,
+      chatAggSnap,
+      transcriptionAggSnap,
+      rangeUsageSnapshot,
+    ] = await Promise.all([
+      rangeRef.aggregate({
+        totalTokens: AggregateField.sum("tokens"),
+        totalCost: AggregateField.sum("cost"),
+        totalSeconds: AggregateField.sum("seconds"),
+      }).get(),
+      rangeRef.where("type", "==", "VOICE_SESSION").count().get(),
+      rangeRef.where("type", "==", "VOICE_SESSION").aggregate({ cost: AggregateField.sum("cost") }).get(),
+      rangeRef.where("type", "==", "TEXT_RESPONSE").aggregate({ tokens: AggregateField.sum("tokens"), cost: AggregateField.sum("cost") }).get(),
+      rangeRef.where("type", "==", "DOCUMENT_TRANSCRIPTION").aggregate({ tokens: AggregateField.sum("tokens"), cost: AggregateField.sum("cost") }).get(),
+      rangeRef.orderBy("createdAt", "asc").get(),
+    ]);
+
+    const { totalTokens, totalCost: totalCostInCents, totalSeconds: totalVoiceSeconds } = rangeAggregate.data();
+
+    const totalVoiceSessions        = voiceCountSnap.data().count;
+    const voiceCostInCents          = voiceAggSnap.data().cost || 0;
+    const chatTokens                = chatAggSnap.data().tokens || 0;
+    const chatCostInCents           = chatAggSnap.data().cost || 0;
+    const transcriptionTokens       = transcriptionAggSnap.data().tokens || 0;
+    const transcriptionCostInCents  = transcriptionAggSnap.data().cost || 0;
+
+    const GOOGLE_TOKEN_COST_RATE             = 0.0000035;
+    const GOOGLE_VOICE_COST_RATE_PER_SECOND  = 0.023 / 60;
+    const OUR_TOKEN_BILLING_RATE             = COST_PER_THOUSAND_TOKENS / 1000;
+    const OUR_VOICE_BILLING_RATE_PER_SECOND  = COST_PER_VOICE_MINUTE / 60;
+
+    const googleChatCostUsd              = chatTokens * GOOGLE_TOKEN_COST_RATE;
+    const googleTranscriptionCostUsd     = transcriptionTokens * GOOGLE_TOKEN_COST_RATE;
+    const googleVoiceCostUsd             = (totalVoiceSeconds || 0) * GOOGLE_VOICE_COST_RATE_PER_SECOND;
+    const googleTotalCostUsd             = googleChatCostUsd + googleTranscriptionCostUsd + googleVoiceCostUsd;
+
+    const expectedChatRevenueUsd         = chatTokens * OUR_TOKEN_BILLING_RATE;
+    const expectedTranscriptionRevenueUsd = transcriptionTokens * OUR_TOKEN_BILLING_RATE;
+    const expectedVoiceRevenueUsd        = (totalVoiceSeconds || 0) * OUR_VOICE_BILLING_RATE_PER_SECOND;
+    const expectedTotalRevenueUsd        = expectedChatRevenueUsd + expectedTranscriptionRevenueUsd + expectedVoiceRevenueUsd;
+
+    const totalCostUsd              = (totalCostInCents || 0) / 100;
+    const totalCostUgx              = totalCostUsd * USD_TO_UGX_EXCHANGE_RATE;
+    const realizedProfitUsd         = totalCostUsd - googleTotalCostUsd;
+    const realizedProfitUgx         = realizedProfitUsd * USD_TO_UGX_EXCHANGE_RATE;
+    const profitMarginPercent       = totalCostUsd > 0 ? (realizedProfitUsd / totalCostUsd) * 100 : 0;
+    const expectedProfitUsd         = expectedTotalRevenueUsd - googleTotalCostUsd;
+    const expectedProfitUgx         = expectedProfitUsd * USD_TO_UGX_EXCHANGE_RATE;
+    const expectedProfitMarginPercent = expectedTotalRevenueUsd > 0 ? (expectedProfitUsd / expectedTotalRevenueUsd) * 100 : 0;
+
+    // Build an adaptive time-series: daily ≤90 days, weekly ≤365 days, monthly otherwise
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    type BucketEntry = { date: string; chatTokens: number; transcriptionTokens: number; voiceSeconds: number; cost: number; googleCost: number; expectedRevenue: number; profit: number };
+    const bucketMap: Record<string, BucketEntry> = {};
+
+    const getBucketKey = (d: Date): string => {
+      if (diffDays <= 90) {
+        return d.toISOString().split("T")[0]; // daily
+      } else if (diffDays <= 365) {
+        // ISO week: Monday of that week
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d);
+        monday.setDate(diff);
+        return monday.toISOString().split("T")[0];
+      } else {
+        // Monthly
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+      }
+    };
+
+    // Pre-fill all buckets in the range
+    const cur = new Date(start);
+    while (cur <= end) {
+      const key = getBucketKey(cur);
+      if (!bucketMap[key]) {
+        bucketMap[key] = { date: key, chatTokens: 0, transcriptionTokens: 0, voiceSeconds: 0, cost: 0, googleCost: 0, expectedRevenue: 0, profit: 0 };
+      }
+      if (diffDays <= 90) {
+        cur.setDate(cur.getDate() + 1);
+      } else if (diffDays <= 365) {
+        cur.setDate(cur.getDate() + 7);
+      } else {
+        cur.setMonth(cur.getMonth() + 1);
+      }
+    }
+
+    rangeUsageSnapshot.forEach((doc) => {
+      const data = doc.data();
+      const createdAt = data.createdAt?.toDate();
+      if (!createdAt) return;
+      const key = getBucketKey(createdAt);
+      if (bucketMap[key]) {
+        if (data.type === "TEXT_RESPONSE") bucketMap[key].chatTokens += data.tokens || 0;
+        else if (data.type === "DOCUMENT_TRANSCRIPTION") bucketMap[key].transcriptionTokens += data.tokens || 0;
+        else if (data.type === "VOICE_SESSION") bucketMap[key].voiceSeconds += data.seconds || 0;
+        bucketMap[key].cost += (data.cost || 0) / 100;
+      }
+    });
+
+    Object.keys(bucketMap).forEach((key) => {
+      const b = bucketMap[key];
+      b.googleCost = (b.chatTokens + b.transcriptionTokens) * GOOGLE_TOKEN_COST_RATE + b.voiceSeconds * GOOGLE_VOICE_COST_RATE_PER_SECOND;
+      b.expectedRevenue = (b.chatTokens + b.transcriptionTokens) * OUR_TOKEN_BILLING_RATE + b.voiceSeconds * OUR_VOICE_BILLING_RATE_PER_SECOND;
+      b.profit = b.cost - b.googleCost;
+    });
+
+    return {
+      success: true,
+      stats: {
+        totalUsers,
+        totalTokens: totalTokens || 0,
+        totalVoiceSeconds: totalVoiceSeconds || 0,
+        totalVoiceSessions,
+        totalCostUsd,
+        totalCostUgx,
+        chatTokens: chatTokens || 0,
+        transcriptionTokens: transcriptionTokens || 0,
+        chatCostUsd: chatCostInCents / 100,
+        transcriptionCostUsd: transcriptionCostInCents / 100,
+        voiceCostUsd: voiceCostInCents / 100,
+        googleChatCostUsd,
+        googleTranscriptionCostUsd,
+        googleVoiceCostUsd,
+        googleTotalCostUsd,
+        expectedChatRevenueUsd,
+        expectedTranscriptionRevenueUsd,
+        expectedVoiceRevenueUsd,
+        expectedTotalRevenueUsd,
+        realizedProfitUsd,
+        realizedProfitUgx,
+        profitMarginPercent,
+        expectedProfitUsd,
+        expectedProfitUgx,
+        expectedProfitMarginPercent,
+        timeSeriesData: Object.values(bucketMap).sort((a, b) => a.date.localeCompare(b.date)),
+      },
+    };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("Error fetching admin stats by range:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ─── Demographics ─────────────────────────────────────────────────────────────
+
 export const getAdminDemographicsStats = async (): Promise<
   { success: boolean; stats?: AdminDemographicsStats; error?: string }
 > => {
