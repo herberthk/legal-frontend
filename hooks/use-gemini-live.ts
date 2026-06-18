@@ -518,6 +518,7 @@ export const useGeminiLive = ({
 
         const config: LiveConnectConfig = {
           responseModalities: [Modality.AUDIO],
+          temperature:0,
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: {
