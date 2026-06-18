@@ -129,7 +129,7 @@ export default function ConfigForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-4 bg-muted/30 p-4 rounded-lg border border-border">
+            <div className="space-y-4 p-4 rounded-lg border border-border">
               <h3 className="font-medium flex items-center gap-2">
                 Currency Settings
               </h3>
