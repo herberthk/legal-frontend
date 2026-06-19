@@ -126,6 +126,9 @@ export const useGeminiLive = ({
     null,
   );
 
+  // Max reconnect attempts before giving up and surfacing an error
+  const MAX_RECONNECT_ATTEMPTS = 5;
+
   // ── Recorder callback refs ────────────────────────────────────────────────
   // Stored as refs so that the hot-path callbacks (processor.port.onmessage
   // and schedulePCMChunk) always see the latest function reference without
@@ -220,13 +223,17 @@ export const useGeminiLive = ({
     [userId, userName, preferedVoice],
   );
 
-  const getEphemeralToken = useCallback(async () => {
+  const getEphemeralToken = useCallback(async (forceRefresh = false) => {
     if (
+      !forceRefresh &&
       ephemeralTokenRef.current &&
       Date.now() < ephemeralTokenRef.current.expiresAt - 5000
     ) {
       return ephemeralTokenRef.current.token;
     }
+
+    // Clear the cache before fetching so a failed fetch doesn't leave a stale entry
+    ephemeralTokenRef.current = null;
 
     const res = await fetch("/api/gemini-token");
     if (!res.ok) {
@@ -419,7 +426,7 @@ export const useGeminiLive = ({
   }, [duration]);
 
   const connectToGemini = useCallback(
-    async (isReconnect = false) => {
+    async (isReconnect = false, forceTokenRefresh = false) => {
       try {
         if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open"))
           return;
@@ -444,6 +451,7 @@ export const useGeminiLive = ({
           setActiveTranscript(null);
           previousHandleRef.current = null;
           sessionIdRef.current = crypto.randomUUID();
+          reconnectAttemptsRef.current = 0; // reset retry budget for this fresh call
         }
 
         // Initialize audio context to get mic input
@@ -500,7 +508,11 @@ export const useGeminiLive = ({
           }
         }
 
-        const token = await getEphemeralToken();
+        // Force a fresh token on new sessions (so they don't start with a soon-to-expire token)
+        // OR on failure-driven reconnects (e.g. 1011 loops).
+        // Normal session resumption (goAway) should reuse the valid cached token.
+        const shouldForceRefresh = !isReconnect || forceTokenRefresh;
+        const token = await getEphemeralToken(shouldForceRefresh);
         if (isDisconnectingRef.current) return;
 
         aiClientRef.current = new GoogleGenAI({
@@ -716,8 +728,22 @@ export const useGeminiLive = ({
               sessionRef.current = null;
               setIsListening(false);
               if (!isDisconnectingRef.current && durationRef.current < 1800) {
-                console.log("[gemini-live] Reconnecting after error...");
-                setTimeout(() => connectToGemini(true), 500);
+                if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+                  console.error(
+                    `[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`,
+                  );
+                  setWsStatus("error");
+                  setActiveTranscript({
+                    speaker: "system",
+                    text: "Connection error. Please try again.",
+                  });
+                  reconnectAttemptsRef.current = 0;
+                  return;
+                }
+                reconnectAttemptsRef.current += 1;
+                const delay = Math.min(500 * reconnectAttemptsRef.current, 5000);
+                console.log(`[gemini-live] Reconnecting after error (attempt ${reconnectAttemptsRef.current})...`);
+                setTimeout(() => connectToGemini(true, true), delay);
                 return;
               }
               setActiveTranscript({
@@ -731,8 +757,33 @@ export const useGeminiLive = ({
               sessionRef.current = null;
               setIsListening(false);
               if (!isDisconnectingRef.current && durationRef.current < 1800) {
-                console.log("[gemini-live] Seamlessly reconnecting...");
-                setTimeout(() => connectToGemini(true), 500);
+                // Determine if this is an error close (e.g. 1011) or graceful (1000/1005)
+                const isErrorClose = ev.code !== 1000 && ev.code !== 1005;
+                const forceTokenRefresh = isErrorClose || reconnectAttemptsRef.current > 0;
+
+                // Guard against infinite reconnect loops (e.g. Firefox 1011 cycles)
+                if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+                  console.error(
+                    `[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`,
+                  );
+                  setWsStatus("error");
+                  setActiveTranscript({
+                    speaker: "system",
+                    text: "Connection lost. Please try again.",
+                  });
+                  reconnectAttemptsRef.current = 0;
+                  return;
+                }
+                
+                // Only increment attempt counter on errors, so graceful reconnects don't exhaust the budget
+                if (isErrorClose) {
+                  reconnectAttemptsRef.current += 1;
+                }
+                const delay = isErrorClose ? Math.min(500 * reconnectAttemptsRef.current, 5000) : 500;
+                console.log(
+                  `[gemini-live] Seamlessly reconnecting (attempt ${reconnectAttemptsRef.current})...`,
+                );
+                setTimeout(() => connectToGemini(true, forceTokenRefresh), delay);
                 return;
               }
               setWsStatus("closed");
@@ -762,7 +813,7 @@ export const useGeminiLive = ({
           !isDisconnectingRef.current &&
           durationRef.current < 1800
         ) {
-          setTimeout(() => connectToGemini(true), 2000); // Retry reconnect with delay
+          setTimeout(() => connectToGemini(true, true), 2000); // Retry reconnect with delay
           return;
         }
         setWsStatus("error");
