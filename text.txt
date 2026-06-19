@@ -22,17 +22,6 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 \_\_gcloud storage buckets describe gs://legal-51aee.firebasestorage.app --format="default(cors_config)"
 
 
-Fluter wave
-password: #hzYbN5W6UchgXe
-
-clientId: 6e6b2ced-5865-47a9-9245-8de6fddfda90
-
-Client Secret: 8ngwdGTUVX8GaV0gGh6w1LBLUtIWsZkS
-
-Encryption Key: aJPa0pJvo4zKmww8zPmqO+47V1BcguTVKMEXzVc1SF4=
-
-webhook secret hash: eaGxEHNv4r31waebGxMH7oUWPTF8vPQnH6mWWb1QiMNMiqVytRgzB0RosaeHLb
-
 
 Pawapay
 api token: eyJraWQiOiIxIiwiYWxnIjoiRVMyNTYifQ.eyJ0dCI6IkFBVCIsInN1YiI6IjIyNzI4IiwibWF2IjoiMSIsImV4cCI6MjA5NjU0MjQ5NiwiaWF0IjoxNzgwOTIzMjk2LCJwbSI6IkRBRixQQUYiLCJqdGkiOiI5MTJlYjI3NS05ZGY4LTQ1MGYtYmY1Yy1lNDI4ZGRiMjNlYWIifQ.kS-dclKCW34SaBmEtZTue1TudtJ5nWw4SbIqPW3MS78ZxAp09oy95BhTuLv2sdXIzFRvhyjeuQnMOyKTaxhH4A
@@ -58,4 +47,8 @@ deposit body {
   status: 'COMPLETED'
 }
 
-0703769887
+update cors
+gcloud storage buckets update gs://legal-51aee.firebasestorage.app --cors-file=cors.json
+
+// get buckect cors
+gcloud storage buckets describe gs://legal-51aee.firebasestorage.app --format="json(cors_config)"
