@@ -33,7 +33,6 @@ export async function GET() {
 
     const token = await ai.authTokens.create({
       config: {
-        uses: 1,
         expireTime,
         newSessionExpireTime,
         httpOptions: { apiVersion: "v1alpha" },
@@ -43,7 +42,6 @@ export async function GET() {
     if (!token || !token.name) {
       throw new Error("Failed to generate ephemeral token");
     }
-
     return NextResponse.json({ token: token.name });
   } catch (error) {
     console.error("Error creating ephemeral token:", error);

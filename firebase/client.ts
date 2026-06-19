@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeFirestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import {
   getAnalytics,
   isSupported as isAnalyticsSupported,
@@ -34,13 +34,7 @@ const app =
   initializeApp(firebaseConfig, "[DEFAULT]");
 
 export const auth = getAuth(app);
-// experimentalAutoDetectLongPolling lets the SDK probe for gRPC-Web support
-// and avoids the WebChannel long-poll XHR transport that Firefox's Enhanced
-// Tracking Protection blocks, causing CORS failures and 400 errors.
-export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
-  
-});
+export const db = getFirestore(app);
 export const storage = getStorage(app);
 // Initialize Functions (Set default region, e.g., europe-west3)
 export const functions = getFunctions(app, "europe-west3");
