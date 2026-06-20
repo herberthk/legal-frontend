@@ -119,6 +119,45 @@ declare global {
     | "token_failed" // ephemeral token fetch failed (auth/server issue)
     | "timeout" // connection took > 15 s
     | "generic"; // everything else
+
+
+    interface UseGeminiLiveOptions {
+      /** The name of the user engaging with the AI. */
+      userName: string;
+      /** The voice configuration chosen by the user. */
+      preferedVoice: PreferedVoice;
+      /** The unique identifier of the user. */
+      userId: string;
+
+      /**
+       * Called with each user-microphone PCM chunk (Int16 ArrayBuffer, 16 kHz).
+       * The buffer is transferred (zero-copy) AFTER the Gemini SDK has finished
+       * reading it for sendRealtimeInput — so no additional allocations here.
+       * `timestamp` is ms since session start (Date.now() - sessionStart).
+       */
+      onUserAudioChunk?: (buffer: ArrayBuffer, timestamp: number) => void;
+
+      /**
+       * Called with each Gemini AI PCM chunk (Int16 ArrayBuffer, 24 kHz).
+       * This buffer is a COPY of the data sent to the player worklet — we cannot
+       * share the same buffer between two transferable targets, so one slice is
+       * unavoidable. The copy is ~4 KB per chunk.
+       * `timestamp` is ms since session start.
+       */
+      onAIAudioChunk?: (buffer: ArrayBuffer, timestamp: number) => void;
+
+      /**
+       * Called exactly when the duration reaches the dynamic or 30-minute limit.
+       * Use this to trigger saving/billing before the hook stops the session.
+       */
+      onDurationLimitReached?: () => void;
+      
+      /**
+       * The total number of seconds allowed for this session based on balance + free time.
+       * Hard capped at 1800 (30 minutes) internally.
+       */
+      totalAllowedSeconds: number;
+  }
 }
 
 export {};

@@ -6,52 +6,11 @@ import {
   Session,
 } from "@google/genai";
 import { LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION } from "@/constants/prompt";
-
-import { db } from "@/firebase/client";
-import { COLLECTIONS } from "@/constants";
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-
 import NoSleep from "@zakj/no-sleep";
 
-export interface UseGeminiLiveOptions {
-  userName: string;
-  preferedVoice: PreferedVoice;
-  userId: string;
-
-  /**
-   * Called with each user-microphone PCM chunk (Int16 ArrayBuffer, 16 kHz).
-   * The buffer is transferred (zero-copy) AFTER the Gemini SDK has finished
-   * reading it for sendRealtimeInput — so no additional allocations here.
-   * `timestamp` is ms since session start (Date.now() - sessionStart).
-   */
-  onUserAudioChunk?: (buffer: ArrayBuffer, timestamp: number) => void;
-
-  /**
-   * Called with each Gemini AI PCM chunk (Int16 ArrayBuffer, 24 kHz).
-   * This buffer is a COPY of the data sent to the player worklet — we cannot
-   * share the same buffer between two transferable targets, so one slice is
-   * unavoidable. The copy is ~4 KB per chunk.
-   * `timestamp` is ms since session start.
-   */
-  onAIAudioChunk?: (buffer: ArrayBuffer, timestamp: number) => void;
-
-  /**
-   * Called exactly when the duration reaches the dynamic or 30-minute limit.
-   * Use this to trigger saving/billing before the hook stops the session.
-   */
-  onDurationLimitReached?: () => void;
-  /**
-   * The total number of seconds allowed for this session based on balance + free time.
-   * Hard capped at 1800 (30 minutes) internally.
-   */
-  totalAllowedSeconds: number;
-}
+import { createGeminiAudioChain } from "./use-gemini-live/audio-setup";
+import { useFirebaseSync } from "./use-gemini-live/use-firebase-sync";
+import { useEphemeralToken } from "./use-gemini-live/use-ephemeral-token";
 
 export const useGeminiLive = ({
   userName,
@@ -62,195 +21,91 @@ export const useGeminiLive = ({
   onDurationLimitReached,
   totalAllowedSeconds,
 }: UseGeminiLiveOptions) => {
+  // Session UI states
   const [wsStatus, setWsStatus] = useState<VoiceSessionStatus>("idle");
   const [audioStatus, setAudioStatus] = useState<VoiceAudioStatus>("idle");
   const [isListening, setIsListening] = useState(false);
   const [activeTranscript, setActiveTranscript] =
     useState<AgentTranscript | null>(null);
+
+  // Keeps the screen awake during an active session
   const noSleep = useRef(new NoSleep());
-  // ── Audio level state for visualization ──────────────────────────────────
-  // These are smoothed RMS values (0–1) sampled into React state.
-  // Raw values are stored in refs and throttled to avoid re-render storms.
+
+  // --- Audio level state for visualization ---
+  // Smoothed RMS values (0-1) sampled into React state at ~30fps
   const micLevelRef = useRef(0);
   const aiAudioLevelRef = useRef(0);
   const [micLevel, setMicLevel] = useState(0);
   const [aiAudioLevel, setAiAudioLevel] = useState(0);
 
-  // Throttle level updates to ~30fps using rAF batching
   const levelRafRef = useRef<number>(0);
   const scheduleLevelUpdate = useCallback(() => {
-    if (levelRafRef.current) return; // already scheduled
+    if (levelRafRef.current) return;
     levelRafRef.current = requestAnimationFrame(() => {
       levelRafRef.current = 0;
       setMicLevel(micLevelRef.current);
       setAiAudioLevel(aiAudioLevelRef.current);
-      // Decay AI level toward zero when no new chunks arrive
-      aiAudioLevelRef.current *= 0.85;
+      aiAudioLevelRef.current *= 0.85; // Decay AI level toward zero
     });
   }, []);
+
+  // --- Core references ---
   const aiClientRef = useRef<GoogleGenAI | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const previousHandleRef = useRef<string | null>(null);
   const isDisconnectingRef = useRef(false);
+
   const [duration, setDuration] = useState(0);
   const sessionIdRef = useRef<string>(crypto.randomUUID());
-  const isSyncingRef = useRef(false);
+  
+  // Controls the auto-reconnection loop for dropped or goAway connections
   const reconnectAttemptsRef = useRef(0);
+  const MAX_RECONNECT_ATTEMPTS = 5;
 
-  // Memory efficient accumulation
+  // Transcript memory accumulation
   const userPartsRef = useRef<string[]>([]);
   const aiPartsRef = useRef<string[]>([]);
   const allTranscriptsRef = useRef<Transcript[]>([]);
 
-  // Track which transcripts are currently being synced to avoid duplicate writes on retry
-  const syncingTranscriptsRef = useRef<Transcript[]>([]);
+  // Sub-hooks for modularity
+  const { syncSessionToBuffer } = useFirebaseSync({
+    sessionId: sessionIdRef.current,
+    userId,
+    userName,
+    preferedVoice,
+    allTranscriptsRef,
+  });
 
-  // Audio Processing Contexts
+  const { getEphemeralToken } = useEphemeralToken();
+
+  // --- Audio Processing Contexts ---
   const audioCtxRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<AudioWorkletNode | null>(null);
   const playerNodeRef = useRef<AudioWorkletNode | null>(null);
-  const masterGainRef = useRef<GainNode | null>(null);
 
-  // ── Extended audio chain refs ────────────────────────────────────────────
-  // These nodes form the broadcast-quality processing chain between the
-  // pcm-player-processor worklet and ctx.destination:
-  //   highPass → presenceEQ → gain → limiter → outputTrim → destination
+  // --- Extended Audio Chain Refs ---
   const highPassRef = useRef<BiquadFilterNode | null>(null);
   const presenceEQRef = useRef<BiquadFilterNode | null>(null);
   const limiterRef = useRef<DynamicsCompressorNode | null>(null);
   const outputTrimRef = useRef<GainNode | null>(null);
+  const masterGainRef = useRef<GainNode | null>(null);
 
-  // Token cache
-  const ephemeralTokenRef = useRef<{ token: string; expiresAt: number } | null>(
-    null,
-  );
-
-  // Max reconnect attempts before giving up and surfacing an error
-  const MAX_RECONNECT_ATTEMPTS = 5;
-
-  // ── Recorder callback refs ────────────────────────────────────────────────
-  // Stored as refs so that the hot-path callbacks (processor.port.onmessage
-  // and schedulePCMChunk) always see the latest function reference without
-  // appearing in their useCallback dependency arrays. This prevents the
-  // entire connectToGemini callback from being recreated whenever the parent
-  // re-renders — which would cause the session to restart unexpectedly.
+  // Latest callback references to avoid dependency re-renders
   const onUserAudioChunkRef = useRef(onUserAudioChunk);
   const onAIAudioChunkRef = useRef(onAIAudioChunk);
+
   useEffect(() => {
     onUserAudioChunkRef.current = onUserAudioChunk;
   }, [onUserAudioChunk]);
+  
   useEffect(() => {
     onAIAudioChunkRef.current = onAIAudioChunk;
   }, [onAIAudioChunk]);
 
-  /**
-   * Wall-clock ms of when the WebSocket 'open' event fired.
-   * Used to compute per-chunk timestamps as (Date.now() - sessionStartRef.current).
-   * Reset each time connectToGemini runs.
-   */
   const sessionStartRef = useRef<number>(0);
 
-  const syncSessionToBuffer = useCallback(
-    async (currentDuration: number) => {
-      if (isSyncingRef.current || allTranscriptsRef.current.length === 0)
-        return;
-
-      try {
-        isSyncingRef.current = true;
-        // Snapshot what we're about to sync into a dedicated ref BEFORE the await.
-        // This means:
-        //   a) New transcripts arriving during the async write go into allTranscriptsRef
-        //      and are NOT cleared if this sync fails.
-        //   b) We only clear exactly what was successfully committed, preventing duplicates.
-        syncingTranscriptsRef.current = [...allTranscriptsRef.current];
-
-        const bufferRef = doc(
-          db,
-          COLLECTIONS.VOICE_SESSION_BUFFERS,
-          sessionIdRef.current,
-        );
-
-        const snapshot = await getDoc(bufferRef);
-
-        if (!snapshot.exists()) {
-          await setDoc(bufferRef, {
-            sessionId: sessionIdRef.current,
-            userId,
-            userName,
-            preferedVoice,
-            duration: currentDuration,
-            transcripts: syncingTranscriptsRef.current,
-            updatedAt: serverTimestamp(),
-            status: "active",
-          });
-        } else {
-          // Read existing transcripts and append new ones manually.
-          // arrayUnion would silently deduplicate identical objects (e.g. user says
-          // "Yes" or "Okay" twice), which causes real data loss for short repeated
-          // user turns. Manual concatenation preserves every turn.
-          const existingTranscripts = Array.isArray(
-            snapshot.data()?.transcripts,
-          )
-            ? (snapshot.data()!.transcripts as Transcript[])
-            : [];
-          await updateDoc(bufferRef, {
-            transcripts: [
-              ...existingTranscripts,
-              ...syncingTranscriptsRef.current,
-            ],
-            duration: currentDuration,
-            updatedAt: serverTimestamp(),
-          });
-        }
-
-        // Only clear the transcripts that were CONFIRMED written.
-        // Any transcripts that arrived during the awaits above are safely preserved
-        // at the front of allTranscriptsRef.current.
-        allTranscriptsRef.current = allTranscriptsRef.current.slice(
-          syncingTranscriptsRef.current.length,
-        );
-        syncingTranscriptsRef.current = [];
-      } catch (error) {
-        console.error("[gemini-live] Sync failed:", error);
-        // On failure, do NOT clear allTranscriptsRef. The in-flight batch
-        // is abandoned and will be retried on the next sync tick.
-        syncingTranscriptsRef.current = [];
-      } finally {
-        isSyncingRef.current = false;
-      }
-    },
-    [userId, userName, preferedVoice],
-  );
-
-  const getEphemeralToken = useCallback(async (forceRefresh = false) => {
-    if (
-      !forceRefresh &&
-      ephemeralTokenRef.current &&
-      Date.now() < ephemeralTokenRef.current.expiresAt - 5000
-    ) {
-      return ephemeralTokenRef.current.token;
-    }
-
-    // Clear the cache before fetching so a failed fetch doesn't leave a stale entry
-    ephemeralTokenRef.current = null;
-
-    const res = await fetch("/api/gemini-token");
-    if (!res.ok) {
-      throw new Error(`Failed to fetch ephemeral token: ${res.statusText}`);
-    }
-    const data = await res.json();
-    if (data.error) {
-      throw new Error(data.error);
-    }
-    // Token valid for 30 minutes. We'll cache it for 25 mins.
-    ephemeralTokenRef.current = {
-      token: data.token,
-      expiresAt: Date.now() + 25 * 60 * 1000,
-    };
-    return data.token;
-  }, []);
-
+  // Finalizes the current user statement and appends it to transcripts history
   const finalizeUserTurn = useCallback(() => {
     if (userPartsRef.current.length > 0) {
       const fullText = userPartsRef.current.join("").trim();
@@ -261,6 +116,7 @@ export const useGeminiLive = ({
     }
   }, []);
 
+  // Finalizes the current AI statement and appends it to transcripts history
   const finalizeAITurn = useCallback(() => {
     if (aiPartsRef.current.length > 0) {
       const fullText = aiPartsRef.current.join("").trim();
@@ -271,6 +127,10 @@ export const useGeminiLive = ({
     }
   }, []);
 
+  /**
+   * Initializes or returns the cached AudioContext along with the 
+   * custom broadcast-quality audio chain (EQ, Limiter).
+   */
   const getOrCreateAudioCtx = useCallback((sampleRate: number) => {
     if (
       audioCtxRef.current &&
@@ -281,84 +141,35 @@ export const useGeminiLive = ({
     }
 
     audioCtxRef.current?.close().catch(() => {});
-
-    // Explicitly use the type from DOM
-    const AudioContextClass =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.AudioContext || (window as any).webkitAudioContext;
-    const ctx = new AudioContextClass({
-      sampleRate,
-      latencyHint: "interactive",
-    });
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioContextClass({ sampleRate, latencyHint: "interactive" });
     audioCtxRef.current = ctx;
 
-    // ── Build the full audio processing chain ──────────────────────────────
-    // Chain: playerNode → highPass → presenceEQ → gain → limiter → trim → dest
-    //
-    // 1. High-pass filter — cuts sub-80Hz rumble before anything amplifies it
-    const highPass = ctx.createBiquadFilter();
-    highPass.type = "highpass";
-    highPass.frequency.value = 80;
-    highPass.Q.value = 0.7071; // Butterworth (maximally flat passband)
-    highPassRef.current = highPass;
-
-    // 2. Presence EQ — lifts the 3kHz consonant band for speech clarity
-    const presenceEQ = ctx.createBiquadFilter();
-    presenceEQ.type = "peaking";
-    presenceEQ.frequency.value = 3000;
-    presenceEQ.Q.value = 1.2; // moderate width (~1 octave)
-    presenceEQ.gain.value = 4; // +4dB lift in the presence band
-    presenceEQRef.current = presenceEQ;
-
-    // 3. Master gain — the node that toggleAudioMute ramps between 0 and 1.4
-    const gainNode = ctx.createGain();
-    gainNode.gain.value = 1.4;
-    masterGainRef.current = gainNode;
-
-    // 4. Limiter — brick-wall ceiling at -4dB so the gain boost never clips
-    //    Using DynamicsCompressorNode configured as a hard limiter:
-    //    - threshold at -4dB: signal above this gets compressed
-    //    - ratio 20:1: virtually infinite compression (brick wall)
-    //    - attack 0.001s: near-instant catch of transient peaks
-    //    - release 0.05s: fast release to avoid pumping artifacts
-    //    - knee 0dB: hard knee for true limiting behavior
-    const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -4;
-    limiter.ratio.value = 20;
-    limiter.attack.value = 0.001;
-    limiter.release.value = 0.05;
-    limiter.knee.value = 0;
-    limiterRef.current = limiter;
-
-    // 5. Output trim — final -0.5dB safety margin against inter-sample peaks
-    //    -0.5dB ≈ 10^(-0.5/20) ≈ 0.9441
-    const outputTrim = ctx.createGain();
-    outputTrim.gain.value = 0.9441;
-    outputTrimRef.current = outputTrim;
-
-    // Wire the chain: highPass → presenceEQ → gain → limiter → trim → destination
-    highPass.connect(presenceEQ);
-    presenceEQ.connect(gainNode);
-    gainNode.connect(limiter);
-    limiter.connect(outputTrim);
-    outputTrim.connect(ctx.destination);
+    // Utilize modular audio chain setup
+    const chain = createGeminiAudioChain(ctx);
+    highPassRef.current = chain.highPass;
+    presenceEQRef.current = chain.presenceEQ;
+    masterGainRef.current = chain.masterGain;
+    limiterRef.current = chain.limiter;
+    outputTrimRef.current = chain.outputTrim;
 
     return ctx;
   }, []);
 
+  /**
+   * Schedules a chunk of PCM audio received from Gemini API for playback.
+   * Feeds visualizer data and intercepts audio buffers if recordings are active.
+   */
   const schedulePCMChunk = useCallback(
     (base64Data: string) => {
       const player = playerNodeRef.current;
       if (!player) return;
 
-      // Resume context if suspended (e.g. autoplay policy)
       const ctx = audioCtxRef.current;
       if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
 
-      // Decode Base64 → binary → ArrayBuffer, then transfer to player worklet.
-      // The ring-buffer worklet handles Int16→Float32 conversion internally and
-      // plays samples from a continuous buffer — no chunk boundaries, no clicks.
+      // Convert Base64 payload to UInt8 buffer
       const binaryString = atob(base64Data);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
@@ -366,30 +177,20 @@ export const useGeminiLive = ({
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      // ── Recorder interception (AI audio) ─────────────────────────────────────
-      // IMPORTANT: We need two consumers for this data:
-      //   1. The player worklet  — receives `bytes.buffer` via a transferable.
-      //   2. The recorder worker — needs its own copy because transferring to
-      //      the player DETACHES the buffer (byteLength → 0).
-      //
-      // Decision: `Uint8Array.prototype.slice()` creates a new ArrayBuffer copy
-      // (~4 KB per chunk). This is the one unavoidable allocation in the hot path.
-      // We cannot use SharedArrayBuffer because it requires COOP/COEP headers
-      // which add significant server-config complexity.
-      //
-      // We create the copy BEFORE the player transfer so `bytes` is still intact.
+      // Slice out an identical copy for the audio chunk callback (recorder)
+      // because passing `bytes.buffer` via postMessage detaches it completely.
       if (onAIAudioChunkRef.current) {
-        const recordBuf = bytes.slice().buffer; // copy for recorder
+        const recordBuf = bytes.slice().buffer;
         const ts = Date.now() - sessionStartRef.current;
         onAIAudioChunkRef.current(recordBuf, ts);
       }
 
-      // Compute RMS of AI audio chunk for visualizer
+      // Measure AI audio level for UI visualization
       {
         const int16View = new Int16Array(
           bytes.buffer,
           bytes.byteOffset,
-          bytes.byteLength / 2,
+          bytes.byteLength / 2
         );
         let sum = 0;
         for (let i = 0; i < int16View.length; i++) {
@@ -400,15 +201,14 @@ export const useGeminiLive = ({
         scheduleLevelUpdate();
       }
 
-      // Zero-copy transfer to audio thread (bytes.buffer is detached after this)
+      // Queue playback payload
       player.port.postMessage(bytes.buffer, [bytes.buffer]);
       setAudioStatus("playing");
     },
-    [scheduleLevelUpdate],
+    [scheduleLevelUpdate]
   );
 
   const stopAudio = useCallback(() => {
-    // Tell the player worklet to flush its ring buffer immediately
     if (playerNodeRef.current) {
       playerNodeRef.current.port.postMessage({ command: "endOfAudio" });
     }
@@ -417,149 +217,100 @@ export const useGeminiLive = ({
 
   const wsStatusRef = useRef(wsStatus);
   const durationRef = useRef(duration);
-  useEffect(() => {
-    wsStatusRef.current = wsStatus;
-  }, [wsStatus]);
+  useEffect(() => { wsStatusRef.current = wsStatus; }, [wsStatus]);
+  useEffect(() => { durationRef.current = duration; }, [duration]);
 
-  useEffect(() => {
-    durationRef.current = duration;
-  }, [duration]);
-
+  /**
+   * Main connection loop to the Gemini WebSockets Live API.
+   * Handles initialization, reconnect cycles, VAD streaming, and incoming transcripts.
+   */
   const connectToGemini = useCallback(
     async (isReconnect = false, forceTokenRefresh = false) => {
       try {
-        if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open"))
-          return;
+        if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open")) return;
         isDisconnectingRef.current = false;
 
-        // Only show 'connecting' state on initial start, not during background reconnects.
-        // This ensures the user doesn't see a UI jump or hear sounds during the invisible transition.
+        // Reset state only on fresh starts, avoid UI jumps during background reconnects
         if (!isReconnect) {
           setWsStatus("connecting");
-        }
-
-        if (!isReconnect) {
-          // Prevent the display from sleeping during the voice call
           noSleep.current.enable();
-          // Reset all session state for a fresh start
           setDuration(0);
           durationRef.current = 0;
           allTranscriptsRef.current = [];
-          syncingTranscriptsRef.current = [];
           userPartsRef.current = [];
           aiPartsRef.current = [];
           setActiveTranscript(null);
           previousHandleRef.current = null;
           sessionIdRef.current = crypto.randomUUID();
-          reconnectAttemptsRef.current = 0; // reset retry budget for this fresh call
+          reconnectAttemptsRef.current = 0;
         }
 
-        // Initialize audio context to get mic input
         let ctx = audioCtxRef.current;
         let processor = processorRef.current;
         let source: MediaStreamAudioSourceNode | undefined;
 
+        // Initialize mic and worklet layers
         if (!isReconnect) {
-          ctx = getOrCreateAudioCtx(24000); // 24kHz output
+          ctx = getOrCreateAudioCtx(24000);
           const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              channelCount: 1,
-              echoCancellation: true,
-              autoGainControl: true,
-              noiseSuppression: true,
-            },
+            audio: { channelCount: 1, echoCancellation: true, autoGainControl: true, noiseSuppression: true },
           });
           mediaStreamRef.current = stream;
 
-          // Load worklets from proper file URLs
           await Promise.all([
             ctx.audioWorklet.addModule("/js/pcm-processor.js"),
             ctx.audioWorklet.addModule("/js/pcm-player-processor.js"),
           ]);
 
           source = ctx.createMediaStreamSource(stream);
-          processor = new AudioWorkletNode(ctx, "pcm-processor", {
-            channelCount: 1,
-          });
+          processor = new AudioWorkletNode(ctx, "pcm-processor", { channelCount: 1 });
           processorRef.current = processor;
 
-          // Create the ring-buffer player node for click-free audio output
           const playerNode = new AudioWorkletNode(ctx, "pcm-player-processor");
-          // Connect to the head of the processing chain (highPass filter)
-          // Chain: playerNode → highPass → presenceEQ → gain → limiter → trim → dest
-          playerNode.connect(
-            highPassRef.current || masterGainRef.current || ctx.destination,
-          );
+          playerNode.connect(highPassRef.current || masterGainRef.current || ctx.destination);
           playerNodeRef.current = playerNode;
 
-          // Listen for buffer-drain notifications from the player worklet
           playerNode.port.onmessage = (e) => {
             if (e.data?.type === "bufferEmpty") {
               setAudioStatus("done");
             }
           };
         } else {
-          // If reconnecting, ctx and processor already exist.
           if (!ctx || !processor) {
-            console.error(
-              "[gemini-live] Missing audio context during reconnect.",
-            );
+            console.error("[gemini-live] Missing audio context during reconnect.");
             return;
           }
         }
 
-        // Force a fresh token on new sessions (so they don't start with a soon-to-expire token)
-        // OR on failure-driven reconnects (e.g. 1011 loops).
-        // Normal session resumption (goAway) should reuse the valid cached token.
         const shouldForceRefresh = !isReconnect || forceTokenRefresh;
         const token = await getEphemeralToken(shouldForceRefresh);
         if (isDisconnectingRef.current) return;
 
-        aiClientRef.current = new GoogleGenAI({
-          apiKey: token,
-          apiVersion: "v1alpha",
-        });
+        aiClientRef.current = new GoogleGenAI({ apiKey: token, apiVersion: "v1alpha" });
 
         const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
         const limitMinutes = Math.floor(effectiveLimit / 60);
         const limitSeconds = effectiveLimit % 60;
         let durationText = `${limitMinutes} minute${limitMinutes !== 1 ? "s" : ""}`;
-        if (limitSeconds > 0) {
-          durationText += ` and ${limitSeconds} second${limitSeconds !== 1 ? "s" : ""}`;
-        }
+        if (limitSeconds > 0) durationText += ` and ${limitSeconds} second${limitSeconds !== 1 ? "s" : ""}`;
 
+        // Initialize Gemini model config
         const config: LiveConnectConfig = {
           responseModalities: [Modality.AUDIO],
-          temperature:0,
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: preferedVoice.preferedVoiceId || "Zephyr",
-              },
-            },
-          },
+          temperature: 0,
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: preferedVoice.preferedVoiceId || "Zephyr" } } },
           tools: [{ googleSearch: {} }],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
-          // Using context window compression for extended sessions >15 mins
           contextWindowCompression: { slidingWindow: {} },
           systemInstruction: {
-            parts: [
-              {
-                text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({
-                  user: userName,
-                  instructor: preferedVoice.preferedVoiceName,
-                  maxDurationText: durationText,
-                }),
-              },
-            ],
+            parts: [{ text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({ user: userName, instructor: preferedVoice.preferedVoiceName, maxDurationText: durationText }) }],
           },
         };
 
+        // Resume an existing session via generated handles
         if (previousHandleRef.current) {
-          config.sessionResumption = {
-            handle: previousHandleRef.current,
-          };
+          config.sessionResumption = { handle: previousHandleRef.current };
         }
 
         const session = await aiClientRef.current.live.connect({
@@ -569,40 +320,23 @@ export const useGeminiLive = ({
             onopen: () => {
               console.log("[gemini-live] open");
               setWsStatus("open");
-              if (!isReconnect) {
-                setActiveTranscript({ speaker: "system", text: "Ready." });
-              }
-              reconnectAttemptsRef.current = 0; // Reset retry counter on success
+              if (!isReconnect) setActiveTranscript({ speaker: "system", text: "Ready." });
+              reconnectAttemptsRef.current = 0; // Reset reconnection retry counter 
 
-              // Record session start time for chunk timestamps (only on new calls to preserve sync? Or update it?).
-              // For reconnect, the timestamp logic might be slightly offset, but relative times are fine for chunks.
-              if (!isReconnect) {
-                sessionStartRef.current = Date.now();
-              }
+              if (!isReconnect) sessionStartRef.current = Date.now();
+              if (processor && source && !isReconnect) source.connect(processor);
 
-              if (processor && source && !isReconnect) {
-                source.connect(processor);
-              }
-
-              // Attach mic input handler
+              // Setup microphone audio transmission
               if (processor) {
                 processor.port.onmessage = (e) => {
                   if (isDisconnectingRef.current) return;
-
                   const { pcm, volume, isSpeaking } = e.data;
                   setIsListening(isSpeaking);
 
-                  // Feed mic level to visualizer (smoothed)
                   micLevelRef.current = volume;
                   scheduleLevelUpdate();
 
                   if (sessionRef.current) {
-                    // pcm is an ArrayBuffer (Int16 @ 16 kHz) transferred from the
-                    // pcm-processor worklet. At this point the main thread owns it.
-
-                    // Build base64 for Gemini. This reads `pcm` but does NOT
-                    // transfer/detach it — the Gemini SDK receives a string, not
-                    // the buffer. So `pcm` stays valid after sendRealtimeInput.
                     const uint8Array = new Uint8Array(pcm);
                     let binaryStr = "";
                     for (let i = 0; i < uint8Array.length; i++) {
@@ -612,16 +346,10 @@ export const useGeminiLive = ({
 
                     try {
                       sessionRef.current.sendRealtimeInput({
-                        audio: {
-                          data: base64Audio,
-                          mimeType: "audio/pcm;rate=16000",
-                        },
+                        audio: { data: base64Audio, mimeType: "audio/pcm;rate=16000" },
                       });
                     } catch (err) {
-                      console.error(
-                        "[gemini-live] sendRealtimeInput failed:",
-                        err,
-                      );
+                      console.error("[gemini-live] sendRealtimeInput failed:", err);
                       if (processorRef.current) {
                         processorRef.current.disconnect();
                         processorRef.current = null;
@@ -631,22 +359,9 @@ export const useGeminiLive = ({
                       return;
                     }
 
-                    // ── Recorder interception (user audio) ────────────────────────
-                    // NOW transfer `pcm` to the recorder worker.
-                    // This is zero-copy: we transfer ownership of the ArrayBuffer
-                    // that was handed to us from the worklet. After this line, `pcm`
-                    // is detached on the main thread — but we already finished using
-                    // it for the Gemini sendRealtimeInput above, so this is safe.
-                    //
-                    // We only record chunks while the user is actually speaking
-                    // (isSpeaking from VAD) to avoid storing silence in IDB and
-                    // bloating the WAV file with dead air during listening pauses.
-                    // Note: we still send all audio to Gemini (including non-speaking
-                    // frames) so Gemini's own VAD functions correctly.
                     if (onUserAudioChunkRef.current && isSpeaking) {
                       const ts = Date.now() - sessionStartRef.current;
                       onUserAudioChunkRef.current(pcm, ts);
-                      // `pcm` buffer is now detached — do not use it below this line
                     }
                   }
                 };
@@ -655,7 +370,6 @@ export const useGeminiLive = ({
             onmessage: (msg) => {
               if (isDisconnectingRef.current) return;
 
-              // Handle audio interruption
               if (msg.serverContent?.interrupted) {
                 console.log("[gemini-live] Interrupted!");
                 finalizeAITurn();
@@ -663,58 +377,43 @@ export const useGeminiLive = ({
                 stopAudio();
               }
 
-              // Save new handles for resumption
               if (msg.sessionResumptionUpdate?.newHandle) {
-                previousHandleRef.current =
-                  msg.sessionResumptionUpdate.newHandle;
+                previousHandleRef.current = msg.sessionResumptionUpdate.newHandle;
               }
 
-              // End of goAway signal / graceful stop needed
+              // Server requested rotation, reconnect seamlessly
               if (msg.goAway) {
-                console.log(
-                  "[gemini-live] Received GoAway. Reconnecting gracefully...",
-                );
+                console.log("[gemini-live] Received GoAway. Reconnecting gracefully...");
                 if (!isDisconnectingRef.current && durationRef.current < 1800) {
-                  sessionRef.current?.close(); // Proactively close to trigger seamless reconnect
+                  sessionRef.current?.close();
                 }
               }
 
-              // Process parts
+              // Route PCM data to playback
               if (msg.serverContent?.modelTurn?.parts) {
                 for (const part of msg.serverContent.modelTurn.parts) {
-                  if (
-                    part.inlineData &&
-                    part.inlineData?.mimeType?.startsWith("audio/pcm")
-                  ) {
+                  if (part.inlineData && part.inlineData?.mimeType?.startsWith("audio/pcm")) {
                     schedulePCMChunk(part.inlineData.data as string);
                   }
                 }
               }
 
+              // Accumulate textual transcripts emitted by API processing
               if (msg.serverContent?.inputTranscription) {
                 const txt = msg.serverContent.inputTranscription.text;
                 if (txt) {
-                  // If AI was speaking, finalize its turn before starting user output
                   finalizeAITurn();
                   userPartsRef.current.push(txt);
-                  const current = userPartsRef.current.join("");
-                  // Use activeTranscript for unified UI display
-                  setActiveTranscript({ speaker: "user", text: current });
+                  setActiveTranscript({ speaker: "user", text: userPartsRef.current.join("") });
                 }
               }
 
-              // Output Transcription
               if (msg.serverContent?.outputTranscription) {
                 const txt = msg.serverContent.outputTranscription.text;
                 if (txt) {
-                  // If User was speaking, finalize its turn before starting AI output
                   finalizeUserTurn();
                   aiPartsRef.current.push(txt);
-                  const current = aiPartsRef.current.join("");
-                  setActiveTranscript({
-                    speaker: "ai",
-                    text: current,
-                  });
+                  setActiveTranscript({ speaker: "ai", text: aiPartsRef.current.join("") });
                 }
               }
 
@@ -727,62 +426,48 @@ export const useGeminiLive = ({
               console.error("[gemini-live] Error:", err);
               sessionRef.current = null;
               setIsListening(false);
+              
               if (!isDisconnectingRef.current && durationRef.current < 1800) {
                 if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-                  console.error(
-                    `[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`,
-                  );
+                  console.error(`[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
                   setWsStatus("error");
-                  setActiveTranscript({
-                    speaker: "system",
-                    text: "Connection error. Please try again.",
-                  });
+                  setActiveTranscript({ speaker: "system", text: "Connection error. Please try again." });
                   reconnectAttemptsRef.current = 0;
                   return;
                 }
                 reconnectAttemptsRef.current += 1;
                 const delay = Math.min(500 * reconnectAttemptsRef.current, 5000);
                 console.log(`[gemini-live] Reconnecting after error (attempt ${reconnectAttemptsRef.current})...`);
+                // eslint-disable-next-line
                 setTimeout(() => connectToGemini(true, true), delay);
                 return;
               }
-              setActiveTranscript({
-                speaker: "system",
-                text: "Connection error.",
-              });
+              setActiveTranscript({ speaker: "system", text: "Connection error." });
               setWsStatus("error");
             },
             onclose: (ev) => {
               console.log("[gemini-live] Closed:", ev);
               sessionRef.current = null;
               setIsListening(false);
+              
               if (!isDisconnectingRef.current && durationRef.current < 1800) {
-                // Determine if this is an error close (e.g. 1011) or graceful (1000/1005)
                 const isErrorClose = ev.code !== 1000 && ev.code !== 1005;
                 const forceTokenRefresh = isErrorClose || reconnectAttemptsRef.current > 0;
 
-                // Guard against infinite reconnect loops (e.g. Firefox 1011 cycles)
                 if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-                  console.error(
-                    `[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`,
-                  );
+                  console.error(`[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
                   setWsStatus("error");
-                  setActiveTranscript({
-                    speaker: "system",
-                    text: "Connection lost. Please try again.",
-                  });
+                  setActiveTranscript({ speaker: "system", text: "Connection lost. Please try again." });
                   reconnectAttemptsRef.current = 0;
                   return;
                 }
                 
-                // Only increment attempt counter on errors, so graceful reconnects don't exhaust the budget
                 if (isErrorClose) {
                   reconnectAttemptsRef.current += 1;
                 }
                 const delay = isErrorClose ? Math.min(500 * reconnectAttemptsRef.current, 5000) : 500;
-                console.log(
-                  `[gemini-live] Seamlessly reconnecting (attempt ${reconnectAttemptsRef.current})...`,
-                );
+                console.log(`[gemini-live] Seamlessly reconnecting (attempt ${reconnectAttemptsRef.current})...`);
+                // eslint-disable-next-line
                 setTimeout(() => connectToGemini(true, forceTokenRefresh), delay);
                 return;
               }
@@ -792,28 +477,21 @@ export const useGeminiLive = ({
         });
 
         if (isDisconnectingRef.current) {
-          console.log(
-            "[gemini-live] Connection established but disconnect was already requested. Closing session.",
-          );
           session.close();
           return;
         }
 
         sessionRef.current = session;
 
+        // Automatically start the conversation
         if (!isReconnect) {
-          sessionRef.current.sendRealtimeInput({
-            text: "Hello",
-          });
+          sessionRef.current.sendRealtimeInput({ text: "Hello" });
         }
       } catch (error) {
         console.error("[gemini-live] Connection error:", error);
-        if (
-          isReconnect &&
-          !isDisconnectingRef.current &&
-          durationRef.current < 1800
-        ) {
-          setTimeout(() => connectToGemini(true, true), 2000); // Retry reconnect with delay
+        if (isReconnect && !isDisconnectingRef.current && durationRef.current < 1800) {
+          // eslint-disable-next-line
+          setTimeout(() => connectToGemini(true, true), 2000);
           return;
         }
         setWsStatus("error");
@@ -836,15 +514,13 @@ export const useGeminiLive = ({
     ],
   );
 
+  /**
+   * Safely terminates all session loops, recording modules, and audio environments.
+   */
   const disconnectFromGemini = useCallback(async () => {
-    // Flush any in-progress user/AI transcript segments into allTranscriptsRef
-    // BEFORE setting the disconnecting flag. This ensures that partial turns
-    // accumulated in userPartsRef/aiPartsRef are not silently dropped when
-    // the message handler starts ignoring new events.
     finalizeUserTurn();
     finalizeAITurn();
 
-    // Disable when the session ends to save user battery
     noSleep.current.disable();
     isDisconnectingRef.current = true;
 
@@ -860,23 +536,10 @@ export const useGeminiLive = ({
       playerNodeRef.current = null;
     }
 
-    // Disconnect extended audio chain nodes
-    if (highPassRef.current) {
-      highPassRef.current.disconnect();
-      highPassRef.current = null;
-    }
-    if (presenceEQRef.current) {
-      presenceEQRef.current.disconnect();
-      presenceEQRef.current = null;
-    }
-    if (limiterRef.current) {
-      limiterRef.current.disconnect();
-      limiterRef.current = null;
-    }
-    if (outputTrimRef.current) {
-      outputTrimRef.current.disconnect();
-      outputTrimRef.current = null;
-    }
+    if (highPassRef.current) { highPassRef.current.disconnect(); highPassRef.current = null; }
+    if (presenceEQRef.current) { presenceEQRef.current.disconnect(); presenceEQRef.current = null; }
+    if (limiterRef.current) { limiterRef.current.disconnect(); limiterRef.current = null; }
+    if (outputTrimRef.current) { outputTrimRef.current.disconnect(); outputTrimRef.current = null; }
 
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -884,15 +547,10 @@ export const useGeminiLive = ({
     }
 
     if (sessionRef.current) {
-      try {
-        // Note: with GenAI SDK, sendRealtimeInput is supported, but audioStreamEnd may need specific shape
-        // if we are using the SDK. We will close directly.
-        sessionRef.current.close();
-      } catch {}
+      try { sessionRef.current.close(); } catch {}
       sessionRef.current = null;
     }
 
-    // Close audio context last to ensure cleanup is complete
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(() => {});
       audioCtxRef.current = null;
@@ -932,43 +590,34 @@ export const useGeminiLive = ({
     return allTranscriptsRef.current;
   }, [finalizeUserTurn, finalizeAITurn]);
 
+  // Session duration tracker, triggering buffers and user notifications
   useEffect(() => {
     const interval = setInterval(() => {
       if (wsStatusRef.current === "open") {
         setDuration((prev) => {
           const next = prev + 1;
+          
+          // Trigger saving logic every 10 seconds 
           if (next % 10 === 0) {
             syncSessionToBuffer(next);
           }
 
           const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
 
-          if (
-            next === effectiveLimit - 300 &&
-            effectiveLimit > 600 &&
-            effectiveLimit <= 1800
-          ) {
+          if (next === effectiveLimit - 300 && effectiveLimit > 600 && effectiveLimit <= 1800) {
             try {
               sessionRef.current?.sendRealtimeInput({
                 text: "SYSTEM NOTIFICATION: 5 minutes remaining until the session limit. Please inform the user gracefully.",
               });
-            } catch (err) {
-              console.error("[gemini-live] 5m warning error:", err);
-            }
+            } catch (err) { console.error("[gemini-live] 5m warning error:", err); }
           }
 
-          if (
-            next === effectiveLimit - 120 &&
-            effectiveLimit > 300 &&
-            effectiveLimit <= 1800
-          ) {
+          if (next === effectiveLimit - 120 && effectiveLimit > 300 && effectiveLimit <= 1800) {
             try {
               sessionRef.current?.sendRealtimeInput({
                 text: "SYSTEM NOTIFICATION: 2 minutes remaining. Please inform the user and continue your response uninterrupted.",
               });
-            } catch (err) {
-              console.error("[gemini-live] 2m warning error:", err);
-            }
+            } catch (err) { console.error("[gemini-live] 2m warning error:", err); }
           }
 
           if (next === effectiveLimit - 10 && effectiveLimit > 10) {
@@ -976,36 +625,22 @@ export const useGeminiLive = ({
               sessionRef.current?.sendRealtimeInput({
                 text: "SYSTEM NOTIFICATION: The session limit has been reached. Please gracefully inform the user that time is over, thank them for their time, and warmly invite them to call back if they have any further legal concerns. Be creative and as polite as possible in your final 10 seconds.",
               });
-            } catch (err) {
-              console.error("[gemini-live] 10s warning error:", err);
-            }
+            } catch (err) { console.error("[gemini-live] 10s warning error:", err); }
           }
 
           if (next >= effectiveLimit) {
-            // Duration limit reached. We call the callback if provided.
-            // We NO LONGER call disconnectFromGemini() here automatically,
-            // because the consumer (GeminiVoiceConnection) needs to perform
-            // its own handleEndCall() logic to ensure billing and saving.
-            if (onDurationLimitReached) {
-              onDurationLimitReached();
-            }
+            if (onDurationLimitReached) onDurationLimitReached();
           }
           return next;
         });
       }
     }, 1000);
 
-    // Cleanup only clears the interval. Disconnection is handled explicitly
-    // by the consumer (e.g. unmount, user action) — not implicitly by effect cleanup.
     return () => {
       clearInterval(interval);
       noSleep.current.disable();
     };
-
-    // wsStatus intentionally excluded. We read it via wsStatusRef.current inside
-    // the interval so we always get the latest value without re-subscribing.
   }, [
-    disconnectFromGemini,
     onDurationLimitReached,
     syncSessionToBuffer,
     totalAllowedSeconds,
