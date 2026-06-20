@@ -12,11 +12,11 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store";
 import { getDeviceStats } from "@/utils/device";
 import { CustomButton } from "@/components/ui/custom-button";
-
+// 012Mv@123
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("012Mv@123");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
