@@ -14,8 +14,9 @@ const Faq = () => {
         <motion.h2
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false, amount: 0.5 }}
+          viewport={{ once: true, amount: 0.5 }}
           variants={fadeInUp}
+          style={{ willChange: "transform, opacity" }}
           className="text-3xl font-extrabold text-center text-slate-900 dark:text-white mb-12"
         >
           Frequently Asked Questions
@@ -26,8 +27,9 @@ const Faq = () => {
               key={i}
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: false, margin: "-50px" }}
+              viewport={{ once: true, margin: "-50px" }}
               variants={fadeInUp}
+              style={{ willChange: "transform, opacity" }}
               className={`border rounded-2xl overflow-hidden transition-all duration-300 ${openFaq === i ? "border-orange-500/50 dark:border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.1)]" : "border-slate-200 dark:border-white/10"}`}
             >
               <button
@@ -45,6 +47,7 @@ const Faq = () => {
                 <motion.div
                   animate={{ rotate: openFaq === i ? 180 : 0 }}
                   transition={{ duration: 0.3 }}
+                  style={{ willChange: "transform" }}
                   aria-hidden="true"
                 >
                   {openFaq === i ? (
@@ -64,6 +67,7 @@ const Faq = () => {
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3, ease: "easeInOut" }}
+                    style={{ willChange: "height, opacity" }}
                     className="overflow-hidden"
                   >
                     <div className="px-6 py-4 text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-white/5 border-l-4 border-l-orange-500">

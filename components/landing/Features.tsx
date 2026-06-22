@@ -13,8 +13,9 @@ const Features = () => {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false, amount: 0.5 }}
+          viewport={{ once: true, amount: 0.5 }}
           variants={fadeInUp}
+          style={{ willChange: "transform, opacity" }}
           className="text-center max-w-3xl mx-auto mb-16"
         >
           <h2 className="text-sm font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-3 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900/20 w-fit mx-auto border border-orange-200 dark:border-orange-800">
@@ -34,13 +35,14 @@ const Features = () => {
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false, amount: 0.1 }}
+          viewport={{ once: true, amount: 0.1 }}
           className="grid md:grid-cols-3 gap-8 perspective-1000"
         >
           {features.map((feature, idx) => (
             <motion.div
               key={idx}
               variants={cardEntrance}
+              style={{ willChange: "transform" }}
               whileHover={{
                 y: -10,
                 scale: 1.02,

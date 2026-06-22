@@ -16,13 +16,14 @@ const Hero = () => {
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
         {/* Left: Content */}
         <motion.div
+          style={{ willChange: "transform, opacity" }}
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: false, amount: 0.3 }}
           className="text-center lg:text-left relative z-20"
         >
-          <motion.div variants={fadeInUp}>
+          <motion.div variants={fadeInUp} style={{ willChange: "transform, opacity" }}>
             <div className="inline-flex items-center px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-300 text-sm font-bold mb-8 cursor-default backdrop-blur-sm shadow-[0_0_15px_rgba(249,115,22,0.1)]">
               <span className="relative flex h-2 w-2 mr-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
@@ -33,6 +34,7 @@ const Hero = () => {
           </motion.div>
 
           <motion.h1
+            style={{ willChange: "transform, opacity" }}
             variants={fadeInUp}
             className="text-5xl lg:text-7xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-6 leading-[1.1]"
           >
@@ -43,6 +45,7 @@ const Hero = () => {
           </motion.h1>
 
           <motion.p
+            style={{ willChange: "transform, opacity" }}
             variants={fadeInUp}
             className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0"
           >
@@ -52,6 +55,7 @@ const Hero = () => {
           </motion.p>
 
           <motion.div
+            style={{ willChange: "transform, opacity" }}
             variants={fadeInUp}
             className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4"
           >
@@ -87,6 +91,7 @@ const Hero = () => {
           </motion.div>
 
           <motion.div
+            style={{ willChange: "transform, opacity" }}
             variants={fadeInUp}
             className="mt-10 flex items-center justify-center lg:justify-start space-x-6 text-sm font-medium text-slate-500 dark:text-slate-400"
           >
@@ -110,7 +115,7 @@ const Hero = () => {
           whileInView={["visible", "float"]}
           viewport={{ once: false, amount: 0.3 }}
           variants={mockChatVariants}
-          style={{ perspective: 1000 }}
+          style={{ perspective: 1000, willChange: "transform, opacity" }}
           className="relative hidden lg:block"
           aria-hidden="true"
         >
@@ -119,6 +124,7 @@ const Hero = () => {
 
           {/* Chat Interface Mockup */}
           <motion.div
+            style={{ willChange: "transform" }}
             className="relative bg-white/80 dark:bg-[#111827]/90 rounded-3xl border border-white/50 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden max-w-md mx-auto"
             whileHover={{ rotateY: -5, rotateX: 5, scale: 1.02 }}
             transition={{ type: "spring", stiffness: 100, damping: 20 }}
@@ -141,6 +147,7 @@ const Hero = () => {
             <div className="p-6 space-y-6">
               {/* User Msg */}
               <motion.div
+                style={{ willChange: "transform, opacity" }}
                 initial={{ opacity: 0, x: 20, scale: 0.9 }}
                 whileInView={{ opacity: 1, x: 0, scale: 1 }}
                 transition={{ delay: 0.5, type: "spring" }}
@@ -157,6 +164,7 @@ const Hero = () => {
 
               {/* AI Msg */}
               <motion.div
+                style={{ willChange: "transform, opacity" }}
                 initial={{ opacity: 0, x: -20, scale: 0.9 }}
                 whileInView={{ opacity: 1, x: 0, scale: 1 }}
                 transition={{ delay: 1.2, type: "spring" }}

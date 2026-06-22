@@ -11,10 +11,11 @@ const Footer = () => {
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false, amount: 0.2 }}
+          viewport={{ once: true, amount: 0.2 }}
+          style={{ willChange: "transform, opacity" }}
           className="grid md:grid-cols-4 gap-12 mb-12"
         >
-          <motion.div variants={fadeInUp} className="col-span-1 md:col-span-2">
+          <motion.div variants={fadeInUp} style={{ willChange: "transform, opacity" }} className="col-span-1 md:col-span-2">
             <Link
               href="/"
               className="flex items-center space-x-2 mb-4 group focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg w-fit"
@@ -34,7 +35,7 @@ const Footer = () => {
             </p>
           </motion.div>
 
-          <motion.div variants={fadeInUp}>
+          <motion.div variants={fadeInUp} style={{ willChange: "transform, opacity" }}>
             <h4 className="font-bold text-slate-900 dark:text-white mb-4">
               Platform
             </h4>
@@ -55,7 +56,7 @@ const Footer = () => {
             </ul>
           </motion.div>
 
-          <motion.div variants={fadeInUp}>
+          <motion.div variants={fadeInUp} style={{ willChange: "transform, opacity" }}>
             <h4 className="font-bold text-slate-900 dark:text-white mb-4">
               Legal
             </h4>
@@ -102,10 +103,11 @@ const Footer = () => {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: false }}
-          transition={{ delay: 0.2, duration: 0.8 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+          style={{ willChange: "transform, opacity" }}
           className="border-t border-slate-200 dark:border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center"
         >
           <p className="text-xs text-slate-400">
