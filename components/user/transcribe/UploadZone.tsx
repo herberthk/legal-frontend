@@ -36,7 +36,8 @@ export function UploadZone({ onDrop, error }: UploadZoneProps) {
         </h2>
         <p className="text-lg text-indigo-900/60 dark:text-indigo-100/60 max-w-xl mx-auto leading-relaxed">
           Upload your handwritten legal notes, financial ledgers, or meeting
-          minutes. Scribe will transcribe and format them into pristine PDFs.
+          minutes. They will be transcribed and formatted into professional
+          digital documents with ease.
         </p>
       </div>
 

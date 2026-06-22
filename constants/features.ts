@@ -5,6 +5,10 @@ import {
   MessageSquare,
   Clock,
   History,
+  FileText,
+  AudioLines,
+  MessageCircle,
+  Mic,
 } from "lucide-react";
 export const features = [
   {
@@ -42,6 +46,49 @@ export const features = [
     title: "Smart Session Archives",
     desc: "Never lose track of advice. All voice consultations are recorded, transcribed, and stored securely in your dashboard for playback.",
     color: "pink",
+  },
+];
+
+export const coreCapabilities = [
+  {
+    title: "AI Document Review",
+    desc: "Upload complex legal documents, contracts, or court summons. Our AI instantly analyzes the text, highlights key clauses, identifies potential risks, and provides a clear, plain-English summary.",
+    icon: FileText,
+    color: "indigo",
+    href: "/login?redirect=/dashboard/review",
+    buttonText: "Review Document",
+    imageDesktop: "/features/legal document review desktop.jpg",
+    imageMobile: "/features/legal document review mobile.jpg",
+  },
+  {
+    title: "Document Transcription",
+    desc: "Have handwritten legal notes, financial ledgers, or meeting minutes in a PDF or screenshot? Upload them and get pristine, perfectly formatted digital text ready for analysis.",
+    icon: AudioLines, // Or we could change this to something like Scanner or FileCode, but AudioLines is imported. Let's keep it or I can change it later if needed.
+    color: "orange",
+    href: "/login?redirect=/dashboard/transcribe",
+    buttonText: "Transcribe Document",
+    imageDesktop: "/features/legal document transcription desktop.jpg",
+    imageMobile: "/features/legal document transcription mobile.jpg",
+  },
+  {
+    title: "Interactive Legal Chat",
+    desc: "Chat with an AI trained on Ugandan law. Ask specific questions, explore legal scenarios, and get instant, referenced answers to help you navigate your legal matters effectively.",
+    icon: MessageCircle,
+    color: "blue",
+    href: "/login?redirect=/dashboard/chat",
+    buttonText: "Start Chat",
+    imageDesktop: "/features/text chat desktop.jpg",
+    imageMobile: "/features/text chat mobile.jpg",
+  },
+  {
+    title: "Real-time Voice Consultation",
+    desc: "Experience a natural, spoken conversation with our AI legal assistant. Perfect for when you need hands-free advice or prefer speaking over typing. It listens and replies instantly.",
+    icon: Mic,
+    color: "purple",
+    href: "/login?redirect=/dashboard/voice",
+    buttonText: "Voice Consult",
+    imageDesktop: "/features/voice chat desktop.jpg",
+    imageMobile: "/features/voice chat mobile.jpg",
   },
 ];
 
