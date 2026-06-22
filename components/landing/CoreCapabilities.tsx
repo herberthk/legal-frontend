@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { coreCapabilities } from "@/constants";
 import { fadeInUp, staggerContainer, cardEntrance } from "@/constants";
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 
 const FeatureShowcase = ({ 
@@ -137,22 +137,61 @@ const CoreCapabilities = () => {
                 key={idx}
                 initial="hidden"
                 whileInView="visible"
-                viewport={{ once: false, amount: 0.2 }}
+                viewport={{ once: true, amount: 0.2 }}
                 variants={staggerContainer}
                 className={`flex flex-col ${isEven ? "lg:flex-row" : "lg:flex-row-reverse"} items-center gap-12 lg:gap-20`}
               >
                 {/* Text Content */}
-                <motion.div variants={fadeInUp} className="w-full lg:w-1/2 space-y-6">
+                <motion.div variants={fadeInUp} className="w-full lg:w-1/2 space-y-5">
+                  {/* Icon */}
                   <div className={`w-16 h-16 rounded-2xl bg-${capability.color}-100 dark:bg-${capability.color}-900/20 text-${capability.color}-600 dark:text-${capability.color}-400 flex items-center justify-center shadow-lg`}>
                     <capability.icon size={32} />
                   </div>
+
+                  {/* Badge */}
+                  {capability.badge && (
+                    <div className={`inline-flex items-center px-3 py-1 rounded-full bg-${capability.color}-50 dark:bg-${capability.color}-900/20 border border-${capability.color}-200 dark:border-${capability.color}-800/50 text-${capability.color}-700 dark:text-${capability.color}-400 text-xs font-bold uppercase tracking-wider`}>
+                      {capability.badge}
+                    </div>
+                  )}
+
+                  {/* Title */}
                   <h3 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white">
                     {capability.title}
                   </h3>
+
+                  {/* Description */}
                   <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
                     {capability.desc}
                   </p>
-                  <div className="pt-4">
+
+                  {/* Highlights */}
+                  {capability.highlights && capability.highlights.length > 0 && (
+                    <ul className="space-y-3">
+                      {capability.highlights.map((point: string, i: number) => (
+                        <motion.li
+                          key={i}
+                          initial={{ opacity: 0, x: -10 }}
+                          whileInView={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.1 * i, duration: 0.4, ease: "easeOut" }}
+                          viewport={{ once: true }}
+                          style={{ willChange: "transform, opacity" }}
+                          className="flex items-start gap-3"
+                        >
+                          <CheckCircle2
+                            size={18}
+                            className={`text-${capability.color}-500 shrink-0 mt-0.5`}
+                          />
+                          <span className="text-sm text-slate-600 dark:text-slate-400 leading-snug">
+                            {point}
+                          </span>
+                        </motion.li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* CTA */}
+                  <div className="pt-2">
                     <Link href={capability.href}>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
