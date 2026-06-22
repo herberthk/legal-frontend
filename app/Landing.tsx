@@ -12,6 +12,7 @@ import Pricing from "@/components/landing/Pricing";
 import Features from "@/components/landing/Features";
 import Hero from "@/components/landing/Hero";
 import HomeNavBar from "@/components/landing/HomeNavBar";
+import CoreCapabilities from "@/components/landing/CoreCapabilities";
 
 const LandingPage = () => {
   const showDemo = usePopStore((state) => state.showDemo);
@@ -145,6 +146,9 @@ const LandingPage = () => {
             </motion.div>
           </div>
         </motion.section>
+
+        {/* Core Capabilities */}
+        <CoreCapabilities />
 
         {/* Why Choose Us */}
         <Features />
