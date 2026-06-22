@@ -40,7 +40,7 @@ const Footer = () => {
               Platform
             </h4>
             <ul className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
-              {["Features", "Pricing", "Login", "API for Developers"].map(
+              {["Features", "Pricing", "Login"].map(
                 (link) => (
                   <li key={link}>
                     <Link
@@ -72,7 +72,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  // onClick={() => onNavigate(View.PRIVACY)}
+                 
                   href="/privacy"
                   className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left group flex items-center gap-1"
                 >
@@ -91,7 +91,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/cookie"
+                  href="/cookies"
                   className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left group flex items-center gap-1"
                 >
                   <span className="w-0 group-hover:w-2 h-0.5 bg-orange-500 transition-all"></span>

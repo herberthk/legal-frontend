@@ -12,7 +12,7 @@ export const COST_PER_VOICE_SECOND_IN_CENTS =
 export const COST_PER_THOUSAND_TOKENS_IN_CENTS =
   COST_PER_THOUSAND_TOKENS * USD_IN_CENTS;
 //Mobile Money Transaction fee percentage
-export const MOBILE_MONEY_FEE_PERCENTAGE = 0.03; // 2.5% of the amount for mobile money transactions
+export const MOBILE_MONEY_FEE_PERCENTAGE = 0.03; // 3% of the amount for mobile money transactions
 
 // App metadata
 export const APP_NAME = "LegalAdviser";
