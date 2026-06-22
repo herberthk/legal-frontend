@@ -16,8 +16,9 @@ const Pricing = () => {
         <motion.div
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false, amount: 0.5 }}
+          viewport={{ once: true, amount: 0.5 }}
           variants={fadeInUp}
+          style={{ willChange: "transform, opacity" }}
           className="text-center mb-16"
         >
           <h2
@@ -43,12 +44,13 @@ const Pricing = () => {
           variants={staggerContainer}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false, amount: 0.1 }}
+          viewport={{ once: true, amount: 0.1 }}
           className="grid lg:grid-cols-3 gap-8 items-center perspective-1000"
         >
           {/* Free Tier */}
           <motion.div
             variants={cardEntrance}
+            style={{ willChange: "transform" }}
             whileHover={{
               y: -10,
               scale: 1.02,
@@ -71,6 +73,7 @@ const Pricing = () => {
               lookups.
             </p>
             <motion.button
+              style={{ willChange: "transform" }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {}}
@@ -100,6 +103,7 @@ const Pricing = () => {
           {/* Flexible Credits (Highlighted) */}
           <motion.div
             variants={cardEntrance}
+            style={{ willChange: "transform" }}
             whileHover={{
               y: -15,
               scale: 1.05,
@@ -124,6 +128,7 @@ const Pricing = () => {
               Load credits and pay only for exact usage. No expiry.
             </p>
             <motion.button
+              style={{ willChange: "transform" }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {}}
@@ -155,6 +160,7 @@ const Pricing = () => {
           {/* Enterprise Tier */}
           <motion.div
             variants={cardEntrance}
+            style={{ willChange: "transform" }}
             whileHover={{
               y: -10,
               scale: 1.02,
@@ -175,6 +181,7 @@ const Pricing = () => {
               For small firms and NGOs requiring bulk research capabilities.
             </p>
             <motion.button
+              style={{ willChange: "transform" }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => {}}

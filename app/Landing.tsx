@@ -41,11 +41,11 @@ const LandingPage = () => {
         aria-hidden="true"
       >
         <motion.div
-          style={{ y: y1, rotate }}
+          style={{ y: y1, rotate, willChange: "transform" }}
           className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-orange-500/10 dark:bg-orange-600/10 rounded-full blur-[120px] mix-blend-multiply dark:mix-blend-screen"
         />
         <motion.div
-          style={{ y: y2, right: 0 }}
+          style={{ y: y2, right: 0, willChange: "transform" }}
           className="absolute top-[20%] right-[-5%] w-[500px] h-[500px] bg-indigo-500/10 dark:bg-indigo-600/10 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen"
         />
       </div>
@@ -61,14 +61,16 @@ const LandingPage = () => {
         <motion.section
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: false, amount: 0.5 }}
+          viewport={{ once: true, amount: 0.5 }}
           variants={staggerContainer}
+          style={{ willChange: "transform, opacity" }}
           className="border-y border-slate-200 dark:border-white/5 bg-white/50 dark:bg-white/5 backdrop-blur-sm py-10 z-10 relative"
           aria-label="Social Proof"
         >
           <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-around items-center gap-8 md:gap-12">
             <motion.div
               variants={fadeInUp}
+              style={{ willChange: "transform, opacity" }}
               className="text-center group cursor-default"
             >
               <motion.p className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
@@ -80,6 +82,7 @@ const LandingPage = () => {
             </motion.div>
             <motion.div
               variants={fadeInUp}
+              style={{ willChange: "transform, opacity" }}
               className="text-center group cursor-default"
             >
               <motion.p className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
@@ -91,6 +94,7 @@ const LandingPage = () => {
             </motion.div>
             <motion.div
               variants={fadeInUp}
+              style={{ willChange: "transform, opacity" }}
               className="text-center group cursor-default"
             >
               <motion.p className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
@@ -106,6 +110,7 @@ const LandingPage = () => {
             ></div>
             <motion.div
               variants={cardEntrance}
+              style={{ willChange: "transform, opacity" }}
               className="flex items-center space-x-2"
             >
               <div className="flex -space-x-2" aria-label="User testimonials">
@@ -167,8 +172,9 @@ const LandingPage = () => {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: false, amount: 0.5 }}
+            viewport={{ once: true, amount: 0.5 }}
             variants={cardEntrance}
+            style={{ willChange: "transform, opacity" }}
             className="max-w-5xl mx-auto bg-linear-to-br from-indigo-600 via-purple-700 to-indigo-800 rounded-3xl p-10 md:p-16 text-center shadow-2xl shadow-indigo-500/30 relative overflow-hidden"
           >
             <div
@@ -178,6 +184,7 @@ const LandingPage = () => {
             <motion.div
               animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
               transition={{ duration: 20, repeat: Infinity }}
+              style={{ willChange: "transform" }}
               className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"
               aria-hidden="true"
             ></motion.div>
@@ -196,6 +203,7 @@ const LandingPage = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                style={{ willChange: "transform" }}
                 onClick={() => {
                   logAnalyticsEvent("final_cta_click");
                 }}
