@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { fadeInUp, staggerContainer } from "@/constants";
 import { motion } from "framer-motion";
-import { Scale } from "lucide-react";
+import { LogoText } from "../global/Logo";
 
 const Footer = () => {
   return (
@@ -18,15 +18,10 @@ const Footer = () => {
           <motion.div variants={fadeInUp} style={{ willChange: "transform, opacity" }} className="col-span-1 md:col-span-2">
             <Link
               href="/"
-              className="flex items-center space-x-2 mb-4 group focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg w-fit"
+              className="flex mb-4 focus:outline-non"
               aria-label="Legal Adviser Home"
             >
-              <div className="bg-linear-to-br from-amber-500 to-orange-600 p-1.5 rounded-lg shadow-md">
-                <Scale className="w-5 h-5 text-white" aria-hidden="true" />
-              </div>
-              <span className="text-xl font-bold text-slate-900 dark:text-white">
-                LegalAdviser<span className="text-orange-600">UG</span>
-              </span>
+               <LogoText />
             </Link>
             <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed max-w-sm">
               Democratizing access to justice in Uganda through artificial
@@ -114,7 +109,7 @@ const Footer = () => {
             © 2024 LegalAdviser UG. All rights reserved.
           </p>
           <div className="flex space-x-6 mt-4 md:mt-0 text-slate-400">
-            {["Twitter", "LinkedIn", "Instagram"].map((social) => (
+            {["X(formerly Twitter)", "LinkedIn", "YouTube"].map((social) => (
               <Link
                 key={social}
                 href={`https://${social.toLowerCase()}.com`}

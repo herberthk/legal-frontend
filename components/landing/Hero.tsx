@@ -12,6 +12,7 @@ const Hero = () => {
     <section
       className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-4 overflow-hidden z-10"
       aria-label="Introduction"
+      id="hero"
     >
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
         {/* Left: Content */}
@@ -29,7 +30,8 @@ const Hero = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
               </span>
-              Gemini 2.5 Live Audio Support
+              Ask anything about Uganda&apos;s Constitution, Acts of Parliament,
+              and case law.
             </div>
           </motion.div>
 

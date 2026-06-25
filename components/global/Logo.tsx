@@ -49,7 +49,7 @@ const LogoIcon = ({
   );
 };
 
-const LogoText = () => {
+export const LogoText = () => {
   return (
     <div
       className={`text-xl font-black  tracking-tight transition-all duration-300 flex group-data-[collapsible=icon]:hidden`}

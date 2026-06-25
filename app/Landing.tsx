@@ -53,7 +53,7 @@ const LandingPage = () => {
       {/* Navbar */}
       <HomeNavBar />
 
-      <main id="main-content">
+      <main>
         {/* Hero Section */}
         <Hero />
 
@@ -197,7 +197,7 @@ const LandingPage = () => {
                 Ready to know your rights?
               </h2>
               <p className="text-lg md:text-xl text-indigo-100 mb-10 max-w-2xl mx-auto">
-                Claim your 4,000 free tokens and 5 minutes of voice consultation
+                Claim your 4,000 free tokens and 2 minutes of voice consultation
                 today.
               </p>
               <motion.button
