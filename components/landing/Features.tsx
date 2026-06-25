@@ -19,7 +19,7 @@ const Features = () => {
           className="text-center max-w-3xl mx-auto mb-16"
         >
           <h2 className="text-sm font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-3 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900/20 w-fit mx-auto border border-orange-200 dark:border-orange-800">
-            Why LegalAdviser UG?
+            Why LegalAdviser?
           </h2>
           <h3 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">
             Replace confusion with clarity.
