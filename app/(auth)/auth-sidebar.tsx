@@ -3,7 +3,7 @@ import React from "react";
 import { Scale } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import Logo from "@/components/global/Logo";
+import Logo, { LogoText } from "@/components/global/Logo";
 
 export const AuthSidebar = () => {
   const pathname = usePathname();
@@ -55,7 +55,7 @@ export const AuthSidebar = () => {
 
       <div className="relative z-10 mb-16">
         <Link href="/">
-          <Logo />
+          <LogoText />
         </Link>
       </div>
 

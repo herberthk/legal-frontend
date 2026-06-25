@@ -4,7 +4,7 @@ import { cn, signOut } from "@/lib";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/firebase/client";
 
-import { LogOut, ChevronRight, ChevronsUpDown } from "lucide-react";
+import { LogOut, ChevronRight, ChevronsUpDown, Scale } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { sideBarItems } from "@/constants";
 import Link from "next/link";
@@ -40,7 +40,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import React from "react";
-import Logo from "./Logo";
+import Logo, { LogoText } from "./Logo";
 
 // Types
 interface SidebarSubItem {
@@ -389,7 +389,8 @@ const GlobalSidebar = ({ user }: Props) => {
               size="lg"
               className="hover:bg-transparent ring-0! focus:ring-0! focus:outline-none! "
             >
-              <Logo />
+              <Scale className="w-8 h-8 text-orange-500 font-extrabold" />
+              <LogoText />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

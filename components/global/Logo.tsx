@@ -49,10 +49,13 @@ const LogoIcon = ({
   );
 };
 
-export const LogoText = () => {
+type LogoTextProps = {
+  className?: string;
+};
+export const LogoText = ({ className }: LogoTextProps) => {
   return (
     <div
-      className={`text-xl font-black  tracking-tight transition-all duration-300 flex group-data-[collapsible=icon]:hidden`}
+      className={`text-xl font-black  tracking-tight transition-all duration-300 flex group-data-[collapsible=icon]:hidden ${className}`}
     >
       <span className="text-transparent bg-clip-text bg-linear-to-r from-indigo-500 to-purple-200">
         Legal
