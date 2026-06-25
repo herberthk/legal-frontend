@@ -25,13 +25,13 @@ const Hero = () => {
           className="text-center lg:text-left relative z-20"
         >
           <motion.div variants={fadeInUp} style={{ willChange: "transform, opacity" }}>
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-300 text-sm font-bold mb-8 cursor-default backdrop-blur-sm shadow-[0_0_15px_rgba(249,115,22,0.1)]">
+            <div className="inline-flex items-center px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-300 text-xs italic mb-8 cursor-default backdrop-blur-sm shadow-[0_0_15px_rgba(249,115,22,0.1)]">
               <span className="relative flex h-2 w-2 mr-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
               </span>
-              Ask anything about Uganda&apos;s Constitution, Acts of Parliament,
-              and case law.
+              Ask about Uganda&apos;s Constitution, Acts of Parliament,
+              and Statutory Instruments.
             </div>
           </motion.div>
 
