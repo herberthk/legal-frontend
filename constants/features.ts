@@ -88,7 +88,7 @@ export const coreCapabilities = [
   {
     title: "Interactive Legal Chat",
     badge: "Questions · Document Summaries · Guidance",
-    desc: "Ask legal questions in plain English or Luganda and get instant, referenced answers grounded in Ugandan law. Upload a document to get a full plain-English summary.",
+    desc: "Ask legal questions in plain English and get instant, referenced answers grounded in Ugandan law. Upload a document to get a full plain-English summary.",
     highlights: [
       "Ask any legal question — from tenant rights to employment contracts — and get a clear, cited answer",
       "Upload a PDF, screenshot, or DOCX of a legal document to get a summary that outlines key clauses, sections, potential risks, and your obligations",
@@ -127,7 +127,7 @@ export const coreCapabilities = [
 export const faqs = [
   {
     q: "Is the legal advice binding in court?",
-    a: "No. LegalAdviser UG provides information for educational and guidance purposes based on Ugandan law. It does not replace a qualified human advocate for court representation.",
+    a: "No. LegalAdviser provides information for educational and guidance purposes based on Ugandan law. It does not replace a qualified human advocate for court representation.",
   },
   {
     q: "What are 'Tokens' and what counts toward my bill?",
@@ -135,7 +135,7 @@ export const faqs = [
   },
   {
     q: "Which laws are covered?",
-    a: "We cover the 1995 Constitution, Penal Code Act, Land Act, Employment Act, Tax procedures (URA), and general civil law. We regularly update our database with new amendments.",
+    a: "We cover the 1995 Constitution, Acts of parliament, Statutory Instruments, civil, criminal, commercial, land, labour, tax, procurement, intellectual property, and East African Community law etc. We regularly update our database with new amendments.",
   },
   {
     q: "Is my data private?",
