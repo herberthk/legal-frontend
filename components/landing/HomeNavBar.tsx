@@ -2,12 +2,10 @@ import { useThemeStore } from "@/store";
 import { motion } from "framer-motion";
 import { Moon, Sparkles, Sun } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { CustomButton } from "../ui/custom-button";
 import Logo from "../global/Logo";
 
 const HomeNavBar = () => {
-  const router = useRouter();
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   return (
@@ -20,21 +18,26 @@ const HomeNavBar = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
         <Link
-          href="/"
-          className="flex items-center space-x-2 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
+          href="#hero"
+          className="flex items-center space-x-2 cursor-pointer focus:outline-none"
           aria-label="Legal Adviser Home"
         >
           <Logo />
         </Link>
 
         <div className="hidden md:flex items-center space-x-8">
-          {["Features", "Pricing", "FAQ"].map((item) => (
+          {[
+            { name: "Capabilities", id: "capabilities" },
+            { name: "Features", id: "features" },
+            { name: "Pricing", id: "pricing" },
+            { name: "FAQ", id: "faq" },
+          ].map((item) => (
             <Link
-              key={item}
-              href={`#${item.toLowerCase()}`}
+              key={item.name}
+              href={`#${item.id}`}
               className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-orange-600 dark:hover:text-orange-400 transition-colors relative group"
             >
-              {item}
+              {item.name}
               <span className="absolute -bottom-1 left-0 w-0 h-[2px] bg-linear-to-r from-amber-500 to-orange-600 transition-all duration-300 group-hover:w-full"></span>
             </Link>
           ))}
