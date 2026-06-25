@@ -12,16 +12,25 @@ import { getDeviceStats } from "@/utils/device";
 interface GoogleAuthButtonProps {
   mode: "login" | "signup";
   returnTo?: string | null;
+  agreedToTerms?: boolean;
 }
 
 const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
   mode,
   returnTo,
+  agreedToTerms = true,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleGoogleSignIn = async () => {
+    if (!agreedToTerms) {
+      toast.error("Please agree to the Terms of Service and Privacy Policy to continue.", {
+        style: { background: "#dc2626", color: "#fff" },
+      });
+      return;
+    }
+
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
 
@@ -108,11 +117,15 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
 
   return (
     <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={agreedToTerms ? { scale: 1.02 } : {}}
+      whileTap={agreedToTerms ? { scale: 0.98 } : {}}
       onClick={handleGoogleSignIn}
       disabled={isLoading}
-      className="relative w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group overflow-hidden"
+      className={`relative w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm transition-all duration-300 group overflow-hidden ${
+        !agreedToTerms
+          ? "opacity-50 cursor-not-allowed"
+          : "hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-800/80 disabled:opacity-50 disabled:cursor-not-allowed"
+      }`}
     >
       <AnimatePresence mode="wait">
         {isLoading ? (

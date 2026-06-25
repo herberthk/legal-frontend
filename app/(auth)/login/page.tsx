@@ -18,6 +18,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
@@ -25,6 +26,14 @@ const LoginPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!agreedToTerms) {
+      toast.error("Please agree to the Terms of Service and Privacy Policy to continue.", {
+        style: { background: "#dc2626", color: "#fff" },
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -112,7 +121,7 @@ const LoginPage = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <div className="w-full transition-all duration-300">
-          <GoogleAuthButton mode="login" returnTo={returnTo} />
+          <GoogleAuthButton mode="login" returnTo={returnTo} agreedToTerms={agreedToTerms} />
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
@@ -185,6 +194,27 @@ const LoginPage = () => {
                 </Link>
               </div>
             </div>
+
+            <div className="flex items-start">
+              <div className="flex items-center h-5">
+                <input
+                  id="terms"
+                  name="terms"
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500 dark:border-slate-600 dark:bg-slate-800 dark:focus:ring-orange-600 transition-colors cursor-pointer"
+                />
+              </div>
+              <div className="ml-3 text-sm">
+                <label htmlFor="terms" className="font-medium text-slate-600 dark:text-slate-300">
+                  By signing in, you agree to our{" "}
+                  <Link href="/terms" className="text-orange-600 hover:text-orange-500 hover:underline">Terms</Link>
+                  {" "}and{" "}
+                  <Link href="/privacy" className="text-orange-600 hover:text-orange-500 hover:underline">Privacy Policy</Link>.
+                </label>
+              </div>
+            </div>
             <CustomButton
               type="submit"
               disabled={loading}
@@ -196,7 +226,9 @@ const LoginPage = () => {
               borderLeftColor="#4f46e5"
               borderRightWidth="4px"
               borderRightColor="#ea580c"
-              className="bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest"
+              className={`bg-slate-100/50 dark:bg-slate-800/50 uppercase tracking-widest ${
+                !agreedToTerms ? "opacity-50 cursor-not-allowed" : ""
+              }`}
               rightIcon={<ArrowRight aria-hidden="true" />}
               hoverEffect="glow"
               fullWidth
