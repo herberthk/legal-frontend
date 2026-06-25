@@ -6,10 +6,11 @@ import {
   ArrowLeft,
   Cookie,
   FileText,
-  Scale,
   Shield,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { LogoText } from "@/components/global/Logo";
+import Link from "next/link";
 
 const LegalLayout = ({ children }: { children: React.ReactNode }) => {
   // Scroll to top on mount
@@ -63,12 +64,10 @@ const LegalLayout = ({ children }: { children: React.ReactNode }) => {
             <span className="font-medium">Back</span>
           </button>
 
-          <div className="flex items-center space-x-2 opacity-0 sm:opacity-100 transition-opacity">
-            <Scale className="w-5 h-5 text-orange-500" />
-            <span className="font-bold text-slate-900 dark:text-white">
-              LegalAdviser<span className="text-orange-600">UG</span>
-            </span>
-          </div>
+          <Link href="/" className="flex items-center space-x-2 opacity-0 sm:opacity-100 transition-opacity">
+            {/* <Scale className="w-6 h-6 text-orange-500 font-extrabold" /> */}
+            <LogoText />
+          </Link>
         </div>
       </motion.div>
 
@@ -128,14 +127,17 @@ const LegalLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Footer Strip */}
       <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">
             If you have any questions about this policy, please contact us at{" "}
             <a
-              href="mailto:legal@legaladviser.ug"
+              href="mailto:legaladviser@netbritz.com"
               className="text-orange-600 hover:underline"
             >
-              legal@legaladviser.ug
+              legaladviser@netbritz.com
             </a>
+          </p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">
+            LegalAdviser, Mukono, Uganda
           </p>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Moon, Sparkles, Sun } from "lucide-react";
 import Link from "next/link";
 import { CustomButton } from "../ui/custom-button";
-import Logo from "../global/Logo";
+import { LogoText } from "../global/Logo";
 
 const HomeNavBar = () => {
   const theme = useThemeStore((state) => state.theme);
@@ -22,7 +22,8 @@ const HomeNavBar = () => {
           className="flex items-center space-x-2 cursor-pointer focus:outline-none"
           aria-label="Legal Adviser Home"
         >
-          <Logo />
+           {/* <Scale className="w-6 h-6 text-orange-500 font-extrabold" /> */}
+                      <LogoText />
         </Link>
 
         <div className="hidden md:flex items-center space-x-8">
