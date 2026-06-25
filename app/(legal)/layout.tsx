@@ -127,6 +127,25 @@ const LegalLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Footer Strip */}
       <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8">
         <div className="max-w-4xl mx-auto px-4 text-center">
+          <div className="flex flex-wrap justify-center gap-4 mb-6 text-sm">
+            {[
+              { name: "Terms of Service", href: "/terms" },
+              { name: "Privacy Policy", href: "/privacy" },
+              { name: "Cookie Policy", href: "/cookies" },
+              { name: "Disclaimer", href: "/disclaimer" },
+            ]
+              .filter((link) => !pathname.includes(link.href))
+              .map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-slate-600 dark:text-slate-300 hover:text-orange-600 dark:hover:text-orange-500 transition-colors font-medium"
+                >
+                  {link.name}
+                </Link>
+              ))}
+          </div>
+
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-1">
             If you have any questions about this policy, please contact us at{" "}
             <a

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+// import { CustomButton } from "../ui/custom-button";
 
 const STORAGE_KEY_START = "pwa_prompt_cycle_start";
 const STORAGE_KEY_INDEX = "pwa_prompt_last_index";
@@ -130,6 +131,20 @@ export default function InstallPrompt() {
             >
               Install
             </button>
+            {/* <CustomButton
+            variant="transparent"
+            shape="pill"
+            borderLeftWidth="4px"
+            borderLeftColor="#4f46e5"
+            borderRightWidth="4px"
+            borderRightColor="#ea580c"
+            className="bg-slate-100/50 dark:bg-slate-800/50"
+            rightIcon={<Download className="w-6 h-6" />}
+            hoverEffect="glow"
+            onClick={handleInstallClick}
+          >
+            Install
+          </CustomButton> */}
           </div>
         </motion.div>
       )}
