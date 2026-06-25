@@ -17,7 +17,7 @@ const FeatureShowcase = ({
   color: string 
 }) => {
   return (
-    <div className="relative w-full aspect-[4/3] md:aspect-video lg:aspect-[4/3] xl:aspect-video flex items-center justify-center pt-8 pr-8 pb-16 md:pb-8 perspective-[2000px]">
+    <div className="relative w-full aspect-4/3 md:aspect-video lg:aspect-4/3 xl:aspect-video flex items-center justify-center pt-8 pr-8 pb-16 md:pb-8 perspective-[2000px]">
       {/* Background glow behind the screens */}
       <motion.div 
         initial={{ opacity: 0, scale: 0.5 }}

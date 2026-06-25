@@ -49,11 +49,9 @@ const Hero = () => {
           <motion.p
             style={{ willChange: "transform, opacity" }}
             variants={fadeInUp}
-            className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0"
+            className="text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0 italic"
           >
-            Navigate the Ugandan Constitution, URA Tax Laws, and Land
-            Regulations with an AI assistant that understands the law and speaks
-            your language.
+            Navigate the Ugandan Constitution, Acts of Parliament, and all statutory instruments with an AI assistants that were trained on all Ugandan Laws (company act 2012, Employment Act, 2006, Landlord and Tenant Act, 2022, etc) with verified citations (Act, section, Article, clause etc)
           </motion.p>
 
           <motion.div
