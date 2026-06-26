@@ -49,7 +49,7 @@ export async function POST(req: Request) {
         headers: { "Content-Type": "application/json" },
       });
     }
-
+    
     const lastUserMessage = messages[messages.length - 1];
     console.log("is first message", isFirstMessage);
     
@@ -166,7 +166,7 @@ export async function POST(req: Request) {
     const result = streamText({
       model: google("gemini-3-flash-preview"),
       temperature: 0,
-      system: LEGAL_ADVISER_SYSTEM_INSTRUCTION,
+      system: LEGAL_ADVISER_SYSTEM_INSTRUCTION({username:user?.name?.split(" ")[0] || "User"}),
       providerOptions: {
         google: {
           thinkingConfig: {
