@@ -82,14 +82,14 @@ const Pricing = () => {
           </div>
           <h2
             id="pricing-heading"
-            className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white mb-4"
+            className="text-3xl md:text-5xl font-extrabold text-slate-900 dark:text-white mb-4"
           >
             Start free. Pay only for{" "}
             <span className="text-transparent bg-clip-text bg-linear-to-r from-amber-500 via-orange-500 to-red-500">
               what you use.
             </span>
           </h2>
-          <p className="text-slate-600 dark:text-slate-400 text-lg max-w-2xl mx-auto">
+          <p className="text-slate-600 dark:text-slate-400 italic text-base md:text-lg max-w-2xl mx-auto">
             No subscriptions. No monthly fees. Load credits when you need them and pay only for the conversations and documents you process.
           </p>
         </motion.div>
@@ -350,7 +350,7 @@ const Pricing = () => {
         >
           <div className="bg-white dark:bg-slate-800/60 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden">
             {/* Header */}
-            <div className="px-8 pt-8 pb-4 border-b border-slate-100 dark:border-white/5">
+            <div className="px-4 md:px-8 pt-8 pb-4 border-b border-slate-100 dark:border-white/5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
                   <Info size={20} className="text-slate-600 dark:text-slate-300" />
@@ -362,7 +362,7 @@ const Pricing = () => {
               </div>
             </div>
 
-            <div className="p-8">
+            <div className="p-4 md:p-8">
               {/* Visual flow */}
               <div className="flex flex-col md:flex-row items-stretch gap-3 mb-8">
                 {/* Step 1: Your message */}

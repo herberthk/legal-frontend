@@ -10,9 +10,11 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePopStore } from "@/store";
+import { useLockBodyScroll } from "@uidotdev/usehooks";
 
 // --- Demo Video Component ---
 const DemoModal = () => {
+  useLockBodyScroll();
   const setShowDemo = usePopStore((state) => state.setShowDemo);
   const [messages, setMessages] = useState<
     { role: "user" | "ai"; content: React.ReactNode }[]
@@ -78,7 +80,7 @@ const DemoModal = () => {
             You have legal remedies available:
           </p>
           <div className="grid gap-2">
-            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-1 md:p-2 rounded border border-slate-100 dark:border-slate-700">
               <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px]">
                 1
               </div>
@@ -94,7 +96,7 @@ const DemoModal = () => {
                 Petition <strong>Equal Opportunities Commission</strong>.
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-1 md:p-2 rounded border border-slate-100 dark:border-slate-700">
               <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px]">
                 3
               </div>
@@ -174,10 +176,10 @@ const DemoModal = () => {
   }, [messages, status, typedText]);
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-2 md:p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
       <div className="relative w-full max-w-4xl bg-white dark:bg-[#0B1120] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[80vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+        <div className="flex items-center justify-between px-2 md:px-6 py-2 md:py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 shrink-0">
           <div className="flex items-center space-x-2">
             <div className="flex space-x-1.5">
               <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -185,7 +187,7 @@ const DemoModal = () => {
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
             </div>
             <span className="ml-4 text-xs font-mono text-slate-400">
-              LegalAdviser UG - Live Demo
+              LegalAdviser AI - Live Demo
             </span>
           </div>
           <button
@@ -212,7 +214,7 @@ const DemoModal = () => {
               <div className="w-10 h-10 rounded-full bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center shrink-0 shadow-lg">
                 <Scale className="text-white w-5 h-5" />
               </div>
-              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-200 dark:border-slate-700">
+              <div className="bg-white dark:bg-slate-800 p-2 md:p-4 rounded-2xl rounded-tl-none shadow-sm border border-slate-200 dark:border-slate-700">
                 <p className="text-slate-700 dark:text-slate-200 text-sm">
                   Welcome. I am knowledgeable about the{" "}
                   <span className="font-bold text-orange-600">
@@ -243,13 +245,13 @@ const DemoModal = () => {
                   )}
                 </div>
                 <div
-                  className={`p-4 rounded-2xl shadow-sm text-sm ${msg.role === "user" ? "bg-linear-to-r from-orange-500 to-amber-600 text-white rounded-tr-none" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-tl-none relative overflow-hidden"}`}
+                  className={`p-2 md:p-4 rounded-2xl shadow-sm text-sm ${msg.role === "user" ? "bg-linear-to-r from-orange-500 to-amber-600 text-white rounded-tr-none" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-tl-none relative overflow-hidden"}`}
                 >
                   {msg.content}
                   {msg.role === "ai" &&
                     idx === messages.length - 1 &&
                     status === "speaking" && (
-                      <div className="mt-3 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/50 px-3 py-1.5 rounded-full w-fit border border-slate-100 dark:border-slate-700/50">
+                      <div className="mt-3 flex items-center space-x-3 bg-slate-50 dark:bg-slate-900/50 px-2 md:px-3 py-1.5 rounded-full w-fit border border-slate-100 dark:border-slate-700/50">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                         <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
                           Speaking...

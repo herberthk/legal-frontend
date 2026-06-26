@@ -17,7 +17,7 @@ const Faq = () => {
           viewport={{ once: true, amount: 0.5 }}
           variants={fadeInUp}
           style={{ willChange: "transform, opacity" }}
-          className="text-3xl font-extrabold text-center text-slate-900 dark:text-white mb-12"
+          className="text-2xl md:text-3xl font-extrabold text-center text-slate-900 dark:text-white mb-12"
         >
           Frequently Asked Questions
         </motion.h2>
@@ -37,10 +37,10 @@ const Faq = () => {
                 onClick={() => toggleFaq(i)}
                 aria-expanded={openFaq === i}
                 aria-controls={`faq-answer-${i}`}
-                className="w-full px-6 py-4 flex justify-between items-center bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-2xl"
+                className="w-full px-4 md:px-6 py-2 md:py-4 flex justify-between items-center bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-2xl"
               >
                 <span
-                  className={`font-bold text-left transition-colors ${openFaq === i ? "text-orange-600 dark:text-orange-400" : "text-slate-800 dark:text-slate-200"}`}
+                  className={`font-bold text-left text-sm md:text-base transition-colors ${openFaq === i ? "text-orange-600 dark:text-orange-400" : "text-slate-800 dark:text-slate-200"}`}
                 >
                   {item.q}
                 </span>
@@ -70,7 +70,7 @@ const Faq = () => {
                     style={{ willChange: "height, opacity" }}
                     className="overflow-hidden"
                   >
-                    <div className="px-6 py-4 text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-white/5 border-l-4 border-l-orange-500">
+                    <div className="px-4 md:px-6 py-4 text-slate-600 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-white/5 border-l-4 border-l-orange-500 md:text-base text-sm">
                       {item.a}
                     </div>
                   </motion.div>
