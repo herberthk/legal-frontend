@@ -1,10 +1,9 @@
 "use client";
 import { fadeInUp, mockChatVariants, staggerContainer } from "@/constants";
 import { motion } from "framer-motion";
-import { ArrowRight, Check, PlayCircle, Scale } from "lucide-react";
+import { Check, PlayCircle, Scale } from "lucide-react";
 import { usePopStore } from "@/store";
 import { CustomButton } from "../ui/custom-button";
-import Link from "next/link";
 
 const Hero = () => {
   const setShowDemo = usePopStore((state) => state.setShowDemo);
@@ -25,22 +24,24 @@ const Hero = () => {
           className="text-center lg:text-left relative z-20"
         >
           <motion.div variants={fadeInUp} style={{ willChange: "transform, opacity" }}>
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-700 dark:text-orange-300 text-xs italic mb-8 cursor-default backdrop-blur-sm shadow-[0_0_15px_rgba(249,115,22,0.1)]">
+            <div className="inline-flex items-center px-2 md:px-4 py-1 md:py-2 rounded-full bg-orange-500/10 border border-orange-500/20  mb-8 cursor-default backdrop-blur-sm shadow-[0_0_15px_rgba(249,115,22,0.1)]">
               <span className="relative flex h-2 w-2 mr-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
               </span>
-              Ask about Uganda&apos;s Constitution, Acts of Parliament,
-              and Statutory Instruments.
+              <span className="text-orange-700 dark:text-orange-300 text-xs italic">
+                Ask about Uganda&apos;s Constitution, Acts of Parliament,
+                and Statutory Instruments.
+              </span>
             </div>
           </motion.div>
 
           <motion.h1
             style={{ willChange: "transform, opacity" }}
             variants={fadeInUp}
-            className="text-5xl lg:text-7xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-6 leading-[1.1]"
+            className="text-4xl md:text-7xl font-extrabold  tracking-tight mb-6 leading-[1.1]"
           >
-            Legal Counsel <br />
+           <span className="text-slate-900 dark:text-white">Legal Counsel </span><br />
             <span className="text-transparent bg-clip-text bg-linear-to-r from-amber-500 via-orange-500 to-red-500 animate-gradient-x">
               Without Barriers.
             </span>
@@ -49,7 +50,7 @@ const Hero = () => {
           <motion.p
             style={{ willChange: "transform, opacity" }}
             variants={fadeInUp}
-            className="text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0 italic"
+            className="text-sm md:text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0 italic"
           >
             Navigate the Ugandan Constitution, Acts of Parliament, and all statutory instruments with an AI assistants that were trained on all Ugandan Laws (company act 2012, Employment Act, 2006, Landlord and Tenant Act, 2022, etc) with verified citations (Act, section, Article, clause etc)
           </motion.p>
@@ -59,7 +60,7 @@ const Hero = () => {
             variants={fadeInUp}
             className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4"
           >
-            <CustomButton
+            {/* <CustomButton
               component={Link}
               href="/login"
               variant="gradient-mixed"
@@ -71,7 +72,7 @@ const Hero = () => {
               className="px-8 h-14 text-lg font-bold"
             >
               Start Free Consultation
-            </CustomButton>
+            </CustomButton> */}
 
             <CustomButton
               size="lg"
@@ -130,7 +131,7 @@ const Hero = () => {
             transition={{ type: "spring", stiffness: 100, damping: 20 }}
           >
             {/* Mock Header */}
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex items-center space-x-4">
+            <div className="px-3 md:px-6 py-2 md:py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex items-center space-x-4">
               <div className="flex space-x-1.5">
                 <div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
                 <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
@@ -144,7 +145,7 @@ const Hero = () => {
             </div>
 
             {/* Mock Messages */}
-            <div className="p-6 space-y-6">
+            <div className="p-2 md:p-6 space-y-3 md:space-y-6">
               {/* User Msg */}
               <motion.div
                 style={{ willChange: "transform, opacity" }}

@@ -21,7 +21,7 @@ const Proof = () => {
               style={{ willChange: "transform, opacity" }}
               className="text-center group cursor-default"
             >
-              <motion.p className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
+              <motion.p className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
                 5,000+
               </motion.p>
               <p className="text-xs uppercase tracking-widest text-slate-500 font-bold group-hover:text-orange-600/70 transition-colors">
@@ -33,7 +33,7 @@ const Proof = () => {
               style={{ willChange: "transform, opacity" }}
               className="text-center group cursor-default"
             >
-              <motion.p className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
+              <motion.p className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
                 98%
               </motion.p>
               <p className="text-xs uppercase tracking-widest text-slate-500 font-bold group-hover:text-orange-600/70 transition-colors">
@@ -45,7 +45,7 @@ const Proof = () => {
               style={{ willChange: "transform, opacity" }}
               className="text-center group cursor-default"
             >
-              <motion.p className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
+              <motion.p className="text-2xl md:text-4xl font-black text-slate-900 dark:text-white mb-1 transition-all group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:scale-110 duration-300">
                 24/7
               </motion.p>
               <p className="text-xs uppercase tracking-widest text-slate-500 font-bold group-hover:text-orange-600/70 transition-colors">

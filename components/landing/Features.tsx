@@ -8,8 +8,8 @@ import { motion } from "framer-motion";
 
 const Features = () => {
   return (
-    <section className="py-24 relative z-10" id="features">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="md:py-24 py-12 relative z-10" id="features">
+      <div className="max-w-7xl mx-auto px-3 md:px-6 lg:px-8">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -21,10 +21,10 @@ const Features = () => {
           <h2 className="text-sm font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest mb-3 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900/20 w-fit mx-auto border border-orange-200 dark:border-orange-800">
             Why LegalAdviser?
           </h2>
-          <h3 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">
+          <h3 className="text-2xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">
             Replace confusion with clarity.
           </h3>
-          <p className="text-slate-600 dark:text-slate-400 text-lg">
+          <p className="text-sm italic text-slate-600 dark:text-slate-400 md:text-lg">
             Traditional legal consultations are expensive, intimidating, and
             slow. We use advanced AI to provide immediate, affordable, and
             accurate legal guidance specific to Uganda.
