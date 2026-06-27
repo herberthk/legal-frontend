@@ -35,10 +35,7 @@ const STAGE_ORDER: ReviewStage[] = [
 export function useDocumentReview() {
   const [file, setFile] = useState<File | null>(null);
   const [stage, setStage] = useState<ReviewStage>("idle");
-  const [review, setReview] = useState<Omit<
-    DocumentReview,
-    "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt"
-  > | null>(null);
+  const [review, setReview] = useState<Omit<DocumentReview, "id" | "userId" | "fileUrl" | "updatedAt"> | null>(null);
   const [savedReview, setSavedReview] = useState<DocumentReview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
