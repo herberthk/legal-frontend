@@ -8,6 +8,11 @@ import {
   View,
   StyleSheet,
   pdf,
+  Svg,
+  Path,
+  Circle,
+  Polygon,
+  Line,
 } from "@react-pdf/renderer";
 import { Download } from "lucide-react";
 import { formatDate } from "@/lib/utils";
@@ -35,7 +40,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   // Cover page
-  cover: { flex: 1, justifyContent: "center", alignItems: "stretch" },
+  cover: { alignItems: "stretch", paddingBottom: 24 },
   coverBadge: {
     backgroundColor: "#ecfdf5",
     borderRadius: 20,
@@ -98,7 +103,7 @@ const styles = StyleSheet.create({
   // Rec list
   recItem: { flexDirection: "row", gap: 8, marginBottom: 8, alignItems: "flex-start" },
   recNum: {
-    width: 20, height: 20, borderRadius: 4,
+    width: 20, height: 20, borderRadius: 10,
     backgroundColor: COLORS.lightGray,
     textAlign: "center",
     lineHeight: 1.8,
@@ -109,6 +114,27 @@ const styles = StyleSheet.create({
   recBody: { flex: 1 },
   recTitle: { fontWeight: 700, fontSize: 10, marginBottom: 2 },
   recDesc: { fontSize: 9, color: COLORS.gray, lineHeight: 1.5 },
+  highlightNum: {
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: "#ecfdf5",
+    color: COLORS.primary,
+    textAlign: "center",
+    lineHeight: 1.5,
+    fontSize: 8,
+    fontWeight: 700,
+  },
+  inlineBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontSize: 7,
+    fontWeight: 700,
+    marginLeft: 6,
+    textTransform: "uppercase",
+  },
+  badgeHigh: { backgroundColor: "#fef2f2", color: COLORS.red },
+  badgeMedium: { backgroundColor: "#fffbeb", color: COLORS.amber },
+  badgeLow: { backgroundColor: "#f0fdf4", color: COLORS.green },
   // Clause item
   clauseItem: {
     borderLeftWidth: 3,
@@ -138,7 +164,7 @@ const styles = StyleSheet.create({
 });
 
 interface PDFDocumentProps {
-  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt">;
+  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "updatedAt">;
   generatedAt: string;
 }
 
@@ -164,7 +190,58 @@ function formatCategoryName(cat: string): string {
   return map[cat] ?? cat;
 }
 
-const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => (
+const getRiskWeight = (level: string) => (level === "HIGH" ? 3 : level === "MEDIUM" ? 2 : 1);
+
+function getDonutPath(x: number, y: number, radius: number, score: number) {
+  const percentage = Math.max(0, Math.min(100, score)) / 100;
+  if (percentage === 1) return "";
+  const startAngle = -Math.PI / 2;
+  const endAngle = startAngle + percentage * 2 * Math.PI;
+  const startX = x + radius * Math.cos(startAngle);
+  const startY = y + radius * Math.sin(startAngle);
+  const endX = x + radius * Math.cos(endAngle);
+  const endY = y + radius * Math.sin(endAngle);
+  const largeArcFlag = percentage > 0.5 ? 1 : 0;
+  return `M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${endX} ${endY}`;
+}
+
+function getRadarPolygon(scores: number[], centerX: number, centerY: number, maxRadius: number) {
+  const points = scores.map((score, i) => {
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI) / Math.max(scores.length, 1);
+    const r = (score / 100) * maxRadius;
+    return `${centerX + r * Math.cos(angle)},${centerY + r * Math.sin(angle)}`;
+  });
+  return points.join(" ");
+}
+
+const radarAxes = [0, 1, 2, 3, 4].map(i => {
+  const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+  return {
+    x2: 50 + 30 * Math.cos(angle),
+    y2: 50 + 30 * Math.sin(angle),
+  };
+});
+
+const radarLabels = [
+  { label: "Compliance", x: 50, y: 14, align: "middle" as const },
+  { label: "Risk Mgmt", x: 83, y: 38, align: "start" as const },
+  { label: "Clarity", x: 68, y: 86, align: "start" as const },
+  { label: "Protection", x: 32, y: 86, align: "end" as const },
+  { label: "Enforceable", x: 17, y: 38, align: "end" as const },
+];
+
+function getScoreLabel(score: number) {
+  if (score >= 75) return "GOOD";
+  if (score >= 50) return "FAIR";
+  return "POOR";
+}
+
+const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => {
+  const sortedClauses = [...review.keyClauses].sort((a, b) => getRiskWeight(b.riskLevel) - getRiskWeight(a.riskLevel));
+  const sortedRisks = [...review.risks].sort((a, b) => getRiskWeight(b.severity) - getRiskWeight(a.severity));
+  const sortedRecs = [...review.recommendations].sort((a, b) => getRiskWeight(b.priority) - getRiskWeight(a.priority));
+
+  return (
   <Document title={`Legal Review — ${review.fileName}`} author="LegalAdviser Uganda">
     {/* ─── Cover Page ─────────────────────────────────────── */}
     <Page size="A4" style={styles.page}>
@@ -175,19 +252,78 @@ const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => (
         <Text style={styles.coverTitle}>{review.fileName}</Text>
         <Text style={styles.coverSub}>{review.documentType}</Text>
 
-        <View style={styles.scoreBox}>
-          <View>
-            <Text style={styles.scoreNumber}>{review.overallScore}</Text>
-            <Text style={{ ...styles.scoreLabel, fontSize: 8 }}>/100</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: 700, fontSize: 11, color: COLORS.dark, marginBottom: 2 }}>
+        <View style={{ flexDirection: "row", gap: 16, marginBottom: 24 }}>
+          {/* LEFT PANEL */}
+          <View style={{ flex: 1, backgroundColor: "#f8fafc", borderRadius: 12, padding: 16, borderWidth: 1, borderColor: COLORS.border, alignItems: "center" }}>
+            <Text style={{ fontWeight: 700, fontSize: 10, color: COLORS.gray, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>
               Overall Compliance Score
             </Text>
-            <Text style={styles.scoreLabel}>
-              Based on {review.scoreBreakdown.length} legal compliance categories
-            </Text>
+            <View style={{ position: "relative", width: 120, height: 120 }}>
+               <Svg viewBox="0 0 100 100" width={120} height={120}>
+                  <Circle cx="50" cy="50" r="40" stroke={COLORS.border} strokeWidth="8" fill="none" />
+                  {review.overallScore < 100 ? (
+                    <Path d={getDonutPath(50, 50, 40, review.overallScore)} stroke={scoreBarColor(review.overallScore)} strokeWidth="8" fill="none" strokeLinecap="round" />
+                  ) : (
+                    <Circle cx="50" cy="50" r="40" stroke={scoreBarColor(review.overallScore)} strokeWidth="8" fill="none" />
+                  )}
+               </Svg>
+               <View style={{ position: "absolute", top: 0, left: 0, width: 120, height: 120, justifyContent: "center", alignItems: "center" }}>
+                 <Text style={{ fontSize: 32, fontWeight: 700, color: COLORS.dark }}>{review.overallScore}</Text>
+                 <Text style={{ fontSize: 10, color: COLORS.gray, marginTop: -4 }}>/ 100</Text>
+               </View>
+            </View>
+            <View style={{ marginTop: 12, backgroundColor: scoreBarColor(review.overallScore) + "20", paddingHorizontal: 16, paddingVertical: 4, borderRadius: 12 }}>
+               <Text style={{ color: scoreBarColor(review.overallScore), fontWeight: 700, fontSize: 10 }}>{getScoreLabel(review.overallScore)}</Text>
+            </View>
           </View>
+
+          {/* RIGHT PANEL */}
+          <View style={{ flex: 1.5, backgroundColor: "#f8fafc", borderRadius: 12, padding: 16, borderWidth: 1, borderColor: COLORS.border }}>
+             <Text style={{ fontWeight: 700, fontSize: 10, color: COLORS.gray, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
+              Score Breakdown
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={{ width: 100, height: 100 }}>
+                 <Svg viewBox="0 0 100 100" width={100} height={100}>
+                    {[20, 40, 60, 80, 100].map(p => (
+                       <Polygon key={p} points={getRadarPolygon([p,p,p,p,p], 50, 50, 30)} stroke={COLORS.border} strokeWidth="1" fill="none" />
+                    ))}
+                    {radarAxes.map((ax, i) => (
+                       <Line key={i} x1="50" y1="50" x2={ax.x2} y2={ax.y2} stroke={COLORS.border} strokeWidth="1" />
+                    ))}
+                    <Polygon points={getRadarPolygon(
+                        review.scoreBreakdown.map(s => s.score),
+                        50, 50, 30
+                      )} 
+                      stroke={scoreBarColor(review.overallScore)} strokeWidth="1.5" fill={scoreBarColor(review.overallScore) + "33"} 
+                    />
+                    {radarLabels.map((lbl, i) => (
+                       <Text key={i} x={lbl.x} y={lbl.y} textAnchor={lbl.align} style={{ fontSize: 5, fill: COLORS.gray }}>
+                         {lbl.label}
+                       </Text>
+                    ))}
+                 </Svg>
+              </View>
+              <View style={{ flex: 1, marginLeft: 16 }}>
+                 {review.scoreBreakdown.map((item, i) => (
+                   <View key={i} style={{ marginBottom: 6 }}>
+                     <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 2 }}>
+                       <Text style={{ fontSize: 8, color: COLORS.dark }}>{formatCategoryName(item.category)}</Text>
+                       <Text style={{ fontSize: 8, fontWeight: 700, color: scoreBarColor(item.score) }}>{item.score}</Text>
+                     </View>
+                     <View style={{ height: 4, borderRadius: 2, backgroundColor: COLORS.border, overflow: "hidden" }}>
+                        <View style={{ width: `${item.score}%`, height: 4, backgroundColor: scoreBarColor(item.score) }} />
+                     </View>
+                   </View>
+                 ))}
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.section, { marginBottom: 24 }]}>
+          <Text style={styles.sectionTitle}>Document Summary</Text>
+          <Text style={styles.summaryText}>{review.summary}</Text>
         </View>
 
         <View style={styles.metaRow}>
@@ -200,67 +336,40 @@ const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => (
             <Text style={styles.metaValue}>{review.pageCount}</Text>
           </View>
           <View style={styles.metaItem}>
+            <Text style={styles.metaLabel}>Tokens Used</Text>
+            <Text style={styles.metaValue}>{review.tokensUsed?.toLocaleString() || "N/A"}</Text>
+          </View>
+          <View style={styles.metaItem}>
             <Text style={styles.metaLabel}>Generated</Text>
             <Text style={styles.metaValue}>{generatedAt}</Text>
           </View>
         </View>
       </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>LegalAdviser Uganda · Confidential</Text>
-        <Text style={styles.footerText}>Page 1</Text>
-      </View>
-    </Page>
-
-    {/* ─── Summary & Score Breakdown ─────────────────────── */}
-    <Page size="A4" style={styles.page}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Document Summary</Text>
-        <Text style={styles.summaryText}>{review.summary}</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Score Breakdown</Text>
-        {review.scoreBreakdown.map((item, i) => (
-          <View key={i} style={styles.tableRow}>
-            <Text style={[styles.tableCell, { flex: 2 }]}>{formatCategoryName(item.category)}</Text>
-            <View style={[styles.tableCell, { flex: 3, justifyContent: "center", paddingRight: 10 }]}>
-              <View style={{ height: 6, borderRadius: 3, backgroundColor: COLORS.lightGray, width: "100%", overflow: "hidden" }}>
-                <View style={[styles.scoreBar, { width: `${item.score}%`, backgroundColor: scoreBarColor(item.score), marginTop: 0 }]} />
-              </View>
-            </View>
-            <Text style={[styles.tableCell, { textAlign: "right", fontWeight: 700, color: scoreBarColor(item.score), flex: 0.5 }]}>
-              {item.score}
-            </Text>
-          </View>
-        ))}
-      </View>
+    {/* ─── Highlights ─────────────────────── */}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Highlights</Text>
         {review.highlights.map((h, i) => (
-          <View key={i} style={{ flexDirection: "row", marginBottom: 4, gap: 6 }}>
-            <Text style={{ color: COLORS.primary, fontWeight: 700 }}>✓</Text>
+          <View key={i} style={{ flexDirection: "row", marginBottom: 6, gap: 8, alignItems: "flex-start" }}>
+            <Text style={styles.highlightNum}>{i + 1}</Text>
             <Text style={{ fontSize: 10, color: COLORS.dark, lineHeight: 1.5, flex: 1 }}>{h}</Text>
           </View>
         ))}
       </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>LegalAdviser Uganda · Confidential</Text>
-        <Text style={styles.footerText}>Page 2</Text>
-      </View>
-    </Page>
-
     {/* ─── Key Clauses ───────────────────────────────────── */}
-    <Page size="A4" style={styles.page}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Key Clauses ({review.keyClauses.length})</Text>
-        {review.keyClauses.map((clause, i) => {
+        {sortedClauses.map((clause, i) => {
           const borderColor = clause.riskLevel === "HIGH" ? COLORS.red : clause.riskLevel === "MEDIUM" ? COLORS.amber : COLORS.green;
+          const badgeStyle = clause.riskLevel === "HIGH" ? styles.badgeHigh : clause.riskLevel === "MEDIUM" ? styles.badgeMedium : styles.badgeLow;
           return (
-            <View key={i} style={[styles.clauseItem, { borderLeftColor: borderColor }]}>
-              <Text style={styles.clauseTitle}>{clause.title}</Text>
+            <View key={i} style={[styles.clauseItem, { borderLeftColor: borderColor }]} wrap={false}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
+                <Text style={[styles.clauseTitle, { marginBottom: 0 }]}>{clause.title}</Text>
+                <Text style={[styles.inlineBadge, badgeStyle]}>{clause.riskLevel}</Text>
+              </View>
               <Text style={styles.clauseContent}>&ldquo;{clause.content}&rdquo;</Text>
               <Text style={styles.clauseAssessment}>{clause.assessment}</Text>
             </View>
@@ -268,49 +377,48 @@ const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => (
         })}
       </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>LegalAdviser Uganda · Confidential</Text>
-        <Text style={styles.footerText}>Page 3</Text>
-      </View>
-    </Page>
-
     {/* ─── Risks ─────────────────────────────────────────── */}
-    <Page size="A4" style={styles.page}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Risk Assessment ({review.risks.length})</Text>
-        {review.risks.map((risk, i) => {
+        {sortedRisks.map((risk, i) => {
           const cardStyle = risk.severity === "HIGH" ? styles.riskHigh : risk.severity === "MEDIUM" ? styles.riskMedium : styles.riskLow;
           const textStyle = risk.severity === "HIGH" ? styles.riskHighText : risk.severity === "MEDIUM" ? styles.riskMedText : styles.riskLowText;
+          const badgeStyle = risk.severity === "HIGH" ? styles.badgeHigh : risk.severity === "MEDIUM" ? styles.badgeMedium : styles.badgeLow;
           return (
-            <View key={i} style={[styles.riskCard, cardStyle]}>
-              <Text style={[styles.riskTitle, textStyle]}>{risk.severity} — {risk.title}</Text>
+            <View key={i} style={[styles.riskCard, cardStyle]} wrap={false}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+                <Text style={[styles.riskTitle, textStyle, { marginBottom: 0 }]}>{risk.title}</Text>
+                <Text style={[styles.inlineBadge, badgeStyle]}>{risk.severity}</Text>
+              </View>
               {risk.clause && <Text style={[styles.riskBody, { color: COLORS.gray }]}>Ref: {risk.clause}</Text>}
               <Text style={styles.riskBody}>{risk.description}</Text>
-              <Text style={styles.riskRec}>→ {risk.recommendation}</Text>
+              <Text style={styles.riskRec}>
+                <Text style={{ fontWeight: 700 }}>Recommended Action: </Text>
+                {risk.recommendation}
+              </Text>
             </View>
           );
         })}
       </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>LegalAdviser Uganda · Confidential</Text>
-        <Text style={styles.footerText}>Page 4</Text>
-      </View>
-    </Page>
-
     {/* ─── Recommendations ───────────────────────────────── */}
-    <Page size="A4" style={styles.page}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recommendations ({review.recommendations.length})</Text>
-        {review.recommendations.map((rec, i) => (
-          <View key={i} style={styles.recItem}>
-            <Text style={styles.recNum}>{i + 1}</Text>
-            <View style={styles.recBody}>
-              <Text style={styles.recTitle}>{rec.title}</Text>
-              <Text style={styles.recDesc}>{rec.description}</Text>
+        {sortedRecs.map((rec, i) => {
+          const badgeStyle = rec.priority === "HIGH" ? styles.badgeHigh : rec.priority === "MEDIUM" ? styles.badgeMedium : styles.badgeLow;
+          return (
+            <View key={i} style={styles.recItem} wrap={false}>
+              <Text style={styles.recNum}>{i + 1}</Text>
+              <View style={styles.recBody}>
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
+                  <Text style={[styles.recTitle, { marginBottom: 0 }]}>{rec.title}</Text>
+                  <Text style={[styles.inlineBadge, badgeStyle]}>{rec.priority}</Text>
+                </View>
+                <Text style={styles.recDesc}>{rec.description}</Text>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       <View style={{ marginTop: 24, padding: 12, backgroundColor: COLORS.lightGray, borderRadius: 8 }}>
@@ -320,23 +428,24 @@ const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => (
         </Text>
       </View>
 
-      <View style={styles.footer}>
+      <View style={styles.footer} fixed>
         <Text style={styles.footerText}>LegalAdviser Uganda · Confidential</Text>
-        <Text style={styles.footerText}>Page 5</Text>
+        <Text style={styles.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
       </View>
     </Page>
   </Document>
-);
+  );
+};
 
 interface ReviewPdfExportProps {
-  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt">;
+  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "updatedAt">;
 }
 
 // Standalone helper — call this from anywhere to trigger a PDF download
 export async function downloadReviewPdf(
-  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt">
+  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "updatedAt">
 ) {
-  const generatedAt = formatDate(new Date().toISOString());
+  const generatedAt = formatDate(review.createdAt || new Date().toISOString());
   const blob = await pdf(<ReviewPdfDocument review={review} generatedAt={generatedAt} />).toBlob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
