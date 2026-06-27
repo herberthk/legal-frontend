@@ -1,14 +1,15 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Save, RotateCcw, CheckCircle2 } from "lucide-react";
+import { useCallback, useRef, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Save, CheckCircle2, MoreVertical, FilePlus, FileDown } from "lucide-react";
 import { ReviewScoreGauge } from "./ReviewScoreGauge";
 import { ReviewRadarChart } from "./ReviewRadarChart";
 import { ReviewSummary } from "./ReviewSummary";
 import { ReviewClauses } from "./ReviewClauses";
 import { ReviewRisks } from "./ReviewRisks";
 import { ReviewRecommendations } from "./ReviewRecommendations";
-import { ReviewPdfExport } from "./ReviewPdfExport";
+import { downloadReviewPdf } from "./ReviewPdfExport";
 
 interface ReviewResultsProps {
   review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "updatedAt">;
@@ -25,6 +26,30 @@ export function ReviewResults({
   onSave,
   onReset,
 }: ReviewResultsProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const handleExportPdf = useCallback(async () => {
+    setMenuOpen(false);
+    await downloadReviewPdf(review);
+  }, [review]);
+
+  const handleNewReview = useCallback(() => {
+    setMenuOpen(false);
+    onReset();
+  }, [onReset]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -43,9 +68,8 @@ export function ReviewResults({
             {review.fileName} · {review.documentType}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <ReviewPdfExport review={review} />
-
+        <div className="flex items-center gap-4">
+          {/* Save / Saved button */}
           {isSaved ? (
             <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 text-sm font-semibold border border-orange-200 dark:border-orange-800">
               <CheckCircle2 className="w-4 h-4" />
@@ -71,13 +95,44 @@ export function ReviewResults({
             </button>
           )}
 
-          <button
-            onClick={onReset}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-sm border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
-          >
-            <RotateCcw className="w-4 h-4" />
-            New Review
-          </button>
+          {/* ── Kebab menu ── */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="More options"
+              className="flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 active:scale-95"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+
+            <AnimatePresence>
+              {menuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -6 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute right-0 top-12 z-50 min-w-[190px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl shadow-slate-900/10 dark:shadow-slate-900/40 overflow-hidden"
+                >
+                  <button
+                    onClick={handleNewReview}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-150"
+                  >
+                    <FilePlus className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    New Review
+                  </button>
+                  <div className="h-px bg-slate-100 dark:bg-slate-700 mx-2" />
+                  <button
+                    onClick={handleExportPdf}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-150"
+                  >
+                    <FileDown className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                    Export as PDF
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
