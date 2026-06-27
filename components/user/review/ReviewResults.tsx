@@ -11,7 +11,7 @@ import { ReviewRecommendations } from "./ReviewRecommendations";
 import { ReviewPdfExport } from "./ReviewPdfExport";
 
 interface ReviewResultsProps {
-  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "createdAt" | "updatedAt">;
+  review: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "updatedAt">;
   isSaving: boolean;
   isSaved: boolean;
   onSave: () => void;
