@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
+import ScrollProgressBar from "@/components/global/ScrollProgressBar";
 import DemoModal from "@/components/landing/demo";
 import { cardEntrance } from "@/constants";
 import { usePopStore } from "@/store";
@@ -25,6 +26,8 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] transition-colors duration-300 selection:bg-orange-500/30 overflow-x-hidden font-sans relative">
+      {/* Scroll Progress Indicator */}
+      <ScrollProgressBar />
       {/* Skip Link */}
       <a
         href="#main-content"
