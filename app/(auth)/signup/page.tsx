@@ -11,6 +11,7 @@ import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldAlert, ShieldCheck, Eye, EyeOff, User } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
+import { LogoText } from "@/components/global/Logo";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -141,9 +142,7 @@ const SignupPage = () => {
           className="flex justify-center cursor-pointer group lg:hidden"
           aria-label="Go to home page"
         >
-          <div className="bg-linear-to-br from-amber-500 to-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-500/20 transform transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
-            <Scale className="w-10 h-10 text-white" aria-hidden="true" />
-          </div>
+          <LogoText />
         </Link>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
           Create Account

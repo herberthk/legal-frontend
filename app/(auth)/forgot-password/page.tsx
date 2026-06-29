@@ -1,7 +1,6 @@
-import React from "react";
-import { Scale } from "lucide-react";
 import Link from "next/link";
 import { ForgotPasswordForm } from "./forgot-password-form";
+import { LogoText } from "@/components/global/Logo";
 
 export const metadata = {
   title: "Forgot Password - Legal Adviser",
@@ -16,9 +15,7 @@ export default function ForgotPasswordPage() {
           href="/"
           className="flex justify-center cursor-pointer group lg:hidden"
         >
-          <div className="bg-linear-to-br from-amber-500 to-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-500/20 transform transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
-            <Scale className="w-10 h-10 text-white" />
-          </div>
+          <LogoText/>
         </Link>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
           Reset Password

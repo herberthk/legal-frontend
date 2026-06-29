@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store";
 import { getDeviceStats } from "@/utils/device";
 import { CustomButton } from "@/components/ui/custom-button";
+import { LogoText } from "@/components/global/Logo";
 // 012Mv@123
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -110,9 +111,7 @@ const LoginPage = () => {
           className="flex justify-center cursor-pointer group lg:hidden"
           aria-label="Go to home page"
         >
-          <div className="bg-linear-to-br from-amber-500 to-orange-600 p-3 rounded-2xl shadow-lg shadow-orange-500/20 transform transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
-            <Scale className="w-10 h-10 text-white" aria-hidden="true" />
-          </div>
+          <LogoText />
         </Link>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
           Sign in to Portal
