@@ -12,22 +12,22 @@ export const ChatHero = memo(({ user, onSuggestionClick }: ChatHeroProps) => {
     <div className="flex-1 flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500 pb-10 mt-10 md:mt-auto mb-auto">
       <Logo
         size="lg"
-        shape="rounded"
+        shape="circle"
         showText={false}
         className="mb-8"
-        iconClass="drop-shadow-md"
-        strokeWidth={1.5}
+        iconClass="drop-shadow-xl"
+        strokeWidth={2}
       />
       <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
-        Good{" "}
+       <span className="text-indigo-500">Good{" "}</span> 
         {new Date().getHours() < 12
           ? "morning"
           : new Date().getHours() < 18
             ? "afternoon"
             : "evening"}
-        , {user?.name?.split(" ")[0] || "there"}
+        , <span className="text-orange-500"> {user?.name?.split(" ")[0] || "there"}</span>
       </h1>
-      <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 max-w-2xl mb-12">
+      <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 max-w-2xl mb-12 italic">
         I am your Legal Adviser specifically trained on Ugandan Law. How can I
         help you today?
       </p>

@@ -1,9 +1,8 @@
 "use client";
 import React from "react";
-import { Scale } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import Logo, { LogoText } from "@/components/global/Logo";
+import { LogoText } from "@/components/global/Logo";
 
 export const AuthSidebar = () => {
   const pathname = usePathname();

@@ -22,7 +22,7 @@ const Features = () => {
             Why LegalAdviser?
           </h2>
           <h3 className="text-2xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-4">
-            Replace confusion with clarity.
+            Replace confusion <span className="text-orange-500">with clarity</span> 
           </h3>
           <p className="text-sm italic text-slate-600 dark:text-slate-400 md:text-lg">
             Traditional legal consultations are expensive, intimidating, and

@@ -64,8 +64,8 @@ const LegalLayout = ({ children }: { children: React.ReactNode }) => {
             <span className="font-medium">Back</span>
           </button>
 
-          <Link href="/" className="flex items-center space-x-2 opacity-0 sm:opacity-100 transition-opacity">
-            {/* <Scale className="w-6 h-6 text-orange-500 font-extrabold" /> */}
+          <Link href="/" className="flex items-center space-x-2">
+          
             <LogoText />
           </Link>
         </div>
