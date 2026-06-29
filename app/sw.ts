@@ -162,7 +162,7 @@ const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true, // Whether the service worker should skip waiting and become the active one.
   clientsClaim: true, // Whether the service worker should claim all clients.
-  navigationPreload: false,
+  navigationPreload: true,
   runtimeCaching: defaultCache, // The cache configuration for the service worker.
 
   fallbacks: {
