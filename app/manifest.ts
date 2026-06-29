@@ -13,6 +13,29 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#0f172a",
     orientation: "portrait",
     display_override: ["window-controls-overlay"],
+    scope: "/",
+    lang: "en",
+    dir: "ltr",
+    categories: [
+      "productivity", "legal", "business","chat","consultation", "ai-legal-assistant","law-tech", 
+      "legal-assistant", 
+      "voice-legal-assistant", 
+      "legal-tech-solution", 
+      "ai-legal-chat"
+    ],
+    launch_handler: { client_mode: "focus-existing" },
+    // shortcuts: [
+    //   {
+    //     name: "New Consultation",
+    //     url: "/chat",
+    //     icons: [{ src: "/icons/shortcut-chat.png", sizes: "96x96" }],
+    //   },
+    //   {
+    //     name: "Dashboard",
+    //     url: "/dashboard",
+    //     icons: [{ src: "/icons/shortcut-dashboard.png", sizes: "96x96" }],
+    //   },
+    // ],
     protocol_handlers: [
       {
         protocol: "web+tel",
