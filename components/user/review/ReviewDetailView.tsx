@@ -12,14 +12,14 @@ export const ReviewDetailView = ({ review }: ReviewDetailViewProps) => {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-16">
-      <div className="mb-4 md:mb-6">
+      {/* <div className="mb-4 md:mb-6">
         <button
           onClick={() => router.push("/dashboard/reviews")}
           className="text-slate-900 dark:text-slate-100 font-bold hover:underline inline-flex items-center gap-2"
         >
           &larr; Back to History
         </button>
-      </div>
+      </div> */}
       <ReviewResults
         review={review}
         isSaving={false}

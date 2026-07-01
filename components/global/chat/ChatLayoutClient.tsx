@@ -46,7 +46,7 @@ const ChatLayoutClient = ({
     <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] w-full overflow-hidden">
       {/* Mobile Top Header */}
 
-      <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-20">
+      <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 sticky top-0 z-1">
         <div className="flex items-center space-x-3">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>

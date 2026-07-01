@@ -215,7 +215,7 @@ export const ReviewHistory = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
         <div>
           <div className="flex items-center gap-2">
-            <BackButton />
+            {/* <BackButton /> */}
             <h1 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
               Review{" "}
               <span className="text-orange-600 dark:text-orange-400">
@@ -386,12 +386,12 @@ export const ReviewHistory = ({
                       </button>
                     </div>
                   ) : (
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 line-clamp-1 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                    <h3 className="md:text-lg text-base font-bold text-slate-900 dark:text-white mb-1 line-clamp-1 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                       {record.fileName || "Untitled Document"}
                     </h3>
                   )}
 
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 line-clamp-1">
+                  <p className="md:text-sm text-xs font-medium text-slate-500 dark:text-slate-400 mb-4 line-clamp-1">
                     {record.documentType}
                   </p>
 
