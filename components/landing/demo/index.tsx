@@ -1,14 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLockBodyScroll } from "@uidotdev/usehooks";
 import { usePopStore } from "@/store";
 
-import { TOPICS } from "./topics";
+import { DEMO_SCRIPT } from "./topics";
 import { useDemoSim } from "./useDemoSim";
 import { DemoHeader } from "./DemoHeader";
-import { DemoTopicTabs } from "./DemoTopicTabs";
 import { DemoProgress } from "./DemoProgress";
 import { DemoChat } from "./DemoChat";
 import { DemoInputBar } from "./DemoInputBar";
@@ -28,11 +26,8 @@ const DemoModal = () => {
   useLockBodyScroll();
   const setShowDemo = usePopStore((state) => state.setShowDemo);
 
-  const [activeTopic, setActiveTopic] = useState(0);
-  const topic = TOPICS[activeTopic];
-
-  const { messages, typedText, status, stepIndex, isComplete, scrollRef, restart } =
-    useDemoSim(topic.script, activeTopic);
+  const { messages, typedText, status, stepIndex, isComplete, isPaused, scrollRef, togglePause, restart } =
+    useDemoSim(DEMO_SCRIPT);
 
   return (
     <AnimatePresence>
@@ -75,29 +70,22 @@ const DemoModal = () => {
           ].join(" ")}
         >
           <DemoHeader
-            onRestart={restart}
             onClose={() => setShowDemo(false)}
           />
 
-          <DemoTopicTabs
-            topics={TOPICS}
-            activeTopic={activeTopic}
-            onSelect={setActiveTopic}
-          />
-
           <DemoProgress
-            script={topic.script}
+            script={DEMO_SCRIPT}
             stepIndex={stepIndex}
             status={status}
           />
 
           <DemoChat
             ref={scrollRef}
-            topic={topic}
-            activeTopic={activeTopic}
             messages={messages}
             status={status}
             isComplete={isComplete}
+            isPaused={isPaused}
+            onTogglePause={togglePause}
             onRestart={restart}
           />
 

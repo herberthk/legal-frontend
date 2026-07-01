@@ -2,16 +2,17 @@
 
 import { forwardRef, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gavel, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Gavel, Loader2, RefreshCw, Sparkles, Pause, Play } from "lucide-react";
 import { AIAvatar, UserAvatar, AudioVisualiser, CitationChip, ConfidenceBar } from "./DemoAtoms";
-import type { Message, SimStatus, Topic } from "./types";
+import type { Message, SimStatus } from "./types";
+import { DEMO_INTRO } from "./topics";
 
 interface DemoChatProps {
-  topic: Topic;
-  activeTopic: number;
   messages: Message[];
   status: SimStatus;
   isComplete: boolean;
+  isPaused: boolean;
+  onTogglePause: () => void;
   onRestart: () => void;
 }
 
@@ -81,21 +82,20 @@ const UserBubble = memo(function UserBubble({ content }: { content: string }) {
 /** The full scrollable chat area */
 export const DemoChat = forwardRef<HTMLDivElement, DemoChatProps>(
   function DemoChat(
-    { topic, activeTopic, messages, status, isComplete, onRestart },
+    { messages, status, isComplete, isPaused, onTogglePause, onRestart },
     ref
   ) {
     return (
-      <div
-        ref={ref}
-        id={`demo-panel-${topic.id}`}
-        role="log"
-        aria-live="polite"
+      <div className="flex-1 relative min-h-0 flex flex-col">
+        <div
+          ref={ref}
+          role="log"
+          aria-live="polite"
         aria-label="Chat conversation"
-        className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-white/10"
+        className="flex-1 overflow-y-auto p-2 md:p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-white/10"
       >
         {/* ---- Greeting ---- */}
         <motion.div
-          key={`greeting-${activeTopic}`}
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
@@ -110,7 +110,7 @@ export const DemoChat = forwardRef<HTMLDivElement, DemoChatProps>(
               </span>
             </div>
             <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
-              {topic.intro}
+              {DEMO_INTRO}
             </p>
           </div>
         </motion.div>
@@ -198,11 +198,42 @@ export const DemoChat = forwardRef<HTMLDivElement, DemoChatProps>(
                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 text-xs font-bold hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
               >
                 <RefreshCw size={11} />
-                Replay this scenario
+                Replay Full Demo
               </button>
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
+
+        {/* ---- Floating Control Pill ---- */}
+        {!isComplete && (
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 p-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-full shadow-lg border border-slate-200/50 dark:border-white/10 z-10">
+            <button
+              onClick={onTogglePause}
+              className="flex items-center gap-2 pl-3 pr-4 py-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-700 dark:text-slate-200 text-xs font-bold"
+            >
+              {isPaused ? (
+                <>
+                  <Play size={12} className="text-emerald-500" fill="currentColor" />
+                  Resume
+                </>
+              ) : (
+                <>
+                  <Pause size={12} className="text-orange-500" fill="currentColor" />
+                  Pause
+                </>
+              )}
+            </button>
+            <div className="w-px h-4 bg-slate-200 dark:bg-white/20 mx-1" />
+            <button
+              onClick={onRestart}
+              title="Restart from beginning"
+              className="p-1.5 mr-1 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+            >
+              <RefreshCw size={12} />
+            </button>
+          </div>
+        )}
       </div>
     );
   }
