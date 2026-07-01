@@ -52,7 +52,7 @@ const Hero = () => {
             variants={fadeInUp}
             className="text-sm md:text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0 italic"
           >
-            Navigate the Ugandan Constitution, Acts of Parliament, and all statutory instruments with an AI assistants that were trained on all Ugandan Laws (company act 2012, Employment Act, 2006, Landlord and Tenant Act, 2022, etc) with verified citations (Act, section, Article, clause etc)
+            Navigate the Ugandan Constitution, Acts of Parliament, and all statutory instruments with an AI assistant that was trained on all Ugandan Laws (Companies Act, 2012, Employment Act, 2006, Landlord and Tenant Act, 2022, etc) with verified citations (Act, section, Article, clause etc)
           </motion.p>
 
           <motion.div
@@ -180,7 +180,7 @@ const Hero = () => {
                     <p className="mb-2">
                       According to the{" "}
                       <span className="font-bold text-orange-600 dark:text-orange-400">
-                        Land Act, 1998
+                        Land Act (Cap 227)
                       </span>
                       , you need to apply for a Certificate of Customary
                       Ownership (CCO).

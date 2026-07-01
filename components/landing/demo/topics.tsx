@@ -3,9 +3,7 @@
 
 import {
   AlertCircle,
-  Briefcase,
   CheckCircle2,
-  Home,
   Shield,
 } from "lucide-react";
 import type { ScriptStep } from "./types";
@@ -184,7 +182,8 @@ export const DEMO_SCRIPT: ScriptStep[] = [
                   { period: "Less than 6 months", notice: "1 week" },
                   { period: "6 months – 1 year", notice: "2 weeks" },
                   { period: "1 – 5 years", notice: "1 month" },
-                  { period: "Over 5 years", notice: "2 months" },
+                  { period: "5 – 10 years", notice: "2 months" },
+                  { period: "Over 10 years", notice: "3 months" },
                 ].map((row) => (
                   <div
                     key={row.period}
@@ -213,14 +212,14 @@ export const DEMO_SCRIPT: ScriptStep[] = [
         topicLabel: "Employment Law",
         question: "What counts as unfair dismissal?",
         confidence: 95,
-        citations: ["Employment Act 2006, s.68", "s.69"],
+        citations: ["Employment Act 2006, s.71", "s.75"],
         voiceDuration: 4000,
         answer: (
           <div className="space-y-3">
             <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
               Under{" "}
               <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                Section 68
+                Section 71
               </span>
               , a dismissal is <strong>unfair</strong> if the employer did not
               have a valid reason relating to the worker&apos;s conduct,
@@ -228,7 +227,7 @@ export const DEMO_SCRIPT: ScriptStep[] = [
               not followed.
             </p>
             <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-1">
-              Automatically Unfair Reasons (s.69):
+              Automatically Unfair Reasons (s.75):
             </p>
             <div className="grid grid-cols-2 gap-1.5">
               {[
@@ -404,7 +403,7 @@ export const DEMO_SCRIPT: ScriptStep[] = [
             </p>
             <div className="space-y-2">
               {[
-                "Apply to the Parish Land Committee with a sketch map, witnesses, and LC1 letter.",
+                "Apply to the Area Land Committee with a sketch map, witnesses, and LC1 letter.",
                 "Committee conducts on-ground inspection and public notice (14 days).",
                 "Adjudication by the Area Land Committee — neighbours may object.",
                 "Approved CCO issued by District Land Board and registered at Ministry of Lands.",
@@ -432,7 +431,7 @@ export const DEMO_SCRIPT: ScriptStep[] = [
         topicLabel: "Land & Property",
         question: "What protections do I have as a tenant?",
         confidence: 97,
-        citations: ["Landlord & Tenant Act 2022", "s.12", "s.19"],
+        citations: ["Landlord & Tenant Act 2022"],
         voiceDuration: 4000,
         answer: (
           <div className="space-y-3">
@@ -448,22 +447,22 @@ export const DEMO_SCRIPT: ScriptStep[] = [
                 {
                   right: "No unlawful eviction",
                   detail:
-                    "A landlord cannot evict you without a court order (s.19). Self-help evictions are illegal.",
+                    "A landlord cannot evict you without a court order. Self-help evictions are illegal.",
                 },
                 {
                   right: "Written agreement required",
                   detail:
-                    "Any lease over 1 month must be in writing and signed by both parties (s.5).",
+                    "Any tenancy agreement for a transaction of 25 currency points (500,000 UGX) or more must be in writing.",
                 },
                 {
                   right: "Receipt for rent",
                   detail:
-                    "You are entitled to a written receipt for every rent payment (s.12).",
+                    "You are entitled to a written receipt for every rent payment.",
                 },
                 {
                   right: "Habitable premises",
                   detail:
-                    "Landlord must maintain the property in a safe, habitable condition (s.15).",
+                    "The landlord must maintain the property in a safe, habitable condition.",
                 },
               ].map((item) => (
                 <div
