@@ -8,21 +8,18 @@ import {
   Home,
   Shield,
 } from "lucide-react";
-import type { Topic } from "./types";
+import type { ScriptStep } from "./types";
 
-export const TOPICS: Topic[] = [
+export const DEMO_INTRO = "Hello! I am LegalAdviser AI. I can guide you through Constitutional Rights, Employment Law, and Land & Property matters in Uganda. Ask me anything!";
+
+export const DEMO_SCRIPT: ScriptStep[] = [
   /* ------------------------------------------------------------------ */
   /*  1. Constitutional Rights                                            */
   /* ------------------------------------------------------------------ */
-  {
-    id: "rights",
-    label: "Constitutional Rights",
-    icon: <Shield size={13} />,
-    color: "orange",
-    intro:
-      "Hello! I can help you understand your constitutional rights under the 1995 Constitution of Uganda. Ask me anything — I will cite the exact article and clause.",
-    script: [
       {
+        id: "rights-1",
+        topicColor: "orange",
+        topicLabel: "Constitutional Rights",
         question: "What are my fundamental rights as a Ugandan citizen?",
         confidence: 98,
         citations: ["Article 20", "Article 21", "Article 44"],
@@ -67,6 +64,9 @@ export const TOPICS: Topic[] = [
         ),
       },
       {
+        id: "rights-2",
+        topicColor: "orange",
+        topicLabel: "Constitutional Rights",
         question: "Can the government limit these rights?",
         confidence: 94,
         citations: ["Article 43", "Article 44"],
@@ -106,6 +106,9 @@ export const TOPICS: Topic[] = [
         ),
       },
       {
+        id: "rights-3",
+        topicColor: "orange",
+        topicLabel: "Constitutional Rights",
         question: "What can I do if my rights are violated?",
         confidence: 96,
         citations: ["Article 50", "Article 137", "Human Rights Commission Act"],
@@ -151,21 +154,13 @@ export const TOPICS: Topic[] = [
           </div>
         ),
       },
-    ],
-  },
-
   /* ------------------------------------------------------------------ */
   /*  2. Employment Law                                                   */
   /* ------------------------------------------------------------------ */
-  {
-    id: "employment",
-    label: "Employment Law",
-    icon: <Briefcase size={13} />,
-    color: "indigo",
-    intro:
-      "Hi! I specialise in Ugandan employment law. I can help you understand your rights as an employee or employer under the Employment Act, 2006 and related legislation.",
-    script: [
       {
+        id: "emp-1",
+        topicColor: "indigo",
+        topicLabel: "Employment Law",
         question: "Can my employer terminate me without notice?",
         confidence: 97,
         citations: ["Employment Act 2006, s.58", "s.65"],
@@ -213,6 +208,9 @@ export const TOPICS: Topic[] = [
         ),
       },
       {
+        id: "emp-2",
+        topicColor: "indigo",
+        topicLabel: "Employment Law",
         question: "What counts as unfair dismissal?",
         confidence: 95,
         citations: ["Employment Act 2006, s.68", "s.69"],
@@ -254,6 +252,9 @@ export const TOPICS: Topic[] = [
         ),
       },
       {
+        id: "emp-3",
+        topicColor: "indigo",
+        topicLabel: "Employment Law",
         question: "How do I claim compensation for unfair dismissal?",
         confidence: 93,
         citations: [
@@ -312,21 +313,13 @@ export const TOPICS: Topic[] = [
           </div>
         ),
       },
-    ],
-  },
-
   /* ------------------------------------------------------------------ */
   /*  3. Land & Property                                                  */
   /* ------------------------------------------------------------------ */
-  {
-    id: "land",
-    label: "Land & Property",
-    icon: <Home size={13} />,
-    color: "emerald",
-    intro:
-      "Hello! I can guide you through Uganda land tenure systems and property rights under the Land Act (Cap. 227) and the Landlord and Tenant Act, 2022.",
-    script: [
       {
+        id: "land-1",
+        topicColor: "emerald",
+        topicLabel: "Land & Property",
         question: "What types of land tenure exist in Uganda?",
         confidence: 99,
         citations: ["Land Act Cap.227, s.3", "1995 Constitution, Art.237"],
@@ -392,6 +385,9 @@ export const TOPICS: Topic[] = [
         ),
       },
       {
+        id: "land-2",
+        topicColor: "emerald",
+        topicLabel: "Land & Property",
         question: "How do I get a Certificate of Customary Ownership?",
         confidence: 96,
         citations: ["Land Act Cap.227, s.4", "Land Regulations 2004"],
@@ -431,6 +427,9 @@ export const TOPICS: Topic[] = [
         ),
       },
       {
+        id: "land-3",
+        topicColor: "emerald",
+        topicLabel: "Land & Property",
         question: "What protections do I have as a tenant?",
         confidence: 97,
         citations: ["Landlord & Tenant Act 2022", "s.12", "s.19"],
@@ -484,6 +483,4 @@ export const TOPICS: Topic[] = [
           </div>
         ),
       },
-    ],
-  },
 ];

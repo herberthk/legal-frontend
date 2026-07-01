@@ -1,15 +1,13 @@
 "use client";
 
 import { memo } from "react";
-import { Scale, RefreshCw, X } from "lucide-react";
+import { Scale, X } from "lucide-react";
 
 interface DemoHeaderProps {
-  onRestart: () => void;
   onClose: () => void;
 }
 
 export const DemoHeader = memo(function DemoHeader({
-  onRestart,
   onClose,
 }: DemoHeaderProps) {
   return (
@@ -34,14 +32,6 @@ export const DemoHeader = memo(function DemoHeader({
 
       {/* Right: action buttons */}
       <div className="flex items-center gap-1">
-        <button
-          onClick={onRestart}
-          title="Restart demo"
-          aria-label="Restart demo"
-          className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-        >
-          <RefreshCw size={14} />
-        </button>
         <button
           onClick={onClose}
           aria-label="Close demo"

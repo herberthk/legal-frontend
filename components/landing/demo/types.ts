@@ -1,6 +1,9 @@
 // Shared types for the Demo modal components
 
 export interface ScriptStep {
+  id: string;
+  topicColor: string;
+  topicLabel: string;
   question: string;
   answer: React.ReactNode;
   voiceDuration: number;
@@ -8,14 +11,7 @@ export interface ScriptStep {
   confidence: number;
 }
 
-export interface Topic {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  intro: string;
-  script: ScriptStep[];
-}
+
 
 export type Message =
   | { role: "user"; content: string }
