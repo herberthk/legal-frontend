@@ -61,19 +61,19 @@ export function ReviewResults({
       {/* ── Action bar ─────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
+          <h2 className="md:text-xl text-lg font-bold text-slate-900 dark:text-slate-50">
             Review Complete
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="md:text-sm text-xs text-slate-500 dark:text-slate-400">
             {review.fileName} · {review.documentType}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex gap-4">
           {/* Save / Saved button */}
           {isSaved ? (
-            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 text-sm font-semibold border border-orange-200 dark:border-orange-800">
+            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-orange-700 dark:text-orange-300 text-sm font-semibold">
               <CheckCircle2 className="w-4 h-4" />
-              Saved
+              <span>Saved</span>
             </div>
           ) : (
             <button

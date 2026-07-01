@@ -120,7 +120,7 @@ const LandingPage = () => {
                 onClick={() => {
                   logAnalyticsEvent("final_cta_click");
                 }}
-                className="px-10 py-4 rounded-full bg-white text-indigo-700 font-bold text-lg shadow-[0_0_25px_rgba(255,255,255,0.4)] hover:shadow-[0_0_35px_rgba(255,255,255,0.6)] transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-600"
+                className="px-4 py-2 md:px-8 md:py-4 rounded-full bg-white text-indigo-700 font-bold text-sm md:text-lg shadow-[0_0_25px_rgba(255,255,255,0.4)] hover:shadow-[0_0_35px_rgba(255,255,255,0.6)] transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-indigo-600"
               >
                 Get Started for Free
               </motion.button>

@@ -132,7 +132,7 @@ const Pricing = () => {
                     <MessageSquare size={16} className="text-indigo-200" />
                     <span className="text-xs font-bold text-indigo-200 uppercase tracking-wide">Text Tokens</span>
                   </div>
-                  <div className="text-3xl font-black text-white">
+                  <div className="md:text-3xl text-xl font-black text-white">
                     {FREE_WELCOME_TEXT_TOKENS.toLocaleString()}
                   </div>
                   <div className="text-xs text-indigo-200 mt-1">
@@ -144,7 +144,7 @@ const Pricing = () => {
                     <Mic size={16} className="text-indigo-200" />
                     <span className="text-xs font-bold text-indigo-200 uppercase tracking-wide">Voice Minutes</span>
                   </div>
-                  <div className="text-3xl font-black text-white">
+                  <div className="md:text-3xl text-xl font-black text-white">
                     {FREE_WELCOME_VOICE_SECONDS / 60}
                   </div>
                   <div className="text-xs text-indigo-200 mt-1">
@@ -187,7 +187,7 @@ const Pricing = () => {
                 <MessageSquare size={16} className="text-green-600 dark:text-green-400" />
                 <span className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">Every 3 Days</span>
               </div>
-              <div className="text-4xl font-black text-slate-900 dark:text-white">
+              <div className="md:text-4xl text-2xl font-black text-slate-900 dark:text-white">
                 {FREE_DAILY_TEXT_TOKENS.toLocaleString()}
                 <span className="text-base font-bold text-slate-500 dark:text-slate-400 ml-2">tokens</span>
               </div>
@@ -198,7 +198,7 @@ const Pricing = () => {
 
             <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/40 rounded-xl text-sm">
               <Info size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-amber-800 dark:text-amber-300">
+              <p className="text-amber-800 dark:text-amber-300 md:text-base text-sm italic">
                 Your free tokens refill only after your current balance reaches <strong>zero</strong>. They don&apos;t stack — use them to unlock the next batch.
               </p>
             </div>
@@ -236,7 +236,7 @@ const Pricing = () => {
               <span className="font-bold text-slate-900 dark:text-white">Text Chat & Documents</span>
             </div>
             <div className="mb-1">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">
+              <span className="md:text-3xl text-xl font-black text-slate-900 dark:text-white">
                 ${COST_PER_THOUSAND_TOKENS}
               </span>
               <span className="text-slate-500 dark:text-slate-400 text-sm ml-1">/ 1,000 tokens</span>
@@ -269,7 +269,7 @@ const Pricing = () => {
               <span className="font-bold text-slate-900 dark:text-white">Voice Consultation</span>
             </div>
             <div className="mb-1">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">
+              <span className="md:text-3xl text-xl font-black text-slate-900 dark:text-white">
                 ${COST_PER_VOICE_MINUTE}
               </span>
               <span className="text-slate-500 dark:text-slate-400 text-sm ml-1">/ minute</span>
@@ -476,7 +476,7 @@ const Pricing = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               style={{ willChange: "transform" }}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-full font-bold text-lg shadow-lg shadow-orange-500/30 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 md:px-8 md:py-4 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-full font-bold text-sm md:text-lg shadow-lg shadow-orange-500/30 transition-all"
             >
               <Gift size={20} />
               Claim Your Free Welcome Bonus

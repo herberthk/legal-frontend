@@ -27,7 +27,7 @@ export const ChatHero = memo(({ user, onSuggestionClick }: ChatHeroProps) => {
             : "evening"}
         , <span className="text-orange-500"> {user?.name?.split(" ")[0] || "there"}</span>
       </h1>
-      <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 max-w-2xl mb-12 italic">
+      <p className="text-sm md:text-xl text-slate-500 dark:text-slate-400 max-w-2xl mb-12 italic">
         I am your Legal Adviser specifically trained on Ugandan Law. How can I
         help you today?
       </p>
