@@ -36,7 +36,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="p-2 md:p-4 mt-3 flex items-center gap-4">
-          <BackButton />
+          {/* <BackButton /> */}
           <div className="mt-1">
             <h1 className="md:text-3xl text-xl font-bold text-slate-900 dark:text-white">
               Billing & Usage

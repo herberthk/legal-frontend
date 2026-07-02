@@ -1,7 +1,5 @@
 import { getCurrentUser } from "@/lib";
 import TransactionList from "@/components/user/TransactionList";
-import { ChevronLeft } from "lucide-react";
-import Link from "next/link";
 
 const TransactionsPage = async ({
   searchParams,
@@ -19,12 +17,12 @@ const TransactionsPage = async ({
   return (
     <div className="md:p-8 p-2 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Link
+        {/* <Link
           href="/dashboard/billing"
           className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 text-slate-500 hover:text-orange-600 transition-colors shadow-sm"
         >
           <ChevronLeft size={20} />
-        </Link>
+        </Link> */}
         <div>
           <h1 className="md:text-2xl text-xl font-bold text-slate-900 dark:text-white">
             Full Transaction History

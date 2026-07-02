@@ -5,6 +5,7 @@ import { Smartphone, CreditCard, ChevronRight } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { formatUSD, formatUgx } from "@/utils";
 import type { PaymentMethodType } from "@/store/checkout";
+import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 
 interface StepMethodProps {
   paymentMethod: PaymentMethodType;
@@ -117,10 +118,10 @@ export const StepMethod = memo(function StepMethod({
 
       {/* Footer */}
       <div className="pt-6 border-t border-slate-400/50 flex items-center justify-between gap-4 mt-8">
-        <p className="text-sm font-medium text-muted-foreground">
-          Total:{" "}
-          <span className="font-bold text-foreground">
-            {formatUSD(amount)} ({formatUgx(amount)})
+        <p className="text-muted-foreground">
+          <span className="text-slate-500 dark:text-slate-300 mr-1 text-xs md:text-sm">Topup Amount:</span>
+          <span className="text-foreground md:text-sm text-[11px]">
+            ${(amount/USD_TO_UGX_EXCHANGE_RATE).toFixed(2)} ({amount.toLocaleString('en-UG', { style: 'currency', currency: 'UGX' })})
           </span>
         </p>
         <CustomButton
@@ -137,7 +138,7 @@ export const StepMethod = memo(function StepMethod({
           isLoading={isProcessing}
           onClick={onContinue}
         >
-          Enter Details
+          Details
         </CustomButton>
       </div>
     </motion.div>

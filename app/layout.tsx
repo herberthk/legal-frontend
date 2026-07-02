@@ -191,7 +191,7 @@ const RootLayout = ({
           <InstallPrompt />
           <PwaUpdateToast />
           <ThemeInitializer />
-          <NextTopLoader />
+          <NextTopLoader height={2.5} />
           <SerwistProvider swUrl="/sw.js">
             <FCMProvider />
             {children}
