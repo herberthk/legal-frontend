@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowLeft, Shield, ShieldOff, Ban, UserCheck, Edit2, Trash2,
@@ -19,6 +18,7 @@ import UserModal from "@/components/admin/UserModal";
 import UsageCharts from "@/components/admin/user-detail/UsageCharts";
 import TransactionsTab from "@/components/admin/user-detail/TransactionsTab";
 import TicketsTab from "@/components/admin/user-detail/TicketsTab";
+import { CustomLink } from "../global/transitions";
 
 // ─── Small shared helpers ────────────────────────────────────────────────────
 
@@ -118,9 +118,9 @@ export default function AdminUserDetailClient({ data: initialData }: { data: Adm
 
         {/* Back + Header */}
         <div className="flex flex-col sm:flex-row sm:items-start gap-5">
-          <Link href="/admin/users" className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors flex-shrink-0 mt-1">
+          <CustomLink href="/admin/users" className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors flex-shrink-0 mt-1">
             <ArrowLeft size={16} /> Back to Users
-          </Link>
+          </CustomLink>
 
           <div className="flex-1 bg-slate-800/50 border border-slate-700/60 rounded-2xl p-5">
             <div className="flex flex-col sm:flex-row sm:items-center gap-5">

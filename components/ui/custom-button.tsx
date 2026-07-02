@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // --- Motion Component Cache ---
-const MotionButton = motion("button");
+const MotionButton = motion.create("button");
 const motionCache = new Map<
   React.ElementType,
   React.ComponentType<Record<string, unknown>>
@@ -26,7 +26,7 @@ function getMotionComponent(
     >;
   let cached = motionCache.get(component);
   if (!cached) {
-    cached = motion(
+    cached = motion.create(
       component as React.ComponentType,
     ) as unknown as React.ComponentType<Record<string, unknown>>;
     motionCache.set(component, cached);

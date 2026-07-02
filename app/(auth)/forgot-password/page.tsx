@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { ForgotPasswordForm } from "./forgot-password-form";
 import { LogoText } from "@/components/global/Logo";
+import { CustomLink } from "@/components/global/transitions";
 
 export const metadata = {
   title: "Forgot Password - Legal Adviser",
@@ -11,12 +11,12 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <div className="sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <Link
+        <CustomLink
           href="/"
           className="flex justify-center cursor-pointer group lg:hidden"
         >
           <LogoText/>
-        </Link>
+        </CustomLink>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
           Reset Password
         </h2>

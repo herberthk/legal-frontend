@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Scale, Mail, Lock, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { Mail, Lock, ArrowRight } from "lucide-react";
 import { useRouter } from "nextjs-toploader/app";
 import { useSearchParams } from "next/navigation";
 import GoogleAuthButton from "@/components/auth/google-auth-button";
@@ -12,6 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ShieldAlert, ShieldCheck, Eye, EyeOff, User } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import { LogoText } from "@/components/global/Logo";
+import { TRANSITION } from "@/constants";
+import { CustomLink } from "@/components/global/transitions";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -137,13 +138,13 @@ const SignupPage = () => {
   return (
     <>
       <div className="sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <Link
+        <CustomLink
           href="/"
           className="flex justify-center cursor-pointer group lg:hidden"
           aria-label="Go to home page"
         >
           <LogoText />
-        </Link>
+        </CustomLink>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
           Create Account
         </h2>
@@ -366,9 +367,9 @@ const SignupPage = () => {
               <div className="ml-3 text-sm">
                 <label htmlFor="terms" className="font-medium text-slate-600 dark:text-slate-300">
                   By signing up, you agree to our{" "}
-                  <Link href="/terms" className="text-orange-600 hover:text-orange-500 hover:underline">Terms</Link>
+                  <CustomLink href="/terms" className="text-orange-600 hover:text-orange-500 hover:underline">Terms</CustomLink>
                   {" "}and{" "}
-                  <Link href="/privacy" className="text-orange-600 hover:text-orange-500 hover:underline">Privacy Policy</Link>.
+                  <CustomLink transitionTypes={[TRANSITION.NAV_FORWARD]} href="/privacy" className="text-orange-600 hover:text-orange-500 hover:underline">Privacy Policy</CustomLink>.
                 </label>
               </div>
             </div>
@@ -407,7 +408,7 @@ const SignupPage = () => {
               </div>
             </div>
             <div className="mt-2 flex justify-center">
-              <Link
+              <CustomLink
                 href={
                   returnTo
                     ? `/login?returnTo=${encodeURIComponent(returnTo)}`
@@ -416,7 +417,7 @@ const SignupPage = () => {
                 className="font-medium text-sm text-orange-600 dark:text-orange-500 hover:text-orange-500 transition-colors hover:underline"
               >
                 Sign in to existing account
-              </Link>
+              </CustomLink>
             </div>
           </div>
         </div>

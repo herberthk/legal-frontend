@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import TransactionFilters from "./TransactionFilters";
 import TransactionTableBody from "./TransactionTableBody";
 import TransactionPagination from "./TransactionPagination";
-import Link from "next/link";
+import { CustomLink } from "../global/transitions";
 
 interface TransactionFiltersWrapperProps {
   currentType: string;
@@ -66,7 +66,7 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
 
       {isSummary ? (
         <div className="p-2 md:p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex justify-center">
-          <Link
+          <CustomLink
             href="/dashboard/transactions"
             className="md:text-sm text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors flex items-center gap-2"
           >
@@ -84,7 +84,7 @@ const TransactionFiltersWrapper: React.FC<TransactionFiltersWrapperProps> = ({
                 d="M9 5l7 7-7 7"
               />
             </svg>
-          </Link>
+          </CustomLink>
         </div>
       ) : (
         <TransactionPagination

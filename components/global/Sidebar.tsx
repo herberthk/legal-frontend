@@ -7,7 +7,6 @@ import { auth } from "@/firebase/client";
 import { LogOut, ChevronRight, ChevronsUpDown, Scale } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { sideBarItems } from "@/constants";
-import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 
 import {
@@ -41,6 +40,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import React from "react";
 import Logo, { LogoText } from "./Logo";
+import { CustomLink } from "./transitions";
 
 // Types
 interface SidebarSubItem {
@@ -225,7 +225,7 @@ const CollapsibleMenu = ({
                     {link.subItems?.map((sub) => (
                       <SidebarMenuSubItem key={sub.id}>
                         <SidebarMenuSubButton asChild>
-                          <Link
+                          <CustomLink
                             href={sub.href}
                             onClick={() => setOpenMobile(false)}
                             className={cn(
@@ -252,7 +252,7 @@ const CollapsibleMenu = ({
                               )}
                             </AnimatePresence>
                             <span className="relative z-10">{sub.label}</span>
-                          </Link>
+                          </CustomLink>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}
@@ -430,7 +430,7 @@ const GlobalSidebar = ({ user }: Props) => {
                             : "text-slate-500 dark:text-slate-400 font-medium",
                         )}
                       >
-                        <Link
+                        <CustomLink
                           href={link.href}
                           onClick={() => setOpenMobile(false)}
                         >
@@ -477,7 +477,7 @@ const GlobalSidebar = ({ user }: Props) => {
                             </motion.div>
                             <span className="text-sm">{link.label}</span>
                           </motion.div>
-                        </Link>
+                        </CustomLink>
                       </SidebarMenuButton>
                     </motion.div>
                   </SidebarMenuItem>

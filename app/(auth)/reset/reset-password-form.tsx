@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
 import { Lock, ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
 import { useSearchParams } from "next/navigation";
 import { resetPasswordWithOtp, signIn } from "@/lib/actions/auth";
@@ -9,6 +8,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { toast } from "sonner";
 import { CustomButton } from "@/components/ui/custom-button";
+import { CustomLink } from "@/components/global/transitions";
 
 export const ResetPasswordForm = () => {
   const [loading, setLoading] = useState(false);
@@ -127,12 +127,12 @@ export const ResetPasswordForm = () => {
         <p className="mt-2 text-slate-600 dark:text-slate-400 mb-6">
           Please verify your email first to set a new password.
         </p>
-        <Link
+        <CustomLink
           href="/forgot-password"
           className="inline-flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700"
         >
           Go to Forgot Password
-        </Link>
+        </CustomLink>
       </div>
     );
   }

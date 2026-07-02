@@ -3,9 +3,9 @@
 import { motion } from "framer-motion";
 import { coreCapabilities } from "@/constants";
 import { fadeInUp, staggerContainer } from "@/constants";
-import Link from "next/link";
 import { ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
+import { CustomLink } from "../global/transitions";
 
 const FeatureShowcase = ({ 
   imageDesktop, 
@@ -192,7 +192,7 @@ const CoreCapabilities = () => {
 
                   {/* CTA */}
                   <div className="pt-2">
-                    <Link href={capability.href}>
+                    <CustomLink href={capability.href}>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -202,7 +202,7 @@ const CoreCapabilities = () => {
                         {capability.buttonText}
                         <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                       </motion.button>
-                    </Link>
+                    </CustomLink>
                   </div>
                 </motion.div>
 

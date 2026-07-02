@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
-import Link from "next/link";
 import { getTransactionByReference } from "@/lib";
+import { CustomLink } from "@/components/global/transitions";
 
 interface TransactionWaiterProps {
   txnRef: string;
@@ -55,12 +55,12 @@ export default function TransactionWaiter({ txnRef }: TransactionWaiterProps) {
           Processing...
         </h2>
         <p className="text-gray-500 dark:text-gray-400 mb-8">{error}</p>
-        <Link
+        <CustomLink
           href="/dashboard"
           className="block w-full bg-gray-900 dark:bg-white dark:text-gray-900 text-white font-bold py-4 rounded-2xl transition-all hover:scale-[1.02] text-center"
         >
           Back to Dashboard
-        </Link>
+        </CustomLink>
       </div>
     );
   }

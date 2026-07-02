@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/utils";
 import { formatCost } from "@/utils";
 import { getVoiceSessionById } from "@/lib/actions/voice";
-import Link from "next/link";
 import SessionDetailClient from "@/components/user/SessionDetailClient";
 import ClientFormattedDate from "@/components/global/ClientFormattedDate";
 import { Metadata } from "next";
@@ -41,9 +40,6 @@ const SessionDetailPage = async ({ params }: PageProps) => {
         <p className="text-slate-500">
           The session you are looking for does not exist or has been removed.
         </p>
-        <Link href="/dashboard/transcription">
-          <Button variant="outline">Go Back to Archive</Button>
-        </Link>
       </div>
     );
   }
@@ -53,18 +49,7 @@ const SessionDetailPage = async ({ params }: PageProps) => {
       {/* Header Navigation */}
       <div className="flex items-center justify-between">
         <div/>
-        {/* <Link href="/dashboard/transcripts">
-          <Button
-            variant="ghost"
-            className="group flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl px-4 py-2"
-          >
-            <ArrowLeft
-              size={20}
-              className="group-hover:-translate-x-1 transition-transform"
-            />
-            <span className="font-bold">Back to Archive</span>
-          </Button>
-        </Link> */}
+       
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

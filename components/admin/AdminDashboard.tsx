@@ -23,8 +23,8 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import Link from "next/link";
 import AdminRevenue from "./AdminRevenue";
+import { CustomLink } from "../global/transitions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -349,9 +349,9 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
               {stats.totalUsers.toLocaleString()}
             </p>
           </div>
-          <Link href="/admin/users" className="mt-4 text-sm text-indigo-600 dark:text-indigo-400 font-medium flex items-center hover:underline">
+          <CustomLink href="/admin/users" className="mt-4 text-sm text-indigo-600 dark:text-indigo-400 font-medium flex items-center hover:underline">
             View Details <ChevronRight size={16} className="ml-1" />
-          </Link>
+          </CustomLink>
         </div>
 
         {/* Tokens */}
@@ -368,9 +368,9 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
             </p>
             <p className="text-xs text-slate-400 mt-1">{filterLabel}</p>
           </div>
-          <Link href="/admin/usage" className="mt-4 text-sm text-blue-600 dark:text-blue-400 font-medium flex items-center hover:underline">
+          <CustomLink href="/admin/usage" className="mt-4 text-sm text-blue-600 dark:text-blue-400 font-medium flex items-center hover:underline">
             View Details <ChevronRight size={16} className="ml-1" />
-          </Link>
+          </CustomLink>
         </div>
 
         {/* Voice Sessions */}
@@ -389,9 +389,9 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
               {Math.floor(stats.totalVoiceSeconds / 60).toLocaleString()} total minutes
             </p>
           </div>
-          <Link href="/admin/usage?tab=voice" className="mt-4 text-sm text-purple-600 dark:text-purple-400 font-medium flex items-center hover:underline">
+          <CustomLink href="/admin/usage?tab=voice" className="mt-4 text-sm text-purple-600 dark:text-purple-400 font-medium flex items-center hover:underline">
             View Details <ChevronRight size={16} className="ml-1" />
-          </Link>
+          </CustomLink>
         </div>
 
         {/* Cost */}
@@ -410,9 +410,9 @@ const AdminDashboard = ({ initialStats }: AdminDashboardProps) => {
               UGX {stats.totalCostUgx.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </p>
           </div>
-          <Link href="/admin/revenue" className="mt-4 text-sm text-green-600 dark:text-green-400 font-medium flex items-center hover:underline">
+          <CustomLink href="/admin/revenue" className="mt-4 text-sm text-green-600 dark:text-green-400 font-medium flex items-center hover:underline">
             View Details <ChevronRight size={16} className="ml-1" />
-          </Link>
+          </CustomLink>
         </div>
       </div>
 

@@ -2,8 +2,9 @@ import { getCurrentUser, getTransactionStatusByReference } from "@/lib";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import Success from "./Success";
-import { AlertCircle, Link } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import TransactionWaiter from "@/components/user/transaction/TransactionWaiter";
+import { CustomLink } from "@/components/global/transitions";
 
 export const metadata: Metadata = {
   title: "Payment Successful | Dashboard",
@@ -24,12 +25,12 @@ const ErrorState = ({ message }: { message: string }) => {
         Error Loading Transaction
       </h2>
       <p className="text-gray-500 dark:text-gray-400 mb-8">{message}</p>
-      <Link
+      <CustomLink
         href="/dashboard"
         className="block w-full bg-gray-900 dark:bg-white dark:text-gray-900 text-white font-bold py-4 rounded-2xl transition-all hover:scale-[1.02] text-center"
       >
         Back to Dashboard
-      </Link>
+      </CustomLink>
     </div>
   );
 };

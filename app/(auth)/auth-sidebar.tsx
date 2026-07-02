@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
 import { LogoText } from "@/components/global/Logo";
+import { CustomLink } from "@/components/global/transitions";
 
 export const AuthSidebar = () => {
   const pathname = usePathname();
@@ -53,9 +53,9 @@ export const AuthSidebar = () => {
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-orange-500/10 blur-[100px] rounded-full pointer-events-none transform -translate-x-1/4 translate-y-1/4" />
 
       <div className="relative z-10 mb-16">
-        <Link href="/">
+        <CustomLink href="/">
           <LogoText />
-        </Link>
+        </CustomLink>
       </div>
 
       <div className="relative z-10 max-w-[320px]">
