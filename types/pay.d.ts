@@ -1,4 +1,4 @@
-import {TRANSITION} from "@/constants"
+declare global{
 
 type MetadataItem = 
 | { baseAmount: number, fee?: number }
@@ -56,4 +56,9 @@ type RefundPayLoad = {
 }
 
 // Transitions
+import {TRANSITION} from "@/constants"
 type TransitionType = typeof TRANSITION[keyof typeof TRANSITION]
+
+}
+
+export {}
