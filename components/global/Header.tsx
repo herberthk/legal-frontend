@@ -1,11 +1,11 @@
 "use client";
 import { useAuthStore, usePopStore, useThemeStore } from "@/store";
-import { Moon, Sun, Bell, ChevronDown, Menu, ChevronLeft } from "lucide-react";
+import { Moon, Sun, Bell, ChevronDown, Menu, ChevronLeft, ArrowLeft } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import NotificationPopUp from "./NotificationPopUp";
 import ProfilePopUp from "./ProfilePopUp";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { addTransitionType, startTransition, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { db } from "@/firebase/client";
 import { onSnapshot, where, query, collection } from "firebase/firestore";
@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { cn } from "@/lib";
 import { getInitials } from "@/utils";
 import { useClickAway } from "@uidotdev/usehooks";
+import { TRANSITION } from "@/constants";
 
 type Props = {
   user: User;
@@ -57,6 +58,12 @@ const Header: React.FC<Props> = ({ user }) => {
     return unsubscribe;
   }, [user.id]);
 
+  const handleBack = () => {
+      startTransition(() => {
+        addTransitionType(TRANSITION.NAV_BACK)
+        router.back()
+      })
+    }
   // console.log("avatar", user.avatar);
   return (
     <header className="md:h-16 h-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 sm:px-6 z-10 sticky top-0">
@@ -73,10 +80,10 @@ const Header: React.FC<Props> = ({ user }) => {
             </button>
             {/* Mobile Back Button */}
             <button
-              onClick={() => router.back()}
-              className="md:hidden mr-3 p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              onClick={handleBack}
+              className="md:hidden mr-1 p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
-              <ChevronLeft size={24} />
+              <ArrowLeft size={24} />
             </button>
           </>
         ) : (
@@ -173,7 +180,7 @@ const Header: React.FC<Props> = ({ user }) => {
               <AvatarImage src={user?.avatar || ""} alt={user?.name} />
               <AvatarFallback
                 className={cn(
-                  "rounded-full text-white font-black",
+                  "rounded-full text-white font-black md:text-base text-sm",
                   isAdmin
                     ? "bg-indigo-600 shadow-indigo-500/20"
                     : "bg-orange-500 shadow-orange-500/20",
