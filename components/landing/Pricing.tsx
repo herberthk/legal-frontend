@@ -13,7 +13,7 @@ import {
   Zap,
   Info,
 } from "lucide-react";
-import Link from "next/link";
+import { CustomLink } from "../global/transitions";
 
 // Sourced from constants/constants.ts
 const COST_PER_THOUSAND_TOKENS = 0.027;
@@ -471,7 +471,7 @@ const Pricing = () => {
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">
             Pay via Mobile Money (MTN & Airtel). No credit card needed. Payments processed securely via PawaPay.
           </p>
-          <Link href="/login">
+          <CustomLink href="/login">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -481,7 +481,7 @@ const Pricing = () => {
               <Gift size={20} />
               Claim Your Free Welcome Bonus
             </motion.button>
-          </Link>
+          </CustomLink>
         </motion.div>
       </div>
     </section>

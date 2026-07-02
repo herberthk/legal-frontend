@@ -35,3 +35,9 @@ export const MAX_REVIEW_PAGES = 15;
 export const CHARS_PER_TOKEN = 4; // ~4 characters per token (standard LLM estimate)
 
 export const CALLBACK_URL = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/callback`
+
+// Transitions
+export const TRANSITION = {
+  NAV_FORWARD: 'nav-forward',
+  NAV_BACK: 'nav-back',
+} as const

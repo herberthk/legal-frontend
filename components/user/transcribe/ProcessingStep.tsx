@@ -9,12 +9,12 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import {
   TranscribeStatus,
   FormatMode,
   TranscribeErrorType,
 } from "@/hooks/use-document-transcribe";
+import { CustomLink } from "@/components/global/transitions";
 
 interface ProcessingStepProps {
   status: TranscribeStatus;
@@ -133,13 +133,13 @@ export function ProcessingStep({
                   </div>
 
                   <div className="space-y-4">
-                    <Link
+                    <CustomLink
                       href="/dashboard/billing"
                       className="flex items-center justify-center gap-3 w-full py-5 rounded-[1.25rem] bg-indigo-600 dark:bg-indigo-500 text-white font-bold text-lg hover:bg-indigo-700 transition-all shadow-xl hover:-translate-y-1"
                     >
                       <span>Top Up Credits</span>
                       <ArrowRight className="w-5 h-5" />
-                    </Link>
+                    </CustomLink>
 
                     <button
                       onClick={onReset}

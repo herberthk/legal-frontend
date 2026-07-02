@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Scale, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import GoogleAuthButton from "@/components/auth/google-auth-button";
 import { signIn, getCurrentUser, recordUserStats } from "@/lib/actions/auth";
 import { useRouter } from "nextjs-toploader/app";
@@ -13,6 +12,7 @@ import { useAuthStore } from "@/store";
 import { getDeviceStats } from "@/utils/device";
 import { CustomButton } from "@/components/ui/custom-button";
 import { LogoText } from "@/components/global/Logo";
+import { CustomLink } from "@/components/global/transitions";
 // 012Mv@123
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -106,13 +106,13 @@ const LoginPage = () => {
   return (
     <>
       <div className="sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <Link
+        <CustomLink
           href="/"
           className="flex justify-center cursor-pointer group lg:hidden"
           aria-label="Go to home page"
         >
           <LogoText />
-        </Link>
+        </CustomLink>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900 dark:text-white">
           Sign in to Portal
         </h2>
@@ -185,12 +185,12 @@ const LoginPage = () => {
                 </button>
               </div>
               <div className="mt-2 flex justify-end">
-                <Link
+                <CustomLink
                   href="/forgot-password"
                   className="text-xs font-medium text-orange-600 dark:text-orange-500 hover:text-orange-500 transition-colors hover:underline"
                 >
                   Forgot Password?
-                </Link>
+                </CustomLink>
               </div>
             </div>
 
@@ -208,9 +208,9 @@ const LoginPage = () => {
               <div className="ml-3 text-sm">
                 <label htmlFor="terms" className="font-medium text-slate-600 dark:text-slate-300">
                   By signing in, you agree to our{" "}
-                  <Link href="/terms" className="text-orange-600 hover:text-orange-500 hover:underline">Terms</Link>
+                  <CustomLink href="/terms" className="text-orange-600 hover:text-orange-500 hover:underline">Terms</CustomLink>
                   {" "}and{" "}
-                  <Link href="/privacy" className="text-orange-600 hover:text-orange-500 hover:underline">Privacy Policy</Link>.
+                  <CustomLink href="/privacy" className="text-orange-600 hover:text-orange-500 hover:underline">Privacy Policy</CustomLink>.
                 </label>
               </div>
             </div>
@@ -248,12 +248,12 @@ const LoginPage = () => {
               </div>
             </div>
             <div className="mt-2 flex justify-center">
-              <Link
+              <CustomLink
                 href="/signup"
                 className="font-medium text-orange-600 dark:text-orange-500 hover:text-orange-500 transition-colors hover:underline"
               >
                 Start Free Trial
-              </Link>
+              </CustomLink>
             </div>
           </div>
         </div>

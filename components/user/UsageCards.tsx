@@ -8,7 +8,6 @@ import {
 } from "@/constants";
 import { FC, useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 import {
   Scale,
   AlertCircle,
@@ -21,6 +20,7 @@ import {
   Wallet,
   ArrowRight,
 } from "lucide-react";
+import { CustomLink } from "../global/transitions";
 
 type Prop = {
   user: User;
@@ -404,13 +404,13 @@ const UsageCards: FC<Prop> = ({ user }) => {
                   </div>
 
                   <div className="mt-4 flex justify-center">
-                    <Link 
+                    <CustomLink 
                       href="/dashboard/freecredits"
                       className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-1 transition-colors uppercase tracking-widest"
                     >
                       <Sparkles size={10} />
                       View Reward History
-                    </Link>
+                    </CustomLink>
                   </div>
 
 
@@ -431,12 +431,12 @@ const UsageCards: FC<Prop> = ({ user }) => {
                           </p>
                         </div>
                       </div>
-                      <Link
+                      <CustomLink
                         href="/dashboard/billing"
                         className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all transform hover:scale-110 active:scale-95 shadow-lg shadow-blue-500/20"
                       >
                         <ArrowRight size={14} />
-                      </Link>
+                      </CustomLink>
                     </div>
                   </div>
 

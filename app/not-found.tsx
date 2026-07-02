@@ -1,6 +1,6 @@
 "use client";
+import { CustomLink } from "@/components/global/transitions";
 import { Scale, Home, ArrowLeft, FileQuestion } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
 
 const NotFoundPage = () => {
@@ -48,13 +48,13 @@ const NotFoundPage = () => {
 
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link
+            <CustomLink
               href="/"
               className="group w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-300 transform hover:scale-105 active:scale-95 hover:shadow-xl"
             >
               <Home size={20} />
               <span className="font-medium">Go Home</span>
-            </Link>
+            </CustomLink>
 
             <button
               onClick={() => router.back()}
@@ -74,26 +74,26 @@ const NotFoundPage = () => {
               Helpful Links:
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-sm">
-              <Link
+              <CustomLink
                 href="/dashboard"
                 className="text-orange-600 dark:text-orange-500 hover:text-orange-700 dark:hover:text-orange-400 transition-colors hover:underline"
               >
                 Dashboard
-              </Link>
+              </CustomLink>
               <span className="text-slate-300 dark:text-slate-600">•</span>
-              <Link
+              <CustomLink
                 href="/dashboard/help"
                 className="text-orange-600 dark:text-orange-500 hover:text-orange-700 dark:hover:text-orange-400 transition-colors hover:underline"
               >
                 Help & Support
-              </Link>
+              </CustomLink>
               <span className="text-slate-300 dark:text-slate-600">•</span>
-              <Link
+              <CustomLink
                 href="/login"
                 className="text-orange-600 dark:text-orange-500 hover:text-orange-700 dark:hover:text-orange-400 transition-colors hover:underline"
               >
                 Sign In
-              </Link>
+              </CustomLink>
             </div>
           </div>
         </div>

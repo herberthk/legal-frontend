@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fadeInUp, staggerContainer } from "@/constants";
 import { motion } from "framer-motion";
 import { LogoText } from "../global/Logo";
+import { CustomLink } from "../global/transitions";
 
 const Footer = () => {
   return (
@@ -16,13 +17,13 @@ const Footer = () => {
           className="grid md:grid-cols-4 gap-12 mb-12"
         >
           <motion.div variants={fadeInUp} style={{ willChange: "transform, opacity" }} className="col-span-1 md:col-span-2">
-            <Link
+            <CustomLink
               href="/"
               className="flex mb-4 focus:outline-non"
               aria-label="Legal Adviser Home"
             >
                <LogoText />
-            </Link>
+            </CustomLink>
             <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed max-w-sm">
               Democratizing access to justice in Uganda through artificial
               intelligence. We believe legal knowledge should be accessible to
@@ -38,13 +39,13 @@ const Footer = () => {
               {["Features", "Pricing", "Login"].map(
                 (link) => (
                   <li key={link}>
-                    <Link
+                    <CustomLink
                       href="#"
                       className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors flex items-center gap-1 group"
                     >
                       <span className="w-0 group-hover:w-2 h-0.5 bg-orange-500 transition-all"></span>
                       {link}
-                    </Link>
+                    </CustomLink>
                   </li>
                 ),
               )}
@@ -57,41 +58,41 @@ const Footer = () => {
             </h4>
             <ul className="space-y-2 text-sm text-slate-500 dark:text-slate-400">
               <li>
-                <Link
+                <CustomLink
                   href="/terms"
                   className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left group flex items-center gap-1"
                 >
                   <span className="w-0 group-hover:w-2 h-0.5 bg-orange-500 transition-all"></span>
                   Terms of Service
-                </Link>
+                </CustomLink>
               </li>
               <li>
-                <Link
+                <CustomLink
                  
                   href="/privacy"
                   className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left group flex items-center gap-1"
                 >
                   <span className="w-0 group-hover:w-2 h-0.5 bg-orange-500 transition-all"></span>
                   Privacy Policy
-                </Link>
+                </CustomLink>
               </li>
               <li>
-                <Link
+                <CustomLink
                   href="/disclaimer"
                   className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left group flex items-center gap-1"
                 >
                   <span className="w-0 group-hover:w-2 h-0.5 bg-orange-500 transition-all"></span>
                   Disclaimer
-                </Link>
+                </CustomLink>
               </li>
               <li>
-                <Link
+                <CustomLink
                   href="/cookies"
                   className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left group flex items-center gap-1"
                 >
                   <span className="w-0 group-hover:w-2 h-0.5 bg-orange-500 transition-all"></span>
                   Cookie Policy
-                </Link>
+                </CustomLink>
               </li>
             </ul>
           </motion.div>

@@ -4,6 +4,7 @@ import { Moon, Sparkles, Sun } from "lucide-react";
 import Link from "next/link";
 import { CustomButton } from "../ui/custom-button";
 import { LogoText } from "../global/Logo";
+import { TRANSITION } from "@/constants";
 
 const HomeNavBar = () => {
   const theme = useThemeStore((state) => state.theme);
@@ -22,8 +23,7 @@ const HomeNavBar = () => {
           className="flex items-center space-x-2 cursor-pointer focus:outline-none"
           aria-label="Legal Adviser Home"
         >
-           {/* <Scale className="w-6 h-6 text-orange-500 font-extrabold" /> */}
-                      <LogoText />
+          <LogoText />
         </Link>
 
         <div className="hidden md:flex items-center space-x-8">
@@ -69,6 +69,7 @@ const HomeNavBar = () => {
             className="bg-slate-100/50 dark:bg-slate-800/50"
             leftIcon={<Sparkles />}
             hoverEffect="glow"
+            transitionTypes={[TRANSITION.NAV_FORWARD]}
           >
             Get started
           </CustomButton>

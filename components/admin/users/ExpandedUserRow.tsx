@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
+import { motion } from "framer-motion";
 import {
   Edit2, ShieldOff, Ban, Trash2, ExternalLink,
   RotateCcw, Flame, RefreshCw, UserCheck,
@@ -10,6 +9,7 @@ import {
 } from "lucide-react";
 import ConfirmActionModal from "@/components/admin/ConfirmActionModal";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
+import { CustomLink } from "@/components/global/transitions";
 
 interface ExpandedUserRowProps {
   user: User;
@@ -157,12 +157,12 @@ export default function ExpandedUserRow({
                 Remove
               </button>
 
-              <Link
+              <CustomLink
                 href={`/admin/users/${user.id}`}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-xs font-semibold text-indigo-300 transition-all"
               >
                 <ExternalLink size={13} /> Full Analytics
-              </Link>
+              </CustomLink>
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">

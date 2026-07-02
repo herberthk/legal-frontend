@@ -17,6 +17,7 @@ import { useClickAway } from "@uidotdev/usehooks";
 type Props = {
   user: User;
 };
+
 const Header: React.FC<Props> = ({ user }) => {
   const isAdmin = useAuthStore((state) => state.user?.role === "ADMIN" || state.user?.role === "SUPER_ADMIN");
   const { toggleSidebar } = useSidebar();

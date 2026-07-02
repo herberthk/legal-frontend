@@ -12,9 +12,9 @@ import {
   Circle,
 } from "lucide-react";
 import { formatUniversalDate } from "@/utils";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { usePopStore } from "@/store";
+import { CustomLink } from "./transitions";
 
 interface NotificationItemProps {
   notification: AppNotification;
@@ -138,7 +138,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   if (notification.url) {
     return (
-      <Link
+      <CustomLink
         href={notification.url}
         onClick={() => {
           closeNotification();
@@ -147,7 +147,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         className="block"
       >
         {Content}
-      </Link>
+      </CustomLink>
     );
   }
 

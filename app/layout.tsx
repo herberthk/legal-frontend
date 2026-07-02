@@ -9,7 +9,7 @@ import FCMProvider from "@/components/global/FCMProvider";
 import NetworkStatus from "@/components/pwa/NetworkStatus";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import PwaUpdateToast from "@/components/pwa/PwaUpdateToast";
-
+import { ViewTransition } from 'react'
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -17,6 +17,7 @@ import {
   APP_DESCRIPTION,
   APP_NAME,
   APP_TITLE_TEMPLATE,
+  TRANSITION,
 } from "@/constants";
 
 const inter = Inter({
@@ -194,7 +195,21 @@ const RootLayout = ({
           <NextTopLoader height={2.5} />
           <SerwistProvider swUrl="/sw.js">
             <FCMProvider />
-            {children}
+              <ViewTransition
+                    default="auto"
+                    enter={{
+                      [TRANSITION.NAV_FORWARD]: 'slide-in-right',
+                      [TRANSITION.NAV_BACK]: 'slide-in-left',
+                      default: 'auto',
+                    }}
+                    exit={{
+                      [TRANSITION.NAV_FORWARD]: 'slide-out-left',
+                      [TRANSITION.NAV_BACK]: 'slide-out-right',
+                      default: 'auto',
+                    }}
+                >
+                  {children}
+              </ViewTransition>
           </SerwistProvider>
         </TooltipProvider>
       </body>

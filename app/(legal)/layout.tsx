@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { addTransitionType, startTransition, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { LogoText } from "@/components/global/Logo";
-import Link from "next/link";
+import { TRANSITION } from "@/constants";
+import { CustomLink } from "@/components/global/transitions";
 
 const LegalLayout = ({ children }: { children: React.ReactNode }) => {
   // Scroll to top on mount
@@ -44,6 +45,12 @@ const LegalLayout = ({ children }: { children: React.ReactNode }) => {
     icon = <AlertTriangle size={40} className="text-amber-500" />;
   }
 
+   const handleBack = () => {
+    startTransition(() => {
+      addTransitionType(TRANSITION.NAV_BACK)
+      router.back()
+    })
+  }
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 font-sans selection:bg-orange-500/30">
       {/* Header */}
@@ -54,7 +61,7 @@ const LegalLayout = ({ children }: { children: React.ReactNode }) => {
       >
         <div className="max-w-4xl mx-auto px-4 h-20 flex items-center justify-between">
           <button
-            onClick={() => router.back()}
+            onClick={handleBack}
             className="flex items-center space-x-2 text-slate-600 dark:text-slate-300 hover:text-orange-600 dark:hover:text-orange-500 transition-colors group"
           >
             <ArrowLeft
@@ -64,10 +71,9 @@ const LegalLayout = ({ children }: { children: React.ReactNode }) => {
             <span className="font-medium">Back</span>
           </button>
 
-          <Link href="/" className="flex items-center space-x-2">
-          
+          <CustomLink href="/" className="flex items-center space-x-2">
             <LogoText />
-          </Link>
+          </CustomLink>
         </div>
       </motion.div>
 
@@ -136,13 +142,13 @@ const LegalLayout = ({ children }: { children: React.ReactNode }) => {
             ]
               .filter((link) => !pathname.includes(link.href))
               .map((link) => (
-                <Link
+                <CustomLink
                   key={link.href}
                   href={link.href}
                   className="text-slate-600 dark:text-slate-300 hover:text-orange-600 dark:hover:text-orange-500 transition-colors font-medium"
                 >
                   {link.name}
-                </Link>
+                </CustomLink>
               ))}
           </div>
 

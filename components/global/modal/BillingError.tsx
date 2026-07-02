@@ -1,5 +1,5 @@
 import { X, Coins, CreditCard, ArrowRight, Lock } from "lucide-react";
-import Link from "next/link";
+import { CustomLink } from "../transitions";
 
 type Props = {
   billingError: string;
@@ -65,14 +65,14 @@ const BillingError = ({ billingError, dismissBillingBanner }: Props) => {
 
             {/* Actions */}
             <div className="flex flex-col gap-3">
-              <Link
+              <CustomLink
                 href="/dashboard/billing"
                 className="flex items-center justify-center gap-2 w-full py-3 px-5 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold text-sm shadow-md shadow-orange-500/30 transition-all duration-200 hover:shadow-orange-500/50 hover:-translate-y-0.5"
               >
                 <CreditCard size={15} />
                 Top Up Balance
                 <ArrowRight size={14} className="ml-auto" />
-              </Link>
+              </CustomLink>
               <button
                 onClick={dismissBillingBanner}
                 className="w-full py-2.5 px-5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-150"

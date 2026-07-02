@@ -7,10 +7,10 @@ import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 import { getInitials } from "@/utils";
 import { motion } from "framer-motion";
 import { RefObject } from "react";
+import { CustomLink } from "./transitions";
 type Props = {
   user: User;
   ref: RefObject<HTMLDivElement>;
@@ -94,14 +94,14 @@ const ProfilePopUp = ({ user, ref }: Props) => {
 
         <div className="p-2">
           <div className="px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors mb-1 group">
-            <Link href="/dashboard/settings">
+            <CustomLink href="/dashboard/settings">
               <p
                 className={`text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors ${isAdmin ? "group-hover:text-indigo-600" : "group-hover:text-orange-600"}`}
               >
                 Account Settings
               </p>
               <p className="text-xs text-slate-400">Manage your subscription</p>
-            </Link>
+            </CustomLink>
           </div>
 
           <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>

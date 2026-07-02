@@ -1,3 +1,5 @@
+import {TRANSITION} from "@/constants"
+
 type MetadataItem = 
 | { baseAmount: number, fee?: number }
 | Record<string, string | boolean>;
@@ -52,3 +54,6 @@ type RefundPayLoad = {
   refundId: string,
   status: 'COMPLETED' | "FAILED" | "PENDING"
 }
+
+// Transitions
+type TransitionType = typeof TRANSITION[keyof typeof TRANSITION]

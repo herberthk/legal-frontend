@@ -1,11 +1,11 @@
 "use client";
 import React, { useState } from "react";
 import { Mail, ArrowLeft, Send } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
 import { forgotPassword } from "@/lib/actions/auth";
 import { toast } from "sonner";
 import { CustomButton } from "@/components/ui/custom-button";
+import { CustomLink } from "@/components/global/transitions";
 
 export const ForgotPasswordForm = () => {
   const [loading, setLoading] = useState(false);
@@ -102,13 +102,13 @@ export const ForgotPasswordForm = () => {
       </form>
 
       <div className="mt-8">
-        <Link
+        <CustomLink
           href="/login"
           className="flex items-center justify-center text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-500 transition-colors group"
         >
           <ArrowLeft className="mr-2 w-4 h-4 transform group-hover:-translate-x-1 transition-transform" />
           Back to Login
-        </Link>
+        </CustomLink>
       </div>
     </div>
   );

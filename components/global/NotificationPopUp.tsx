@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { X, BellOff, CheckCheck } from "lucide-react";
 import { useAuthStore, usePopStore } from "@/store";
 import { useNotifications } from "@/hooks";
@@ -7,6 +6,7 @@ import NotificationItem from "./NotificationItem";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLockBodyScroll } from "@uidotdev/usehooks";
 import { RefObject } from "react";
+import { CustomLink } from "./transitions";
 
 type Props = {
   ref: RefObject<HTMLDivElement>;
@@ -115,13 +115,13 @@ const NotificationPopUp = ({ ref, unreadCount }: Props) => {
         {/* Footer Link */}
         {notifications.length > 4 && (
           <div className="p-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-center">
-            <Link
+            <CustomLink
               href="/notifications"
               onClick={toggleNotifications}
               className={`text-xs font-bold uppercase tracking-widest hover:underline flex items-center justify-center gap-2 ${isAdmin ? "text-indigo-600 dark:text-indigo-400" : "text-orange-600 dark:text-orange-400"}`}
             >
               View all notifications
-            </Link>
+            </CustomLink>
           </div>
         )}
       </motion.div>
