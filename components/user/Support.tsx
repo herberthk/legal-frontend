@@ -138,7 +138,7 @@ const SupportPage: React.FC<SupportPageProps> = ({
         {/* ── Page Header ── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <BackButton />
+            {/* <BackButton /> */}
             <div>
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 Help &amp; Support

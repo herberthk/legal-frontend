@@ -68,7 +68,9 @@ export function ReviewResults({
             {review.fileName} · {review.documentType}
           </p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex justify-between w-full">
+          <div/>
+          <div className="flex gap-4">
           {/* Save / Saved button */}
           {isSaved ? (
             <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-orange-700 dark:text-orange-300 text-sm font-semibold">
@@ -133,6 +135,7 @@ export function ReviewResults({
               )}
             </AnimatePresence>
           </div>
+</div>
         </div>
       </div>
 

@@ -43,12 +43,7 @@ const TransactionDetailPage: FC<PageProps> = async ({ params }) => {
       {/* ── Top Header Navigation ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
         <div className="flex items-center gap-4">
-          {/* <Link
-            href="/dashboard/transactions"
-            className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 hover:border-orange-500/30 transition-all shadow-sm group active:scale-95"
-          >
-            <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
-          </Link> */}
+         
           <div>
             <span className="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest block mb-0.5">
               Secure Ledger Receipt

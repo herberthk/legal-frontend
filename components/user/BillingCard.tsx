@@ -4,6 +4,7 @@ import { Plus, Wallet } from "lucide-react";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { CustomButton } from "../ui/custom-button";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface BillingCardProps {
   user: User;
@@ -37,7 +38,8 @@ const BillingCard: React.FC<BillingCardProps> = ({
           </p>
           <div className="flex space-x-3">
             <CustomButton
-              onClick={() => router.push("/dashboard/billing/checkout")}
+            component={Link}
+            href="/dashboard/billing/checkout"
               variant="transparent"
               shape="pill"
               borderLeftWidth="4px"

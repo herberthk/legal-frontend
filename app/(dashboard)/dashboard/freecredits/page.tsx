@@ -32,7 +32,7 @@ const FreeCreditsPage = async ({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <BackButton />
+          {/* <BackButton /> */}
           <div className="mt-2">
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
