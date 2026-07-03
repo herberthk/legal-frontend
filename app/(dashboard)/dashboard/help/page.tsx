@@ -2,6 +2,7 @@ import SupportPage from "@/components/user/Support";
 import { getCurrentUser } from "@/lib";
 import { getUserSupportTickets, getHelpArticles } from "@/lib/actions/support";
 import { seedHelpArticles } from "@/lib/actions/seed-help";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export const metadata = {
   title: "Help Center | Dashboard",
@@ -19,7 +20,9 @@ const HelpPage = async () => {
     seedHelpArticles(), // Runs in background, seeds if empty
   ]);
 
-  return <SupportPage user={user} initialTickets={tickets} faqs={faqs} />;
+  return <DirectionalTransition> 
+            <SupportPage user={user} initialTickets={tickets} faqs={faqs} />
+          </DirectionalTransition>
 };
 
 export default HelpPage;

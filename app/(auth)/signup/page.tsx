@@ -13,6 +13,7 @@ import { CustomButton } from "@/components/ui/custom-button";
 import { LogoText } from "@/components/global/Logo";
 import { TRANSITION } from "@/constants";
 import { CustomLink } from "@/components/global/transitions";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -136,7 +137,7 @@ const SignupPage = () => {
   };
 
   return (
-    <>
+    <DirectionalTransition>
       <div className="sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
         <CustomLink
           href="/"
@@ -422,7 +423,7 @@ const SignupPage = () => {
           </div>
         </div>
       </div>
-    </>
+    </DirectionalTransition>
   );
 };
 

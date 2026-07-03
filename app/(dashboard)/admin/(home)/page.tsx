@@ -1,5 +1,6 @@
 import AdminDashboard from "@/components/admin/AdminDashboard";
 import AdminDemographics from "@/components/admin/AdminDemographics";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 import { getAdminOverviewStats, getAdminDemographicsStats, AdminDemographicsStats } from "@/lib/actions/admin";
 
 export const dynamic = "force-dynamic";
@@ -52,12 +53,14 @@ const Page = async () => {
   const initialDemoStats = demoRes.success && demoRes.stats ? demoRes.stats : EMPTY_DEMO_STATS;
 
   return (
+    <DirectionalTransition>
     <div className="space-y-8">
       <AdminDashboard initialStats={initialStats} />
       <div className="px-4 md:px-8 pb-8 max-w-7xl mx-auto">
         <AdminDemographics initialStats={initialDemoStats} />
       </div>
     </div>
+    </DirectionalTransition>
   );
 };
 

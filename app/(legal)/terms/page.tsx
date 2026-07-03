@@ -1,5 +1,7 @@
+import DirectionalTransition from "@/components/global/DirectionalTransition";
+
 const TermsPage = () => (
-  <>
+  <DirectionalTransition>
     <h3>1. Acceptance of Terms</h3>
     <p>
       By accessing or using LegalAdviser, you agree to be bound by these
@@ -60,7 +62,7 @@ const TermsPage = () => (
       of the <strong>Republic of Uganda</strong>. Any disputes shall be resolved
       in the courts of Uganda. For any legal inquiries, you may contact us at legaladviser@netbritz.com or via physical mail at Mukono, Uganda.
     </p>
-  </>
+  </DirectionalTransition>
 );
 
 export default TermsPage;

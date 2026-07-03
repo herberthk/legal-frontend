@@ -2,6 +2,7 @@ import VoiceSessionManager from "@/components/voice/voice-session-manager";
 import { Metadata } from "next";
 import { getCurrentUser } from "@/lib/actions/auth";
 import { checkUserInfo } from "@/lib/actions/usage";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export const metadata: Metadata = {
   title: "Voice Session | Legal Adviser",
@@ -17,7 +18,7 @@ export default async function VoicePage() {
   const balance = usageResult.user?.balance ?? 0;
 
   return (
-    <>
+    <DirectionalTransition>
       <link
         rel="preload"
         href="/images/voice-bg.jpg"
@@ -34,6 +35,6 @@ export default async function VoicePage() {
         freeVoiceSeconds={freeVoiceSeconds}
         balance={balance}
       />
-    </>
+    </DirectionalTransition>
   );
 }

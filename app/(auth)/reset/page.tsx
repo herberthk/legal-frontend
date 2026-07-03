@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { ResetPasswordForm } from "./reset-password-form";
 import { LogoText } from "@/components/global/Logo";
 import { CustomLink } from "@/components/global/transitions";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export const metadata = {
   title: "Set New Password - Legal Adviser",
@@ -10,7 +11,7 @@ export const metadata = {
 
 export default function ResetPasswordPage() {
   return (
-    <>
+    <DirectionalTransition>
       <div className="sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
         <CustomLink
           href="/"
@@ -38,6 +39,6 @@ export default function ResetPasswordPage() {
           <ResetPasswordForm />
         </Suspense>
       </div>
-    </>
+    </DirectionalTransition>
   );
 }

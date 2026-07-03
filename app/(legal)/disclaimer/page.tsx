@@ -1,5 +1,7 @@
+import DirectionalTransition from "@/components/global/DirectionalTransition";
+
 const DisclaimerPage = () => (
-  <>
+  <DirectionalTransition>
     <h3>1. Not a Law Firm</h3>
     <p>
       LegalAdviser is a software technology company, not a law firm. We are
@@ -30,7 +32,7 @@ const DisclaimerPage = () => (
       provides materials &quot;as is&quot; and disclaims all warranties,
       express or implied. We are not liable for any actions taken or not taken based on the information provided by our AI.
     </p>
-  </>
+  </DirectionalTransition>
 );
 
 export default DisclaimerPage;

@@ -5,6 +5,7 @@ import Success from "./Success";
 import { AlertCircle } from "lucide-react";
 import TransactionWaiter from "@/components/user/transaction/TransactionWaiter";
 import { CustomLink } from "@/components/global/transitions";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export const metadata: Metadata = {
   title: "Payment Successful | Dashboard",
@@ -64,9 +65,11 @@ export default async function SuccessPage({ searchParams }: PageProps) {
     }
   }
 
-const transaction = result.transaction as Transaction
+  const transaction = result.transaction as Transaction
 
   return (
-   <Success amount={transaction.amount} method={transaction.method} user={user}/>
+    <DirectionalTransition>
+      <Success amount={transaction.amount} method={transaction.method} user={user}/>
+   </DirectionalTransition>
   );
 }

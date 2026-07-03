@@ -3,6 +3,7 @@ import AdminComplaints from '@/components/admin/AdminComplaints';
 import { getCurrentUser } from '@/lib';
 import { getAllSupportTickets } from '@/lib/actions/support';
 import { redirect } from 'next/navigation';
+import DirectionalTransition from '@/components/global/DirectionalTransition';
 
 export const metadata = {
   title: "Complaints Management | Admin",
@@ -17,7 +18,10 @@ const ComplaintsPage = async () => {
 
   const tickets = await getAllSupportTickets();
 
-  return <AdminComplaints initialTickets={tickets} currentUser={user} />;
+  return (
+          <DirectionalTransition>
+              <AdminComplaints initialTickets={tickets} currentUser={user} />
+          </DirectionalTransition>)
 };
 
 export default ComplaintsPage;

@@ -2,6 +2,7 @@ import { BillingPage } from "@/components/user/Billing";
 import { getCurrentUser } from "@/lib";
 import TransactionList from "@/components/user/TransactionList";
 import { Metadata } from "next";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export const metadata: Metadata = {
   title: "Billing | Dashboard",
@@ -13,18 +14,20 @@ const Billing = async () => {
   if (!user) return null;
 
   return (
-    <BillingPage
-      user={user}
-      transactionsList={
-        <TransactionList
-          userId={user.id}
-          currentPage={1}
-          currentType="ALL"
-          currentDuration="all"
-          variant="summary"
-        />
-      }
-    />
+    <DirectionalTransition>
+      <BillingPage
+        user={user}
+        transactionsList={
+          <TransactionList
+            userId={user.id}
+            currentPage={1}
+            currentType="ALL"
+            currentDuration="all"
+            variant="summary"
+          />
+        }
+      />
+    </DirectionalTransition>
   );
 };
 
