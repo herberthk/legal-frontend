@@ -17,6 +17,7 @@
     "@google/genai": "^1.49.0",
     "@react-email/components": "^1.0.8",
     "@react-pdf/renderer": "^4.3.2",
+    "@sentry/nextjs": "10",
     "@serwist/next": "^9.5.7",
     "@stripe/react-stripe-js": "^6.4.0",
     "@stripe/stripe-js": "^9.6.0",
