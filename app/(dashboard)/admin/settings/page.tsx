@@ -1,6 +1,7 @@
 import { getAuthenticatedAdmin } from "@/lib/actions/admin";
 import { redirect } from "next/navigation";
 import AdminSettingsClient from "@/components/admin/AdminSettingsClient";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export const metadata = {
   title: "Admin Settings",
@@ -14,5 +15,5 @@ export default async function AdminSettingsPage() {
     redirect("/login");
   }
 
-  return <AdminSettingsClient admin={admin} />;
+  return <DirectionalTransition><AdminSettingsClient admin={admin} /></DirectionalTransition>
 }

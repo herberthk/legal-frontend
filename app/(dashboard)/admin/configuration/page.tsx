@@ -3,6 +3,7 @@ import { getSystemConfig } from "@/lib/actions/admin/config";
 import { getCurrentUser } from "@/lib";
 import { notFound } from "next/navigation";
 import ConfigForm from "./ConfigForm";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 const ConfigurationPage = async () => {
   const user = await getCurrentUser();
@@ -24,6 +25,7 @@ const ConfigurationPage = async () => {
   }
 
   return (
+    <DirectionalTransition>
     <div className="flex-1 space-y-4 p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">System Configuration</h2>
@@ -37,6 +39,7 @@ const ConfigurationPage = async () => {
 
       <ConfigForm initialConfig={config} isSuperAdmin={user.role === "SUPER_ADMIN"} />
     </div>
+    </DirectionalTransition>
   );
 };
 

@@ -13,6 +13,7 @@ import { getDeviceStats } from "@/utils/device";
 import { CustomButton } from "@/components/ui/custom-button";
 import { LogoText } from "@/components/global/Logo";
 import { CustomLink } from "@/components/global/transitions";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 // 012Mv@123
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -104,7 +105,7 @@ const LoginPage = () => {
   };
 
   return (
-    <>
+    <DirectionalTransition>
       <div className="sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
         <CustomLink
           href="/"
@@ -258,7 +259,7 @@ const LoginPage = () => {
           </div>
         </div>
       </div>
-    </>
+    </DirectionalTransition>
   );
 };
 

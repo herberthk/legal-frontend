@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getAdminUserDetails } from "@/lib/actions/admin";
 import AdminUserDetailClient from "@/components/admin/AdminUserDetailClient";
 import type { Metadata } from "next";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ const AdminUserDetailPage = async ({ params }: Props) => {
     notFound();
   }
 
-  return <AdminUserDetailClient data={result.data} />;
+  return <DirectionalTransition><AdminUserDetailClient data={result.data} /></DirectionalTransition>;
 };
 
 export default AdminUserDetailPage;

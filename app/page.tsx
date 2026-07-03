@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib";
 import LandingPage from "./Landing";
 import { redirect } from "next/navigation";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 const Page = async () => {
   const user = await getCurrentUser();
@@ -10,7 +11,7 @@ const Page = async () => {
       user.role === "ADMIN" || user.role === "SUPER_ADMIN" ? "/admin" : "/dashboard";
     return redirect(dashboardPath);
   }
-  return <LandingPage />;
+  return <DirectionalTransition><LandingPage /></DirectionalTransition>;
 };
 
 export default Page;

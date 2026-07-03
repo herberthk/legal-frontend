@@ -1,3 +1,4 @@
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 import { ForgotPasswordForm } from "./forgot-password-form";
 import { LogoText } from "@/components/global/Logo";
 import { CustomLink } from "@/components/global/transitions";
@@ -9,7 +10,7 @@ export const metadata = {
 
 export default function ForgotPasswordPage() {
   return (
-    <>
+    <DirectionalTransition>
       <div className="sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
         <CustomLink
           href="/"
@@ -28,6 +29,6 @@ export default function ForgotPasswordPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <ForgotPasswordForm />
       </div>
-    </>
+    </DirectionalTransition>
   );
 }

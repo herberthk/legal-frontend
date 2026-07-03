@@ -49,6 +49,11 @@
 }
 
 :root {
+  /* View Transition Animation Timings */
+  --duration-exit: 150ms;
+  --duration-enter: 210ms;
+  --duration-move: 400ms;
+  
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -263,23 +268,53 @@
   font-style: italic;
 }
 
-::view-transition-group(.slide-in-right),
-::view-transition-group(.slide-out-left),
-::view-transition-group(.slide-in-left),
-::view-transition-group(.slide-out-right) {
-  animation-duration: 200ms;
+
+@keyframes fade {
+  from { filter: blur(3px); opacity: 0; }
+  to { filter: blur(0); opacity: 1; }
 }
 
-::view-transition-new(.slide-in-right) { animation-name: slide-in-right; animation-timing-function: ease-out; }
-::view-transition-old(.slide-out-left) { animation-name: slide-out-left; animation-timing-function: ease-in; }
-::view-transition-new(.slide-in-left)  { animation-name: slide-in-left;  animation-timing-function: ease-out; }
-::view-transition-old(.slide-out-right) { animation-name: slide-out-right; animation-timing-function: ease-in; }
+@keyframes slide {
+  from { translate: var(--slide-offset); }
+  to { translate: 0; }
+}
 
-@keyframes slide-in-right  { from { transform: translateX(100%); } }
-@keyframes slide-out-left  { to   { transform: translateX(-30%); opacity: 0.6; } }
-@keyframes slide-in-left   { from { transform: translateX(-100%); } }
-@keyframes slide-out-right { to   { transform: translateX(30%); opacity: 0.6; } }
+@keyframes slide-y {
+  from { transform: translateY(var(--slide-y-offset, 10px)); }
+  to { transform: translateY(0); }
+}
 
-/* @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*) { animation-duration: 0.01ms !important; }
-} */
+::view-transition-old(.nav-forward) {
+  --slide-offset: -60px;
+  animation:
+    var(--duration-exit) ease-in both fade reverse,
+    var(--duration-move) ease-in-out both slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 60px;
+  animation:
+    var(--duration-enter) ease-out var(--duration-exit) both fade,
+    var(--duration-move) ease-in-out both slide;
+}
+
+::view-transition-old(.nav-back) {
+  --slide-offset: 60px;
+  animation:
+    var(--duration-exit) ease-in both fade reverse,
+    var(--duration-move) ease-in-out both slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -60px;
+  animation:
+    var(--duration-enter) ease-out var(--duration-exit) both fade,
+    var(--duration-move) ease-in-out both slide;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

@@ -7,6 +7,7 @@ import { useRouter } from "nextjs-toploader/app";
 import { getTranscriptionRecord } from "@/lib/actions/transcribe";
 import Transcribe from "../../transcribe/Transcribe";
 import { ViewRecordSkeleton } from "@/components/user/transcribe/TranscriptionSkeleton";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export default function TranscriptionViewPage() {
   const { id } = useParams();
@@ -58,9 +59,11 @@ export default function TranscriptionViewPage() {
   }
 
   return (
-    <Transcribe
-      initialRecord={record}
-      onClose={() => router.push("/dashboard/transcriptions")}
-    />
+    <DirectionalTransition>
+      <Transcribe
+        initialRecord={record}
+        onClose={() => router.push("/dashboard/transcriptions")}
+      />
+    </DirectionalTransition>
   );
 }

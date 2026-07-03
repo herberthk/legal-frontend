@@ -1,6 +1,7 @@
 import ChatInterfaceWrapper from "@/components/global/chat/ChatInterfaceWrapper";
 import { getChatMessages } from "@/lib/actions/chat";
 import { getCurrentUser } from "@/lib/actions/auth";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 const ChatPage = async (props: { params: Promise<{ chatId: string }> }) => {
   const { chatId } = await props.params;
@@ -22,12 +23,14 @@ const ChatPage = async (props: { params: Promise<{ chatId: string }> }) => {
   }
 
   return (
-    <ChatInterfaceWrapper
-      chatId={chatId}
-      serverChatId={chatId}
-      serverMessages={initialMessages}
-      serverHasMore={serverHasMore}
-    />
+     <DirectionalTransition>
+        <ChatInterfaceWrapper
+          chatId={chatId}
+          serverChatId={chatId}
+          serverMessages={initialMessages}
+          serverHasMore={serverHasMore}
+        />
+    </DirectionalTransition>
   );
 };
 

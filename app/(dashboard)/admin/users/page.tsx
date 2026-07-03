@@ -2,6 +2,7 @@ import React from "react";
 import { getAdminUsers, getAdminUserSummaryStats } from "@/lib/actions/admin";
 import AdminUsersClient from "@/components/admin/AdminUsersClient";
 import type { Metadata } from "next";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 export const metadata: Metadata = {
   title: "User Management | Admin Dashboard",
@@ -25,12 +26,14 @@ const AdminUsersPage = async () => {
     : { totalUsers: 0, activeUsers: 0, suspendedUsers: 0, bannedUsers: 0, deletedUsers: 0 };
 
   return (
-    <AdminUsersClient
-      initialUsers={initialUsers}
-      initialTotal={initialTotal}
-      initialTotalPages={initialTotalPages}
-      initialStats={initialStats}
-    />
+    <DirectionalTransition>
+      <AdminUsersClient
+        initialUsers={initialUsers}
+        initialTotal={initialTotal}
+        initialTotalPages={initialTotalPages}
+        initialStats={initialStats}
+      />
+    </DirectionalTransition>
   );
 };
 

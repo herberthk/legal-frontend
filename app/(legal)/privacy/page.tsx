@@ -1,5 +1,7 @@
+import DirectionalTransition from "@/components/global/DirectionalTransition";
+
 const PrivacyPage = () => (
-  <>
+  <DirectionalTransition>
     <h3>1. Introduction</h3>
     <p>
       LegalAdviser is committed to protecting your privacy. This policy
@@ -56,7 +58,7 @@ const PrivacyPage = () => (
 
     <h3>7. Your Rights & Contact</h3>
     <p>Under the Data Protection and Privacy Act, you have the right to access, correct, delete, or withdraw consent for your personal data. To exercise these rights, please contact us at legaladviser@netbritz.com or at our physical address in Mukono, Uganda.</p>
-  </>
+  </DirectionalTransition>
 );
 
 export default PrivacyPage;

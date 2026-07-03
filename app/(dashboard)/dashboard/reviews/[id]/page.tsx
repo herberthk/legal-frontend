@@ -1,3 +1,4 @@
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 import { ReviewDetailView } from "@/components/user/review/ReviewDetailView";
 import { getDocumentReview } from "@/lib/actions/review";
 import { notFound } from "next/navigation";
@@ -14,7 +15,9 @@ const ReviewHistoryDetailPage = async ({ params }: PageProps) => {
     notFound();
   }
 
-  return <ReviewDetailView review={review} />;
+  return <DirectionalTransition>
+            <ReviewDetailView review={review} />
+         </DirectionalTransition> ;
 };
 
 export default ReviewHistoryDetailPage;

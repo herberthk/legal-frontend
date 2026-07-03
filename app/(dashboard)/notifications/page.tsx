@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib";
 import { getNotifications } from "@/lib/actions/notifications";
 import NotificationList from "@/components/global/NotificationList";
 import { redirect } from "next/navigation";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 interface PageProps {
   searchParams: Promise<{
@@ -27,6 +28,7 @@ const NotificationPage = async ({ searchParams }: PageProps) => {
   });
 
   return (
+    <DirectionalTransition>
     <div className="p-2 md:p-8 max-w-5xl mx-auto">
       <div className="mb-8 flex items-center gap-4">
         {/* <BackButton /> */}
@@ -49,6 +51,7 @@ const NotificationPage = async ({ searchParams }: PageProps) => {
         userId={user.id}
       />
     </div>
+    </DirectionalTransition>
   );
 };
 

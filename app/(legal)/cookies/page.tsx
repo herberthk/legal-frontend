@@ -1,5 +1,7 @@
+import DirectionalTransition from "@/components/global/DirectionalTransition";
+
 const CookiePolicyPage = () => (
-  <>
+  <DirectionalTransition>
     <h3>1. What are Cookies?</h3>
     <p>
       Cookies are small text files stored on your device when you visit LegalAdviser. They help us remember your preferences (like Dark Mode) and maintain your secure authentication state.
@@ -40,7 +42,7 @@ const CookiePolicyPage = () => (
     <p>
       For any questions regarding our use of cookies, please contact us at legaladviser@netbritz.com.
     </p>
-  </>
+  </DirectionalTransition>
 );
 
 export default CookiePolicyPage;

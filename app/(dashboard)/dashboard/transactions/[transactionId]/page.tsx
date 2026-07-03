@@ -18,6 +18,7 @@ import { notFound } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { ClientPrintButton } from "./ClientPrintButton";
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 
 interface PageProps {
   params: Promise<{ transactionId: string }>;
@@ -39,6 +40,7 @@ const TransactionDetailPage: FC<PageProps> = async ({ params }) => {
   const absAmountUgx = absAmountDollars * USD_TO_UGX_EXCHANGE_RATE;
 
   return (
+    <DirectionalTransition>
     <div className="md:p-8 p-3 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
       {/* ── Top Header Navigation ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
@@ -269,6 +271,7 @@ const TransactionDetailPage: FC<PageProps> = async ({ params }) => {
         </div>
       </div>
     </div>
+    </DirectionalTransition>
   );
 };
 

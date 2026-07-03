@@ -1,3 +1,4 @@
+import DirectionalTransition from "@/components/global/DirectionalTransition";
 import UserDashboard from "@/components/user/UserDashboard";
 import { getCurrentUser } from "@/lib";
 import { getVoiceSessions } from "@/lib/actions/voice";
@@ -12,7 +13,10 @@ const UserPage = async () => {
     filter: "custom", // Fetch most recent regardless of date for dashboard
   });
 
-  return <UserDashboard user={user} recentSessions={recentSessions} />;
+  return <DirectionalTransition>
+
+    <UserDashboard user={user} recentSessions={recentSessions} />
+  </DirectionalTransition>
 };
 
 export default UserPage;
