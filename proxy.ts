@@ -6,6 +6,11 @@ export const proxy = async (request: NextRequest) => {
   // const user = await getCurrentUser();
   const { pathname } = request.nextUrl;
 
+  // Exclude Sentry tunnel route just in case matcher becomes a wildcard in the future
+  if (pathname.startsWith("/monitoring")) {
+    return NextResponse.next();
+  }
+
   const session = request.cookies.get("session")?.value;
   // Parse device info from request UA
   const ua = request.headers.get("user-agent") ?? "";
