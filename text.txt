@@ -61,17 +61,4 @@ gcloud storage buckets describe gs://legal-51aee.firebasestorage.app --format="j
 Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://firebasestorage.googleapis.com/v0/b/legal-51aee.firebasestorage.app/o?name=storedFiles%2Fvoice-sessions%2FBc7eq5VJoag3MAa9OEM8OO7oqCe2_ec0699f5-52ee-47c9-a330-ab66f5a41eac.webm. (Reason: CORS request did not succeed). Status code: (null).
 
 
- Act as a Principal Software Architect. I want you to perform a deep, comprehensive evaluation of this codebase to generate a highly professional, production-grade `AGENTS.md` file at my workspace root.
-
-Do not write a generic template. Run a multi-file tool execution loop to inspect our file tree, configuration files (e.g., package.json, go.mod, Cargo.toml, pyproject.toml), existing environment setups, and code paradigms.
-
-Structure the generated `AGENTS.md` exactly as follows:
-
-1. FRONTMATTER: Include YAML frontmatter at the very top detailing the project name, current architecture pattern, tech stack versions, and target model optimization instructions.
-2. EXECUTIVE CONTEXT: A brief, high-level summary of the application's core purpose and the intended workflow of the AI engineering team.
-3. DOMAIN ARCHITECTURE & DIRECTORY MAP: Map out the codebase structure. Clearly detail what belongs in specific directories, the architectural boundaries (e.g., separating business logic from delivery layers), and strict file-naming conventions.
-4. DEVELOPMENT & BUILD COMMANDS: Explicitly list out the precise, verified terminal commands for building, running local development servers, linting, formatting, and running tests.
-5. CODING STANDARDS & PARADIGMS: Specify design patterns, state management strategies, error handling guidelines, and styling methodologies enforced in this project.
-6. COMPLIANCE & SECURITY: Explicitly list forbidden patterns, deprecated methods found in this codebase that must never be used, security rules, and code quality expectations.
-
-Once you have completed the deep scan, present the proposed markdown content to me. If everything is correct, write it directly to the root of the workspace.
+ bunx pwa-asset-generator logo.png ./assets -f -w -o false
