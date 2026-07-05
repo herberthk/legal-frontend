@@ -62,3 +62,7 @@ Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remot
 
 
  bunx pwa-asset-generator logo.png ./assets -f -w -o false
+
+ Favicon
+
+  bunx pwa-asset-generator logo.png ./assets --icon-only -o false -p 0 -f
