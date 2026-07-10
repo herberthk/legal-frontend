@@ -127,7 +127,7 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
     // Guard: only create in a browser environment (not during SSR).
     if (typeof Worker === "undefined") return;
 
-    const worker = new Worker(new URL("./recorder.worker.ts", import.meta.url));
+    const worker = new Worker("/js/recorder-worker.js");
     workerRef.current = worker;
 
     // ── Incoming messages from the worker ────────────────────────────────────
