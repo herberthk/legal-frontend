@@ -30,7 +30,8 @@ const nextConfig: NextConfig = {
       }
     ],
   },
-  productionBrowserSourceMaps: false,
+  // TODO disable this in future
+  productionBrowserSourceMaps: true,
   reactCompiler: true,
   headers: async () => {
     return [
