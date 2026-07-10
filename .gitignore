@@ -41,7 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Ignore service account
-legal-51aee-firebase-adminsdk-fbsvc-7077b4276a.json
+legal-adviser-9cd92-firebase-adminsdk-fbsvc-1ac4606855.json
 
 # clerk configuration (can include secrets)
 /.clerk/
