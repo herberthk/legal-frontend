@@ -1,10 +1,11 @@
-import { google, GoogleLanguageModelOptions } from "@ai-sdk/google";
+import { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, UIMessage } from "ai";
+
 import {
   getAuthenticatedUserId,
   recordUsageAndDeduct,
   saveChatMessage,
-  checkUserCanSend,
+  checkUserCanSend
 } from "@/lib";
 import {
   LEGAL_ADVISER_SYSTEM_INSTRUCTION,
@@ -12,6 +13,19 @@ import {
   COST_PER_THOUSAND_TOKENS_IN_CENTS,
 } from "@/constants";
 
+import { createVertex } from '@ai-sdk/google-vertex';
+
+// Instantiate your custom provider manually passing the strings
+export const vertex = createVertex({
+  project: process.env.GOOGLE_VERTEX_PROJECT_ID,
+  location: process.env.GOOGLE_VERTEX_LOCATION, // Multi-region endpoint for failover/load balancing
+  googleAuthOptions: {
+    credentials: {
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'), // Fixes multiline string issues in envs
+    },
+  },
+});
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
@@ -164,18 +178,18 @@ export async function POST(req: Request) {
     const modelMessages = await convertToModelMessages(historyMessages);
 
     const result = streamText({
-      model: google("gemini-3-flash-preview"),
+      model: vertex("gemini-3-flash-preview"),
       temperature: 0,
-      system: LEGAL_ADVISER_SYSTEM_INSTRUCTION({username:user?.name?.split(" ")[0] || "User"}),
+      instructions: LEGAL_ADVISER_SYSTEM_INSTRUCTION({username:user?.name?.split(" ")[0] || "User"}),
       providerOptions: {
-        google: {
+        vertex: {
           thinkingConfig: {
             includeThoughts: true,
           },
         } satisfies GoogleLanguageModelOptions,
       },
       messages: modelMessages,
-      onFinish: async ({ text, usage }) => {
+      onEnd: async ({ text, usage }) => {
         const totalTokens =
           (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);
         try {

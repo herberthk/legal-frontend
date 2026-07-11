@@ -51,7 +51,7 @@ export const summarizeConversation = async ({
   try {
     const { text: summary } = await generateText({
       model: google("gemini-2.5-flash-lite"),
-      system: SUMMARIZE_TRANSCRIPT_PROMPT({
+      instructions: SUMMARIZE_TRANSCRIPT_PROMPT({
         user,
         instructor,
       }),

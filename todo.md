@@ -8,4 +8,4 @@
    d. refund processing
 
 3. Full test coverage (unit/integration testing + e2e testing) with playwright.
-4. Monitoring & Observability with Sentry
+4. Implement firestore permission rules.
