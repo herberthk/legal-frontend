@@ -1,6 +1,6 @@
 import { google } from "@ai-sdk/google";
-import { generateObject, generateText } from "ai";
-import { z } from "zod";
+import { generateText, Output } from "ai";
+import { z } from 'zod/v3';
 import { getAuthenticatedUserId } from "@/lib/actions/auth";
 import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
 import {
@@ -81,6 +81,7 @@ export async function POST(req: Request) {
           messages: [
             {
               role: "user",
+
               content: [
                 {
                   type: "file",
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
                   type: "text",
                   text: "This is a scanned legal document or screenshot. Please extract ALL visible text from this image exactly as it appears, preserving headings, paragraph structure, clause numbers, signatures, dates, and any tabular data. Output only the extracted text with no commentary.",
                 },
-              ],
+              ]
             },
           ],
         });
@@ -167,6 +168,7 @@ export async function POST(req: Request) {
           messages: [
             {
               role: "user",
+
               content: [
                 {
                   type: "file",
@@ -178,7 +180,7 @@ export async function POST(req: Request) {
                   type: "text",
                   text: "This is a scanned legal document. Please extract ALL visible text from every page of this document exactly as it appears, preserving headings, paragraph structure, clause numbers, and any tabular data. Output only the extracted text with no commentary.",
                 },
-              ],
+              ]
             },
           ],
         });
@@ -229,19 +231,20 @@ export async function POST(req: Request) {
         },
         { status: 402 },
       );
-    }
+    } 
 
     // 9. Build prompt with extracted text
     const systemPrompt = LEGAL_DOCUMENT_REVIEW_PROMPT(file.name);
     const userMessage = `DOCUMENT TEXT:\n\n${extractedText}`;
 
     // 9. Call Gemini for deep legal analysis using structured output
-    const { object: reviewData, usage } = await generateObject({
+    const { output: reviewData, usage } = await generateText({
       model: google("gemini-3-flash-preview"),
       temperature: 0,
-      system: systemPrompt,
+      instructions: systemPrompt,
       prompt: userMessage,
-      schema: z.object({
+      output: Output.object({
+        schema:  z.object({
         documentType: z.string(),
         summary: z.string(),
         overallScore: z.number().min(0).max(100),
@@ -277,6 +280,7 @@ export async function POST(req: Request) {
           }),
         ),
       }),
+      }) 
     });
 
     // 10. Record token usage and deduct

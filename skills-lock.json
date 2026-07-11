@@ -86,6 +86,12 @@
       "sourceType": "github",
       "computedHash": "7d4e786684cf92386d22defc18cbebef87113046923e7931b4cdec4fffaaaea6"
     },
+    "migrate-ai-sdk-v6-to-v7": {
+      "source": "vercel/ai",
+      "sourceType": "github",
+      "skillPath": "skills/migrate-ai-sdk-v6-to-v7/SKILL.md",
+      "computedHash": "4a15e387756ee32d76805fe5f3fbd368a216dda4e6e9cc24b803efaa8c3381e4"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
