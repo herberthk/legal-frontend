@@ -1,5 +1,5 @@
 import { GoogleLanguageModelOptions } from "@ai-sdk/google";
-import { convertToModelMessages, streamText, UIMessage } from "ai";
+import { convertToModelMessages, createUIMessageStreamResponse, streamText, toUIMessageStream, UIMessage } from "ai";
 
 import {
   getAuthenticatedUserId,
@@ -12,20 +12,8 @@ import {
   CHARS_PER_TOKEN,
   COST_PER_THOUSAND_TOKENS_IN_CENTS,
 } from "@/constants";
+import { vertex } from "@/lib/actions/vertex";
 
-import { createVertex } from '@ai-sdk/google-vertex';
-
-// Instantiate your custom provider manually passing the strings
-export const vertex = createVertex({
-  project: process.env.GOOGLE_VERTEX_PROJECT_ID,
-  location: process.env.GOOGLE_VERTEX_LOCATION, // Multi-region endpoint for failover/load balancing
-  googleAuthOptions: {
-    credentials: {
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'), // Fixes multiline string issues in envs
-    },
-  },
-});
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
@@ -232,7 +220,10 @@ export async function POST(req: Request) {
       },
     });
 
-    return result.toUIMessageStreamResponse({ sendReasoning: true });
+    return createUIMessageStreamResponse({
+      stream: toUIMessageStream({ stream: result.stream, sendReasoning: true }),
+    });
+    
   } catch (error) {
     console.error("Error in /api/chat:", error);
     return new Response(
