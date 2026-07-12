@@ -1,4 +1,3 @@
-import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { z } from 'zod';
 import { getAuthenticatedUserId } from "@/lib/actions/auth";
@@ -10,6 +9,7 @@ import {
   MAX_REVIEW_PAGES,
   COST_PER_THOUSAND_TOKENS_IN_CENTS,
 } from "@/constants";
+import { vertex } from "@/lib/actions/vertex";
 
 export const maxDuration = 120;
 
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       try {
         console.log(`Image upload detected (${file.type}) — running Gemini OCR directly...`);
         const { text: ocrText } = await generateText({
-          model: google("gemini-3.1-flash-lite"),
+          model: vertex("gemini-3.1-flash-lite"),
           temperature: 0,
           messages: [
             {
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
       try {
         console.log("Detected scanned/image-only PDF — attempting Gemini OCR...");
         const { text: ocrText } = await generateText({
-          model: google("gemini-3.1-flash-lite"),
+          model: vertex("gemini-3.1-flash-lite"),
           temperature: 0,
           messages: [
             {
@@ -239,7 +239,7 @@ export async function POST(req: Request) {
 
     // 9. Call Gemini for deep legal analysis using structured output
     const { output: reviewData, usage } = await generateText({
-      model: google("gemini-3-flash-preview"),
+      model: vertex("gemini-3-flash-preview"),
       temperature: 0,
       instructions: systemPrompt,
       prompt: userMessage,
