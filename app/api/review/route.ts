@@ -1,4 +1,4 @@
-import { generateText, Output } from "ai";
+import { generateText, Output, ModelMessage  } from "ai";
 import { z } from 'zod';
 import { getAuthenticatedUserId } from "@/lib/actions/auth";
 import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
@@ -6,7 +6,6 @@ import {
   LEGAL_DOCUMENT_REVIEW_PROMPT,
   CHARS_PER_TOKEN,
   MAX_REVIEW_FILE_SIZE,
-  MAX_REVIEW_PAGES,
   COST_PER_THOUSAND_TOKENS_IN_CENTS,
 } from "@/constants";
 import { vertex } from "@/lib/actions/vertex";
@@ -19,9 +18,62 @@ let cachedPdfParse: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedMammoth: any = null;
 
+// Static schema declaration to avoid recreating validation objects on every request
+const legalReviewSchema = z.object({
+  documentType: z.string().describe("The type of legal document (e.g., Lease Agreement, NDA, Employment Contract)"),
+  summary: z.string().describe("A concise summary of the document"),
+  overallScore: z.number().min(0).max(100).describe("Overall fairness/risk score for the document (0-100)"),
+  highlights: z.array(z.string()).describe("Key highlights of the document"),
+  scoreBreakdown: z.array(
+    z.object({
+      category: z.string().describe("The category of the score (e.g., Fairness, Clarity, Completeness)"),
+      score: z.number().min(0).max(100).describe("The score for the category (0-100)"),
+    }),
+  ),
+  keyClauses: z.array(
+    z.object({
+      title: z.string().describe("The title of the key clause"),
+      content: z.string().describe("The content of the key clause"),
+      assessment: z.string().describe("The assessment of the key clause"),
+      riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The risk level of the key clause (LOW, MEDIUM, HIGH)"),
+    }),
+  ),
+  risks: z.array(
+    z.object({
+      title: z.string().describe("The title of the risk"),
+      description: z.string().describe("The description of the risk"),
+      severity: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The severity of the risk (LOW, MEDIUM, HIGH)"),
+      clause: z.string().optional().describe("The clause associated with the risk"),
+      recommendation: z.string().describe("The recommendation for the risk"),
+    }),
+  ),
+  recommendations: z.array(
+    z.object({
+      title: z.string().describe("The title of the recommendation"),
+      description: z.string().describe("The description of the recommendation"),
+      priority: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The priority of the recommendation (LOW, MEDIUM, HIGH)"),
+    }),
+  ),
+});
+
 export async function POST(req: Request) {
   try {
-    // 1. Parse multipart form data
+    // 1. Authenticate user
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      return Response.json(
+        { error: "Authentication required." },
+        { status: 401 },
+      );
+    }
+
+    // 2. Validate early user permission check to prevent malicious payload parsing
+    const { canSend, reason, user } = await checkUserCanSend(userId);
+    if (!canSend) {
+      return Response.json({ error: reason }, { status: 402 });
+    }
+
+    // 3. Parse multipart form data
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
@@ -29,7 +81,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "No file provided." }, { status: 400 });
     }
 
-    // 2. Validate file size
+    // 4. Validate file size
     if (file.size > MAX_REVIEW_FILE_SIZE) {
       return Response.json(
         {
@@ -39,79 +91,34 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Authenticate user
-    const userId = await getAuthenticatedUserId();
-    if (!userId) {
-      return Response.json(
-        { error: "Authentication required." },
-        { status: 401 },
-      );
-    }
-
-    // 4. Parallelize file buffering and user permission checks
-    // We check canSend EARLY to prevent malicious users from triggering expensive Gemini OCR calls
-    const [arrayBuffer, userCheck] = await Promise.all([
-      file.arrayBuffer(),
-      checkUserCanSend(userId)
-    ]);
-
-    const { canSend, reason, user } = userCheck;
-    if (!canSend) {
-      return Response.json({ error: reason }, { status: 402 });
-    }
-
-    const buffer = Buffer.from(arrayBuffer);
-
-    // 5. Extract text from the document
-    let extractedText = "";
-    let pageCount = 0;
+    // 5. Determine and check supported file types before buffer allocation
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     const isDocx =
       file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       file.name.toLowerCase().endsWith(".docx");
     const isImage = file.type.startsWith("image/");
 
-    if (isImage) {
-      // Images (screenshots, scanned photos) go directly to Gemini vision OCR — no text layer to parse.
-      try {
-        console.log(`Image upload detected (${file.type}) — running Gemini OCR directly...`);
-        const { text: ocrText } = await generateText({
-          model: vertex("gemini-3.1-flash-lite"),
-          temperature: 0,
-          messages: [
-            {
-              role: "user",
+    if (!isPdf && !isDocx && !isImage) {
+      return Response.json(
+        { error: "Unsupported file type. Please upload a PDF, DOCX, or image file (PNG/JPG/WEBP)." },
+        { status: 400 },
+      );
+    }
 
-              content: [
-                {
-                  type: "file",
-                  data: buffer.toString("base64"),
-                  mediaType: file.type as "image/png" | "image/jpeg" | "image/webp" | "image/gif",
-                },
-                {
-                  type: "text",
-                  text: "This is a scanned legal document or screenshot. Please extract ALL visible text from this image exactly as it appears, preserving headings, paragraph structure, clause numbers, signatures, dates, and any tabular data. Output only the extracted text with no commentary.",
-                },
-              ]
-            },
-          ],
-        });
-        if (ocrText && ocrText.trim().length > 50) {
-          extractedText = ocrText;
-          pageCount = 1; // Images are single-page by nature
-        } else {
-          return Response.json(
-            { error: "Could not extract readable text from this image. Please ensure the image is clear and contains visible text." },
-            { status: 422 },
-          );
-        }
-      } catch (imgOcrError) {
-        console.error("Gemini image OCR failed:", imgOcrError);
-        return Response.json(
-          { error: "Failed to process this image. Please try a clearer scan or a PDF/DOCX file." },
-          { status: 422 },
-        );
-      }
+    // 6. Buffer the file in memory since the request is authenticated and valid
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // 7. Estimate input tokens and count pages based on file type
+    let estimatedInputTokens = 0;
+    let pageCount = 1;
+    let extractedText = "";
+    let useMultimodalFile = false;
+
+    if (isImage) {
+      estimatedInputTokens = 1000;
+      pageCount = 1;
+      useMultimodalFile = true;
     } else {
       try {
         if (isPdf) {
@@ -120,20 +127,35 @@ export async function POST(req: Request) {
             cachedPdfParse = pdfParseModule.default || pdfParseModule;
           }
           const parsed = await cachedPdfParse(buffer);
-          extractedText = parsed.text;
-          pageCount = parsed.numpages;
+          const pdfText = parsed.text || "";
+          pageCount = parsed.numpages || 1;
+          
+          if (pdfText.trim().length < 100) {
+            // Scanned PDF: Fall back to native visual file upload
+            useMultimodalFile = true;
+            estimatedInputTokens = pageCount * 1000;
+          } else {
+            // Text-based PDF: Send extracted text for consistency & cost efficiency
+            useMultimodalFile = false;
+            extractedText = pdfText;
+            estimatedInputTokens = Math.ceil(pdfText.length / CHARS_PER_TOKEN);
+          }
         } else if (isDocx) {
           if (!cachedMammoth) {
             cachedMammoth = await import("mammoth");
           }
           const result = await cachedMammoth.extractRawText({ buffer });
-          extractedText = result.value;
-          pageCount = Math.max(1, Math.ceil(extractedText.length / 3000));
-        } else {
-          return Response.json(
-            { error: "Unsupported file type. Please upload a PDF, DOCX, or image file (PNG/JPG/WEBP)." },
-            { status: 400 },
-          );
+          const docxText = result.value || "";
+          if (!docxText.trim()) {
+            return Response.json(
+              { error: "No readable text found in the document. Please ensure the file is a valid, non-corrupted document." },
+              { status: 422 },
+            );
+          }
+          pageCount = Math.max(1, Math.ceil(docxText.length / 3000));
+          useMultimodalFile = false;
+          extractedText = docxText;
+          estimatedInputTokens = Math.ceil(docxText.length / CHARS_PER_TOKEN);
         }
       } catch (error) {
         console.error("Document parsing error:", error);
@@ -144,75 +166,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 6. Validate page count (images are always page 1, skip if already processed as image)
-    if (!isImage && pageCount > MAX_REVIEW_PAGES) {
-      return Response.json(
-        {
-          error: `Document has ${pageCount} pages. Maximum allowed is ${MAX_REVIEW_PAGES} pages.`,
-        },
-        { status: 400 },
-      );
-    }
-
-    // 7. OCR fallback for scanned PDFs: if pdf-parse yielded too little text, use Gemini vision.
-    // (Images are already handled above — this block only runs for PDFs/DOCX.)
-    const MIN_TEXT_LENGTH = 100;
-    const isScanned = !isImage && (!extractedText.trim() || extractedText.trim().length < MIN_TEXT_LENGTH);
-    
-    if (isScanned && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"))) {
-      try {
-        console.log("Detected scanned/image-only PDF — attempting Gemini OCR...");
-        const { text: ocrText } = await generateText({
-          model: vertex("gemini-3.1-flash-lite"),
-          temperature: 0,
-          messages: [
-            {
-              role: "user",
-
-              content: [
-                {
-                  type: "file",
-                  data: buffer.toString("base64"),
-                  mediaType: "application/pdf",
-                },
-
-                {
-                  type: "text",
-                  text: "This is a scanned legal document. Please extract ALL visible text from every page of this document exactly as it appears, preserving headings, paragraph structure, clause numbers, and any tabular data. Output only the extracted text with no commentary.",
-                },
-              ]
-            },
-          ],
-        });
-        if (ocrText && ocrText.trim().length > 50) {
-          extractedText = ocrText;
-          // Approximate page count from OCR output length
-          if (pageCount === 0) pageCount = Math.max(1, Math.ceil(extractedText.length / 3000));
-        } else {
-          return Response.json(
-            { error: "Could not extract text from this scanned document. Please ensure the scan quality is sufficient or use a text-based PDF." },
-            { status: 422 },
-          );
-        }
-      } catch (ocrError) {
-        console.error("Gemini OCR fallback failed:", ocrError);
-        return Response.json(
-          { error: "Failed to process scanned document. Please try a text-based PDF or DOCX instead." },
-          { status: 422 },
-        );
-      }
-    } else if (isScanned) {
-      // DOCX with no text
-      return Response.json(
-        { error: "No readable text found in the document. Please ensure the file is a valid, non-corrupted document." },
-        { status: 422 },
-      );
-    }
-
     // 8. Token estimation and credit check
-    const estimatedInputTokens = Math.ceil(
-      extractedText.length / CHARS_PER_TOKEN,
-    );
     const estimatedOutputTokens = 2000; // structured JSON output
     const estimatedTotalTokens = estimatedInputTokens + estimatedOutputTokens;
 
@@ -233,57 +187,55 @@ export async function POST(req: Request) {
       );
     } 
 
-    // 9. Build prompt with extracted text
+    // 9. Build messages with file contents for native multimodal processing or text review
     const systemPrompt = LEGAL_DOCUMENT_REVIEW_PROMPT(file.name);
-    const userMessage = `DOCUMENT TEXT:\n\n${extractedText}`;
+    const messages: ModelMessage[] = [
+      {
+        role: "user",
+        content: useMultimodalFile
+          ? [
+              {
+                type: "file",
+                data: buffer.toString("base64"),
+                mediaType: isPdf ? "application/pdf" : file.type,
+              },
+              {
+                type: "text",
+                text: "Please perform a complete legal review of the attached document.",
+              },
+            ]
+          : [
+              {
+                type: "text",
+                text: `DOCUMENT TEXT:\n\n${extractedText}`,
+              },
+            ],
+      },
+    ];
 
-    // 9. Call Gemini for deep legal analysis using structured output
+    // 10. Call Gemini for deep legal analysis using structured output
     const { output: reviewData, usage } = await generateText({
       model: vertex("gemini-3-flash-preview"),
       temperature: 0,
       instructions: systemPrompt,
-      prompt: userMessage,
+      messages,
       output: Output.object({
-        schema:  z.object({
-        documentType: z.string().describe("The type of legal document (e.g., Lease Agreement, NDA, Employment Contract)"),
-        summary: z.string().describe("A concise summary of the document"),
-        overallScore: z.number().min(0).max(100).describe("Overall fairness/risk score for the document (0-100)"),
-        highlights: z.array(z.string()).describe("Key highlights of the document"),
-        scoreBreakdown: z.array(
-          z.object({
-            category: z.string().describe("The category of the score (e.g., Fairness, Clarity, Completeness)"),
-            score: z.number().min(0).max(100).describe("The score for the category (0-100)"),
-          }),
-        ),
-        keyClauses: z.array(
-          z.object({
-            title: z.string().describe("The title of the key clause"),
-            content: z.string().describe("The content of the key clause"),
-            assessment: z.string().describe("The assessment of the key clause"),
-            riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The risk level of the key clause (LOW, MEDIUM, HIGH)"),
-          }),
-        ),
-        risks: z.array(
-          z.object({
-            title: z.string().describe("The title of the risk"),
-            description: z.string().describe("The description of the risk"),
-            severity: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The severity of the risk (LOW, MEDIUM, HIGH)"),
-            clause: z.string().optional().describe("The clause associated with the risk"),
-            recommendation: z.string().describe("The recommendation for the risk"),
-          }),
-        ),
-        recommendations: z.array(
-          z.object({
-            title: z.string().describe("The title of the recommendation"),
-            description: z.string().describe("The description of the recommendation"),
-            priority: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The priority of the recommendation (LOW, MEDIUM, HIGH)"),
-          }),
-        ),
+        schema: legalReviewSchema,
       }),
-      }) 
+
+      // providerOptions: {
+      //     vertexai: { 
+      //       thinkingConfig: {
+      //         thinkingConfig: {
+      //           thinkingLevel: "medium",
+      //         },
+      //         mediaResolution:"MEDIA_RESOLUTION_LOW"
+      //       } satisfies GoogleLanguageModelOptions,
+      //     },
+      //   },
     });
 
-    // 10. Record token usage and deduct
+    // 11. Record token usage and deduct
     const actualTokens =
       (usage?.inputTokens ?? estimatedInputTokens) +
       (usage?.outputTokens ?? estimatedOutputTokens);
