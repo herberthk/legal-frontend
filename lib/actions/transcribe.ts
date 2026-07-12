@@ -1,6 +1,4 @@
 "use server";
-
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { getAuthenticatedUserId } from "./auth";
 import { checkUserCanSend, recordUsageAndDeduct } from "./usage";
 import { db } from "@/firebase/admin";
@@ -10,6 +8,9 @@ import {
   COST_PER_THOUSAND_TOKENS_IN_CENTS,
 } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
+import { generateText } from "ai";
+import { vertex } from "./vertex";
+import { GoogleLanguageModelOptions } from "@ai-sdk/google";
 
 interface TranscribeDocumentParams {
   base64Data: string;
@@ -71,14 +72,6 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
       };
     }
 
-    // 3. Initialize Gemini
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!apiKey) {
-      throw new Error("Gemini API key is not configured on the server.");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-
     const basePrompt =
       "CRITICAL INSTRUCTION: Output ONLY the transcribed text. Do NOT include any conversational filler, introductory text, or labels like 'Here is the transcription...'. ";
 
@@ -89,42 +82,56 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
         : basePrompt +
           `Transcribe all text from this document (both typed and handwritten) exactly as it appears. Maintain the original structure, line breaks, and formatting as closely as possible. Do not add any new headings or correct errors unless they are completely illegible.`;
 
-    // 4. Generate Content
-    const result = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite",
-      config: {
-        thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
-      },
-      contents: [
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType: mimeType,
+     const { text, usage } = await generateText({
+        model: vertex("gemini-3.1-flash-lite"),
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { 
+                type: "text", 
+                text: prompt 
+              },
+              { 
+                type: "file", 
+                data: Buffer.from(base64Data, "base64"),      
+                mediaType: mimeType,    
+              }
+            ],
+          },
+        ],
+ 
+        providerOptions: {
+          vertexai: { 
+            thinkingConfig: {
+              thinkingConfig: {
+                thinkingLevel: "medium",
+              },
+            } satisfies GoogleLanguageModelOptions,
           },
         },
-        { text: prompt },
-      ],
-    });
 
-    const text = result.text;
+        onEnd: async ({usage}) => {
+           // 5. Record Usage
+          const totalTokens = usage?.totalTokens || 0;
+          await recordUsageAndDeduct({
+            userId: userId,
+            type: "DOCUMENT_TRANSCRIPTION",
+            tokens: totalTokens,
+            sessionId: `doc-${fileName}-${Date.now()}`,
+          });
+        }
+      });
 
     if (!text) {
       throw new Error("Failed to generate transcription from Gemini.");
     }
 
-    // 5. Record Usage
-    const totalTokens = result.usageMetadata?.totalTokenCount || 0;
-    await recordUsageAndDeduct({
-      userId: userId,
-      type: "DOCUMENT_TRANSCRIPTION",
-      tokens: totalTokens,
-      sessionId: `doc-${fileName}-${Date.now()}`,
-    });
-
     return {
       success: true,
       text,
-      totalTokens,
+      totalTokens: usage?.totalTokens || 0,
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
