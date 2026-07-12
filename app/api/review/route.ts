@@ -245,38 +245,38 @@ export async function POST(req: Request) {
       prompt: userMessage,
       output: Output.object({
         schema:  z.object({
-        documentType: z.string(),
-        summary: z.string(),
-        overallScore: z.number().min(0).max(100),
-        highlights: z.array(z.string()),
+        documentType: z.string().describe("The type of legal document (e.g., Lease Agreement, NDA, Employment Contract)"),
+        summary: z.string().describe("A concise summary of the document"),
+        overallScore: z.number().min(0).max(100).describe("Overall fairness/risk score for the document (0-100)"),
+        highlights: z.array(z.string()).describe("Key highlights of the document"),
         scoreBreakdown: z.array(
           z.object({
-            category: z.string(),
-            score: z.number().min(0).max(100),
+            category: z.string().describe("The category of the score (e.g., Fairness, Clarity, Completeness)"),
+            score: z.number().min(0).max(100).describe("The score for the category (0-100)"),
           }),
         ),
         keyClauses: z.array(
           z.object({
-            title: z.string(),
-            content: z.string(),
-            assessment: z.string(),
-            riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]),
+            title: z.string().describe("The title of the key clause"),
+            content: z.string().describe("The content of the key clause"),
+            assessment: z.string().describe("The assessment of the key clause"),
+            riskLevel: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The risk level of the key clause (LOW, MEDIUM, HIGH)"),
           }),
         ),
         risks: z.array(
           z.object({
-            title: z.string(),
-            description: z.string(),
-            severity: z.enum(["LOW", "MEDIUM", "HIGH"]),
-            clause: z.string().optional(),
-            recommendation: z.string(),
+            title: z.string().describe("The title of the risk"),
+            description: z.string().describe("The description of the risk"),
+            severity: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The severity of the risk (LOW, MEDIUM, HIGH)"),
+            clause: z.string().optional().describe("The clause associated with the risk"),
+            recommendation: z.string().describe("The recommendation for the risk"),
           }),
         ),
         recommendations: z.array(
           z.object({
-            title: z.string(),
-            description: z.string(),
-            priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
+            title: z.string().describe("The title of the recommendation"),
+            description: z.string().describe("The description of the recommendation"),
+            priority: z.enum(["LOW", "MEDIUM", "HIGH"]).describe("The priority of the recommendation (LOW, MEDIUM, HIGH)"),
           }),
         ),
       }),
