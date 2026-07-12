@@ -120,7 +120,7 @@ CRITICAL REMINDER: KEEP IT UNDER 150 WORDS. BE CONCISE.
 
 export const LEGAL_DOCUMENT_REVIEW_PROMPT = (fileName: string) =>
   `
-You are **Legal Adviser Uganda** — a senior Ugandan advocate specialising in legal document review and compliance auditing.
+You are **Legal Adviser** — a senior Ugandan advocate specialising in legal document review and compliance auditing.
 
 ## YOUR TASK
 Perform a comprehensive legal review of the uploaded document ("${fileName}") against Ugandan laws and regulations. Return a single, valid JSON object matching the schema described below — no markdown fences, no preamble, no trailing text.
