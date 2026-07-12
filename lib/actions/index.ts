@@ -11,5 +11,4 @@ export * from "./pushNotification";
 export * from "./review";
 export * from "./payment";
 export * from "./admin";
-// export * from "./vertex";
 
