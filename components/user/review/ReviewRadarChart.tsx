@@ -114,8 +114,10 @@ export function ReviewRadarChart({ data }: ReviewRadarChartProps) {
             <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <motion.div
                 className={`h-full rounded-full ${
-                  item.score >= 75
+                  item.score >= 85
                     ? "bg-emerald-500"
+                    : item.score >= 75
+                    ? "bg-blue-500"
                     : item.score >= 50
                     ? "bg-amber-500"
                     : "bg-red-500"
@@ -127,8 +129,10 @@ export function ReviewRadarChart({ data }: ReviewRadarChartProps) {
             </div>
             <span
               className={`text-xs font-bold w-8 text-right ${
-                item.score >= 75
+                item.score >= 85
                   ? "text-emerald-600 dark:text-emerald-400"
+                  : item.score >= 75
+                  ? "text-blue-600 dark:text-blue-400"
                   : item.score >= 50
                   ? "text-amber-600 dark:text-amber-400"
                   : "text-red-600 dark:text-red-400"

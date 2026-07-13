@@ -321,6 +321,8 @@ declare global {
   type ReviewScoreCategory = {
     category: string;
     score: number; // 0-100
+    reason?: string;
+    recommendation?: string;
   };
 
   type DocumentReview = {

@@ -28,6 +28,8 @@ const legalReviewSchema = z.object({
     z.object({
       category: z.string().describe("The category of the score (e.g., Fairness, Clarity, Completeness)"),
       score: z.number().min(0).max(100).describe("The score for the category (0-100)"),
+      reason: z.string().describe("The detailed reason for why this specific score was given based on the document's contents"),
+      recommendation: z.string().describe("Specific and actionable recommendations on how to achieve 100% in this category"),
     }),
   ),
   keyClauses: z.array(
