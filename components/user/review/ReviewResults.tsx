@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Save, CheckCircle2, MoreVertical, FilePlus, FileDown } from "lucide-react";
 import { ReviewScoreGauge } from "./ReviewScoreGauge";
 import { ReviewRadarChart } from "./ReviewRadarChart";
+import { ReviewScoreDetails } from "./ReviewScoreDetails";
 import { ReviewSummary } from "./ReviewSummary";
 import { ReviewClauses } from "./ReviewClauses";
 import { ReviewRisks } from "./ReviewRisks";
@@ -145,6 +146,8 @@ export function ReviewResults({
         <ReviewRadarChart data={review.scoreBreakdown} />
       </div>
 
+    
+
       {/* ── Summary & highlights ──────────────────────────── */}
       <ReviewSummary
         documentType={review.documentType}
@@ -155,6 +158,8 @@ export function ReviewResults({
         tokensUsed={review.tokensUsed}
       />
 
+  {/* ── Score Breakdown Details ──────────────────────── */}
+      <ReviewScoreDetails scoreBreakdown={review.scoreBreakdown} />
       {/* ── Risks ────────────────────────────────────────── */}
       <div className="md:p-5 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
         <ReviewRisks risks={review.risks} />

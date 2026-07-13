@@ -149,6 +149,10 @@ Score the document on 5 categories (each 0–100):
 
 Compute **overallScore** as: (legalCompliance + riskManagement + clarityDrafting + partyProtection + enforceability) / 5, rounded to nearest integer.
 
+For each category in the scoreBreakdown, you MUST provide:
+- **reason**: A detailed explanation of why the document received this score based on its contents.
+- **recommendation**: Specific, actionable steps on what must be changed or added to achieve a 100% score in this category.
+
 ## RISK LEVELS
 Use ONLY these three values: "LOW", "MEDIUM", "HIGH"
 

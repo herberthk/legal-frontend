@@ -8,7 +8,8 @@ interface ReviewScoreGaugeProps {
 }
 
 function getScoreColor(score: number) {
-  if (score >= 75) return { stroke: "#10b981", text: "text-emerald-600 dark:text-emerald-400", label: "Excellent", bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-200 dark:border-emerald-800" };
+  if (score >= 85) return { stroke: "#10b981", text: "text-emerald-600 dark:text-emerald-400", label: "Excellent", bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-200 dark:border-emerald-800" };
+  if (score >= 75) return { stroke: "#3b82f6", text: "text-blue-600 dark:text-blue-400", label: "Good", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800" };
   if (score >= 50) return { stroke: "#f59e0b", text: "text-amber-600 dark:text-amber-400", label: "Fair", bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-200 dark:border-amber-800" };
   return { stroke: "#ef4444", text: "text-red-600 dark:text-red-400", label: "Poor", bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-200 dark:border-red-800" };
 }
