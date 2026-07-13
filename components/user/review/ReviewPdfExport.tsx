@@ -25,6 +25,7 @@ const COLORS = {
   border: "#e2e8f0",
   red: "#dc2626",
   amber: "#d97706",
+  blue: "#2563eb",
   green: "#059669",
   white: "#ffffff",
 };
@@ -148,6 +149,19 @@ const styles = StyleSheet.create({
   clauseTitle: { fontWeight: 700, fontSize: 10, marginBottom: 3 },
   clauseContent: { fontSize: 9, color: COLORS.gray, fontStyle: "italic", marginBottom: 3, lineHeight: 1.4 },
   clauseAssessment: { fontSize: 9, color: COLORS.dark, lineHeight: 1.5 },
+  // Score Details
+  detailItem: {
+    padding: 10,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  detailHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+  detailTitle: { fontWeight: 700, fontSize: 10, color: COLORS.dark },
+  detailScore: { fontWeight: 700, fontSize: 10 },
+  detailBlock: { marginBottom: 6 },
+  detailSubtitle: { fontSize: 8, fontWeight: 700, color: COLORS.gray, marginBottom: 2, textTransform: "uppercase" },
+  detailText: { fontSize: 9, color: COLORS.dark, lineHeight: 1.5 },
   // Footer
   footer: {
     position: "absolute",
@@ -169,7 +183,8 @@ interface PDFDocumentProps {
 }
 
 function scoreBarColor(score: number) {
-  if (score >= 75) return COLORS.green;
+  if (score >= 85) return COLORS.green;
+  if (score >= 75) return COLORS.blue;
   if (score >= 50) return COLORS.amber;
   return COLORS.red;
 }
@@ -231,6 +246,7 @@ const radarLabels = [
 ];
 
 function getScoreLabel(score: number) {
+  if (score >= 85) return "EXCELLENT";
   if (score >= 75) return "GOOD";
   if (score >= 50) return "FAIR";
   return "POOR";
@@ -345,6 +361,33 @@ const ReviewPdfDocument = ({ review, generatedAt }: PDFDocumentProps) => {
           </View>
         </View>
       </View>
+
+    {/* ─── Score Improvement Plan ─────────────────────── */}
+      {review.scoreBreakdown.some(s => s.reason || s.recommendation) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Score Improvement Plan</Text>
+          {review.scoreBreakdown.filter(s => s.reason || s.recommendation).map((item, i) => (
+            <View key={i} style={styles.detailItem} wrap={false}>
+              <View style={styles.detailHeader}>
+                <Text style={styles.detailTitle}>{formatCategoryName(item.category)}</Text>
+                <Text style={[styles.detailScore, { color: scoreBarColor(item.score) }]}>{item.score} / 100</Text>
+              </View>
+              {item.reason && (
+                <View style={styles.detailBlock}>
+                  <Text style={styles.detailSubtitle}>Current Assessment</Text>
+                  <Text style={styles.detailText}>{item.reason}</Text>
+                </View>
+              )}
+              {item.recommendation && (
+                <View style={[styles.detailBlock, { marginBottom: 0 }]}>
+                  <Text style={[styles.detailSubtitle, { color: COLORS.primary }]}>Recommendation for 100%</Text>
+                  <Text style={styles.detailText}>{item.recommendation}</Text>
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
 
     {/* ─── Highlights ─────────────────────── */}
 
