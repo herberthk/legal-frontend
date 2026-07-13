@@ -1,8 +1,23 @@
 "use server";
 
 import { COLLECTIONS } from "@/constants";
-import { db } from "@/firebase/admin";
+import { db, storageAdmin } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
+
+/**
+ * Helper to extract the object path from a Firebase Storage download URL.
+ */
+function extractStoragePathFromUrl(url: string): string | null {
+  try {
+    const match = url.match(/\/o\/([^?]+)/);
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+  } catch (e) {
+    console.error("Failed to parse storage URL:", url);
+  }
+  return null;
+}
 
 /**
  * Creates a new chat session in Firestore
@@ -250,25 +265,62 @@ export const updateChatSessionTitle = async (
 };
 
 /**
- * Deletes a chat session and all its messages
+ * Deletes a chat session and all its messages.
+ * Includes cleaning up any orphaned files in Firebase Storage.
  */
 export const deleteChatSession = async (sessionId: string) => {
   try {
     const sessionRef = db.collection(COLLECTIONS.CHAT_SESSIONS).doc(sessionId);
 
-    // Delete all messages in the subcollection
+    // 1. Fetch all messages
     const messagesSnapshot = await sessionRef
       .collection(COLLECTIONS.MESSAGES)
       .get();
-    const batch = db.batch();
-    messagesSnapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref);
-    });
 
-    // Delete the session record itself
-    batch.delete(sessionRef);
+    // 2. Identify attachments and delete them from Storage
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const storageDeletions: Promise<any>[] = [];
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET;
+    
+    if (bucketName) {
+      const bucket = storageAdmin.bucket(bucketName);
+      
+      messagesSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.attachment && data.attachment.url) {
+          const objectPath = extractStoragePathFromUrl(data.attachment.url);
+          if (objectPath) {
+            const file = bucket.file(objectPath);
+            // Catch errors so one missing/broken file doesn't block Firestore cleanup
+            storageDeletions.push(
+              file.delete().catch((err) => {
+                console.error(`Failed to delete storage file: ${objectPath}`, err);
+              })
+            );
+          }
+        }
+      });
 
-    await batch.commit();
+      if (storageDeletions.length > 0) {
+        // Wait for all storage deletions to finish (pass or fail)
+        await Promise.allSettled(storageDeletions);
+      }
+    } else {
+      console.warn("Storage bucket not configured. Skipping attachment cleanup.");
+    }
+
+    // 3. Delete messages and session in chunked batches (max 500 ops per batch)
+    // Firestore batch limit is 500. We will chunk them into arrays of 450 to be safe.
+    const CHUNK_SIZE = 450;
+    const docsToDelete = [...messagesSnapshot.docs.map((d) => d.ref), sessionRef];
+    
+    for (let i = 0; i < docsToDelete.length; i += CHUNK_SIZE) {
+      const chunk = docsToDelete.slice(i, i + CHUNK_SIZE);
+      const batch = db.batch();
+      chunk.forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+
     return { success: true };
   } catch (error) {
     console.error("Error deleting chat session:", error);
