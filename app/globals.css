@@ -208,6 +208,21 @@
 .animate-shimmer {
   animation: shimmer 2s infinite linear;
 }
+
+/* Streaming cursor blink — used by MakdownFormater StreamingCursor */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0;
+  }
+}
+
 /* Custom styles to match PDF output exactly */
 .pdf-preview-styles {
   font-family: "Times New Roman", Times, serif;
