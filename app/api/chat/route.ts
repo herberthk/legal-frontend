@@ -69,6 +69,7 @@ export async function POST(req: Request) {
     console.log("messages", historyMessages.length);
 
     let estimatedInputTokens = 0;
+    const partProcessingPromises: Promise<void>[] = [];
 
     // Process historyMessages to replace .docx file parts with extracted text
     // Gemini API does not natively support inline .docx, so we must extract it.
@@ -87,20 +88,22 @@ export async function POST(req: Request) {
           // If it's a PDF or Image, Gemini supports it natively inline, but we need to estimate tokens for the NEW file
           if (msg === lastUserMessage) {
             if (part.mediaType === "application/pdf" || part.filename?.toLowerCase().endsWith(".pdf")) {
-              try {
-                const response = await fetch(part.url);
-                const arrayBuffer = await response.arrayBuffer();
-                const buffer = Buffer.from(arrayBuffer);
-                if (!cachedPdfParse) {
-                  const pdfParseModule = await import("pdf-parse");
-                  cachedPdfParse = pdfParseModule.default || pdfParseModule;
+              partProcessingPromises.push((async () => {
+                try {
+                  const response = await fetch(part.url);
+                  const arrayBuffer = await response.arrayBuffer();
+                  const buffer = Buffer.from(arrayBuffer);
+                  if (!cachedPdfParse) {
+                    const pdfParseModule = await import("pdf-parse");
+                    cachedPdfParse = pdfParseModule.default || pdfParseModule;
+                  }
+                  const parsed = await cachedPdfParse(buffer);
+                  estimatedInputTokens += Math.ceil(parsed.text.length / CHARS_PER_TOKEN);
+                } catch (e) {
+                  console.error("Failed to parse PDF for token estimation in chat:", e);
+                  estimatedInputTokens += 2000;
                 }
-                const parsed = await cachedPdfParse(buffer);
-                estimatedInputTokens += Math.ceil(parsed.text.length / CHARS_PER_TOKEN);
-              } catch (e) {
-                console.error("Failed to parse PDF for token estimation in chat:", e);
-                estimatedInputTokens += 2000;
-              }
+              })());
             } else if (part.mediaType.startsWith("image/")) {
               estimatedInputTokens += 258;
             }
@@ -108,36 +111,40 @@ export async function POST(req: Request) {
           
           // If it's a DOCX, we MUST extract it to text for Gemini (whether it's the last message or history)
           if (part.mediaType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || part.filename?.toLowerCase().endsWith(".docx") || part.url?.toLowerCase().includes(".docx")) {
-            try {
-              const response = await fetch(part.url);
-              const arrayBuffer = await response.arrayBuffer();
-              const buffer = Buffer.from(arrayBuffer);
-              if (!cachedMammoth) {
-                cachedMammoth = await import("mammoth");
+            partProcessingPromises.push((async () => {
+              try {
+                const response = await fetch(part.url);
+                const arrayBuffer = await response.arrayBuffer();
+                const buffer = Buffer.from(arrayBuffer);
+                if (!cachedMammoth) {
+                  cachedMammoth = await import("mammoth");
+                }
+                const result = await cachedMammoth.extractRawText({ buffer });
+                const docxText = result.value;
+                
+                if (msg === lastUserMessage) {
+                  estimatedInputTokens += Math.ceil(docxText.length / CHARS_PER_TOKEN);
+                }
+                
+                // Replace the file part with a text part so Gemini doesn't reject the MIME type
+                msg.parts[i] = { 
+                  type: "text", 
+                  text: `\n\n--- Document: ${part.filename || 'document.docx'} ---\n${docxText}\n--- End Document ---\n\n` 
+                };
+              } catch (e) {
+                console.error("Failed to parse DOCX in chat:", e);
+                if (msg === lastUserMessage) {
+                  estimatedInputTokens += 2000;
+                }
+                msg.parts[i] = { type: "text", text: `\n\n[Failed to read document: ${part.filename}]\n\n` };
               }
-              const result = await cachedMammoth.extractRawText({ buffer });
-              const docxText = result.value;
-              
-              if (msg === lastUserMessage) {
-                estimatedInputTokens += Math.ceil(docxText.length / CHARS_PER_TOKEN);
-              }
-              
-              // Replace the file part with a text part so Gemini doesn't reject the MIME type
-              msg.parts[i] = { 
-                type: "text", 
-                text: `\n\n--- Document: ${part.filename || 'document.docx'} ---\n${docxText}\n--- End Document ---\n\n` 
-              };
-            } catch (e) {
-              console.error("Failed to parse DOCX in chat:", e);
-              if (msg === lastUserMessage) {
-                estimatedInputTokens += 2000;
-              }
-              msg.parts[i] = { type: "text", text: `\n\n[Failed to read document: ${part.filename}]\n\n` };
-            }
+            })());
           }
         }
       }
     }
+
+    await Promise.all(partProcessingPromises);
 
     const estimatedOutputTokens = 1000; // Typical chat response
     const estimatedTotalTokens = estimatedInputTokens + estimatedOutputTokens;
@@ -181,38 +188,51 @@ export async function POST(req: Request) {
         const totalTokens =
           (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);
         try {
-          if (sessionId !== null && totalTokens > 0) {
-            await recordUsageAndDeduct({
-              userId,
-              type: "TEXT_RESPONSE",
-              tokens: totalTokens,
-              sessionId,
-            });
-          }
-          if (sessionId !== null && text) {
-            // Save user message — include attachment metadata with Firebase Storage URL
-            await saveChatMessage(sessionId, {
-              role: "user",
-              // We use the original text and original file metadata preserved at the top of the route.
-              text: originalTextToSend,
-              tokenCount: estimatedInputTokens,
-              isFirstMessage: isFirstMessage === "true",
-              ...(originalFilePart && {
-                attachment: {
-                  name: originalFilePart.filename || "document.pdf",
-                  contentType: originalFilePart.mediaType,
-                  url: originalFilePart.url,
-                },
-              }),
-            });
+          if (sessionId !== null) {
+            const dbPromises = [];
 
-            // Save assistant message
-            await saveChatMessage(sessionId, {
-              role: "assistant",
-              text: text,
-              tokenCount: usage?.outputTokens ?? 0,
-              isFirstMessage: false,
-            });
+            if (totalTokens > 0) {
+              dbPromises.push(
+                recordUsageAndDeduct({
+                  userId,
+                  type: "TEXT_RESPONSE",
+                  tokens: totalTokens,
+                  sessionId,
+                })
+              );
+            }
+
+            if (text) {
+              dbPromises.push(
+                (async () => {
+                  // We await these sequentially to guarantee the user message gets an older or equal timestamp
+                  // than the assistant message and they appear in the correct order in Firestore.
+                  await saveChatMessage(sessionId, {
+                    role: "user",
+                    // We use the original text and original file metadata preserved at the top of the route.
+                    text: originalTextToSend,
+                    tokenCount: estimatedInputTokens,
+                    isFirstMessage: isFirstMessage === "true",
+                    ...(originalFilePart && {
+                      attachment: {
+                        name: originalFilePart.filename || "document.pdf",
+                        contentType: originalFilePart.mediaType,
+                        url: originalFilePart.url,
+                      },
+                    }),
+                  });
+
+                  await saveChatMessage(sessionId, {
+                    role: "assistant",
+                    text: text,
+                    tokenCount: usage?.outputTokens ?? 0,
+                    isFirstMessage: false,
+                  });
+                })()
+              );
+            }
+
+            await Promise.all(dbPromises);
           }
         } catch (err) {
           console.error("Error saving chat message:", err);
