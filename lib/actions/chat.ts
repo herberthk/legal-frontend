@@ -2,7 +2,7 @@
 
 import { COLLECTIONS } from "@/constants";
 import { db, storageAdmin } from "@/firebase/admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, Query } from "firebase-admin/firestore";
 
 /**
  * Helper to extract the object path from a Firebase Storage download URL.
@@ -132,15 +132,14 @@ export async function getChatSessions(userId: string, limit = 20) {
 
 /**
  * Gets messages for a specific chat session with cursor-based pagination.
- * @param sessionId      - The chat session ID
- * @param limit          - Number of messages per page (default 10)
- * @param beforeMessageId - Fetch messages that appear BEFORE this message ID
- *                          (used when scrolling up to load older messages)
+ * @param sessionId - The chat session ID
+ * @param limit     - Number of messages per page (default 10)
+ * @param cursor    - Cursor object containing ID and timestamp of oldest message
  */
 export async function getChatMessages(
   sessionId: string,
   limit = 10,
-  beforeMessageId?: string,
+  cursor?: { id: string; createdAt: string }
 ) {
   try {
     const collectionRef = db
@@ -148,53 +147,27 @@ export async function getChatMessages(
       .doc(sessionId)
       .collection(COLLECTIONS.MESSAGES);
 
-    // When paginating backwards we fetch the batch that ends just before the
-    // oldest currently-displayed message.
-    if (beforeMessageId) {
-      const cursorDoc = await collectionRef.doc(beforeMessageId).get();
-      if (!cursorDoc.exists) {
-        return { success: true, messages: [], hasMore: false };
-      }
+    let query: Query = collectionRef.orderBy("createdAt", "asc");
 
-      // Fetch (limit + 1) so we can detect whether there are even older messages
-      const snapshot = await collectionRef
-        .orderBy("createdAt", "asc")
-        .endBefore(cursorDoc)
-        .limitToLast(limit + 1)
-        .get();
-
-      const hasMore = snapshot.docs.length > limit;
-      const docs = hasMore ? snapshot.docs.slice(1) : snapshot.docs;
-
-      const messages: ChatMessageRecord[] = docs.map((doc) => ({
-        ...doc.data(),
-        id: doc.id,
-        createdAt:
-          doc.data().createdAt?.toDate().toISOString() ||
-          new Date().toISOString(),
-      })) as ChatMessageRecord[];
-
-      return { success: true, messages, hasMore };
+    if (cursor) {
+      const cursorTime = Timestamp.fromDate(new Date(cursor.createdAt));
+      query = query.endBefore(cursorTime);
+      // console.log("getting messages with cursor", cursorTime);
     }
 
-    // Initial load: fetch the most-recent `limit` messages in ascending order
-    // so we get the tail of the conversation. We request limit+1 to probe for
-    // older pages without a second round-trip.
-    const snapshot = await collectionRef
-      .orderBy("createdAt", "asc")
-      .limitToLast(limit + 1)
-      .get();
+    const snapshot = await query.limitToLast(limit + 1).get();
 
     const hasMore = snapshot.docs.length > limit;
     const docs = hasMore ? snapshot.docs.slice(1) : snapshot.docs;
 
-    const messages: ChatMessageRecord[] = docs.map((doc) => ({
-      ...doc.data(),
-      id: doc.id,
-      createdAt:
-        doc.data().createdAt?.toDate().toISOString() ||
-        new Date().toISOString(),
-    })) as ChatMessageRecord[];
+    const messages: ChatMessageRecord[] = docs.map((doc) => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
+      };
+    }) as ChatMessageRecord[];
 
     return { success: true, messages, hasMore };
   } catch (error) {
