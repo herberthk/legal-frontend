@@ -273,7 +273,12 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
 
         // Force synchronous render of the new messages
         flushSync(() => {
-          setMessages((current) => [...older, ...current]);
+          setMessages((current) => {
+            // Deduplicate: filter out any older messages that already exist
+            const existingIds = new Set(current.map((m) => m.id));
+            const unique = older.filter((m) => !existingIds.has(m.id));
+            return [...unique, ...current];
+          });
           setHasMore(result.hasMore ?? false);
         });
 
@@ -291,8 +296,6 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
   }, [chatSessionId, hasMore, isLoadingMore, messages, toUIMessage]);
 
   // Attach scroll listener to the messages container
-  const isProgrammaticScrollRef = useRef(false);
-
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -302,12 +305,6 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       if (container.scrollTop < 80 && hasMore && !isLoadingMore) {
         loadOlderMessages();
       }
-
-      // Skip updating isNearBottom when WE triggered the scroll (scrollIntoView)
-      if (isProgrammaticScrollRef.current) return;
-
-      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
-      isNearBottomRef.current = isNearBottom;
     };
 
     container.addEventListener("scroll", onScroll, { passive: true });
@@ -480,33 +477,32 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
 
   // Auto-scroll to bottom
   const isInitialScroll = useRef(true);
-  const isNearBottomRef = useRef(true);
 
   const scrollToBottom = useCallback((force = false) => {
-    if (!force && !isInitialScroll.current && !isNearBottomRef.current) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-    // Mark the next scroll events as programmatic so the listener doesn't
-    // reset isNearBottomRef back to true when the user is reading history.
-    isProgrammaticScrollRef.current = true;
+    if (!force && !isInitialScroll.current) {
+      // Check if user is near bottom RIGHT NOW, not from a stale ref
+      const distFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distFromBottom > 150) return;
+    }
 
     messagesEndRef.current?.scrollIntoView({ 
       behavior: isInitialScroll.current ? "auto" : "smooth" 
     });
     isInitialScroll.current = false;
-
-    // Clear the flag after the browser has finished the scroll
-    requestAnimationFrame(() => {
-      isProgrammaticScrollRef.current = false;
-    });
   }, []);
 
   useEffect(() => {
-    // A small delay ensures the DOM has painted the messages before scrolling
+    // Never auto-scroll while loading older messages — the user is reading history
+    if (isLoadingMore) return;
+
     const timer = setTimeout(() => {
       scrollToBottom();
     }, 50);
     return () => clearTimeout(timer);
-  }, [messages, isLoading, scrollToBottom]);
+  }, [messages, isLoading, scrollToBottom, isLoadingMore]);
 
   // --- Send Message ---
   const handleSend = async (
@@ -568,8 +564,6 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     }
 
     // ── EXISTING CHAT ────────────────────────────────────────────────────────
-    // Force scroll to bottom for the new message
-    isNearBottomRef.current = true;
 
     // Send via Vercel AI SDK (adds user bubble + triggers stream)
     if (attachmentToSend) {

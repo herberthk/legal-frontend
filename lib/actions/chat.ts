@@ -2,7 +2,7 @@
 
 import { COLLECTIONS } from "@/constants";
 import { db, storageAdmin } from "@/firebase/admin";
-import { FieldValue, Timestamp, Query } from "firebase-admin/firestore";
+import { FieldPath, FieldValue, Timestamp, Query } from "firebase-admin/firestore";
 
 /**
  * Helper to extract the object path from a Firebase Storage download URL.
@@ -147,12 +147,13 @@ export async function getChatMessages(
       .doc(sessionId)
       .collection(COLLECTIONS.MESSAGES);
 
-    let query: Query = collectionRef.orderBy("createdAt", "asc");
+    let query: Query = collectionRef
+      .orderBy("createdAt", "asc")
+      .orderBy(FieldPath.documentId(), "asc");
 
     if (cursor) {
       const cursorTime = Timestamp.fromDate(new Date(cursor.createdAt));
-      query = query.endBefore(cursorTime);
-      // console.log("getting messages with cursor", cursorTime);
+      query = query.endBefore(cursorTime, cursor.id);
     }
 
     const snapshot = await query.limitToLast(limit + 1).get();
