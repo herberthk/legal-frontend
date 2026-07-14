@@ -179,5 +179,24 @@ export const ChatMessage = memo(
       </div>
     );
   },
+  (prevProps, nextProps) => {
+    // If a message was not the last message, and is still not the last message,
+    // its rendering depends solely on its content ('msg'). Other props (isLoading,
+    // chatError, connectionStatus, onRetry) only affect the last message's retry UI.
+    if (!prevProps.isLast && !nextProps.isLast) {
+      return prevProps.msg === nextProps.msg;
+    }
+    
+    // For the last message, or when a message transitions to/from being the last,
+    // do a full comparison of all props.
+    return (
+      prevProps.msg === nextProps.msg &&
+      prevProps.isLast === nextProps.isLast &&
+      prevProps.isLoading === nextProps.isLoading &&
+      prevProps.chatError === nextProps.chatError &&
+      prevProps.connectionStatus === nextProps.connectionStatus &&
+      prevProps.onRetry === nextProps.onRetry
+    );
+  }
 );
 ChatMessage.displayName = "ChatMessage";

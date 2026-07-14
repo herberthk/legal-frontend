@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Scale, FileText, AlertTriangle, User as UserIcon } from "lucide-react";
-import Logo from "@/components/global/Logo";
+import Image from "next/image";
 
 interface ChatHeroProps {
   user: User | null;
@@ -10,13 +10,11 @@ interface ChatHeroProps {
 export const ChatHero = memo(({ user, onSuggestionClick }: ChatHeroProps) => {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center px-4 animate-in fade-in zoom-in-95 duration-500 pb-10 mt-10 md:mt-auto mb-auto">
-      <Logo
-        size="lg"
-        shape="circle"
-        showText={false}
-        className="mb-8"
-        iconClass="drop-shadow-xl"
-        strokeWidth={2}
+      <Image
+        src="/icons/apple-icon-180.png"
+        alt="AI Assistant"
+        width={128}
+        height={128}
       />
       <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
        <span className="text-indigo-500">Good{" "}</span> 

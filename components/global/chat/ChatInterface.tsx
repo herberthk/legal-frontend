@@ -466,12 +466,21 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
   }, [connectionStatus]);
 
   // Auto-scroll to bottom
+  const isInitialScroll = useRef(true);
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: isInitialScroll.current ? "auto" : "smooth" 
+    });
+    isInitialScroll.current = false;
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // A small delay ensures the DOM has painted the messages before scrolling
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [messages, isLoading]);
 
   // --- Send Message ---

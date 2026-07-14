@@ -1,5 +1,6 @@
-import ChatSessionSkeleton from "@/components/user/ChatSessionSkeleton";
+import { ChatLoadingSkeleton } from "@/components/global/chat/ChatLoadingSkeleton";
+
 
 export default function Loading() {
-  return <ChatSessionSkeleton />;
+  return <ChatLoadingSkeleton/>;
 }
