@@ -7,6 +7,7 @@ import React, {
   useCallback,
   FC,
 } from "react";
+import { flushSync } from "react-dom";
 import { Scale, Sparkles, Loader2 } from "lucide-react";
 
 import { useAuthStore } from "@/store";
@@ -249,53 +250,64 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     const container = scrollContainerRef.current;
     if (!container) return;
 
+    const oldestMsg = messages[0];
+    const oldestId = oldestMsg?.id;
+    const oldestCreatedAt = (oldestMsg?.metadata as { createdAt?: string })?.createdAt;
+
+    if (!oldestId || !oldestCreatedAt) return;
+
     setIsLoadingMore(true);
-    // Snapshot scroll metrics BEFORE prepending so we can restore position
-    const prevScrollHeight = container.scrollHeight;
 
     try {
-      // Use the id of the topmost visible message as the cursor
-      setMessages((prev) => {
-        const oldestId = prev[0]?.id;
-        if (!oldestId) return prev;
+      const result = await getChatMessages(chatSessionId, 10, { 
+        id: oldestId, 
+        createdAt: oldestCreatedAt 
+      });
 
-        // Fire the fetch; result applied asynchronously below
-        getChatMessages(chatSessionId, 10, oldestId).then((result) => {
-          if (result.success && result.messages && result.messages.length > 0) {
-            const older: UIMessage[] = result.messages.map(toUIMessage);
-            setMessages((current) => [...older, ...current]);
-            setHasMore(result.hasMore ?? false);
+      if (result.success && result.messages && result.messages.length > 0) {
+        const older: UIMessage[] = result.messages.map(toUIMessage);
+        
+        // Snapshot scroll position right before the synchronous DOM mutation
+        const prevScrollHeight = container.scrollHeight;
+        const prevScrollTop = container.scrollTop;
 
-            // Restore scroll position so the view doesn't jump
-            requestAnimationFrame(() => {
-              if (container) {
-                container.scrollTop = container.scrollHeight - prevScrollHeight;
-              }
-            });
-          } else {
-            setHasMore(false);
-          }
-          setIsLoadingMore(false);
+        // Force synchronous render of the new messages
+        flushSync(() => {
+          setMessages((current) => [...older, ...current]);
+          setHasMore(result.hasMore ?? false);
         });
 
-        return prev; // Return unchanged — the real update comes from the .then()
-      });
+        // The DOM is now updated. Restore scroll position seamlessly.
+        container.scrollTop = prevScrollTop + (container.scrollHeight - prevScrollHeight);
+      } else {
+        setHasMore(false);
+      }
     } catch (err) {
       console.error("Failed to load older messages:", err);
+    } finally {
       setIsLoadingMore(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatSessionId, hasMore, isLoadingMore, toUIMessage]);
+  }, [chatSessionId, hasMore, isLoadingMore, messages, toUIMessage]);
 
   // Attach scroll listener to the messages container
+  const isProgrammaticScrollRef = useRef(false);
+
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const onScroll = () => {
+      // Infinite scroll: load older messages when near top
       if (container.scrollTop < 80 && hasMore && !isLoadingMore) {
         loadOlderMessages();
       }
+
+      // Skip updating isNearBottom when WE triggered the scroll (scrollIntoView)
+      if (isProgrammaticScrollRef.current) return;
+
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      isNearBottomRef.current = isNearBottom;
     };
 
     container.addEventListener("scroll", onScroll, { passive: true });
@@ -353,6 +365,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
 
       try {
         const result = await getChatMessages(chatId);
+        console.log("Messages",result.messages.length)
         if (result.success && result.messages && result.messages.length > 0) {
           let totalTokens = 0;
           const historyMessages: UIMessage[] = result.messages.map((m) => {
@@ -467,13 +480,25 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
 
   // Auto-scroll to bottom
   const isInitialScroll = useRef(true);
+  const isNearBottomRef = useRef(true);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback((force = false) => {
+    if (!force && !isInitialScroll.current && !isNearBottomRef.current) return;
+
+    // Mark the next scroll events as programmatic so the listener doesn't
+    // reset isNearBottomRef back to true when the user is reading history.
+    isProgrammaticScrollRef.current = true;
+
     messagesEndRef.current?.scrollIntoView({ 
       behavior: isInitialScroll.current ? "auto" : "smooth" 
     });
     isInitialScroll.current = false;
-  };
+
+    // Clear the flag after the browser has finished the scroll
+    requestAnimationFrame(() => {
+      isProgrammaticScrollRef.current = false;
+    });
+  }, []);
 
   useEffect(() => {
     // A small delay ensures the DOM has painted the messages before scrolling
@@ -481,7 +506,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       scrollToBottom();
     }, 50);
     return () => clearTimeout(timer);
-  }, [messages, isLoading]);
+  }, [messages, isLoading, scrollToBottom]);
 
   // --- Send Message ---
   const handleSend = async (
@@ -543,6 +568,9 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     }
 
     // ── EXISTING CHAT ────────────────────────────────────────────────────────
+    // Force scroll to bottom for the new message
+    isNearBottomRef.current = true;
+
     // Send via Vercel AI SDK (adds user bubble + triggers stream)
     if (attachmentToSend) {
       sendMessage({
@@ -699,7 +727,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
           onSend={handleSend}
           connectionStatus={connectionStatus}
           isLoading={isLoading}
-          onHeightChange={scrollToBottom}
+          onHeightChange={() => scrollToBottom(true)}
         />
       </div>
     </div>

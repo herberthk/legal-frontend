@@ -256,9 +256,14 @@ const ChatHistorySidebar = ({
                         {session.title || "New Conversation"}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 pl-5" suppressHydrationWarning>
-                      {formatUniversalDate(session.updatedAt)}
-                    </span>
+                    <div className="flex items-center">
+                      <span className="text-[10px] text-slate-400 pl-5" suppressHydrationWarning>
+                        {formatUniversalDate(session.updatedAt)}
+                      </span>
+                      <span className="text-[10px] text-slate-400 pl-5" suppressHydrationWarning>
+                        {session.messageCount} msg{session.messageCount > 1 ? 's' : ''}
+                      </span>
+                    </div>
                   </button>
 
                   <div className="flex items-center">

@@ -21,7 +21,6 @@ const ChatPage = async (props: { params: Promise<{ chatId: string }> }) => {
     initialMessages = messagesResult.messages;
     serverHasMore = messagesResult.hasMore ?? false;
   }
-
   return (
      <DirectionalTransition>
         <ChatInterfaceWrapper
