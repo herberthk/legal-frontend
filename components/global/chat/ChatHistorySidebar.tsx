@@ -261,7 +261,7 @@ const ChatHistorySidebar = ({
                         {formatUniversalDate(session.updatedAt)}
                       </span>
                       <span className="text-[10px] text-slate-400 pl-5" suppressHydrationWarning>
-                        {session.messageCount} msg{session.messageCount > 1 ? 's' : ''}
+                        {session.messageCount}
                       </span>
                     </div>
                   </button>
