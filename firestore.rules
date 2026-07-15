@@ -1,0 +1,150 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ---------------------------------------------------------
+    // Helper Functions
+    // ---------------------------------------------------------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Safely check if the user is an admin by verifying the document exists first
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN'
+             );
+    }
+
+    // ---------------------------------------------------------
+    // 1. Users & Core Authentication Data
+    // ---------------------------------------------------------
+    match /users/{userId} {
+      // Users can read/write their own document, admins have full access
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    match /otp/{docId} {
+      // OTPs are handled entirely by Next.js Server Actions (Firebase Admin SDK)
+      // Client-side access is completely blocked.
+      allow read, write: if false; 
+    }
+
+    // ---------------------------------------------------------
+    // 2. Chat Sessions & Messages
+    // ---------------------------------------------------------
+    match /chatSessions/{sessionId} {
+      // Must own the session being created
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      // Must own the existing session
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      
+      // Messages are a subcollection. Access depends on owning the parent session.
+      match /messages/{messageId} {
+        allow read, write: if isAdmin() || isOwner(get(/databases/$(database)/documents/chatSessions/$(sessionId)).data.userId);
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 3. Support Tickets & Messaging
+    // ---------------------------------------------------------
+    match /supportTickets/{ticketId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    match /supportMessages/{msgId} {
+      // Support messages are top-level and reference a ticketId.
+      allow read: if isAdmin() || isOwner(get(/databases/$(database)/documents/supportTickets/$(resource.data.ticketId)).data.userId);
+      
+      // Can only create if senderId matches uid AND the user owns the ticket (or is Admin)
+      allow create: if isAdmin() || (
+        isOwner(request.resource.data.senderId) && 
+        isOwner(get(/databases/$(database)/documents/supportTickets/$(request.resource.data.ticketId)).data.userId)
+      );
+      
+      // Users cannot edit or delete support messages
+      allow update, delete: if isAdmin();
+    }
+
+    match /helpArticles/{articleId} {
+      // Publicly readable for all users
+      allow read: if true; 
+      // Only admins can modify help articles
+      allow write: if isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // 4. Voice, Documents & Usage tracking
+    // ---------------------------------------------------------
+    // All these collections inherently contain a `userId` field to restrict access
+    match /usage/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /userStats/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /transactions/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /notifications/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /voiceSessions/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /voiceSessionBuffers/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /transcriptions/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /fcmTokens/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /freeCreditHistory/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    match /documentReviews/{docId} {
+      allow create: if isOwner(request.resource.data.userId) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // 5. System Config & Admin Only Access
+    // ---------------------------------------------------------
+    // These collections are restricted to Admins for client-side access.
+    // Next.js Server Actions bypass these rules anyway using the Admin SDK.
+    match /systemConfig/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /systemConfigAudits/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /proccessedTransactions/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /analytics/{docId} {
+      allow read, write: if isAdmin();
+    }
+    match /pendingSignups/{docId} {
+      allow read, write: if false; 
+    }
+  }
+}
