@@ -257,6 +257,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     if (!oldestId || !oldestCreatedAt) return;
 
     setIsLoadingMore(true);
+    isReadingHistoryRef.current = true;
 
     try {
       const result = await getChatMessages(chatSessionId, 10, { 
@@ -291,9 +292,16 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       console.error("Failed to load older messages:", err);
     } finally {
       setIsLoadingMore(false);
+      // Keep the scroll lock active slightly longer to survive the re-renders
+      setTimeout(() => {
+        isReadingHistoryRef.current = false;
+      }, 150);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatSessionId, hasMore, isLoadingMore, messages, toUIMessage]);
+
+  // Lock to completely prevent auto-scrolling during pagination
+  const isReadingHistoryRef = useRef(false);
 
   // Attach scroll listener to the messages container
   useEffect(() => {
@@ -481,6 +489,9 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
   const scrollToBottom = useCallback((force = false) => {
     const container = scrollContainerRef.current;
     if (!container) return;
+
+    // Hard lock during infinite scroll
+    if (isReadingHistoryRef.current) return;
 
     if (!force && !isInitialScroll.current) {
       // Check if user is near bottom RIGHT NOW, not from a stale ref
