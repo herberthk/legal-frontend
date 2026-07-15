@@ -8,4 +8,5 @@
    d. refund processing
 
 3. Full test coverage (unit/integration testing + e2e testing) with playwright.
-4. Implement firestore permission rules.
+4. Seperate staging from production deployments.
+5. Create opional two factor authentication for email / password login.
