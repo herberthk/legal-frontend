@@ -143,7 +143,7 @@ export const faqs = [
   },
   {
     q: "What happens if I run out of credits?",
-    a: "If your credit balance reaches zero, you'll automatically receive 1,000 free tokens every 3 days to keep you going. These free tokens refill only when your current balance is fully used — they don't stack up. You can also top up your balance at any time via MTN or Airtel Mobile Money.",
+    a: "If your credit balance reaches zero, you'll automatically receive 1,000 free tokens every 5 days to keep you going. These free tokens refill only when your current balance is fully used — they don't stack up. You can also top up your balance at any time via MTN or Airtel Mobile Money.",
   },
   {
     q: "Are my voice sessions saved?",

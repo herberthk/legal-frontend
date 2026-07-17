@@ -20,7 +20,7 @@ const SESSION_DURATION = 60 * 60 * 24 * 7;
  * Returns the Timestamp for the next 3 days
  */
 function getNextResetTime(): Timestamp {
-  const nextReset = Timestamp.fromMillis(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const nextReset = Timestamp.fromMillis(Date.now() + 5 * 24 * 60 * 60 * 1000);
   return nextReset;
 }
 

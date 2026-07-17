@@ -2,7 +2,7 @@ import {
   USD_TO_UGX_EXCHANGE_RATE,
   COST_PER_THOUSAND_TOKENS,
   FREE_WELCOME_TEXT_TOKENS,
-  FREE_DAILY_TEXT_TOKENS,
+  FREE_TEXT_TOKENS,
   COST_PER_VOICE_MINUTE,
   FREE_WELCOME_VOICE_SECONDS,
 } from "@/constants";
@@ -11,7 +11,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Scale,
   AlertCircle,
-  TrendingUp,
   Gift,
   MessageSquareIcon,
   MicIcon,
@@ -112,8 +111,8 @@ const UsageCards: FC<Prop> = ({ user }) => {
     return () => clearInterval(timer);
   }, [nextDailyReset, calculateTimeLeft]);
 
-  // 3 days in seconds = 3 * 24 * 60 * 60 = 259,200
-  const TOTAL_RESET_SECONDS = 259200;
+  // 5 days in seconds = 5 * 24 * 60 * 60 = 432000
+  const TOTAL_RESET_SECONDS = 432000;
   const totalSecondsRemaining = timeLeft?.totalSeconds;
 
   const progressPercent = useMemo(() => {
@@ -166,10 +165,10 @@ const UsageCards: FC<Prop> = ({ user }) => {
             </div>
           ) : (
             <div className="space-y-1">
-              <div className="flex items-center text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-white/10 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-green-100 dark:border-transparent mb-2">
+              {/* <div className="flex items-center text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-white/10 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-green-100 dark:border-transparent mb-2">
                 <TrendingUp size={14} className="mr-1" />
                 <span>Auto-refill active</span>
-              </div>
+              </div> */}
               <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                 Est. Capacity:{" "}
                 <span className="text-slate-800 dark:text-slate-200">
@@ -297,20 +296,20 @@ const UsageCards: FC<Prop> = ({ user }) => {
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-baseline gap-1">
                 {Math.floor(freeTextTokens)}{" "}
                 <span className="text-sm font-medium text-slate-400">
-                  / {FREE_DAILY_TEXT_TOKENS} free
+                  / {FREE_TEXT_TOKENS} free
                 </span>
               </h3>
               <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full mt-3 overflow-hidden">
                 <div
                   className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out"
                   style={{
-                    width: `${(freeTextTokens / FREE_DAILY_TEXT_TOKENS) * 100}%`,
+                    width: `${(freeTextTokens / FREE_TEXT_TOKENS) * 100}%`,
                   }}
                 ></div>
               </div>
 
               <p className="text-xs text-slate-500 mt-2">
-                Resets daily. Paid balance applied after exhaustion.
+                Resets every 5 days. Paid balance applied after exhaustion.
               </p>
             </>
           ) : (
@@ -339,7 +338,7 @@ const UsageCards: FC<Prop> = ({ user }) => {
                       <p className="text-[11px] text-amber-700/70 dark:text-amber-400/70 leading-tight">
                         {isResetOverdue 
                           ? "Your tokens are arriving soon. Hang tight while we process your reward."
-                          : <>Your 3-day cycle is active. <span className="font-bold text-amber-800 dark:text-amber-200">1,000 free tokens</span> will be credited in:</>}
+                          : <>Your 5-day cycle is active. <span className="font-bold text-amber-800 dark:text-amber-200">1,000 free tokens</span> will be credited in:</>}
                       </p>
                     </div>
                   </div>
@@ -441,7 +440,7 @@ const UsageCards: FC<Prop> = ({ user }) => {
                   </div>
 
                   <p className="text-[10px] text-center text-slate-500 dark:text-slate-400 mt-3 italic">
-                    Credits are refreshed every 72 hours for active users.
+                    Credits are refreshed every 120 hours for active users.
                   </p>
                 </div>
               </motion.div>

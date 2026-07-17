@@ -1,7 +1,7 @@
 import {
   COST_PER_THOUSAND_TOKENS,
   COST_PER_VOICE_MINUTE,
-  FREE_DAILY_TEXT_TOKENS,
+  FREE_TEXT_TOKENS,
   USD_TO_UGX_EXCHANGE_RATE,
 } from "@/constants";
 import { AlertCircle } from "lucide-react";
@@ -29,9 +29,9 @@ const PricingGuide = () => {
           </span>
         </li>
         <li className="flex justify-between">
-          <span>Daily Free</span>
+          <span>Free</span>
           <span className="font-mono font-bold">
-            {FREE_DAILY_TEXT_TOKENS.toLocaleString()} Tokens
+            {FREE_TEXT_TOKENS.toLocaleString()} Tokens every 5 days
           </span>
         </li>
       </ul>
