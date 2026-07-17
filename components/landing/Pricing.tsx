@@ -20,7 +20,7 @@ const COST_PER_THOUSAND_TOKENS = 0.027;
 const COST_PER_VOICE_MINUTE = 0.08;
 const FREE_WELCOME_TEXT_TOKENS = 4000;
 const FREE_WELCOME_VOICE_SECONDS = 120;
-const FREE_DAILY_TEXT_TOKENS = 1000;
+const FREE_TEXT_TOKENS = 1000;
 const USD_TO_UGX = 3800;
 
 const toUGX = (usd: number) =>
@@ -185,10 +185,10 @@ const Pricing = () => {
             <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/50 rounded-2xl p-5 mb-5">
               <div className="flex items-center gap-2 mb-1">
                 <MessageSquare size={16} className="text-green-600 dark:text-green-400" />
-                <span className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">Every 3 Days</span>
+                <span className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wide">Every 5 Days</span>
               </div>
               <div className="md:text-4xl text-2xl font-black text-slate-900 dark:text-white">
-                {FREE_DAILY_TEXT_TOKENS.toLocaleString()}
+                {FREE_TEXT_TOKENS.toLocaleString()}
                 <span className="text-base font-bold text-slate-500 dark:text-slate-400 ml-2">tokens</span>
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">

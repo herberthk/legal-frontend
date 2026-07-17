@@ -7,6 +7,7 @@ import { ReviewProcessing } from "@/components/user/review/ReviewProcessing";
 import { ReviewResults } from "@/components/user/review/ReviewResults";
 import { motion } from "framer-motion";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { CustomButton } from "@/components/ui/custom-button";
 
 const PROCESSING_STAGES: ReviewStage[] = [
   "uploading",
@@ -87,13 +88,21 @@ export default function ReviewPage() {
                   {error || "An unexpected error occurred. Please try again."}
                 </p>
               </div>
-              <button
-                onClick={reset}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-800 dark:bg-slate-700 text-white font-semibold hover:bg-slate-900 dark:hover:bg-slate-600 transition-all duration-200 shadow-lg hover:-translate-y-0.5 active:scale-95"
+             
+               <CustomButton
+                  onClick={reset}
+                  variant="transparent"
+                  shape="pill"
+                  borderLeftWidth="4px"
+                  borderLeftColor="#4f46e5"
+                  borderRightWidth="4px"
+                  borderRightColor="#ea580c"
+                  className="bg-slate-100/50 dark:bg-slate-800/50"
+                  rightIcon={<RefreshCw size={16} />}
+                  hoverEffect="glow"
               >
-                <RefreshCw className="w-4 h-4" />
-                Try Again
-              </button>
+                  Try Again
+              </CustomButton>
             </motion.div>
           )}
 
