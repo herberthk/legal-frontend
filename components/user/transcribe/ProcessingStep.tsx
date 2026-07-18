@@ -15,6 +15,8 @@ import {
   TranscribeErrorType,
 } from "@/hooks/use-document-transcribe";
 import { CustomLink } from "@/components/global/transitions";
+import { CustomButton } from "@/components/ui/custom-button";
+import Link from "next/link";
 
 interface ProcessingStepProps {
   status: TranscribeStatus;
@@ -126,20 +128,28 @@ export function ProcessingStep({
                         Power Up Needed
                       </h3>
                       <p className="text-white/80 font-medium leading-relaxed">
-                        You&apos;ve run out of tokens. To continue with this
-                        premium transcription, please top up your account.
+                        {error}
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <CustomLink
-                      href="/dashboard/billing"
-                      className="flex items-center justify-center gap-3 w-full py-5 rounded-[1.25rem] bg-indigo-600 dark:bg-indigo-500 text-white font-bold text-lg hover:bg-indigo-700 transition-all shadow-xl hover:-translate-y-1"
-                    >
-                      <span>Top Up Credits</span>
-                      <ArrowRight className="w-5 h-5" />
-                    </CustomLink>
+                     <CustomButton
+                              component={Link}
+                              href="/dashboard/billing"
+                              variant="transparent"
+                              shape="pill"
+                              fullWidth
+                              borderLeftWidth="4px"
+                              borderLeftColor="#4f46e5"
+                              borderRightWidth="4px"
+                              borderRightColor="#ea580c"
+                              className="bg-slate-100/50 dark:bg-slate-800/50"
+                              rightIcon={<ArrowRight size={16} />}
+                              hoverEffect="glow"
+                            >
+                              Top Up Credits
+                      </CustomButton>
 
                     <button
                       onClick={onReset}
@@ -266,15 +276,23 @@ export function ProcessingStep({
                       </label>
                     ))}
                   </div>
-
-                  <button
-                    onClick={processDocument}
-                    className="group relative w-full py-5 rounded-[1.25rem] bg-indigo-600 dark:bg-indigo-500 text-white font-bold text-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-all duration-300 flex items-center justify-center gap-3 shadow-2xl shadow-indigo-500/30 hover:shadow-indigo-600/50 hover:-translate-y-1 overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
-                    <span>Finalize Digitization</span>
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                  </button>
+                  <CustomButton
+                              onClick={processDocument}
+                              variant="transparent"
+                              shape="pill"
+                              fullWidth
+                              size="lg"
+                              shadow="2xl"
+                              borderLeftWidth="4px"
+                              borderLeftColor="#4f46e5"
+                              borderRightWidth="4px"
+                              borderRightColor="#ea580c"
+                              className="bg-slate-100/50 dark:bg-slate-800/50"
+                              rightIcon={<ArrowRight size={16} />}
+                              hoverEffect="glow"
+                            >
+                              Finalize Digitization
+                      </CustomButton>
 
                   <button
                     onClick={onReset}
