@@ -7,6 +7,9 @@ type Props = {
   handleRetry: () => void;
 };
 function ChatError({ chatError, dismissChatErrorBanner, handleRetry }: Props) {
+  const errorMessage =
+    chatError.message.replace('{"error":"', "").replace('"}', "")
+  console.log("chatError", errorMessage); 
   return (
     <div
       className="fixed inset-0 z-100 flex items-center justify-center p-4"
@@ -52,7 +55,7 @@ function ChatError({ chatError, dismissChatErrorBanner, handleRetry }: Props) {
                 Request Failed
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-h-24 overflow-y-auto custom-scrollbar">
-                {chatError.message ||
+                {errorMessage ||
                   "An unexpected error occurred while processing your request."}
               </p>
             </div>
