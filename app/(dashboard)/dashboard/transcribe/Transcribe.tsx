@@ -204,18 +204,11 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
     }
   }, [transcription, documentTitle, initialRecord]);
 
+  // console.log("error from server", error)
   return (
     <div className="min-h-screen flex flex-col bg-indigo-50/5 dark:bg-slate-900 transition-colors duration-500">
       <main className="flex-1 w-full max-w-7xl mx-auto px-2 md:px-8 py-8 md:py-16">
-        {/* {onClose && (
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 mb-6 px-4 py-2 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-800 rounded-xl font-medium shadow-sm transition-colors border border-slate-100 dark:border-slate-700 w-fit"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to History
-          </button>
-        )} */}
+       
         <AnimatePresence mode="wait">
           {/* Upload Stage */}
           {status === "idle" && !file && (
