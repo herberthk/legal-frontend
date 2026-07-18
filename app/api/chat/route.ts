@@ -69,6 +69,7 @@ export async function POST(req: Request) {
     console.log("messages", historyMessages.length);
 
     let estimatedInputTokens = 0;
+    let hasDocument = false;
     const partProcessingPromises: Promise<void>[] = [];
 
     // Process historyMessages to replace .docx file parts with extracted text
@@ -81,10 +82,14 @@ export async function POST(req: Request) {
         const part = msg.parts[i] as any;
         
         if (part.type === "text") {
+          if (part.text && part.text.includes("--- Document:")) {
+            hasDocument = true;
+          }
           if (msg === lastUserMessage) {
             estimatedInputTokens += Math.ceil((part.text || "").length / CHARS_PER_TOKEN);
           }
         } else if (part.type === "file") {
+          hasDocument = true;
           // If it's a PDF or Image, Gemini supports it natively inline, but we need to estimate tokens for the NEW file
           if (msg === lastUserMessage) {
             if (part.mediaType === "application/pdf" || part.filename?.toLowerCase().endsWith(".pdf")) {
@@ -146,7 +151,7 @@ export async function POST(req: Request) {
 
     await Promise.all(partProcessingPromises);
 
-    const estimatedOutputTokens = 1000; // Typical chat response
+    const estimatedOutputTokens = hasDocument ? 1000 : 150; // 1000 for document queries, 150 for simple chat
     const estimatedTotalTokens = estimatedInputTokens + estimatedOutputTokens;
 
     const freeTokens =
