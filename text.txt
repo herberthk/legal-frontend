@@ -69,3 +69,5 @@ Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remot
 
   firebase deploy --only firestore:rules
   
+
+  *100*2*6*1#
