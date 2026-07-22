@@ -10,7 +10,7 @@ import {
 import { FieldValue } from "firebase-admin/firestore";
 import { generateText } from "ai";
 import { vertex } from "./vertex";
-import { GoogleLanguageModelOptions } from "@ai-sdk/google";
+// import { GoogleLanguageModelOptions } from "@ai-sdk/google";
 
 interface TranscribeDocumentParams {
   base64Data: string;
@@ -102,15 +102,15 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
           },
         ],
  
-        providerOptions: {
-          vertexai: { 
-            thinkingConfig: {
-              thinkingConfig: {
-                thinkingLevel: "medium",
-              },
-            } satisfies GoogleLanguageModelOptions,
-          },
-        },
+        // providerOptions: {
+        //   vertexai: { 
+        //     thinkingConfig: {
+        //       thinkingConfig: {
+        //         thinkingLevel: "medium",
+        //       },
+        //     } satisfies GoogleLanguageModelOptions,
+        //   },
+        // },
 
         onEnd: async ({usage}) => {
            // 5. Record Usage
