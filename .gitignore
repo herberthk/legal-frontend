@@ -76,5 +76,5 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
-# Ignore Nylon for now
+# Ignore Nylon just for now
 nylon 
