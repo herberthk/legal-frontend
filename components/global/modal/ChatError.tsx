@@ -9,7 +9,7 @@ type Props = {
 function ChatError({ chatError, dismissChatErrorBanner, handleRetry }: Props) {
   const errorMessage =
     chatError.message.replace('{"error":"', "").replace('"}', "")
-  console.log("chatError", errorMessage); 
+
   return (
     <div
       className="fixed inset-0 z-100 flex items-center justify-center p-4"
