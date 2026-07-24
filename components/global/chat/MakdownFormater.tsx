@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -27,8 +27,7 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
 
   // Memoize the components map to avoid recreating it on every render,
   // which causes ReactMarkdown to teardown and rebuild the virtual DOM.
-  const components = useMemo(() => ({
-    // @ts-ignore
+  const components: Components = useMemo(() => ({
     p: ({ children, ...props }) => {
       // Check if children contains our cursor marker
       const childrenArray = React.Children.toArray(children);
@@ -72,8 +71,7 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
       className,
       children,
       ...props
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }: any) => {
+    }) => {
       const match = /language-(\w+)/.exec(className || "");
       const isInline = !match && !String(children).includes("\n");
 
@@ -240,7 +238,6 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
     <ReactMarkdown
       remarkPlugins={REMARK_PLUGINS}
       rehypePlugins={REHYPE_PLUGINS}
-      // @ts-ignore
       components={components}
     >
       {displayContent}
