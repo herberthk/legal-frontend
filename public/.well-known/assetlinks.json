@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "com.netbritz.legaladviser.twa",
-        "sha256_cert_fingerprints": ["3D:05:13:E1:12:7D:11:B2:43:57:CE:93:95:89:98:A0:45:07:6E:73:25:88:9B:36:DC:E2:99:02:8A:7C:E9:45"]
+        "sha256_cert_fingerprints": ["9A:47:22:68:8F:F6:24:0F:AC:0F:B4:AC:79:92:BD:9D:58:7B:47:4F:64:9C:60:FB:CF:5C:0E:42:65:BA:7F:E8"]
       }
 }]
