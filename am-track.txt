@@ -15,8 +15,8 @@ gemini 29/07/2026, 3:45:13 PM
 sonnet 30/07/2026, 9:17:11 PM
 
 nakanwagicarol
-gemini 30/07/2026, 10:29:15 PM.
-sonnet 31/07/2026, 6:29:47 PM.
+gemini 30/07/2026, 10:29:15 PM
+sonnet 31/07/2026, 6:29:47 PM
 
 nakiyembalydia
 gemini 31/07/2026, 11:18:08 PM
@@ -27,5 +27,5 @@ gemini 20/07/2026, 4:48:43 PM
 sonnet 20/07/2026, 6:08:01 PM
 
 herbert738
-gemini 21/07/2026, 1:07:52 AM.
-sonnet 21/07/2026, 12:54:41 AM.
+gemini 21/07/2026, 1:07:52 AM
+sonnet 21/07/2026, 12:54:41 AM
