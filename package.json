@@ -10,7 +10,8 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test:sdk": "cd sdk/pawapay && vitest run",
-    "test": "vitest"
+    "test": "vitest",
+    "install-apk": "adb install -r outputs/apk/LegalAdviser.apk && echo \"App installed successfully\""
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.29",
