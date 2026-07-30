@@ -78,3 +78,6 @@ node_modules/
 
 # Ignore Nylon just for now
 nylon 
+
+# apk/bundle outputs
+outputs
