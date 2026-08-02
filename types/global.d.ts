@@ -73,7 +73,7 @@ declare namespace NodeJS {
     GOOGLE_PRIVATE_KEY: string;
 
     // Nylon pay
-    NYLON_PAY_API_KET: string;
+    NYLON_PAY_API_KEY: string;
     NYLON_PAY_API_SECRET: string;
     NYLON_PAY_WEBHOOK_SECRET: string;
   }
