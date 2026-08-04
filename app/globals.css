@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
+@import "katex/dist/katex.min.css";
 
 @custom-variant dark (&:is(.dark *));
 @variant dark (&:is(.dark *));
@@ -332,4 +333,47 @@
     animation-duration: 0s !important;
     animation-delay: 0s !important;
   }
+}
+
+/* ─── KaTeX Math Rendering — Dark Mode Overrides ──────────────────────────── */
+/* Ensure display math blocks and inline math use light colors on dark bg */
+.katex {
+  font-size: 1em;
+  color: #e2e8f0; /* slate-200 */
+}
+
+.katex-display {
+  margin: 1.5rem 0;
+  padding: 1.25rem 1.5rem;
+  background: rgba(79, 70, 229, 0.06); /* indigo tint */
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 1rem;
+  overflow-x: auto;
+  color: #e2e8f0;
+}
+
+.katex-display > .katex {
+  display: block;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.katex .mord,
+.katex .minner,
+.katex .mop,
+.katex .mrel,
+.katex .mbin,
+.katex .mopen,
+.katex .mclose,
+.katex .mpunct {
+  color: inherit;
+}
+
+/* Fraction lines, delimiters */
+.katex .frac-line {
+  border-bottom-color: currentColor;
+}
+
+.katex .sqrt-line {
+  border-top-color: currentColor;
 }
