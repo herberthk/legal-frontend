@@ -103,7 +103,10 @@ export async function POST(req: Request) {
                     cachedPdfParse = pdfParseModule.default || pdfParseModule;
                   }
                   const parsed = await cachedPdfParse(buffer);
-                  estimatedInputTokens += Math.ceil(parsed.text.length / CHARS_PER_TOKEN);
+                  // Apply a minimum floor of 500 tokens for scanned/image-only PDFs
+                  // that have no embedded text layer, to prevent 0-token underestimation.
+                  const pdfTokens = Math.max(500, Math.ceil(parsed.text.length / CHARS_PER_TOKEN));
+                  estimatedInputTokens += pdfTokens;
                 } catch (e) {
                   console.error("Failed to parse PDF for token estimation in chat:", e);
                   estimatedInputTokens += 2000;
