@@ -499,20 +499,26 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       if (distFromBottom > 150) return;
     }
 
-    messagesEndRef.current?.scrollIntoView({ 
-      behavior: isInitialScroll.current ? "auto" : "smooth" 
-    });
+    if (container) {
+      // Use instant scroll during active streaming or initial load to prevent smooth-scroll queueing jitter
+      const scrollBehavior = (isInitialScroll.current || isLoadingChat) ? "auto" : "smooth";
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: scrollBehavior });
+      } else {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
     isInitialScroll.current = false;
-  }, []);
+  }, [isLoadingChat]);
 
   useEffect(() => {
     // Never auto-scroll while loading older messages — the user is reading history
     if (isLoadingMore) return;
 
-    const timer = setTimeout(() => {
+    const timer = requestAnimationFrame(() => {
       scrollToBottom();
-    }, 50);
-    return () => clearTimeout(timer);
+    });
+    return () => cancelAnimationFrame(timer);
   }, [messages, isLoading, scrollToBottom, isLoadingMore]);
 
   // --- Send Message ---

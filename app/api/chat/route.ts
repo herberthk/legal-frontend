@@ -193,56 +193,60 @@ export async function POST(req: Request) {
       onEnd: async ({ text, usage }) => {
         const totalTokens =
           (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);
-        try {
-          if (sessionId !== null) {
-            const dbPromises = [];
+        
+        // Execute database updates in background asynchronously so response stream closes cleanly
+        (async () => {
+          try {
+            if (sessionId !== null) {
+              const dbPromises = [];
 
-            if (totalTokens > 0) {
-              dbPromises.push(
-                recordUsageAndDeduct({
-                  userId,
-                  type: "TEXT_RESPONSE",
-                  tokens: totalTokens,
-                  sessionId,
-                })
-              );
-            }
+              if (totalTokens > 0) {
+                dbPromises.push(
+                  recordUsageAndDeduct({
+                    userId,
+                    type: "TEXT_RESPONSE",
+                    tokens: totalTokens,
+                    sessionId,
+                  })
+                );
+              }
 
-            if (text) {
-              dbPromises.push(
-                (async () => {
+              if (text) {
+                dbPromises.push(
+                  (async () => {
                   // We await these sequentially to guarantee the user message gets an older or equal timestamp
                   // than the assistant message and they appear in the correct order in Firestore.
-                  await saveChatMessage(sessionId, {
-                    role: "user",
+                    await saveChatMessage(sessionId, {
+                      role: "user",
                     // We use the original text and original file metadata preserved at the top of the route.
-                    text: originalTextToSend,
-                    tokenCount: estimatedInputTokens,
-                    isFirstMessage: isFirstMessage === "true",
-                    ...(originalFilePart && {
-                      attachment: {
-                        name: originalFilePart.filename || "document.pdf",
-                        contentType: originalFilePart.mediaType,
-                        url: originalFilePart.url,
-                      },
-                    }),
-                  });
+                      text: originalTextToSend,
+                      tokenCount: estimatedInputTokens,
+                      isFirstMessage: isFirstMessage === "true",
+                      ...(originalFilePart && {
+                        attachment: {
+                          name: originalFilePart.filename || "document.pdf",
+                          contentType: originalFilePart.mediaType,
+                          url: originalFilePart.url,
+                        },
+                      }),
+                    });
 
-                  await saveChatMessage(sessionId, {
-                    role: "assistant",
-                    text: text,
-                    tokenCount: usage?.outputTokens ?? 0,
-                    isFirstMessage: false,
-                  });
-                })()
-              );
+                    await saveChatMessage(sessionId, {
+                      role: "assistant",
+                      text: text,
+                      tokenCount: usage?.outputTokens ?? 0,
+                      isFirstMessage: false,
+                    });
+                  })()
+                );
+              }
+
+              await Promise.all(dbPromises);
             }
-
-            await Promise.all(dbPromises);
+          } catch (err) {
+            console.error("Error saving chat message:", err);
           }
-        } catch (err) {
-          console.error("Error saving chat message:", err);
-        }
+        })();
       },
     });
 

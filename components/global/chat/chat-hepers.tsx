@@ -73,16 +73,32 @@ export const ThinkingBlock = ({
   // Tracks whether the user manually collapsed the block after streaming ended
   const [userCollapsed, setUserCollapsed] = useState(false);
 
-  // Side effect only: record elapsed time when streaming finishes
+  // Live timer effect during active streaming
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
     if (isStreaming) {
-      startTimeRef.current = Date.now();
+      if (startTimeRef.current === 0) {
+        startTimeRef.current = Date.now();
+      }
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUserCollapsed(false);
-    } else if (startTimeRef.current > 0) {
-      setElapsedSeconds(Math.round((Date.now() - startTimeRef.current) / 1000));
-      setUserCollapsed(true);
+
+      interval = setInterval(() => {
+        setElapsedSeconds(Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000)));
+      }, 500);
+    } else {
+      if (startTimeRef.current > 0) {
+        const finalElapsed = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
+        setElapsedSeconds(finalElapsed);
+        startTimeRef.current = 0;
+        setUserCollapsed(true);
+      }
     }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isStreaming]);
 
   // While streaming → always open. After streaming → respect user toggle.
@@ -105,19 +121,21 @@ export const ThinkingBlock = ({
           size={14}
           className={`shrink-0 ${
             isStreaming
-              ? "text-slate-500 dark:text-slate-400 animate-pulse"
+              ? "text-orange-500 dark:text-orange-400 animate-pulse"
               : "text-slate-400 dark:text-slate-500"
           }`}
         />
         <span className="flex-1 text-[12px] font-medium text-slate-600 dark:text-slate-300 tracking-wide">
-          {isStreaming ? "Thinking" : `Thought for ${elapsedSeconds} seconds`}
+          {isStreaming
+            ? `Thinking (${elapsedSeconds}s)...`
+            : `Thought for ${elapsedSeconds} second${elapsedSeconds === 1 ? "" : "s"}`}
         </span>
         {isStreaming ? (
           <span className="flex gap-1 items-center mr-1">
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
-                className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 animate-pulse"
+                className="w-1.5 h-1.5 rounded-full bg-orange-400 dark:bg-orange-500 animate-pulse"
                 style={{
                   animationDelay: `${i * 0.2}s`,
                   animationDuration: "1s",
@@ -146,22 +164,18 @@ export const ThinkingBlock = ({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
+            transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
             className="overflow-hidden"
-            layout
           >
             <div className="px-4 pb-4 pt-1 border-t border-slate-200/50 dark:border-slate-800/50 relative">
-              <motion.div
-                layout="position"
-                className="prose prose-sm dark:prose-invert max-w-none text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400 [&_p]:text-[12.5px] [&_p]:leading-relaxed [&_p]:text-slate-500 dark:[&_p]:text-slate-400 [&_p]:m-0 [&_p]:mb-2 [&_p:last-child]:mb-0"
-              >
+              <div className="prose prose-sm dark:prose-invert max-w-none text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400 [&_p]:text-[12.5px] [&_p]:leading-relaxed [&_p]:text-slate-500 dark:[&_p]:text-slate-400 [&_p]:m-0 [&_p]:mb-2 [&_p:last-child]:mb-0">
                 <MakdownFormater
                   content={reasoning}
                   role="assistant"
                   isReasoning={true}
                   isStreaming={isStreaming}
                 />
-              </motion.div>
+              </div>
             </div>
           </motion.div>
         )}
