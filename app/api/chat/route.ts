@@ -178,7 +178,8 @@ export async function POST(req: Request) {
     const modelMessages = await convertToModelMessages(historyMessages);
 
     const result = streamText({
-      model: vertex("gemini-3-flash-preview"),
+      // model: vertex("gemini-3-flash-preview"),
+      model: vertex("gemini-3.6-flash"),
       temperature: 0,
       instructions: LEGAL_ADVISER_SYSTEM_INSTRUCTION({username:user?.name?.split(" ")[0] || "User"}),
       providerOptions: {

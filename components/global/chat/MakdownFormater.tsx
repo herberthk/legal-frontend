@@ -3,7 +3,7 @@ import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import "katex/dist/katex.min.css";
+// import "katex/dist/katex.min.css";
 
 type MarkdownFormatterProps = {
   content: string;
@@ -14,7 +14,12 @@ type MarkdownFormatterProps = {
 
 // Define plugins outside the component to keep references stable
 const REMARK_PLUGINS = [remarkGfm, remarkMath];
-const REHYPE_PLUGINS = [rehypeKatex];
+// Pass rehypeKatex as a tuple with options so $$..$$ display math and \[..\]
+// inline delimiters are both processed. trust:true allows KaTeX macros,
+// strict:false suppresses warnings for unsupported LaTeX features.
+const REHYPE_PLUGINS: [typeof rehypeKatex, Record<string, unknown>][] = [
+  [rehypeKatex, { trust: true, strict: false }],
+];
 
 const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({ 
   content, 
@@ -66,6 +71,16 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
         rel="noopener noreferrer"
         {...props}
       />
+    ),
+    strong: ({ children, ...props }) => (
+        <strong className="font-bold dark:text-white text-slate-900" {...props}>
+          {children}
+        </strong>
+    ),
+    em: ({ children, ...props }) => (
+        <em className="italic text-indigo-600 dark:text-indigo-400" {...props}>
+          {children}
+        </em>
     ),
     code: ({
       className,
@@ -169,6 +184,17 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
         }`}
         {...props}
       />
+    ),
+    h4: ({ children, ...props }) => (
+        <h4
+          className="text-lg sm:text-xl font-bold text-indigo-300 mb-3 mt-6"
+          {...props}
+        >
+          {children}
+        </h4>
+      ),
+    hr: ({ ...props }) => (
+      <hr className="my-4 border-t border-slate-600/60! dark:border-slate-300/60!" {...props} />
     ),
     table: ({ ...props }) => (
       <div className="overflow-x-auto my-4 rounded-lg border border-opacity-20 overflow-hidden shadow-sm">
