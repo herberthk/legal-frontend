@@ -8,6 +8,7 @@ export const LEGAL_ADVISER_SYSTEM_INSTRUCTION = ({
   const formattedDate =
     currentDate ||
     new Date().toLocaleDateString("en-UG", {
+      timeZone: "Africa/Kampala",
       weekday: "long",
       year: "numeric",
       month: "long",
