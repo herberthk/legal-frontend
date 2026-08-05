@@ -693,7 +693,7 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
                 </div>
                 {status === "submitted" ? (
                   // Waiting for first token — show thinking indicator perfectly matching ThinkingBlock
-                  <div className="w-[220px] rounded-bl-xl rounded-tr-2xl rounded-br-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 overflow-hidden">
+                  <div className="w-55 rounded-bl-xl rounded-tr-2xl rounded-br-2xl border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30 overflow-hidden">
                     <div className="w-full flex items-center gap-2.5 px-4 py-3 text-left bg-transparent">
                       <Sparkles
                         size={14}

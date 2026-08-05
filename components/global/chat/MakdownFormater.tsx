@@ -163,7 +163,7 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
     ),
     h1: ({ ...props }) => (
       <h1
-        className={`text-xl font-bold mb-3 mt-4 ${
+        className={`text-lg md:text-xl font-bold mb-3 mt-4 ${
           role === "user" ? "text-white" : "text-slate-900 dark:text-white"
         }`}
         {...props}
@@ -171,7 +171,7 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
     ),
     h2: ({ ...props }) => (
       <h2
-        className={`text-lg font-bold mb-2 mt-3 ${
+        className={`md:text-lg text-base font-bold mb-2 mt-3 ${
           role === "user" ? "text-white" : "text-slate-900 dark:text-white"
         }`}
         {...props}
@@ -179,7 +179,7 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
     ),
     h3: ({ ...props }) => (
       <h3
-        className={`text-base font-bold mb-2 mt-3 ${
+        className={`text-base md:text-lg font-bold mb-2 mt-3 ${
           role === "user" ? "text-white" : "text-slate-900 dark:text-white"
         }`}
         {...props}
@@ -187,7 +187,7 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
     ),
     h4: ({ children, ...props }) => (
         <h4
-          className="text-lg sm:text-xl font-bold text-indigo-300 mb-3 mt-6"
+          className="text-base md:text-xl font-bold text-indigo-300 mb-3 mt-6"
           {...props}
         >
           {children}

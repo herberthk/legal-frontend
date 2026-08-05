@@ -230,7 +230,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     const handleGoToVoice = () => router.push("/dashboard/voice");
 
     return (
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors">
+      <div className="md:p-4 p-1 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors">
         <div className="max-w-4xl mx-auto">
           {/* ── Upload error banner ── */}
           {uploadError && (
@@ -268,7 +268,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             accept="application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/png, image/jpeg, image/jpg, image/webp"
           />
 
-          <div className="relative w-full h-[50px] md:h-[58px]">
+          <div className="relative w-full h-12.5 md:h-14.5">
             <div
               className={`absolute bottom-0 left-0 w-full flex items-end bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl transition-all duration-300 shadow-md z-50 ${
                 isInputFocused
@@ -278,7 +278,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             >
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className={`p-3 mb-1 ml-1 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 ${
+                className={`md:p-3 p-1 mb-1 ml-1 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 ${
                   pendingAttachment || isUploading
                     ? "text-orange-500 bg-orange-50 dark:bg-orange-900/20"
                     : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 hover:rotate-12"
@@ -286,17 +286,17 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 title="Upload document or image"
                 disabled={isUploading || connectionStatus === "offline"}
               >
-                <Paperclip size={20} />
+                <Paperclip size={18} />
               </button>
 
               <button
                 onClick={handleGoToVoice}
-                className="p-3 mb-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 hover:-rotate-12"
+                className="md:p-3 p-1 mb-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-xl transition-all duration-300 transform hover:scale-110 active:scale-95 hover:-rotate-12"
                 title="Start Voice Consultation (Live Overlay)"
                 type="button"
                 disabled={isUploading || connectionStatus === "offline"}
               >
-                <Mic size={20} />
+                <Mic size={18} />
               </button>
 
               <textarea
@@ -325,7 +325,7 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 }
                 rows={1}
                 name="chat"
-                className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors min-h-[40px] md:min-h-[56px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 md:text-base text-xs"
+                className="w-full py-2 md:py-4 px-2 md:px-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 transition-colors md:min-h-14 min-h-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 md:text-base text-[11px] text-center"
               />
               <button
                 onClick={handleSendClick}
@@ -335,12 +335,12 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                   connectionStatus === "offline" ||
                   !input.trim()
                 }
-                className="p-2 mb-2 mr-2 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 hover:rotate-3 disabled:hover:scale-100 disabled:hover:rotate-0"
+                className="md:p-2 p-1 md:mb-2 mb-1 mr-2 bg-linear-to-r from-amber-500 to-orange-600 text-white rounded-xl hover:from-amber-600 hover:to-orange-700 shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-110 active:scale-95 hover:rotate-3 disabled:hover:scale-100 disabled:hover:rotate-0"
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="md:w-5 md:h-5 w-4.5 h-4.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <Send size={20} />
+                  <Send size={18} />
                 )}
               </button>
             </div>
