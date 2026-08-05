@@ -58,6 +58,22 @@ export function useDocumentReview() {
   const advanceStage = useCallback((targetIndex: number) => {
     if (targetIndex >= STAGE_ORDER.length) return;
     const nextStage = STAGE_ORDER[targetIndex];
+
+    if (nextStage === "complete") {
+      // Do not transition to complete unless API has actually returned review data
+      if (apiDoneRef.current && reviewResultRef.current) {
+        setStage("complete");
+        setProgress(100);
+        setReview(reviewResultRef.current);
+      } else {
+        // Hold on the last processing stage ("generating") with 95% progress until API responds
+        stageIndexRef.current = STAGE_ORDER.length - 2;
+        setStage("generating");
+        setProgress(95);
+      }
+      return;
+    }
+
     stageIndexRef.current = targetIndex;
     setStage(nextStage);
 
@@ -65,17 +81,14 @@ export function useDocumentReview() {
     const progressPct = Math.round(
       ((targetIndex + 1) / STAGE_ORDER.length) * 100,
     );
-    setProgress(progressPct);
+    setProgress(Math.min(progressPct, 95));
 
-    if (nextStage === "complete") return;
-
-    // If API is already done and we're about to start the last real stage, jump to complete
-    if (apiDoneRef.current && targetIndex >= STAGE_ORDER.length - 2) {
-      stageTimerRef.current = setTimeout(() => {
-        setStage("complete");
-        setProgress(100);
-        if (reviewResultRef.current) setReview(reviewResultRef.current);
-      }, 600);
+    // If API is already done, immediately jump to complete
+    if (apiDoneRef.current && reviewResultRef.current) {
+      clearStageTimer();
+      setStage("complete");
+      setProgress(100);
+      setReview(reviewResultRef.current);
       return;
     }
 
@@ -146,14 +159,11 @@ export function useDocumentReview() {
       apiDoneRef.current = true;
       reviewResultRef.current = data.review;
 
-      // If animation is already past "analyzing", jump straight to complete
-      if (stageIndexRef.current >= STAGE_ORDER.length - 2) {
-        clearStageTimer();
-        setStage("complete");
-        setProgress(100);
-        setReview(data.review);
-      }
-      // Otherwise let the animation finish naturally — it will pick up the result
+      // Immediately clear timers, set stage to complete, and display review results
+      clearStageTimer();
+      setStage("complete");
+      setProgress(100);
+      setReview(data.review);
     } catch {
       clearStageTimer();
       setStage("error");
