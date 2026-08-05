@@ -171,16 +171,16 @@ const Header: React.FC<Props> = ({ user }) => {
               >
                 {user?.name}
               </p>
-              <p className="text-xs text-slate-400 max-w-[150px] truncate">
+              <p className="text-xs text-slate-400 max-w-37.5 truncate">
                 {user?.email}
               </p>
             </div>
 
-            <Avatar className="md:h-[40px] md:w-[40px] h-[25px] w-[25px] rounded-full transition-transform duration-300 group-hover:scale-105 ring-orange-500 dark:ring-slate-700">
+            <Avatar className="md:h-10 md:w-10 h-6.25 w-6.25 rounded-full transition-transform duration-300 group-hover:scale-105 ring-orange-500 dark:ring-slate-700">
               <AvatarImage src={user?.avatar || ""} alt={user?.name} />
               <AvatarFallback
                 className={cn(
-                  "rounded-full text-white font-black md:text-base text-sm",
+                  "rounded-full text-white font-black md:text-sm text-xs",
                   isAdmin
                     ? "bg-indigo-600 shadow-indigo-500/20"
                     : "bg-orange-500 shadow-orange-500/20",

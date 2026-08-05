@@ -376,6 +376,8 @@ const GlobalSidebar = ({ user }: Props) => {
     );
   }
 
+  const defaultPath = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" ? "/admin" : "/dashboard";
+  const goHome = ()=> router.push(defaultPath);
   return (
     <Sidebar
       collapsible="icon"
@@ -387,6 +389,7 @@ const GlobalSidebar = ({ user }: Props) => {
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
+              onClick={goHome}
               className="hover:bg-transparent ring-0! focus:ring-0! focus:outline-none! "
             >
               <Scale className="w-8 h-8 text-orange-500 font-extrabold" />
