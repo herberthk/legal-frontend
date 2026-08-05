@@ -32,8 +32,8 @@ export default function ReviewPage() {
     reset,
   } = useDocumentReview();
 
-  const isProcessing = PROCESSING_STAGES.includes(stage);
-console.log('current Stage', stage)
+  const isProcessing =
+    PROCESSING_STAGES.includes(stage) || (stage === "complete" && !review);
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
       <main className="w-full max-w-5xl mx-auto px-2 md:px-8 py-6 md:py-14">
