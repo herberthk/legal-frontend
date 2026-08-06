@@ -7,10 +7,10 @@ import {
   CHARS_PER_TOKEN,
   COST_PER_THOUSAND_TOKENS_IN_CENTS,
 } from "@/constants";
+import { DOCUMENT_TRANSCRIBE_SYSTEM_INSTRUCTION } from "@/constants/prompt";
 import { FieldValue } from "firebase-admin/firestore";
 import { generateText } from "ai";
 import { vertex } from "./vertex";
-// import { GoogleLanguageModelOptions } from "@ai-sdk/google";
 
 interface TranscribeDocumentParams {
   base64Data: string;
@@ -72,57 +72,40 @@ export async function transcribeDocument(params: TranscribeDocumentParams) {
       };
     }
 
-    const basePrompt =
-      "CRITICAL INSTRUCTION: Output ONLY the transcribed text. Do NOT include any conversational filler, introductory text, or labels like 'Here is the transcription...'. ";
+    const systemInstruction = DOCUMENT_TRANSCRIBE_SYSTEM_INSTRUCTION({ formatMode });
 
-    const prompt =
-      formatMode === "professional"
-        ? basePrompt +
-          `Transcribe all text from this document, including both computer-typed and handwritten parts. If the document is a quotation, receipt, memo, or similar form, return the exact content including date, company name, location, receipt number, etc., where applicable. Add relevant formatting to make it look highly professional, well-structured, and clean (using paragraphs, bold, italic, etc.), but do NOT divert from the original document's meaning or facts. Do NOT add any sections, information, or content that is not present in the original document. Correct obvious spelling or grammatical errors in the handwritten parts only.`
-        : basePrompt +
-          `Transcribe all text from this document (both typed and handwritten) exactly as it appears. Maintain the original structure, line breaks, and formatting as closely as possible. Do not add any new headings or correct errors unless they are completely illegible.`;
+    const { text, usage } = await generateText({
+      model: vertex("gemini-3.5-flash-lite"),
+      system: systemInstruction,
+      temperature: 0,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Transcribe the attached document (${fileName}) following the specified ${formatMode} formatting mode rules.`,
+            },
+            {
+              type: "file",
+              data: Buffer.from(base64Data, "base64"),
+              mediaType: mimeType,
+            },
+          ],
+        },
+      ],
 
-     const { text, usage } = await generateText({
-        model: vertex("gemini-3.1-flash-lite"),
-        temperature: 0,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { 
-                type: "text", 
-                text: prompt 
-              },
-              { 
-                type: "file", 
-                data: Buffer.from(base64Data, "base64"),      
-                mediaType: mimeType,    
-              }
-            ],
-          },
-        ],
- 
-        // providerOptions: {
-        //   vertexai: { 
-        //     thinkingConfig: {
-        //       thinkingConfig: {
-        //         thinkingLevel: "medium",
-        //       },
-        //     } satisfies GoogleLanguageModelOptions,
-        //   },
-        // },
-
-        onEnd: async ({usage}) => {
-           // 5. Record Usage
-          const totalTokens = usage?.totalTokens || 0;
-          await recordUsageAndDeduct({
-            userId: userId,
-            type: "DOCUMENT_TRANSCRIPTION",
-            tokens: totalTokens,
-            sessionId: `doc-${fileName}-${Date.now()}`,
-          });
-        }
-      });
+      onEnd: async ({ usage }) => {
+        // 5. Record Usage
+        const totalTokens = usage?.totalTokens || 0;
+        await recordUsageAndDeduct({
+          userId: userId,
+          type: "DOCUMENT_TRANSCRIPTION",
+          tokens: totalTokens,
+          sessionId: `doc-${fileName}-${Date.now()}`,
+        });
+      },
+    });
 
     if (!text) {
       throw new Error("Failed to generate transcription from Gemini.");
