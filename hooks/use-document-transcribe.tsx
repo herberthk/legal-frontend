@@ -86,8 +86,13 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
   const handleDrop = useCallback((acceptedFiles: File[]) => {
     const selectedFile = acceptedFiles[0];
     if (selectedFile) {
+      setPreviewUrl((prevUrl) => {
+        if (prevUrl && prevUrl.startsWith("blob:")) {
+          URL.revokeObjectURL(prevUrl);
+        }
+        return URL.createObjectURL(selectedFile);
+      });
       setFile(selectedFile);
-      setPreviewUrl(URL.createObjectURL(selectedFile));
       setStatus("idle");
       setTranscription("");
       setError(null);
@@ -207,8 +212,13 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
   ]);
 
   const reset = useCallback(() => {
+    setPreviewUrl((prevUrl) => {
+      if (prevUrl && prevUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(prevUrl);
+      }
+      return null;
+    });
     setFile(null);
-    setPreviewUrl(null);
     setStatus("idle");
     setTranscription("");
     setError(null);
