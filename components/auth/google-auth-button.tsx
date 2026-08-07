@@ -1,13 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { auth } from "@/firebase/client";
-import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-} from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { signIn, signUp, recordUserStats, getCurrentUser } from "@/lib/actions/auth";
 import { useRouter } from "nextjs-toploader/app";
 import { toast } from "sonner";
@@ -20,20 +15,6 @@ interface GoogleAuthButtonProps {
   agreedToTerms?: boolean;
 }
 
-/**
- * Returns true when the app is running as an installed PWA (standalone display mode).
- * In this context signInWithPopup fails because the PWA shell blocks popup windows,
- * so we must fall back to signInWithRedirect instead.
- */
-function isRunningAsPwa(): boolean {
-  if (typeof window === "undefined") return false;
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    // Safari on iOS sets this property
-    ("standalone" in window.navigator && (window.navigator as { standalone?: boolean }).standalone === true)
-  );
-}
-
 const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
   mode,
   returnTo,
@@ -41,96 +22,6 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-
-  /**
-   * Shared post-auth handler used by both the popup and redirect flows.
-   * Takes the Firebase user object and drives the server-side session creation,
-   * profile sync, and final navigation.
-   */
-  const handleAuthSuccess = useCallback(
-    async (user: { uid: string; displayName: string | null; email: string | null; photoURL: string | null; getIdToken: () => Promise<string> }) => {
-      const idToken = await user.getIdToken();
-
-      // Ensure User Profile exists in Firestore
-      const profileResult = await signUp({
-        uid: user.uid,
-        name: user.displayName || "Google User",
-        email: user.email || "",
-        avatar: user.photoURL || undefined,
-      });
-
-      if (!profileResult.success) {
-        throw new Error(profileResult.message);
-      }
-
-      // Establish Server Session
-      const sessionResult = await signIn({ idToken });
-
-      if (!sessionResult.success) {
-        throw new Error(sessionResult.message);
-      }
-
-      // Record User Statistics (fire-and-forget)
-      const stats = getDeviceStats();
-      if (stats) {
-        recordUserStats(user.uid, { ...stats });
-      }
-
-      // Fetch user profile to determine role-based redirection
-      const currentUser = await getCurrentUser();
-
-      toast.success(
-        mode === "login" ? "Welcome back!" : "Account created successfully!",
-        { style: { background: "#10b981", color: "#fff" } },
-      );
-
-      const defaultPath =
-        currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN"
-          ? "/admin"
-          : "/dashboard";
-
-      router.push(returnTo || defaultPath);
-    },
-    [mode, returnTo, router],
-  );
-
-  /**
-   * On mount, check whether we are returning from a signInWithRedirect flow
-   * (PWA mode). If a pending redirect result exists, consume it and complete
-   * the sign-in without requiring another button click.
-   */
-  useEffect(() => {
-    let cancelled = false;
-
-    const consumeRedirectResult = async () => {
-      // getRedirectResult returns null if there is no pending redirect, so
-      // this is safe to call unconditionally on every mount.
-      try {
-        const result = await getRedirectResult(auth);
-        if (!result || cancelled) return;
-
-        setIsLoading(true);
-        await handleAuthSuccess(result.user);
-      } catch (error: unknown) {
-        if (cancelled) return;
-        // Ignore "no redirect" non-errors; only surface real failures.
-        const code = (error as { code?: string })?.code;
-        if (code && code !== "auth/no-auth-event") {
-          console.error("Google Redirect Result Error:", error);
-          toast.error("Failed to complete Google sign-in. Please try again.", {
-            style: { background: "#dc2626", color: "#fff" },
-          });
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    consumeRedirectResult();
-    return () => {
-      cancelled = true;
-    };
-  }, [handleAuthSuccess]);
 
   const handleGoogleSignIn = async () => {
     if (!agreedToTerms) {
@@ -144,19 +35,59 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
     const provider = new GoogleAuthProvider();
 
     try {
-      if (isRunningAsPwa()) {
-        // ── PWA / Desktop installed mode ─────────────────────────────────────
-        // signInWithPopup cannot open a popup window inside the PWA shell
-        // (causes the FedCM "app-info" CORS error). Use a full-page redirect
-        // instead; the result is captured in the useEffect above on return.
-        await signInWithRedirect(auth, provider);
-        // Execution continues after the app reloads; isLoading stays true.
-        return;
+      // 1. Firebase Popup Sign-In
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const idToken = await user.getIdToken();
+
+      // 2. Ensure User Profile exists in Firestore
+      // We pass name and avatar from the Google account
+      const profileResult = await signUp({
+        uid: user.uid,
+        name: user.displayName || "Google User",
+        email: user.email || "",
+        avatar: user.photoURL || undefined,
+      });
+
+      if (!profileResult.success) {
+        throw new Error(profileResult.message);
       }
 
-      // ── Regular browser mode ──────────────────────────────────────────────
-      const result = await signInWithPopup(auth, provider);
-      await handleAuthSuccess(result.user);
+      // 3. Establish Server Session
+      const sessionResult = await signIn({ idToken });
+
+      if (sessionResult.success) {
+       
+        // 4. Record User Statistics
+        const stats = getDeviceStats();
+        if (stats) {
+          recordUserStats(user.uid, { ...stats });
+        }
+
+         // 5. Fetch user profile to determine role-based redirection
+                const currentUser = await getCurrentUser();
+        // 6. Update Local State & Redirect
+        // For Google Auth, we might need a small delay to ensure Firestore is synced if it was a new user
+        // But the signUp action handles creation synchronously.
+
+        // Fetch current user details to update store (or we could derive from Google user)
+        // For simplicity and correctness, we'll let the next page load handle it or assume success
+
+        toast.success(
+          mode === "login" ? "Welcome back!" : "Account created successfully!",
+          {
+            style: { background: "#10b981", color: "#fff" },
+          },
+        );
+
+            const defaultPath =
+            currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN" ? "/admin" : "/dashboard";
+
+        const redirectPath = returnTo || defaultPath;
+        router.push(redirectPath);
+      } else {
+        throw new Error(sessionResult.message);
+      }
     } catch (error: unknown) {
       console.error("Google Auth Error:", error);
 
@@ -167,8 +98,7 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
         if (firebaseError.code === "auth/popup-closed-by-user") {
           errorMessage = "Sign-in cancelled.";
         } else if (firebaseError.code === "auth/popup-blocked") {
-          errorMessage =
-            "Sign-in popup was blocked by your browser. Please allow popups for this site.";
+          errorMessage = "Sign-in popup was blocked by your browser. Please allow popups for this site.";
         } else if (
           firebaseError.code === "auth/account-exists-with-different-credential"
         ) {
@@ -180,6 +110,7 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       toast.error(errorMessage, {
         style: { background: "#dc2626", color: "#fff" },
       });
+    } finally {
       setIsLoading(false);
     }
   };

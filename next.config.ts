@@ -116,6 +116,10 @@ const nextConfig: NextConfig = {
       source: "/sw.js.map",
       destination: "/serwist/sw.js.map",
     },
+    {
+      source: "/__/auth/:path*",
+      destination: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "legal-adviser-9cd92"}.firebaseapp.com/__/auth/:path*`,
+    },
   ],
 };
 
