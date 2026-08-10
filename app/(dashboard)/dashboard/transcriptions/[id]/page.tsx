@@ -48,7 +48,7 @@ export default function TranscriptionViewPage() {
     };
 
     fetchRecord();
-  }, [id]);
+  }, [id, router]);
 
   if (isLoading) {
     return <ViewRecordSkeleton />;

@@ -291,6 +291,17 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // Clear any stale error
     setConnectionError(null);
 
+    // The SFX context is built on mount, with no user gesture behind it, so
+    // Firefox starts it suspended — and because every cue is routed through
+    // createMediaElementSource, a suspended context means silence rather than
+    // direct element playback. This click is the gesture, so resume here.
+    // Not awaited: Firefox leaves resume() pending (never rejected) while a
+    // context is still blocked, so awaiting it could stall the connect path.
+    const sfxCtx = sfxCtxRef.current;
+    if (sfxCtx && sfxCtx.state === "suspended") {
+      sfxCtx.resume().catch(() => {});
+    }
+
     // Reset duration for new call
     sessionStorage.removeItem("voice_sessionState");
 
@@ -316,9 +327,12 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     try {
       await connect();
       logAnalyticsEvent("voice_call_start", { engine: "gemini_live" });
+      // Deliberately leave the timeout armed here. connect() resolves once the
+      // SDK hands back a session, which is BEFORE onopen fires — so clearing it
+      // now would let a session that never opens sit on "connecting" forever
+      // with no error. The wsStatus effect clears it when we reach "open".
     } catch (err) {
       setConnectionError(classifyConnectionError(err));
-    } finally {
       if (connectTimeoutRef.current) {
         clearTimeout(connectTimeoutRef.current);
         connectTimeoutRef.current = null;
@@ -339,8 +353,12 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const wsStatusRef = useRef(wsStatus);
   useEffect(() => {
     wsStatusRef.current = wsStatus;
-    // When the connection succeeds, clear any pending timeout
-    if (wsStatus === "open" && connectTimeoutRef.current) {
+    // Clear the pending timeout once we leave the connecting phase for good —
+    // on success, or on a terminal state that already surfaces its own error.
+    if (
+      (wsStatus === "open" || wsStatus === "error" || wsStatus === "closed") &&
+      connectTimeoutRef.current
+    ) {
       clearTimeout(connectTimeoutRef.current);
       connectTimeoutRef.current = null;
     }

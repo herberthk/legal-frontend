@@ -4,6 +4,11 @@ import React, { useEffect, useState, ReactNode } from "react";
 import { Mic, MicOff, Settings, ShieldAlert, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import {
+  parkMicStream,
+  releaseMicStream,
+  requestMicStream,
+} from "@/hooks/use-gemini-live/mic-stream";
 
 interface MicrophoneSoftPromptProps {
   children: ReactNode;
@@ -16,6 +21,8 @@ export function MicrophoneSoftPrompt({ children }: MicrophoneSoftPromptProps) {
   const [isRequesting, setIsRequesting] = useState(false);
 
   const checkPermission = async () => {
+    // Firefox does not accept "microphone" as a PermissionName and rejects
+    // with a TypeError (Bugzilla 1449783), so this path is Chrome-only.
     try {
       const result = await navigator.permissions.query({
         name: "microphone" as PermissionName,
@@ -26,11 +33,26 @@ export function MicrophoneSoftPrompt({ children }: MicrophoneSoftPromptProps) {
       result.onchange = () => {
         setMicState(result.state as MicState);
       };
+      return;
     } catch (err) {
-      // Fallback for browsers that don't support permissions API for microphone (e.g. some Safari versions)
       console.warn("Permissions API not fully supported", err);
-      setMicState("prompt");
     }
+
+    // Fallback for Firefox/Safari: a previously-granted mic permission is
+    // detectable without prompting, because device labels are only exposed
+    // once the user has granted access. Empty labels ⇒ not yet granted.
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const inputs = devices.filter((d) => d.kind === "audioinput");
+      if (inputs.length > 0 && inputs.some((d) => d.label !== "")) {
+        setMicState("granted");
+        return;
+      }
+    } catch {
+      // enumerateDevices can throw in locked-down contexts — fall through
+    }
+
+    setMicState("prompt");
   };
 
   useEffect(() => {
@@ -40,9 +62,11 @@ export function MicrophoneSoftPrompt({ children }: MicrophoneSoftPromptProps) {
   const requestAccess = async () => {
     setIsRequesting(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // If we get here, it was granted!
-      stream.getTracks().forEach((track) => track.stop()); // Stop the stream, Gemini will request it again
+      const stream = await requestMicStream();
+      // Park the live stream rather than stopping it — Firefox ties an
+      // un-remembered grant to the stream's lifetime, so stopping here would
+      // make the session's getUserMedia prompt a second time.
+      parkMicStream(stream);
       setMicState("granted");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -57,6 +81,10 @@ export function MicrophoneSoftPrompt({ children }: MicrophoneSoftPromptProps) {
       setIsRequesting(false);
     }
   };
+
+  // Release the parked stream if the user leaves before starting a call.
+  // Once the session claims it, the holder is empty and this is a no-op.
+  useEffect(() => releaseMicStream, []);
 
   if (micState === "checking") {
     return (

@@ -135,7 +135,9 @@ const VoiceConsultations = ({
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900 dark:text-white md:text-lg text-sm">
-                        {session.title || "Untitled Session"}
+                        {session.title?.length > 47
+                          ? session.title?.substring(0, 47) + "..."
+                          : session.title || "Untitled Session"}
                       </h4>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
