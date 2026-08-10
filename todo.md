@@ -1,12 +1,11 @@
 ## TODO
 
-1. \*Make audio sessions work on firefox and safari browsers.
-2. Create a fully working billing system with:
+1. Create a fully working billing system with:
    a. stripe integration
    b. google pay integration
    c. invoice generation
    d. refund processing
-
-3. Full test coverage (unit/integration testing + e2e testing) with playwright.
-4. Seperate staging from production deployments.
-5. Create opional two factor authentication for email / password login.
+2. Full test coverage (unit/integration testing + e2e testing) with playwright.
+3. Seperate staging from production deployments.
+4. Create opional two factor authentication for email / password login.
+5. Make final voice session work even if user closes browser, closes tab, switch apps on mobile or refreshes page.

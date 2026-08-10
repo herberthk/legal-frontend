@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Mic,
   Clock,
   Calendar,

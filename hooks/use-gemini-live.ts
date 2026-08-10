@@ -9,6 +9,10 @@ import { LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION } from "@/constants/prompt";
 import NoSleep from "@zakj/no-sleep";
 
 import { createGeminiAudioChain } from "./use-gemini-live/audio-setup";
+import {
+  claimMicStream,
+  detectNativeSampleRate,
+} from "./use-gemini-live/mic-stream";
 import { useFirebaseSync } from "./use-gemini-live/use-firebase-sync";
 import { useEphemeralToken } from "./use-gemini-live/use-ephemeral-token";
 
@@ -57,7 +61,7 @@ export const useGeminiLive = ({
 
   const [duration, setDuration] = useState(0);
   const sessionIdRef = useRef<string>(crypto.randomUUID());
-  
+
   // Controls the auto-reconnection loop for dropped or goAway connections
   const reconnectAttemptsRef = useRef(0);
   const MAX_RECONNECT_ATTEMPTS = 5;
@@ -83,6 +87,8 @@ export const useGeminiLive = ({
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<AudioWorkletNode | null>(null);
   const playerNodeRef = useRef<AudioWorkletNode | null>(null);
+  // Muted sink that keeps the mic worklet inside the rendering graph (see below)
+  const micSinkRef = useRef<GainNode | null>(null);
 
   // --- Extended Audio Chain Refs ---
   const highPassRef = useRef<BiquadFilterNode | null>(null);
@@ -98,7 +104,7 @@ export const useGeminiLive = ({
   useEffect(() => {
     onUserAudioChunkRef.current = onUserAudioChunk;
   }, [onUserAudioChunk]);
-  
+
   useEffect(() => {
     onAIAudioChunkRef.current = onAIAudioChunk;
   }, [onAIAudioChunk]);
@@ -128,7 +134,7 @@ export const useGeminiLive = ({
   }, []);
 
   /**
-   * Initializes or returns the cached AudioContext along with the 
+   * Initializes or returns the cached AudioContext along with the
    * custom broadcast-quality audio chain (EQ, Limiter).
    */
   const getOrCreateAudioCtx = useCallback((sampleRate: number) => {
@@ -141,9 +147,13 @@ export const useGeminiLive = ({
     }
 
     audioCtxRef.current?.close().catch(() => {});
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    const ctx = new AudioContextClass({ sampleRate, latencyHint: "interactive" });
+    const AudioContextClass =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioContextClass({
+      sampleRate,
+      latencyHint: "interactive",
+    });
     audioCtxRef.current = ctx;
 
     // Utilize modular audio chain setup
@@ -190,7 +200,7 @@ export const useGeminiLive = ({
         const int16View = new Int16Array(
           bytes.buffer,
           bytes.byteOffset,
-          bytes.byteLength / 2
+          bytes.byteLength / 2,
         );
         let sum = 0;
         for (let i = 0; i < int16View.length; i++) {
@@ -205,7 +215,7 @@ export const useGeminiLive = ({
       player.port.postMessage(bytes.buffer, [bytes.buffer]);
       setAudioStatus("playing");
     },
-    [scheduleLevelUpdate]
+    [scheduleLevelUpdate],
   );
 
   const stopAudio = useCallback(() => {
@@ -217,8 +227,24 @@ export const useGeminiLive = ({
 
   const wsStatusRef = useRef(wsStatus);
   const durationRef = useRef(duration);
-  useEffect(() => { wsStatusRef.current = wsStatus; }, [wsStatus]);
-  useEffect(() => { durationRef.current = duration; }, [duration]);
+  useEffect(() => {
+    wsStatusRef.current = wsStatus;
+  }, [wsStatus]);
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+
+  // Tell the mic worklet when the AI is audible so it can duck the outgoing
+  // stream. Without this the AI hears its own voice back through the mic and
+  // holds a conversation with itself — browser echo cancellation doesn't help,
+  // because Firefox never uses AudioContext output as its AEC reference.
+  // Keyed on audioStatus so it only fires on transitions, not per audio chunk.
+  useEffect(() => {
+    processorRef.current?.port.postMessage({
+      command: "aiSpeaking",
+      value: audioStatus === "playing",
+    });
+  }, [audioStatus]);
 
   /**
    * Main connection loop to the Gemini WebSockets Live API.
@@ -227,7 +253,8 @@ export const useGeminiLive = ({
   const connectToGemini = useCallback(
     async (isReconnect = false, forceTokenRefresh = false) => {
       try {
-        if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open")) return;
+        if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open"))
+          return;
         isDisconnectingRef.current = false;
 
         // Reset state only on fresh starts, avoid UI jumps during background reconnects
@@ -252,9 +279,9 @@ export const useGeminiLive = ({
         // Initialize mic and worklet layers
         if (!isReconnect) {
           ctx = getOrCreateAudioCtx(24000);
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: { channelCount: 1, echoCancellation: true, autoGainControl: true, noiseSuppression: true },
-          });
+          // Reuses the stream MicrophoneSoftPrompt already obtained when one is
+          // live, so Firefox isn't asked to prompt a second time.
+          const stream = await claimMicStream();
           mediaStreamRef.current = stream;
 
           await Promise.all([
@@ -262,12 +289,50 @@ export const useGeminiLive = ({
             ctx.audioWorklet.addModule("/js/pcm-player-processor.js"),
           ]);
 
-          source = ctx.createMediaStreamSource(stream);
-          processor = new AudioWorkletNode(ctx, "pcm-processor", { channelCount: 1 });
+          try {
+            source = ctx.createMediaStreamSource(stream);
+          } catch (err) {
+            // Older Firefox refuses to bridge a mic running at the hardware
+            // rate into a context pinned to a different rate (Bugzilla 1674892
+            // fixed this, but pre-fix builds throw NotSupportedError). Rebuild
+            // the context at the device's native rate — pcm-processor.js reads
+            // the global `sampleRate` and resamples to 16 kHz either way, and
+            // pcm-player-processor.js reads from its ring buffer at whatever
+            // rate the context runs, so both worklets stay correct.
+            console.warn(
+              "[gemini-live] 24kHz context rejected the mic stream, falling back to the device rate:",
+              err,
+            );
+            ctx = getOrCreateAudioCtx(detectNativeSampleRate(stream));
+            await Promise.all([
+              ctx.audioWorklet.addModule("/js/pcm-processor.js"),
+              ctx.audioWorklet.addModule("/js/pcm-player-processor.js"),
+            ]);
+            source = ctx.createMediaStreamSource(stream);
+          }
+
+          processor = new AudioWorkletNode(ctx, "pcm-processor", {
+            channelCount: 1,
+          });
           processorRef.current = processor;
 
+          // Firefox only runs process() on worklet nodes that reach the
+          // destination — nodes with no downstream path are pruned from the
+          // rendering graph (Chrome instead keeps any node alive that returns
+          // true from process(), which is why this was Chrome-only-working).
+          // Route the mic worklet to destination through a 0-gain node: the
+          // graph stays live, and nothing is ever audible so there's no
+          // feedback loop from the mic into the speakers.
+          const micSink = ctx.createGain();
+          micSink.gain.value = 0;
+          processor.connect(micSink);
+          micSink.connect(ctx.destination);
+          micSinkRef.current = micSink;
+
           const playerNode = new AudioWorkletNode(ctx, "pcm-player-processor");
-          playerNode.connect(highPassRef.current || masterGainRef.current || ctx.destination);
+          playerNode.connect(
+            highPassRef.current || masterGainRef.current || ctx.destination,
+          );
           playerNodeRef.current = playerNode;
 
           playerNode.port.onmessage = (e) => {
@@ -277,7 +342,9 @@ export const useGeminiLive = ({
           };
         } else {
           if (!ctx || !processor) {
-            console.error("[gemini-live] Missing audio context during reconnect.");
+            console.error(
+              "[gemini-live] Missing audio context during reconnect.",
+            );
             return;
           }
         }
@@ -286,25 +353,43 @@ export const useGeminiLive = ({
         const token = await getEphemeralToken(shouldForceRefresh);
         if (isDisconnectingRef.current) return;
 
-        aiClientRef.current = new GoogleGenAI({ apiKey: token, apiVersion: "v1alpha" });
+        aiClientRef.current = new GoogleGenAI({
+          apiKey: token,
+          apiVersion: "v1alpha",
+        });
 
         const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
         const limitMinutes = Math.floor(effectiveLimit / 60);
-        const limitSeconds = effectiveLimit % 60;
+        const limitSeconds = Math.round(effectiveLimit % 60);
         let durationText = `${limitMinutes} minute${limitMinutes !== 1 ? "s" : ""}`;
-        if (limitSeconds > 0) durationText += ` and ${limitSeconds} second${limitSeconds !== 1 ? "s" : ""}`;
+        if (limitSeconds > 0)
+          durationText += ` and ${limitSeconds} second${limitSeconds !== 1 ? "s" : ""}`;
 
         // Initialize Gemini model config
         const config: LiveConnectConfig = {
           responseModalities: [Modality.AUDIO],
           temperature: 0,
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: preferedVoice.preferedVoiceId || "Zephyr" } } },
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: preferedVoice.preferedVoiceId || "Zephyr",
+              },
+            },
+          },
           tools: [{ googleSearch: {} }],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           contextWindowCompression: { slidingWindow: {} },
           systemInstruction: {
-            parts: [{ text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({ user: userName, instructor: preferedVoice.preferedVoiceName, maxDurationText: durationText }) }],
+            parts: [
+              {
+                text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({
+                  user: userName,
+                  instructor: preferedVoice.preferedVoiceName,
+                  maxDurationText: durationText,
+                }),
+              },
+            ],
           },
         };
 
@@ -320,11 +405,13 @@ export const useGeminiLive = ({
             onopen: () => {
               console.log("[gemini-live] open");
               setWsStatus("open");
-              if (!isReconnect) setActiveTranscript({ speaker: "system", text: "Ready." });
-              reconnectAttemptsRef.current = 0; // Reset reconnection retry counter 
+              if (!isReconnect)
+                setActiveTranscript({ speaker: "system", text: "Ready." });
+              reconnectAttemptsRef.current = 0; // Reset reconnection retry counter
 
               if (!isReconnect) sessionStartRef.current = Date.now();
-              if (processor && source && !isReconnect) source.connect(processor);
+              if (processor && source && !isReconnect)
+                source.connect(processor);
 
               // Setup microphone audio transmission
               if (processor) {
@@ -346,10 +433,16 @@ export const useGeminiLive = ({
 
                     try {
                       sessionRef.current.sendRealtimeInput({
-                        audio: { data: base64Audio, mimeType: "audio/pcm;rate=16000" },
+                        audio: {
+                          data: base64Audio,
+                          mimeType: "audio/pcm;rate=16000",
+                        },
                       });
                     } catch (err) {
-                      console.error("[gemini-live] sendRealtimeInput failed:", err);
+                      console.error(
+                        "[gemini-live] sendRealtimeInput failed:",
+                        err,
+                      );
                       if (processorRef.current) {
                         processorRef.current.disconnect();
                         processorRef.current = null;
@@ -378,12 +471,15 @@ export const useGeminiLive = ({
               }
 
               if (msg.sessionResumptionUpdate?.newHandle) {
-                previousHandleRef.current = msg.sessionResumptionUpdate.newHandle;
+                previousHandleRef.current =
+                  msg.sessionResumptionUpdate.newHandle;
               }
 
               // Server requested rotation, reconnect seamlessly
               if (msg.goAway) {
-                console.log("[gemini-live] Received GoAway. Reconnecting gracefully...");
+                console.log(
+                  "[gemini-live] Received GoAway. Reconnecting gracefully...",
+                );
                 if (!isDisconnectingRef.current && durationRef.current < 1800) {
                   sessionRef.current?.close();
                 }
@@ -392,7 +488,10 @@ export const useGeminiLive = ({
               // Route PCM data to playback
               if (msg.serverContent?.modelTurn?.parts) {
                 for (const part of msg.serverContent.modelTurn.parts) {
-                  if (part.inlineData && part.inlineData?.mimeType?.startsWith("audio/pcm")) {
+                  if (
+                    part.inlineData &&
+                    part.inlineData?.mimeType?.startsWith("audio/pcm")
+                  ) {
                     schedulePCMChunk(part.inlineData.data as string);
                   }
                 }
@@ -404,7 +503,10 @@ export const useGeminiLive = ({
                 if (txt) {
                   finalizeAITurn();
                   userPartsRef.current.push(txt);
-                  setActiveTranscript({ speaker: "user", text: userPartsRef.current.join("") });
+                  setActiveTranscript({
+                    speaker: "user",
+                    text: userPartsRef.current.join(""),
+                  });
                 }
               }
 
@@ -413,7 +515,10 @@ export const useGeminiLive = ({
                 if (txt) {
                   finalizeUserTurn();
                   aiPartsRef.current.push(txt);
-                  setActiveTranscript({ speaker: "ai", text: aiPartsRef.current.join("") });
+                  setActiveTranscript({
+                    speaker: "ai",
+                    text: aiPartsRef.current.join(""),
+                  });
                 }
               }
 
@@ -426,49 +531,75 @@ export const useGeminiLive = ({
               console.error("[gemini-live] Error:", err);
               sessionRef.current = null;
               setIsListening(false);
-              
+
               if (!isDisconnectingRef.current && durationRef.current < 1800) {
                 if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-                  console.error(`[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
+                  console.error(
+                    `[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`,
+                  );
                   setWsStatus("error");
-                  setActiveTranscript({ speaker: "system", text: "Connection error. Please try again." });
+                  setActiveTranscript({
+                    speaker: "system",
+                    text: "Connection error. Please try again.",
+                  });
                   reconnectAttemptsRef.current = 0;
                   return;
                 }
                 reconnectAttemptsRef.current += 1;
-                const delay = Math.min(500 * reconnectAttemptsRef.current, 5000);
-                console.log(`[gemini-live] Reconnecting after error (attempt ${reconnectAttemptsRef.current})...`);
+                const delay = Math.min(
+                  500 * reconnectAttemptsRef.current,
+                  5000,
+                );
+                console.log(
+                  `[gemini-live] Reconnecting after error (attempt ${reconnectAttemptsRef.current})...`,
+                );
                 // eslint-disable-next-line
                 setTimeout(() => connectToGemini(true, true), delay);
                 return;
               }
-              setActiveTranscript({ speaker: "system", text: "Connection error." });
+              setActiveTranscript({
+                speaker: "system",
+                text: "Connection error.",
+              });
               setWsStatus("error");
             },
             onclose: (ev) => {
               console.log("[gemini-live] Closed:", ev);
               sessionRef.current = null;
               setIsListening(false);
-              
+
               if (!isDisconnectingRef.current && durationRef.current < 1800) {
                 const isErrorClose = ev.code !== 1000 && ev.code !== 1005;
-                const forceTokenRefresh = isErrorClose || reconnectAttemptsRef.current > 0;
+                const forceTokenRefresh =
+                  isErrorClose || reconnectAttemptsRef.current > 0;
 
                 if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-                  console.error(`[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
+                  console.error(
+                    `[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`,
+                  );
                   setWsStatus("error");
-                  setActiveTranscript({ speaker: "system", text: "Connection lost. Please try again." });
+                  setActiveTranscript({
+                    speaker: "system",
+                    text: "Connection lost. Please try again.",
+                  });
                   reconnectAttemptsRef.current = 0;
                   return;
                 }
-                
+
                 if (isErrorClose) {
                   reconnectAttemptsRef.current += 1;
                 }
-                const delay = isErrorClose ? Math.min(500 * reconnectAttemptsRef.current, 5000) : 500;
-                console.log(`[gemini-live] Seamlessly reconnecting (attempt ${reconnectAttemptsRef.current})...`);
+                const delay = isErrorClose
+                  ? Math.min(500 * reconnectAttemptsRef.current, 5000)
+                  : 500;
+                console.log(
+                  `[gemini-live] Seamlessly reconnecting (attempt ${reconnectAttemptsRef.current})...`,
+                );
                 // eslint-disable-next-line
-                setTimeout(() => connectToGemini(true, forceTokenRefresh), delay);
+                setTimeout(
+                  () => connectToGemini(true, forceTokenRefresh),
+                  delay,
+                );
                 return;
               }
               setWsStatus("closed");
@@ -489,7 +620,11 @@ export const useGeminiLive = ({
         }
       } catch (error) {
         console.error("[gemini-live] Connection error:", error);
-        if (isReconnect && !isDisconnectingRef.current && durationRef.current < 1800) {
+        if (
+          isReconnect &&
+          !isDisconnectingRef.current &&
+          durationRef.current < 1800
+        ) {
           // eslint-disable-next-line
           setTimeout(() => connectToGemini(true, true), 2000);
           return;
@@ -531,15 +666,32 @@ export const useGeminiLive = ({
       processorRef.current = null;
     }
 
+    if (micSinkRef.current) {
+      micSinkRef.current.disconnect();
+      micSinkRef.current = null;
+    }
+
     if (playerNodeRef.current) {
       playerNodeRef.current.disconnect();
       playerNodeRef.current = null;
     }
 
-    if (highPassRef.current) { highPassRef.current.disconnect(); highPassRef.current = null; }
-    if (presenceEQRef.current) { presenceEQRef.current.disconnect(); presenceEQRef.current = null; }
-    if (limiterRef.current) { limiterRef.current.disconnect(); limiterRef.current = null; }
-    if (outputTrimRef.current) { outputTrimRef.current.disconnect(); outputTrimRef.current = null; }
+    if (highPassRef.current) {
+      highPassRef.current.disconnect();
+      highPassRef.current = null;
+    }
+    if (presenceEQRef.current) {
+      presenceEQRef.current.disconnect();
+      presenceEQRef.current = null;
+    }
+    if (limiterRef.current) {
+      limiterRef.current.disconnect();
+      limiterRef.current = null;
+    }
+    if (outputTrimRef.current) {
+      outputTrimRef.current.disconnect();
+      outputTrimRef.current = null;
+    }
 
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -547,7 +699,9 @@ export const useGeminiLive = ({
     }
 
     if (sessionRef.current) {
-      try { sessionRef.current.close(); } catch {}
+      try {
+        sessionRef.current.close();
+      } catch {}
       sessionRef.current = null;
     }
 
@@ -596,28 +750,40 @@ export const useGeminiLive = ({
       if (wsStatusRef.current === "open") {
         setDuration((prev) => {
           const next = prev + 1;
-          
-          // Trigger saving logic every 10 seconds 
+
+          // Trigger saving logic every 10 seconds
           if (next % 10 === 0) {
             syncSessionToBuffer(next);
           }
 
           const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
 
-          if (next === effectiveLimit - 300 && effectiveLimit > 600 && effectiveLimit <= 1800) {
+          if (
+            next === effectiveLimit - 300 &&
+            effectiveLimit > 600 &&
+            effectiveLimit <= 1800
+          ) {
             try {
               sessionRef.current?.sendRealtimeInput({
                 text: "SYSTEM NOTIFICATION: 5 minutes remaining until the session limit. Please inform the user gracefully.",
               });
-            } catch (err) { console.error("[gemini-live] 5m warning error:", err); }
+            } catch (err) {
+              console.error("[gemini-live] 5m warning error:", err);
+            }
           }
 
-          if (next === effectiveLimit - 120 && effectiveLimit > 300 && effectiveLimit <= 1800) {
+          if (
+            next === effectiveLimit - 120 &&
+            effectiveLimit > 300 &&
+            effectiveLimit <= 1800
+          ) {
             try {
               sessionRef.current?.sendRealtimeInput({
                 text: "SYSTEM NOTIFICATION: 2 minutes remaining. Please inform the user and continue your response uninterrupted.",
               });
-            } catch (err) { console.error("[gemini-live] 2m warning error:", err); }
+            } catch (err) {
+              console.error("[gemini-live] 2m warning error:", err);
+            }
           }
 
           if (next === effectiveLimit - 10 && effectiveLimit > 10) {
@@ -625,7 +791,9 @@ export const useGeminiLive = ({
               sessionRef.current?.sendRealtimeInput({
                 text: "SYSTEM NOTIFICATION: The session limit has been reached. Please gracefully inform the user that time is over, thank them for their time, and warmly invite them to call back if they have any further legal concerns. Be creative and as polite as possible in your final 10 seconds.",
               });
-            } catch (err) { console.error("[gemini-live] 10s warning error:", err); }
+            } catch (err) {
+              console.error("[gemini-live] 10s warning error:", err);
+            }
           }
 
           if (next >= effectiveLimit) {
@@ -640,11 +808,7 @@ export const useGeminiLive = ({
       clearInterval(interval);
       noSleep.current.disable();
     };
-  }, [
-    onDurationLimitReached,
-    syncSessionToBuffer,
-    totalAllowedSeconds,
-  ]);
+  }, [onDurationLimitReached, syncSessionToBuffer, totalAllowedSeconds]);
 
   const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
 

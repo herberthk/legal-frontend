@@ -71,3 +71,28 @@ Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remot
   
 
   python -m http.server 8000
+
+
+$env:ANTHROPIC_BASE_URL="https://openrouter.ai/api"
+$env:ANTHROPIC_API_KEY="your-sk-or-openrouter-key-here"
+# This prevents Claude from falling back to Anthropic's official servers
+$env:CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1 
+
+
+Note: After launching claude using this alternative method, execute the internal command /model inside the prompt to pick Qwen from your OpenRouter gateway list.
+
+claude --model claude-3-5-sonnet
+
+
+HTTP/1.1 201 Created
+
+content-length: 45
+content-type: application/json;charset=utf-8
+date: Sun, 09 Aug 2026 12:29:11 GMT
+strict-transport-security: max-age=31536000; includeSubDomains
+vary: Origin
+x-xss-protection: 1; mode=block
+
+{
+    "apiKey": "946e0d65f0c44e0490d482049435bd86"
+}

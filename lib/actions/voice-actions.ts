@@ -39,9 +39,9 @@ export const summarizeConversation = async ({
   }
 
   // Trim title if too long
-  if (title.length > 50) {
-    title = title.substring(0, 47) + "...";
-  }
+  // if (title.length > 50) {
+  //   title = title.substring(0, 47) + "...";
+  // }
 
   // 2. Summary: Use AI to summarize the transcript
   const transcriptText = transcripts
