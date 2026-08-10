@@ -1,6 +1,6 @@
 ---
 name: gemini-api-dev
-description: Use this skill when building applications with Gemini models, Gemini API, working with multimodal content (text, images, audio, video), implementing function calling, using structured outputs, or needing current model specifications. Covers SDK usage (google-genai for Python, @google/genai for JavaScript/TypeScript, com.google.genai:google-genai for Java, google.golang.org/genai for Go), model selection, and API capabilities.
+description: Use this skill when building applications with Gemini API hosted models, including Gemini and Gemma 4, working with multimodal content (text, images, audio, video), implementing function calling, using structured outputs, or needing current model specifications. Covers SDK usage (google-genai for Python, @google/genai for JavaScript/TypeScript, com.google.genai:google-genai for Java, google.golang.org/genai for Go), model selection, and API capabilities.
 ---
 
 # Gemini API Development Skill
@@ -12,13 +12,16 @@ description: Use this skill when building applications with Gemini models, Gemin
 
 ### Current Models (Use These)
 
+- `gemini-3.6-flash`: 1M tokens, fast, balanced performance for agentic and multimodal tasks
+- `gemini-3.5-flash-lite`: 1M tokens, fastest, lowest-cost 3.5 model for high-throughput execution
 - `gemini-3.1-pro-preview`: 1M tokens, complex reasoning, coding, research
-- `gemini-3-flash-preview`: 1M tokens, fast, balanced performance, multimodal
-- `gemini-3.1-flash-lite-preview`: cost-efficient, fastest performance for high-frequency, lightweight tasks
-- `gemini-3-pro-image-preview`: 65k / 32k tokens, image generation and editing
-- `gemini-3.1-flash-image-preview`: 65k / 32k tokens, image generation and editing
+- `gemini-3-pro-image-preview` (Nano Banana Pro): 65k / 32k tokens, image generation and editing
+- `gemini-3.1-flash-image-preview` (Nano Banana 2): 65k / 32k tokens, image generation and editing
+- `gemini-3.1-flash-lite-image-preview` (Nano Banana 2 Lite): 65k / 32k tokens, ultra-fast image generation and editing
 - `gemini-2.5-pro`: 1M tokens, complex reasoning, coding, research
 - `gemini-2.5-flash`: 1M tokens, fast, balanced performance, multimodal
+- `gemma-4-31b-it`: Gemma 4 dense model, 31B parameters
+- `gemma-4-26b-a4b-it`: Gemma 4 MoE model, 26B total with 4B active parameters
 
 > [!WARNING]
 > Models like `gemini-2.0-*`, `gemini-1.5-*` are **legacy and deprecated**. Never use them.
@@ -43,7 +46,7 @@ from google import genai
 
 client = genai.Client()
 response = client.models.generate_content(
-    model="gemini-3-flash-preview",
+    model="gemini-3.6-flash",
     contents="Explain quantum computing"
 )
 print(response.text)
@@ -55,7 +58,7 @@ import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({});
 const response = await ai.models.generateContent({
-  model: "gemini-3-flash-preview",
+  model: "gemini-3.6-flash",
   contents: "Explain quantum computing"
 });
 console.log(response.text);
@@ -79,7 +82,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	resp, err := client.Models.GenerateContent(ctx, "gemini-3-flash-preview", genai.Text("Explain quantum computing"), nil)
+	resp, err := client.Models.GenerateContent(ctx, "gemini-3.6-flash", genai.Text("Explain quantum computing"), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -99,7 +102,7 @@ public class GenerateTextFromTextInput {
     Client client = new Client();
     GenerateContentResponse response =
         client.models.generateContent(
-            "gemini-3-flash-preview",
+            "gemini-3.6-flash",
             "Explain quantum computing",
             null);
 
@@ -126,9 +129,9 @@ public class GenerateTextFromTextInput {
 
 ### When MCP is Installed (Preferred)
 
-If the **`search_documentation`** tool (from the Google MCP server) is available, use it as your **only** documentation source:
+If the **`search_docs`** tool (from the Google MCP server) is available, use it as your **only** documentation source:
 
-1. Call `search_documentation` with your query
+1. Call `search_docs` with your query
 2. Read the returned documentation
 2. **Trust MCP results** as source of truth for API details — they are always up-to-date.
 
@@ -141,7 +144,7 @@ If no MCP documentation tools are available, fetch from the official docs:
 
 **Index URL**: `https://ai.google.dev/gemini-api/docs/llms.txt`
 
-Use `fetch_url` to:
+This index contains links to all documentation pages in .md.txt format. Use web fetch tools to:
 1. Fetch `llms.txt` to discover available pages
 2. Fetch specific pages (e.g., `https://ai.google.dev/gemini-api/docs/function-calling.md.txt`)
 

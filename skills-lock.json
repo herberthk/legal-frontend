@@ -4,6 +4,7 @@
     "deploy-to-vercel": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
+      "skillPath": "skills/deploy-to-vercel/SKILL.md",
       "computedHash": "03e0eaaa9bf13ba1e7ffa387f5893de6f324c0868c627001f179395a8feaa7c9"
     },
     "developing-genkit-dart": {
@@ -21,30 +22,58 @@
       "sourceType": "github",
       "computedHash": "2fa9adb27f7cfc4635decebea65222cd56e36b5de34781f7862be888504c04f4"
     },
+    "extension-to-functions-codebase": {
+      "source": "firebase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/extension-to-functions-codebase/SKILL.md",
+      "computedHash": "4597667cb7548b9906708ff0e5fdc1043a59119d2cb32cba1142c03e8a85f315"
+    },
     "firebase-ai-logic": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
       "computedHash": "3b3d8994f2ac2e747a1f203488844a7e17b8a25c38e636b221903ae90e3b7c32"
     },
-    "firebase-app-hosting-basics": {
-      "source": "firebase/agent-skills",
+    "firebase-ai-logic-basics": {
+      "source": "firebase/skills",
       "sourceType": "github",
-      "computedHash": "7f0e0330510b4e6b06bcede472cebb183a491b8a0098f92d7563454c40d78050"
+      "skillPath": "skills/firebase-ai-logic-basics/SKILL.md",
+      "computedHash": "2af723026c6cb09aeedd6d0578421b5f25cd410c72a4e5135b4b174451a5eee9"
+    },
+    "firebase-app-hosting-basics": {
+      "source": "firebase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/firebase-app-hosting-basics/SKILL.md",
+      "computedHash": "e32ac489690e6c04bf6a71ce965918fe65a192e9992e6ed887c572d7733621c2"
     },
     "firebase-auth-basics": {
-      "source": "firebase/agent-skills",
+      "source": "firebase/skills",
       "sourceType": "github",
-      "computedHash": "ff79d278c0968f297d60f37532c32fd3b8bd9aad9c64b9f354585c701e80112a"
+      "skillPath": "skills/firebase-auth-basics/SKILL.md",
+      "computedHash": "25070123c29d59098ac817dee0eee36a73b4a822e6bb925a0ebccab0c78cf1e9"
     },
     "firebase-basics": {
-      "source": "firebase/agent-skills",
+      "source": "firebase/skills",
       "sourceType": "github",
-      "computedHash": "97e5107e2eb84b20572e848102e5f97bd596ac69a2c4aafccda6ba99fadb3bbc"
+      "skillPath": "skills/firebase-basics/SKILL.md",
+      "computedHash": "3a41bf302bfce4dac272575c51a02d0fc1bdac8dcb6cb5496103301b68ffbb67"
+    },
+    "firebase-crashlytics": {
+      "source": "firebase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/firebase-crashlytics/SKILL.md",
+      "computedHash": "1316a59236b4e2317e1d265df80e2c6c112e855bc15404ade19f2a2fe9cf2502"
     },
     "firebase-data-connect": {
-      "source": "firebase/agent-skills",
+      "source": "firebase/skills",
       "sourceType": "github",
-      "computedHash": "e7e35c29c4851d495a7417c4331666119d2492e914a08a8d006f1471a554e09f"
+      "skillPath": "skills/firebase-data-connect-basics/SKILL.md",
+      "computedHash": "e4108a3f77cda0a3cd1f883f8f8f1836f7c88af8baaf62875ef5460456aec3a1"
+    },
+    "firebase-firestore": {
+      "source": "firebase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/firebase-firestore/SKILL.md",
+      "computedHash": "7462e16e15fa68b814c17fa6dff22bb1ae970d5638b5e7143e046cbd70084a19"
     },
     "firebase-firestore-enterprise-native-mode": {
       "source": "firebase/agent-skills",
@@ -57,34 +86,74 @@
       "computedHash": "ab2332607f40ae408e9c56e177b02fad55e071bfac4c2035a16ce0787768953e"
     },
     "firebase-hosting-basics": {
-      "source": "firebase/agent-skills",
+      "source": "firebase/skills",
       "sourceType": "github",
-      "computedHash": "fb86fd4035e8e6379931faeb443557ac6f2e43fde04b397433f287e69b6532a9"
+      "skillPath": "skills/firebase-hosting-basics/SKILL.md",
+      "computedHash": "381c7bb4200644d4a09f7f505bc5ba44b499cc74d0365d69bd3e313ea0865297"
     },
     "firebase-local-env-setup": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
       "computedHash": "801ca0ebcf7fad9cc973fbab153a60a71d6f2506b15b43c154a4bffaeee2e7be"
     },
+    "firebase-remote-config-basics": {
+      "source": "firebase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/firebase-remote-config-basics/SKILL.md",
+      "computedHash": "4477c4ed83c5ee33df3d41f7831e7f9254aa436763f20d0c1a62c5c41f1a4564"
+    },
+    "firebase-security-rules-auditor": {
+      "source": "firebase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/firebase-security-rules-auditor/SKILL.md",
+      "computedHash": "69927a1fca3467543feb4eafaa1ff376a9b642db1095b29bfc2160c9a555ca61"
+    },
     "firestore-security-rules-auditor": {
       "source": "firebase/agent-skills",
       "sourceType": "github",
       "computedHash": "8b797ed45d9d171b3a88f4980d72fc4accd1257206c555f4935599f9b9fd7d28"
     },
+    "gcloud": {
+      "source": "google/skills",
+      "sourceType": "github",
+      "skillPath": "skills/cloud/gcloud/SKILL.md",
+      "computedHash": "10315dfb60ef7470de817a92b9095a9c2612684182c163988db7d5e5d75c7fcd"
+    },
+    "gemini-agents-api": {
+      "source": "google/skills",
+      "sourceType": "github",
+      "skillPath": "skills/cloud/gemini-agents-api/SKILL.md",
+      "computedHash": "24a8a39a0dc45a4b6638244c46e01ad49183fd2635b886882e0821d55e5b6cf3"
+    },
+    "gemini-api": {
+      "source": "google/skills",
+      "sourceType": "github",
+      "skillPath": "skills/cloud/gemini-api/SKILL.md",
+      "computedHash": "12521cc96087d424e00e1d3ece2cf72e734d87bc04b49bd4a74f701ed2776a84"
+    },
     "gemini-api-dev": {
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
-      "computedHash": "a72a3164552bd1764bca52d33806f4578572af3c279611a5bda420b6a9ca68c4"
+      "skillPath": "skills/gemini-api-dev/SKILL.md",
+      "computedHash": "8438fa9bfc123971a629f542076e839409b6b027a2860dd9bf6760682a68f78a"
     },
     "gemini-interactions-api": {
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
-      "computedHash": "a7017c7e4219aed7e8b6b81c4a6f8906490801b0c6e9c8189cd9721a0c55c845"
+      "skillPath": "skills/gemini-interactions-api/SKILL.md",
+      "computedHash": "c1cfc541b446af2fb7db0ea0ed01e7f8670c848eaa9516233cd0ed47d4dc4e68"
     },
     "gemini-live-api-dev": {
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
-      "computedHash": "7d4e786684cf92386d22defc18cbebef87113046923e7931b4cdec4fffaaaea6"
+      "skillPath": "skills/gemini-live-api-dev/SKILL.md",
+      "computedHash": "d4d52c9a639bd79fe5eeef0722a9d4d6ed256b99172375b60e96920c8b111836"
+    },
+    "gemini-omni-flash-api": {
+      "source": "google-gemini/gemini-skills",
+      "sourceType": "github",
+      "skillPath": "skills/gemini-omni-flash-api/SKILL.md",
+      "computedHash": "765da8e118722c2278635b98aa2ac9319361b431dc2cfe4704b72624e4899c8a"
     },
     "migrate-ai-sdk-v6-to-v7": {
       "source": "vercel/ai",
@@ -120,26 +189,37 @@
     "vercel-cli-with-tokens": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "1e1664e75dcab248050faac99db1aaef1456b7945266215ccbab68ddf85b2b79"
+      "skillPath": "skills/vercel-cli-with-tokens/SKILL.md",
+      "computedHash": "eb16b20dcbe6ce51e0372083d624e0847af1b09487ec99249227d5a8eddebfc0"
     },
     "vercel-composition-patterns": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
+      "skillPath": "skills/composition-patterns/SKILL.md",
       "computedHash": "575757e3e25761c8c562d6e395d29f0b76c98b1273c0bd72d88e6ab1bc9c7d42"
+    },
+    "vercel-optimize": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/vercel-optimize/SKILL.md",
+      "computedHash": "ad0ef9c5c980f824e2ec19cba5c45426aba923a17e71fbaf6d1830574b62cc44"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "43ca6c197f8ec13055079da7053232d477068b03ca443f9ac1bc819b95cdd432"
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
     },
     "vercel-react-native-skills": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
+      "skillPath": "skills/react-native-skills/SKILL.md",
       "computedHash": "41d24eafa7c3d82e270439808f7cfbc4d51aeb2d14f2809a2267c16275784d06"
     },
     "vercel-react-view-transitions": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
+      "skillPath": "skills/react-view-transitions/SKILL.md",
       "computedHash": "c8952fc9127fa0564d0cb71dccb4215a5608ac933b5831104f09173a97a46f85"
     },
     "vertex-ai-api-dev": {
@@ -150,7 +230,14 @@
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
       "computedHash": "f3bc47f890f42a44db1007ab390709ec368e4b8c089baee6b0007182236ac474"
+    },
+    "writing-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/writing-guidelines/SKILL.md",
+      "computedHash": "25aa3a33a97bddbcb1847ce4a6169106ec25e5b19b15b99c66e75ab383866ef2"
     }
   }
 }
