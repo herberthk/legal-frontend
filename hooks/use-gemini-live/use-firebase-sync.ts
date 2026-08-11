@@ -103,5 +103,58 @@ export function useFirebaseSync({
     [userId, userName, preferedVoice, sessionId, allTranscriptsRef],
   );
 
-  return { syncSessionToBuffer, syncingTranscriptsRef, isSyncingRef };
+  /**
+   * Keep the buffer's `updatedAt` fresh while the call is live.
+   *
+   * `syncSessionToBuffer` returns early when no new transcripts have arrived,
+   * so a long silence — the AI listening, the user reading, a quiet stretch —
+   * left `updatedAt` frozen. The scheduler treats a stale buffer as abandoned
+   * and finalizes it, which meant a still-running call could be billed and
+   * closed out from under itself, then bill again when it really ended.
+   *
+   * This write is the liveness signal, kept deliberately separate from the
+   * transcript sync so the two can't interfere:
+   *   • it never writes `transcripts`, so it cannot clobber a concurrent
+   *     append or resurrect a batch that failed;
+   *   • it uses merge, so it also creates the buffer for a call that has not
+   *     produced a single transcript yet — those seconds are real and were
+   *     previously lost entirely if the tab died before anyone spoke;
+   *   • it defers to an in-flight transcript sync, which already refreshes
+   *     `updatedAt` on its own.
+   */
+  const heartbeatBuffer = useCallback(
+    async (currentDuration: number) => {
+      if (isSyncingRef.current) return;
+
+      try {
+        const bufferRef = doc(db, COLLECTIONS.VOICE_SESSION_BUFFERS, sessionId);
+        await setDoc(
+          bufferRef,
+          {
+            sessionId,
+            userId,
+            userName,
+            preferedVoice,
+            duration: currentDuration,
+            updatedAt: serverTimestamp(),
+            status: "active",
+          },
+          { merge: true },
+        );
+      } catch (error) {
+        // A missed beat is survivable: the next tick tries again, and the
+        // scheduler's billing is idempotent if one is ever missed for long
+        // enough to look abandoned.
+        console.error("[gemini-live] Heartbeat failed:", error);
+      }
+    },
+    [userId, userName, preferedVoice, sessionId],
+  );
+
+  return {
+    syncSessionToBuffer,
+    heartbeatBuffer,
+    syncingTranscriptsRef,
+    isSyncingRef,
+  };
 }

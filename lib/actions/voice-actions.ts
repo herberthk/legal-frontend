@@ -98,11 +98,25 @@ export async function createNotification(
 
 /**
  * Records a usage entry and deducts from the correct billing tier.
- * Deduction order: Welcome Bonus → Daily Free → Paid Balance.
+ * Deduction order: Free voice seconds → Paid Balance.
  * Uses a Firestore transaction for atomicity.
  *
+ * ── Idempotent and monotonic ────────────────────────────────────────────────
+ * A single session can be finalized more than once: the client bills at the
+ * end of a call, an unload beacon bills when the tab dies mid-finalization,
+ * and the scheduler cloud function bills abandoned buffers. All three race.
+ *
+ * The usage record is therefore keyed by `sessionId` (one doc per session,
+ * never a random id) and each call bills only the seconds not already billed:
+ *   • first write for a session  → bills `seconds`
+ *   • a later write with the same or fewer seconds → bills nothing
+ *   • a later write with more seconds (buffer caught a longer duration)
+ *     → bills only the difference
+ * so replays are free and the user is never charged twice for the same audio.
+ *
  * @param params - Usage parameters
- * @returns Success status and the deducted cost
+ * @returns Success status, the cost deducted by THIS call, and the total
+ *          seconds now billed for the session.
  */
 export const recordVoiceUsageAndDeduct = async (params: {
   userId: string;
@@ -122,10 +136,29 @@ export const recordVoiceUsageAndDeduct = async (params: {
   try {
     const result = await db.runTransaction(async (transaction) => {
       const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
-      const userDoc = await transaction.get(userRef);
+      // Deterministic id — the session IS the key, so concurrent finalizers
+      // contend on one document instead of each creating their own.
+      const usageRef = db.collection(COLLECTIONS.USAGE).doc(sessionId);
+
+      const [userDoc, usageDoc] = await transaction.getAll(userRef, usageRef);
 
       if (!userDoc.exists) {
         throw new Error("User not found");
+      }
+
+      const alreadyBilledSeconds = usageDoc.exists
+        ? ((usageDoc.data()?.seconds as number | undefined) ?? 0)
+        : 0;
+
+      // Only the seconds nobody has billed yet.
+      const billableSeconds = Math.max(0, seconds - alreadyBilledSeconds);
+
+      if (billableSeconds === 0) {
+        return {
+          cost: 0,
+          billedSeconds: alreadyBilledSeconds,
+          alreadyBilled: true,
+        };
       }
 
       const user = userDoc.data() as Omit<User, "id">;
@@ -136,13 +169,13 @@ export const recordVoiceUsageAndDeduct = async (params: {
       let freeSeconds = user.freeVoiceSeconds;
 
       if (freeSeconds > 0) {
-        if (freeSeconds >= seconds) {
+        if (freeSeconds >= billableSeconds) {
           // Fully covered by free seconds
-          freeSeconds = freeSeconds - seconds;
+          freeSeconds = freeSeconds - billableSeconds;
           source = "free";
         } else {
           // Partially covered by free seconds, remaining billed to balance
-          const remainingPaidSeconds = seconds - freeSeconds;
+          const remainingPaidSeconds = billableSeconds - freeSeconds;
           freeSeconds = 0;
           const cost = remainingPaidSeconds * COST_PER_VOICE_SECOND_IN_CENTS;
           balance = Math.max(0, balance - cost);
@@ -151,7 +184,7 @@ export const recordVoiceUsageAndDeduct = async (params: {
         }
       } else {
         // No free seconds left — fully billed to paid balance
-        const cost = seconds * COST_PER_VOICE_SECOND_IN_CENTS;
+        const cost = billableSeconds * COST_PER_VOICE_SECOND_IN_CENTS;
         balance = Math.max(0, balance - cost);
         totalCost = cost;
         source = "paid";
@@ -164,36 +197,60 @@ export const recordVoiceUsageAndDeduct = async (params: {
         totalSpent: (user.totalSpent || 0) + totalCost,
       });
 
-      // Create usage record
-      const usageRef = db.collection(COLLECTIONS.USAGE).doc();
-      transaction.set(usageRef, {
-        userId,
-        type,
-        tokens,
-        cost: totalCost,
-        sessionId,
-        seconds,
-        source,
-        createdAt: FieldValue.serverTimestamp(),
-      });
+      // Usage record: created on the first pass, topped up on later ones so it
+      // always reflects the full session rather than the last increment.
+      const previousCost = usageDoc.exists
+        ? ((usageDoc.data()?.cost as number | undefined) ?? 0)
+        : 0;
+      const previousTokens = usageDoc.exists
+        ? ((usageDoc.data()?.tokens as number | undefined) ?? 0)
+        : 0;
 
-      return { cost: totalCost };
+      transaction.set(
+        usageRef,
+        {
+          userId,
+          type,
+          tokens: previousTokens + tokens,
+          cost: previousCost + totalCost,
+          sessionId,
+          seconds,
+          source,
+          ...(usageDoc.exists
+            ? { updatedAt: FieldValue.serverTimestamp() }
+            : { createdAt: FieldValue.serverTimestamp() }),
+        },
+        { merge: true },
+      );
+
+      return { cost: totalCost, billedSeconds: seconds, alreadyBilled: false };
     });
 
     return { success: true, ...result };
   } catch (error) {
     console.error("Error recording usage:", error);
-    return { success: false, cost: 0 };
+    return { success: false, cost: 0, billedSeconds: 0, alreadyBilled: false };
   }
 };
 
 /**
- * first check if user has free voice seconds
- * if yes deduct from free voice seconds
- * if no deduct from paid balance
- * create a voice session record
- * update user document
+ * Finalizes a voice session: reconstructs the complete session from the
+ * temporary buffer, writes the session document, bills the user, and releases
+ * the buffer.
  *
+ * ── Safe to run more than once ──────────────────────────────────────────────
+ * Three independent actors finalize sessions and they can overlap: the client
+ * after a call, the unload beacon when the tab dies mid-finalization, and the
+ * scheduler cloud function for abandoned buffers. So:
+ *   • the session document id is derived from `sessionId`, not random, and is
+ *     written with merge — a replay updates one document instead of creating a
+ *     second one;
+ *   • an existing document's longer duration is preserved (whoever saw more
+ *     audio wins), and its transcripts are kept if the replay has fewer;
+ *   • billing is idempotent and monotonic (see recordVoiceUsageAndDeduct);
+ *   • `audioUrl` is never blanked by a later pass that has no audio.
+ *
+ * @returns The session document id, or undefined if finalization failed.
  */
 export const recordVoiceSession = async ({
   usage,
@@ -219,8 +276,6 @@ export const recordVoiceSession = async ({
           finalUsage.duration = Math.max(clientDuration, bufferDuration);
 
           if (finalUsage.duration > clientDuration) {
-            const { COST_PER_VOICE_SECOND_IN_CENTS } =
-              await import("@/constants");
             finalUsage.cost =
               finalUsage.duration * COST_PER_VOICE_SECOND_IN_CENTS;
           }
@@ -236,8 +291,6 @@ export const recordVoiceSession = async ({
 
           // Overwrite title and summary with complete context
           if (bufferTranscripts.length > 0) {
-            const { summarizeConversation } =
-              await import("@/lib/actions/voice-actions");
             const { title, summary } = await summarizeConversation({
               transcripts: finalUsage.transcripts,
               instructor:
@@ -251,16 +304,63 @@ export const recordVoiceSession = async ({
       }
     }
 
-    const voiceSessionRef = db.collection(COLLECTIONS.VOICE_SESSIONS).doc();
-    await voiceSessionRef.set({
-      ...finalUsage,
+    // Deterministic id — one document per session, so a replay updates the
+    // existing record instead of creating a second one for the same call.
+    const voiceSessionRef = usage.sessionId
+      ? db.collection(COLLECTIONS.VOICE_SESSIONS).doc(usage.sessionId)
+      : db.collection(COLLECTIONS.VOICE_SESSIONS).doc();
+
+    // The transaction returns the duration the record now carries, which is the
+    // figure we bill: if an earlier finalizer saw more audio than this pass, the
+    // longer duration is what the user actually used.
+    const effectiveDuration = await db.runTransaction(async (transaction) => {
+      const existing = await transaction.get(voiceSessionRef);
+
+      if (!existing.exists) {
+        transaction.set(voiceSessionRef, { ...finalUsage });
+        return finalUsage.duration;
+      }
+
+      // Another finalizer got here first. Merge so the record only ever gains
+      // detail: longest duration wins, richest transcript set wins, and an
+      // audioUrl already uploaded is never blanked by a pass that has no audio.
+      const previous = existing.data() as VoiceSessionUsage;
+      const previousTranscripts = Array.isArray(previous.transcripts)
+        ? previous.transcripts
+        : [];
+      const nextTranscripts = Array.isArray(finalUsage.transcripts)
+        ? finalUsage.transcripts
+        : [];
+
+      const duration = Math.max(previous.duration || 0, finalUsage.duration);
+
+      const merged: Partial<VoiceSessionUsage> = {
+        duration,
+        cost: Math.max(previous.cost || 0, finalUsage.cost || 0),
+        transcripts:
+          nextTranscripts.length > previousTranscripts.length
+            ? nextTranscripts
+            : previousTranscripts,
+        title: finalUsage.title || previous.title,
+        summary: finalUsage.summary || previous.summary,
+      };
+
+      // Carry audio forward only when this pass actually has some.
+      if (finalUsage.audioUrl) {
+        merged.audioUrl = finalUsage.audioUrl;
+      }
+
+      // No createdAt here — the original creation time is preserved.
+      transaction.set(voiceSessionRef, merged, { merge: true });
+      return duration;
     });
 
-    // record usage and deduct from user balance
+    // Record usage and deduct from user balance. Idempotent and monotonic, so a
+    // replay charges only the seconds nobody has billed yet.
     await recordVoiceUsageAndDeduct({
       userId: finalUsage.userId,
       type: "VOICE_SESSION",
-      seconds: finalUsage.duration,
+      seconds: effectiveDuration,
       sessionId: finalUsage.sessionId,
     });
 

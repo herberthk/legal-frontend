@@ -28,8 +28,18 @@ import {
 } from "mediabunny";
 
 const DB_NAME = "ConversationRecorder";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "audio_chunks";
+const META_STORE_NAME = "sessions";
+
+/**
+ * How long an unfinished session's PCM is kept before it is reclaimed.
+ * Chunks are the only copy of the audio until the WebM has been uploaded, so
+ * they outlive the worker deliberately: a tab closed mid-upload must not lose
+ * the recording. The prune at the start of the next session is what bounds the
+ * storage, not the end of the previous one.
+ */
+const CHUNK_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 const AI_SAMPLE_RATE = 24000;
 const USER_SAMPLE_RATE = 16000;
@@ -68,6 +78,12 @@ function openDatabase(): Promise<IDBDatabase> {
         store.createIndex("sessionId_timestamp", ["sessionId", "timestamp"], {
           unique: false,
         });
+      }
+
+      // v2: per-session metadata, so a session's chunks can be pruned by age
+      // without needing the tab that recorded them to still be alive.
+      if (!database.objectStoreNames.contains(META_STORE_NAME)) {
+        database.createObjectStore(META_STORE_NAME, { keyPath: "sessionId" });
       }
     };
 
@@ -371,7 +387,11 @@ async function finalizeRecording() {
     self.postMessage({ type: "webm_ready", blob });
     self.postMessage({ type: "progress", percent: 100 });
 
-    await cleanupSession(currentSessionId);
+    // Deliberately NOT deleting the chunks here. The main thread still has to
+    // upload this blob, and if that fails (or the tab is closed mid-upload) the
+    // PCM is the only remaining copy. Records are reclaimed either by an
+    // explicit `cleanup` once the upload is confirmed, or by the prune that
+    // runs when the next session initialises.
   } catch (err: unknown) {
     console.error("[recorder-worker] Finalize error:", err);
     self.postMessage({
@@ -413,6 +433,80 @@ function readAllChunks(sessionId: string): Promise<any[]> {
 
 // ─── Cleanup ──────────────────────────────────────────────────────────────────
 
+/** Record/refresh a session's metadata row (used by the age-based prune). */
+function touchSessionMeta(sessionId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error("DB not open"));
+    const tx = db.transaction(META_STORE_NAME, "readwrite");
+    tx.objectStore(META_STORE_NAME).put({ sessionId, startedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () =>
+      reject(new Error("Meta write failed: " + tx.error?.message));
+  });
+}
+
+/** List session ids whose metadata is older than CHUNK_RETENTION_MS. */
+function findExpiredSessions(exceptSessionId: string | null): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error("DB not open"));
+    const cutoff = Date.now() - CHUNK_RETENTION_MS;
+    const tx = db.transaction(META_STORE_NAME, "readonly");
+    const request = tx.objectStore(META_STORE_NAME).openCursor();
+    const expired: string[] = [];
+
+    request.onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest).result;
+      if (cursor) {
+        const { sessionId, startedAt } = cursor.value ?? {};
+        if (
+          sessionId &&
+          sessionId !== exceptSessionId &&
+          (typeof startedAt !== "number" || startedAt < cutoff)
+        ) {
+          expired.push(sessionId);
+        }
+        cursor.continue();
+      } else {
+        resolve(expired);
+      }
+    };
+    request.onerror = () =>
+      reject(new Error("Meta read failed: " + request.error?.message));
+  });
+}
+
+/**
+ * Drop chunks belonging to sessions that were abandoned long enough ago that
+ * their audio is no longer recoverable by any UI. Runs on `init` so storage is
+ * bounded without an unmount ever having to destroy in-flight data.
+ */
+async function pruneExpiredSessions(exceptSessionId: string | null) {
+  try {
+    const expired = await findExpiredSessions(exceptSessionId);
+    for (const sessionId of expired) {
+      await cleanupSession(sessionId);
+    }
+    if (expired.length > 0) {
+      console.info(
+        `[recorder-worker] Pruned ${expired.length} expired session(s)`,
+      );
+    }
+  } catch (err) {
+    console.error("[recorder-worker] Prune failed:", err);
+  }
+}
+
+function deleteSessionMeta(sessionId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error("DB not open"));
+    const tx = db.transaction(META_STORE_NAME, "readwrite");
+    tx.objectStore(META_STORE_NAME).delete(sessionId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () =>
+      reject(new Error("Meta delete failed: " + tx.error?.message));
+  });
+}
+
 function cleanupSession(sessionId: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!db) return reject(new Error("DB not open"));
@@ -433,7 +527,11 @@ function cleanupSession(sessionId: string): Promise<void> {
       }
     };
 
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = () => {
+      deleteSessionMeta(sessionId)
+        .catch(() => {})
+        .finally(() => resolve());
+    };
     tx.onerror = () =>
       reject(new Error("Cleanup failed: " + tx.error?.message));
   });
@@ -452,7 +550,13 @@ self.addEventListener("message", async (event: MessageEvent) => {
           db = await openDatabase();
         }
         writeQueue = Promise.resolve();
+        if (currentSessionId) {
+          await touchSessionMeta(currentSessionId);
+        }
         self.postMessage({ type: "ready" });
+        // Reclaim storage from sessions abandoned long ago. Deliberately after
+        // "ready" so it never delays the first chunks of this session.
+        pruneExpiredSessions(currentSessionId);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         self.postMessage({
@@ -480,9 +584,13 @@ self.addEventListener("message", async (event: MessageEvent) => {
       break;
     }
 
+    // Explicit release, sent only once the caller no longer needs the audio
+    // (upload confirmed, or the session was discarded on purpose). Never sent
+    // on unmount — see use-conversation-recorder.
     case "cleanup": {
-      if (db && currentSessionId) {
-        await cleanupSession(currentSessionId).catch(console.error);
+      const target: string | null = event.data.sessionId ?? currentSessionId;
+      if (db && target) {
+        await cleanupSession(target).catch(console.error);
       }
       break;
     }
