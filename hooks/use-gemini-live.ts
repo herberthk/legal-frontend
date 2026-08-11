@@ -23,6 +23,7 @@ export const useGeminiLive = ({
   onUserAudioChunk,
   onAIAudioChunk,
   onDurationLimitReached,
+  onSessionStart,
   totalAllowedSeconds,
 }: UseGeminiLiveOptions) => {
   // Session UI states
@@ -60,7 +61,15 @@ export const useGeminiLive = ({
   const isDisconnectingRef = useRef(false);
 
   const [duration, setDuration] = useState(0);
-  const sessionIdRef = useRef<string>(crypto.randomUUID());
+
+  // The session id lives in both a ref and state on purpose:
+  //   • the ref is what connectToGemini mints and what the sync/billing paths
+  //     read, so they always agree on the id of the call happening right now;
+  //   • the state is what consumers render against, so nothing reads a ref
+  //     during render (the React Compiler is on, and a render-time ref read is
+  //     not something it can safely memoize).
+  const [sessionId, setSessionId] = useState<string>(() => crypto.randomUUID());
+  const sessionIdRef = useRef<string>(sessionId);
 
   // Controls the auto-reconnection loop for dropped or goAway connections
   const reconnectAttemptsRef = useRef(0);
@@ -73,7 +82,7 @@ export const useGeminiLive = ({
 
   // Sub-hooks for modularity
   const { syncSessionToBuffer, heartbeatBuffer } = useFirebaseSync({
-    sessionId: sessionIdRef.current,
+    sessionIdRef,
     userId,
     userName,
     preferedVoice,
@@ -100,6 +109,7 @@ export const useGeminiLive = ({
   // Latest callback references to avoid dependency re-renders
   const onUserAudioChunkRef = useRef(onUserAudioChunk);
   const onAIAudioChunkRef = useRef(onAIAudioChunk);
+  const onSessionStartRef = useRef(onSessionStart);
 
   useEffect(() => {
     onUserAudioChunkRef.current = onUserAudioChunk;
@@ -108,6 +118,10 @@ export const useGeminiLive = ({
   useEffect(() => {
     onAIAudioChunkRef.current = onAIAudioChunk;
   }, [onAIAudioChunk]);
+
+  useEffect(() => {
+    onSessionStartRef.current = onSessionStart;
+  }, [onSessionStart]);
 
   const sessionStartRef = useRef<number>(0);
 
@@ -268,7 +282,15 @@ export const useGeminiLive = ({
           aiPartsRef.current = [];
           setActiveTranscript(null);
           previousHandleRef.current = null;
+          // Ref first: the recorder and the buffer sync both read it, and they
+          // must see the new id before any audio or transcript is written. The
+          // state update below is only what the UI renders.
           sessionIdRef.current = crypto.randomUUID();
+          setSessionId(sessionIdRef.current);
+          // Hand the id to the recorder before the socket opens — the first
+          // chunks land milliseconds after the handshake, and they must be
+          // filed under the same session that billing and cleanup will use.
+          onSessionStartRef.current?.(sessionIdRef.current);
           reconnectAttemptsRef.current = 0;
         }
 
@@ -829,7 +851,7 @@ export const useGeminiLive = ({
     activeTranscript,
     duration,
     remainingSeconds: Math.max(0, effectiveLimit - duration),
-    sessionId: sessionIdRef.current,
+    sessionId,
     connect: connectToGemini,
     disconnect: disconnectFromGemini,
     toggleMicMute,

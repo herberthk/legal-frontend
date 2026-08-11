@@ -201,6 +201,18 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
     // stored PCM is then the only copy of the recording. The worker prunes
     // sessions by age on its next init instead.
     return () => {
+      // Settle any finalize that was still in flight. terminate() kills the
+      // worker mid-encode, so its "webm_ready" / "error" reply never arrives
+      // and the promise would hang forever — taking the caller's await with it,
+      // and with it the catch block that preserves the chunks for recovery.
+      if (finalizeRejectRef.current) {
+        finalizeRejectRef.current(
+          new Error("Recorder worker terminated before encoding finished"),
+        );
+        finalizeResolveRef.current = null;
+        finalizeRejectRef.current = null;
+      }
+
       worker.terminate();
       workerRef.current = null;
       setIsReady(false);

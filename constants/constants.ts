@@ -11,6 +11,11 @@ export const COST_PER_VOICE_SECOND_IN_CENTS =
   COST_PER_VOICE_SECOND * USD_IN_CENTS;
 export const COST_PER_THOUSAND_TOKENS_IN_CENTS =
   COST_PER_THOUSAND_TOKENS * USD_IN_CENTS;
+// Hard ceiling on a single voice call. The client stops a call at this point,
+// and the billing endpoint refuses any duration above it — the session cookie
+// proves who is calling, not how long they talked, so this is what bounds a
+// forged or corrupted beacon payload.
+export const MAX_VOICE_SESSION_SECONDS = 1800; // 30 minutes
 //Mobile Money Transaction fee percentage
 export const MOBILE_MONEY_FEE_PERCENTAGE = 0.03; // 3% of the amount for mobile money transactions
 
