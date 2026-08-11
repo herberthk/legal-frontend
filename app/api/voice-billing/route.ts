@@ -3,6 +3,7 @@ import {
   recordVoiceSession,
   summarizeConversation,
 } from "@/lib/actions/voice-actions";
+import { getAuthenticatedUserId } from "@/lib/actions/auth";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -10,7 +11,6 @@ import { FieldValue } from "firebase-admin/firestore";
 // export const runtime = "edge";
 
 type RequestBody = {
-  userId: string;
   sessionId: string;
   duration: number;
   transcripts: Transcript[];
@@ -20,18 +20,20 @@ type RequestBody = {
 
 export async function POST(req: Request) {
   try {
+    // The uid comes from the session cookie, never from the body — this endpoint
+    // spends money, and it is also reachable via navigator.sendBeacon (which
+    // does send same-origin cookies) so a client-supplied id could bill anyone.
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
 
-    const {
-      userId,
-      sessionId,
-      duration,
-      transcripts,
-      preferedVoice,
-      userName,
-    } = body as RequestBody;
+    const { sessionId, duration, transcripts, preferedVoice, userName } =
+      body as RequestBody;
 
-    if (!userId || !sessionId || typeof duration !== "number") {
+    if (!sessionId || typeof duration !== "number") {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 },

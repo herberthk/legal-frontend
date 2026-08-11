@@ -43,6 +43,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     addAIChunk,
     finalizeRecording,
     encodingProgress,
+    cleanup,
   } = useConversationRecorder();
 
   // Stable ref to avoid circular dependencies with the hook
@@ -104,6 +105,12 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
 
   // Ref to the connection-timeout timer so we can clear it on success
   const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // True once the server has confirmed billing for the current session. The
+  // unload beacon reads this to decide whether the seconds are still unbilled;
+  // a ref (not state) because the unload handler must see the current value
+  // without the effect re-subscribing on every change.
+  const billingSettledRef = useRef(false);
 
   // ── Audio Feedback ────────────────────────────────────────────────────────────
   const connectingAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -207,39 +214,47 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     }
   }, [wsStatus, userId, preferedVoice, userName, duration, sessionId]);
 
-  // Fallback billing beacon on unmount/tab close
+  // ── Fallback billing beacon ──────────────────────────────────────────────
+  // Fires when the page goes away while seconds are still unbilled.
+  //
+  // Deliberately NOT gated on wsStatus: disconnect() flips it to "idle" before
+  // finalization begins, so gating there meant that closing the tab during the
+  // encode/upload window sent nothing at all — no billing, no session record.
+  // That window is precisely when the fallback matters most, so the gate is
+  // "has billing confirmed yet", not "is the socket open".
+  //
+  // Safe to fire redundantly: /api/voice-billing is idempotent and bills only
+  // seconds nobody has billed yet, so an overlap with the normal path, or with
+  // the scheduler's sweep of abandoned buffers, cannot double-charge.
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (wsStatus === "open" && duration > 0) {
-        // Snapshot with .slice() for the same reason as handleEndCall:
-        // prevents a concurrent buffer-sync from mutating the array after we
-        // hand it to JSON.stringify inside the Blob constructor.
-        const payload = {
-          userId,
-          sessionId,
-          duration,
-          transcripts: getTranscripts().slice(),
-          preferedVoice,
-          userName,
-        };
-        const blob = new Blob([JSON.stringify(payload)], {
-          type: "application/json",
-        });
-        navigator.sendBeacon("/api/voice-billing", blob);
-      }
+    const sendFallbackBeacon = () => {
+      if (billingSettledRef.current || duration <= 0 || !userId) return;
+
+      // Snapshot with .slice() for the same reason as handleEndCall:
+      // prevents a concurrent buffer-sync from mutating the array after we
+      // hand it to JSON.stringify inside the Blob constructor.
+      const payload = {
+        sessionId,
+        duration,
+        transcripts: getTranscripts().slice(),
+        preferedVoice,
+        userName,
+      };
+      const blob = new Blob([JSON.stringify(payload)], {
+        type: "application/json",
+      });
+      navigator.sendBeacon("/api/voice-billing", blob);
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [
-    wsStatus,
-    duration,
-    userId,
-    getTranscripts,
-    preferedVoice,
-    userName,
-    sessionId,
-  ]);
+    // pagehide is the one that actually fires on mobile when the user switches
+    // apps or the tab is discarded; beforeunload is unreliable there.
+    window.addEventListener("pagehide", sendFallbackBeacon);
+    window.addEventListener("beforeunload", sendFallbackBeacon);
+    return () => {
+      window.removeEventListener("pagehide", sendFallbackBeacon);
+      window.removeEventListener("beforeunload", sendFallbackBeacon);
+    };
+  }, [duration, userId, getTranscripts, preferedVoice, userName, sessionId]);
 
   // ── Connection error classifier ──────────────────────────────────────────
   // Maps a raw error (or undefined for timeout/offline) to a ConnectionErrorKind.
@@ -304,6 +319,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
 
     // Reset duration for new call
     sessionStorage.removeItem("voice_sessionState");
+
+    // New call, new unbilled seconds — re-arm the unload beacon.
+    billingSettledRef.current = false;
 
     // Initialize the recorder for this session BEFORE connecting so the
     // worker's IDB is open and ready to accept the very first audio chunks
@@ -393,17 +411,19 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       try {
         setPostCallError(undefined);
 
-        // Step 1: Encode WAV
-        setPostCallStage("encoding");
-        const blob = await finalizeRecording();
-
-        // Step 2: Finalize billing and create session record
+        // Step 1: Finalize billing and create the session record.
+        //
+        // Billing runs FIRST, before the slow encode. Everything the record
+        // needs — duration, transcripts, summary — is already in hand, while
+        // encoding takes seconds and uploading takes longer still. Doing money
+        // and transcript first means a tab closed mid-encode still leaves a
+        // complete, correctly billed session; only the audio is missing, and
+        // the PCM stays in IDB for a later pass to pick up.
         setPostCallStage("billing");
         const res = await fetch("/api/voice-billing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId,
             sessionId,
             duration,
             transcripts: capturedTranscripts,
@@ -417,8 +437,14 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
           throw new Error(data.error || "Failed to finalize session details");
         }
 
+        // Server has the seconds — the unload beacon must not re-send them.
+        billingSettledRef.current = true;
         sessionStorage.removeItem("voice_sessionState");
         const voiceSessionId = data.voiceSessionId;
+
+        // Step 2: Encode WebM
+        setPostCallStage("encoding");
+        const blob = await finalizeRecording();
 
         // Step 3: Upload to Firebase Storage
         setPostCallStage("uploading");
@@ -458,6 +484,12 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         const sessionRef = doc(db, COLLECTIONS.VOICE_SESSIONS, voiceSessionId);
         await updateDoc(sessionRef, { audioUrl: downloadURL });
 
+        // The audio is now safely in Storage and linked from the session doc,
+        // so the stored PCM is finally redundant. This is the only place that
+        // releases it on the happy path — the recorder no longer deletes chunks
+        // after encoding, because until this point they are the only copy.
+        cleanup(sessionId);
+
         // Step 5: Done
         setPostCallStage("done");
         setTimeout(() => setPostCallStage(null), 3000);
@@ -485,10 +517,15 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         setPostCallError(err.message || "An unexpected error occurred.");
         setPostCallStage("error");
         setTimeout(() => setPostCallStage(null), 5000);
+        // Deliberately no cleanup() here: a failure after billing means the
+        // audio never made it to Storage, and its chunks are the only copy.
+        // They are kept for a later recovery pass and reclaimed by the
+        // recorder's age-based prune if nothing ever claims them.
       }
     } else {
-      // Just clear the worker if no duration
-      finalizeRecording().catch(() => {});
+      // Nothing was recorded worth keeping — release the chunks outright
+      // rather than paying to encode a blob no one will upload.
+      cleanup(sessionId);
     }
   }, [
     disconnect,
@@ -500,6 +537,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     wsStatus,
     sessionId,
     finalizeRecording,
+    cleanup,
   ]);
 
   // Update the ref whenever the callback changes to ensure useGeminiLive

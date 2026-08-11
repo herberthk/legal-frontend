@@ -7,11 +7,17 @@
  * ── Responsibilities ──────────────────────────────────────────────────────────
  *  • Create the worker once (on mount) and keep it alive for the full session.
  *  • Route audio chunks to the worker via Transferable objects (zero-copy).
- *  • Trigger WAV assembly on demand (`finalizeRecording`).
- *  • Auto-download the finished WAV using an invisible <a> element.
+ *  • Trigger WebM assembly on demand (`finalizeRecording`).
  *  • Expose `isEncoding` so the UI can show a "Preparing download…" indicator.
- *  • Provide `cleanup()` to wipe IDB data and terminate the worker on unmount
- *    or when a session is abandoned without generating a WAV.
+ *  • Provide `cleanup(sessionId)` to release stored PCM once the encoded audio
+ *    has been uploaded, or when a session is discarded on purpose.
+ *
+ * ── Durability ────────────────────────────────────────────────────────────────
+ *  Stored chunks outlive both the worker and this hook. Unmount terminates the
+ *  worker but never deletes data: navigating away is precisely when a
+ *  finalization may still be in flight, and IDB then holds the only copy of the
+ *  recording. Reclaiming is the worker's job — it prunes sessions older than its
+ *  retention window each time a new session initialises.
  *
  * ── Design decisions ──────────────────────────────────────────────────────────
  *  • Worker is created via `new Worker('/js/conversation-recorder-worker.js')`.
@@ -59,13 +65,15 @@ export interface UseConversationRecorderReturn {
   addAIChunk: (buffer: ArrayBuffer, timestamp: number) => void;
 
   /**
-   * Trigger WAV finalization in the worker:
+   * Trigger WebM finalization in the worker:
    *   1. Drain the write queue.
    *   2. Read + assemble all chunks from IDB.
-   *   3. Encode as WAV.
+   *   3. Encode as WebM/Opus.
    *   4. Return the assembled Blob.
    *
    * Sets `isEncoding = true` immediately; resets to false when done.
+   * Chunks are NOT deleted after encoding — call `cleanup(sessionId)` once the
+   * blob has been uploaded.
    */
   finalizeRecording: () => Promise<Blob>;
 
@@ -86,12 +94,12 @@ export interface UseConversationRecorderReturn {
   isReady: boolean;
 
   /**
-   * Clear all IDB data for the current session and terminate the worker.
-   * Call this:
-   *   a) When a session is abandoned without wanting a download.
-   *   b) On component unmount (the useEffect cleanup handles this automatically).
+   * Release the stored PCM for a session. Call this only once the audio is
+   * safely uploaded (or the session is being discarded on purpose) — until
+   * then IDB holds the only copy. The worker stays alive for the next call.
+   * Omit `sessionId` to release the worker's current session.
    */
-  cleanup: () => void;
+  cleanup: (sessionId?: string) => void;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -188,13 +196,12 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
     };
 
     // ── Cleanup on unmount ───────────────────────────────────────────────────
-    // Send 'cleanup' first so the worker can delete IDB records before dying.
-    // Then terminate so the OS reclaims the thread.
+    // Terminate only — do NOT wipe IDB here. Unmount happens while navigating
+    // away, which is exactly when a finalization may still be in flight; the
+    // stored PCM is then the only copy of the recording. The worker prunes
+    // sessions by age on its next init instead.
     return () => {
-      worker.postMessage({ type: "cleanup" });
-      // Give the worker a moment to start the async cleanup before we kill it.
-      // 300 ms is more than enough for a simple IDB cursor-delete operation.
-      setTimeout(() => worker.terminate(), 300);
+      worker.terminate();
       workerRef.current = null;
       setIsReady(false);
     };
@@ -274,19 +281,18 @@ export function useConversationRecorder(): UseConversationRecorderReturn {
   }, []);
 
   /**
-   * Clean up IDB records and terminate the worker.
-   * Exposed so gemini-voice-connection can call it if the session is abandoned
-   * (credit exhausted, user navigates away) without wanting a WAV download.
+   * Release the stored PCM for a session once it is no longer needed —
+   * i.e. after the encoded audio has been uploaded, or when a session is
+   * abandoned on purpose.
+   *
+   * The worker is deliberately left running: the component reuses it for the
+   * next call, and terminating it here would race any in-flight finalize.
+   * Omit `sessionId` to release the worker's current session.
    */
-  const cleanup = useCallback(() => {
+  const cleanup = useCallback((sessionId?: string) => {
     const worker = workerRef.current;
     if (!worker) return;
-    worker.postMessage({ type: "cleanup" });
-    setTimeout(() => {
-      worker.terminate();
-      workerRef.current = null;
-    }, 300);
-    setIsReady(false);
+    worker.postMessage({ type: "cleanup", sessionId });
     setIsEncoding(false);
     setEncodingProgress(0);
   }, []);

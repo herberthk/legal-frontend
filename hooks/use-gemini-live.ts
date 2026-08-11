@@ -72,7 +72,7 @@ export const useGeminiLive = ({
   const allTranscriptsRef = useRef<Transcript[]>([]);
 
   // Sub-hooks for modularity
-  const { syncSessionToBuffer } = useFirebaseSync({
+  const { syncSessionToBuffer, heartbeatBuffer } = useFirebaseSync({
     sessionId: sessionIdRef.current,
     userId,
     userName,
@@ -753,7 +753,12 @@ export const useGeminiLive = ({
 
           // Trigger saving logic every 10 seconds
           if (next % 10 === 0) {
+            // syncSessionToBuffer is a no-op when no new transcripts arrived,
+            // so it cannot be relied on to prove the call is still alive.
+            // The heartbeat refreshes updatedAt regardless, which is what
+            // keeps the scheduler from finalizing a live call during silence.
             syncSessionToBuffer(next);
+            heartbeatBuffer(next);
           }
 
           const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
@@ -808,7 +813,12 @@ export const useGeminiLive = ({
       clearInterval(interval);
       noSleep.current.disable();
     };
-  }, [onDurationLimitReached, syncSessionToBuffer, totalAllowedSeconds]);
+  }, [
+    onDurationLimitReached,
+    syncSessionToBuffer,
+    heartbeatBuffer,
+    totalAllowedSeconds,
+  ]);
 
   const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
 
