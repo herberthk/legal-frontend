@@ -133,6 +133,16 @@ export const recordVoiceUsageAndDeduct = async (params: {
     seconds,
   } = params;
 
+  // Last line of defence for the balance arithmetic. Every arm below feeds
+  // `seconds` into a subtraction against the user's balance, and NaN/Infinity
+  // propagate silently through Math.max — a single bad value writes a balance
+  // that can never be spent down. Callers validate their own inputs; this makes
+  // it impossible for a new caller to skip that and corrupt an account.
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    console.error("Refusing to bill invalid duration", { sessionId, seconds });
+    return { success: false, cost: 0, billedSeconds: 0, alreadyBilled: false };
+  }
+
   try {
     const result = await db.runTransaction(async (transaction) => {
       const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
@@ -357,7 +367,7 @@ export const recordVoiceSession = async ({
 
     // Record usage and deduct from user balance. Idempotent and monotonic, so a
     // replay charges only the seconds nobody has billed yet.
-    await recordVoiceUsageAndDeduct({
+    const billing = await recordVoiceUsageAndDeduct({
       userId: finalUsage.userId,
       type: "VOICE_SESSION",
       seconds: effectiveDuration,
@@ -372,14 +382,25 @@ export const recordVoiceSession = async ({
     //   url: `/dashboard/transcripts/${voiceSessionRef.id}`,
     // });
 
-    // Delete from temporary buffer after successful save
-    if (usage.sessionId) {
+    // Release the buffer ONLY once the seconds are billed.
+    //
+    // recordVoiceUsageAndDeduct reports failure instead of throwing, so without
+    // this check a failed deduction still dropped the buffer — and the buffer is
+    // the only thing the scheduler can retry from. Losing it means nobody ever
+    // bills that session. Leaving it in place costs one stale document that the
+    // scheduler picks up 15 minutes later and bills idempotently.
+    if (usage.sessionId && billing.success) {
       const bufferRef = db
         .collection(COLLECTIONS.VOICE_SESSION_BUFFERS)
         .doc(usage.sessionId);
       await bufferRef.delete().catch((err) => {
         console.error("Failed to delete temporary buffer", err);
       });
+    } else if (usage.sessionId) {
+      console.error(
+        "Billing failed; keeping voice session buffer for scheduler retry",
+        usage.sessionId,
+      );
     }
 
     return voiceSessionRef.id;

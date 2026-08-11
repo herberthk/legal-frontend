@@ -151,6 +151,19 @@ declare global {
        * Use this to trigger saving/billing before the hook stops the session.
        */
       onDurationLimitReached?: () => void;
+
+      /**
+       * Called with the new session id the moment a fresh call is starting,
+       * before the socket is opened and before any audio can arrive.
+       *
+       * The hook mints the id itself, so anything keyed by session — the audio
+       * recorder above all — has to be told which one to use. Deriving it from
+       * the rendered `sessionId` instead does not work: the caller starts the
+       * recorder before calling `connect()`, so it would still be holding the
+       * *previous* call's id and file its chunks under a session that billing
+       * and cleanup know nothing about.
+       */
+      onSessionStart?: (sessionId: string) => void;
       
       /**
        * The total number of seconds allowed for this session based on balance + free time.

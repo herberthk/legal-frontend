@@ -97,4 +97,4 @@ x-xss-protection: 1; mode=block
     "apiKey": "946e0d65f0c44e0490d482049435bd86"
 }
 
-marzpay pass: uRDLdu@rLMf8MPH
+mzp: uRDLdu@rLMf8MPH

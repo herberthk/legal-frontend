@@ -10,7 +10,17 @@ import {
 } from "firebase/firestore";
 
 interface UseFirebaseSyncOptions {
-  sessionId: string;
+  /**
+   * The live session id, passed as a ref rather than a value.
+   *
+   * The caller mints a new id imperatively when a call starts, so a value read
+   * during render could be one render behind the session the recorder and the
+   * billing path are already using — and a buffer written under the wrong id is
+   * invisible to both the client finalizer and the scheduler. Reading `.current`
+   * at write time removes that window, and keeps these callbacks stable so the
+   * duration interval that drives them is never torn down mid-call.
+   */
+  sessionIdRef: React.MutableRefObject<string>;
   userId: string;
   userName: string;
   preferedVoice: PreferedVoice;
@@ -21,7 +31,7 @@ interface UseFirebaseSyncOptions {
  * Custom hook to handle syncing voice session transcripts to Firestore buffer.
  */
 export function useFirebaseSync({
-  sessionId,
+  sessionIdRef,
   userId,
   userName,
   preferedVoice,
@@ -45,11 +55,10 @@ export function useFirebaseSync({
         //   b) We only clear exactly what was successfully committed, preventing duplicates.
         syncingTranscriptsRef.current = [...allTranscriptsRef.current];
 
-        const bufferRef = doc(
-          db,
-          COLLECTIONS.VOICE_SESSION_BUFFERS,
-          sessionId,
-        );
+        // Resolved once, here, so every write below lands on the same document
+        // even if a new call starts while these awaits are in flight.
+        const sessionId = sessionIdRef.current;
+        const bufferRef = doc(db, COLLECTIONS.VOICE_SESSION_BUFFERS, sessionId);
 
         const snapshot = await getDoc(bufferRef);
 
@@ -100,7 +109,7 @@ export function useFirebaseSync({
         isSyncingRef.current = false;
       }
     },
-    [userId, userName, preferedVoice, sessionId, allTranscriptsRef],
+    [userId, userName, preferedVoice, sessionIdRef, allTranscriptsRef],
   );
 
   /**
@@ -127,6 +136,7 @@ export function useFirebaseSync({
       if (isSyncingRef.current) return;
 
       try {
+        const sessionId = sessionIdRef.current;
         const bufferRef = doc(db, COLLECTIONS.VOICE_SESSION_BUFFERS, sessionId);
         await setDoc(
           bufferRef,
@@ -148,7 +158,7 @@ export function useFirebaseSync({
         console.error("[gemini-live] Heartbeat failed:", error);
       }
     },
-    [userId, userName, preferedVoice, sessionId],
+    [userId, userName, preferedVoice, sessionIdRef],
   );
 
   return {

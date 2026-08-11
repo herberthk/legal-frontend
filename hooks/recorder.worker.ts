@@ -58,9 +58,60 @@ const MAX_GAP_S = 8.0;
 let db: IDBDatabase | null = null;
 let currentSessionId: string | null = null;
 
+/**
+ * Set when another tab needs to upgrade the database and we have to let go of
+ * our connection. A closed IDBDatabase is still a non-null object, so this flag
+ * is the only way to tell that `db` can no longer serve a transaction — without
+ * it, every write throws InvalidStateError from inside the constructor callback
+ * rather than rejecting, and the chunk is lost with a confusing error.
+ */
+let dbClosed = false;
+
 let writeQueue = Promise.resolve();
 
 // ─── IndexedDB Setup ──────────────────────────────────────────────────────────
+
+/**
+ * Give every session already on disk a metadata row.
+ *
+ * Chunks written before v2 have no row in the meta store, and the prune walks
+ * only that store — so without this, pre-upgrade chunks are invisible to it and
+ * nothing else deletes them any more. They are stamped with the upgrade time
+ * rather than their real start: chunk timestamps are offsets from the start of
+ * their own session, not wall-clock, so they cannot date a session. The effect
+ * is one retention window of grace before legacy audio is reclaimed.
+ */
+function seedLegacySessionMeta(transaction: IDBTransaction) {
+  const chunkStore = transaction.objectStore(STORE_NAME);
+  const metaStore = transaction.objectStore(META_STORE_NAME);
+  const seededAt = Date.now();
+
+  // nextunique on the compound index visits each sessionId once instead of
+  // walking every chunk of every session.
+  const cursorRequest = chunkStore
+    .index("sessionId_timestamp")
+    .openKeyCursor(null, "nextunique");
+
+  cursorRequest.onsuccess = () => {
+    const cursor = cursorRequest.result;
+    if (!cursor) return;
+
+    const sessionId = (cursor.key as [string, number])[0];
+    if (sessionId) {
+      // add, not put: never move the clock forward on a session that already
+      // has a row, or a busy database could keep renewing its own garbage.
+      const addRequest = metaStore.add({ sessionId, startedAt: seededAt });
+      addRequest.onerror = (event) => {
+        // ConstraintError just means the row exists. Swallow it so it does not
+        // abort the whole versionchange transaction and fail the upgrade.
+        event.preventDefault();
+        event.stopPropagation();
+      };
+    }
+
+    cursor.continue();
+  };
+}
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -68,6 +119,7 @@ function openDatabase(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const database = (event.target as IDBOpenDBRequest).result;
+      const isNewDatabase = event.oldVersion === 0;
 
       if (!database.objectStoreNames.contains(STORE_NAME)) {
         const store = database.createObjectStore(STORE_NAME, {
@@ -85,10 +137,39 @@ function openDatabase(): Promise<IDBDatabase> {
       if (!database.objectStoreNames.contains(META_STORE_NAME)) {
         database.createObjectStore(META_STORE_NAME, { keyPath: "sessionId" });
       }
+
+      // Only an existing database can be carrying chunks that predate the meta
+      // store; a fresh one has nothing to back-fill.
+      if (!isNewDatabase && request.transaction) {
+        seedLegacySessionMeta(request.transaction);
+      }
     };
 
-    request.onsuccess = (event) =>
-      resolve((event.target as IDBOpenDBRequest).result);
+    request.onsuccess = (event) => {
+      const database = (event.target as IDBOpenDBRequest).result;
+
+      // Another tab is upgrading. Holding the connection open would block it
+      // indefinitely, so close and mark the handle dead — the next init opens a
+      // fresh one at the new version.
+      database.onversionchange = () => {
+        dbClosed = true;
+        database.close();
+        if (db === database) db = null;
+        console.warn(
+          "[recorder-worker] Database closed for an upgrade in another tab",
+        );
+      };
+
+      // Fires on a forced close (storage eviction, corruption). Same handling:
+      // the handle is unusable from here on.
+      database.onclose = () => {
+        dbClosed = true;
+        if (db === database) db = null;
+      };
+
+      dbClosed = false;
+      resolve(database);
+    };
     request.onerror = () =>
       reject(new Error("Failed to open IndexedDB: " + request.error?.message));
     request.onblocked = () =>
@@ -105,12 +186,22 @@ function writeChunkToIDB(
   sampleRate: number,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (!db || !currentSessionId) {
+    if (!db || dbClosed || !currentSessionId) {
       reject(new Error("Recorder worker not initialized"));
       return;
     }
 
-    const tx = db.transaction(STORE_NAME, "readwrite");
+    // A closed connection throws synchronously from .transaction(), which would
+    // escape this executor as an exception rather than a rejection and skip the
+    // caller's catch. Convert it so a dropped chunk stays a handled error.
+    let tx: IDBTransaction;
+    try {
+      tx = db.transaction(STORE_NAME, "readwrite");
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+      return;
+    }
+
     const store = tx.objectStore(STORE_NAME);
 
     store.add({
@@ -591,6 +682,12 @@ self.addEventListener("message", async (event: MessageEvent) => {
       const target: string | null = event.data.sessionId ?? currentSessionId;
       if (db && target) {
         await cleanupSession(target).catch(console.error);
+        // Stop pointing at a session that no longer exists. A late chunk would
+        // otherwise be filed under it and, because its meta row is gone too,
+        // become an orphan the age-based prune can never see.
+        if (target === currentSessionId) {
+          currentSessionId = null;
+        }
       }
       break;
     }

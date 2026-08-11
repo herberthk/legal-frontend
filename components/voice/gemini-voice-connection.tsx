@@ -80,6 +80,10 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     onDurationLimitReached: useCallback(() => {
       handleEndCallRef.current?.();
     }, []),
+    // The hook mints the session id, so it also opens the recorder for it. Doing
+    // this here rather than before connect() guarantees the recorder and the
+    // billing path are keyed to the same session.
+    onSessionStart: startSession,
     totalAllowedSeconds,
   });
   const [isMuted, setIsMuted] = useState(false);
@@ -215,6 +219,28 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   }, [wsStatus, userId, preferedVoice, userName, duration, sessionId]);
 
   // ── Fallback billing beacon ──────────────────────────────────────────────
+  // The values the beacon needs, refreshed on every render. Keeping them in a
+  // ref is what lets the listeners register once: `duration` changes every
+  // second, so putting it in the effect's deps tore both listeners down and
+  // re-added them ~1800 times in a 30-minute call, and each removal opened a
+  // window where an unload would have found nothing listening.
+  const beaconPayloadRef = useRef({
+    sessionId,
+    duration,
+    getTranscripts,
+    preferedVoice,
+    userName,
+    userId,
+  });
+  beaconPayloadRef.current = {
+    sessionId,
+    duration,
+    getTranscripts,
+    preferedVoice,
+    userName,
+    userId,
+  };
+
   // Fires when the page goes away while seconds are still unbilled.
   //
   // Deliberately NOT gated on wsStatus: disconnect() flips it to "idle" before
@@ -228,17 +254,19 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   // the scheduler's sweep of abandoned buffers, cannot double-charge.
   useEffect(() => {
     const sendFallbackBeacon = () => {
-      if (billingSettledRef.current || duration <= 0 || !userId) return;
+      const current = beaconPayloadRef.current;
+      if (billingSettledRef.current || current.duration <= 0 || !current.userId)
+        return;
 
       // Snapshot with .slice() for the same reason as handleEndCall:
       // prevents a concurrent buffer-sync from mutating the array after we
       // hand it to JSON.stringify inside the Blob constructor.
       const payload = {
-        sessionId,
-        duration,
-        transcripts: getTranscripts().slice(),
-        preferedVoice,
-        userName,
+        sessionId: current.sessionId,
+        duration: current.duration,
+        transcripts: current.getTranscripts().slice(),
+        preferedVoice: current.preferedVoice,
+        userName: current.userName,
       };
       const blob = new Blob([JSON.stringify(payload)], {
         type: "application/json",
@@ -254,7 +282,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       window.removeEventListener("pagehide", sendFallbackBeacon);
       window.removeEventListener("beforeunload", sendFallbackBeacon);
     };
-  }, [duration, userId, getTranscripts, preferedVoice, userName, sessionId]);
+  }, []);
 
   // ── Connection error classifier ──────────────────────────────────────────
   // Maps a raw error (or undefined for timeout/offline) to a ConnectionErrorKind.
@@ -323,10 +351,11 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // New call, new unbilled seconds — re-arm the unload beacon.
     billingSettledRef.current = false;
 
-    // Initialize the recorder for this session BEFORE connecting so the
-    // worker's IDB is open and ready to accept the very first audio chunks
-    // that arrive milliseconds after the WebSocket handshake.
-    startSession(sessionId);
+    // The recorder is started from the hook's onSessionStart, which fires with
+    // the id of the call being opened. Starting it here instead would hand it
+    // the *previous* session's id: connect() mints the new one, so the id in
+    // scope right now is one call behind, and every chunk would be filed under
+    // a session that billing and cleanup never look at.
 
     // ── Connection timeout ─────────────────────────────────────────────────
     // If wsStatus never transitions away from "connecting" within 15 s,
@@ -361,8 +390,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     disconnect,
     wsStatus,
     isCreditExhausted,
-    startSession,
-    sessionId,
     classifyConnectionError,
   ]);
 
