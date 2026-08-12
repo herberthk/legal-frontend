@@ -86,30 +86,44 @@ function seedLegacySessionMeta(transaction: IDBTransaction) {
   const metaStore = transaction.objectStore(META_STORE_NAME);
   const seededAt = Date.now();
 
-  // nextunique on the compound index visits each sessionId once instead of
-  // walking every chunk of every session.
+  // One row per session, visited once each.
+  //
+  // "nextunique" would look like the tool for that, but it dedupes on the WHOLE
+  // index key — and this index is compound, ["sessionId", "timestamp"]. Every
+  // chunk of a session has a different timestamp, so every key is already
+  // unique and the cursor walks all of them: on a database holding a day of
+  // audio that is tens of thousands of steps inside a versionchange
+  // transaction, each one firing a doomed metaStore.add.
+  //
+  // Skipping ahead is what actually visits each session once. +Infinity is a
+  // valid IndexedDB number key that sorts after every finite timestamp, so
+  // continuing to [sessionId, Infinity] lands on the first key of the NEXT
+  // session. (NaN would not work — it is not a valid key at all.)
   const cursorRequest = chunkStore
     .index("sessionId_timestamp")
-    .openKeyCursor(null, "nextunique");
+    .openKeyCursor();
 
   cursorRequest.onsuccess = () => {
     const cursor = cursorRequest.result;
     if (!cursor) return;
 
     const sessionId = (cursor.key as [string, number])[0];
-    if (sessionId) {
-      // add, not put: never move the clock forward on a session that already
-      // has a row, or a busy database could keep renewing its own garbage.
-      const addRequest = metaStore.add({ sessionId, startedAt: seededAt });
-      addRequest.onerror = (event) => {
-        // ConstraintError just means the row exists. Swallow it so it does not
-        // abort the whole versionchange transaction and fail the upgrade.
-        event.preventDefault();
-        event.stopPropagation();
-      };
+    if (!sessionId) {
+      cursor.continue();
+      return;
     }
 
-    cursor.continue();
+    // add, not put: never move the clock forward on a session that already
+    // has a row, or a busy database could keep renewing its own garbage.
+    const addRequest = metaStore.add({ sessionId, startedAt: seededAt });
+    addRequest.onerror = (event) => {
+      // ConstraintError just means the row exists. Swallow it so it does not
+      // abort the whole versionchange transaction and fail the upgrade.
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    cursor.continue([sessionId, Infinity]);
   };
 }
 
