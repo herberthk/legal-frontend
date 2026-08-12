@@ -67,16 +67,14 @@ const sameBufferRevision = (
   return a === b;
 };
 
-const isValidSummary = (summary: string | undefined): boolean =>
-  Boolean(
-    summary &&
-      summary.trim() !== "" &&
-      summary !== "Summary generation failed.",
-  );
+const isValidSummary = (summary: unknown): boolean => {
+  if (typeof summary !== "string") return false;
+  const normalized = summary.trim();
+  return normalized !== "" && normalized !== "Summary generation failed.";
+};
 
-const isValidTitle = (title: string | undefined): boolean =>
-  Boolean(title && title.trim() !== "");
-
+const isValidTitle = (title: unknown): boolean =>
+  typeof title === "string" && title.trim() !== "";
 type RecordVoiceSessionResult =
   | { success: true; voiceSessionId: string }
   | { success: false; retryable: boolean; error: string };
