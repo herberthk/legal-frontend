@@ -443,9 +443,14 @@ export const recordVoiceSession = async ({
           const revision: unknown = bufferSnap.get("updatedAt");
           bufferRevision =
             revision instanceof Timestamp ? revision : undefined;
-          instructorName =
-            bufferData.preferedVoice?.preferedVoiceName || "Evelyn";
-          userName = bufferData.userName || "User";
+          const bufferInstructorName =
+            bufferData.preferedVoice?.preferedVoiceName;
+          instructorName = isValidTitle(bufferInstructorName)
+            ? bufferInstructorName
+            : "Evelyn";
+          userName = isValidTitle(bufferData.userName)
+            ? bufferData.userName
+            : "User";
 
           // Prevent underbilling by taking the max duration. Both sides go
           // through the contract first — the buffer's duration is written by the
