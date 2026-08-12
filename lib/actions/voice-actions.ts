@@ -67,6 +67,16 @@ const sameBufferRevision = (
   return a === b;
 };
 
+const isValidSummary = (summary: string | undefined): boolean =>
+  Boolean(
+    summary &&
+      summary.trim() !== "" &&
+      summary !== "Summary generation failed.",
+  );
+
+const isValidTitle = (title: string | undefined): boolean =>
+  Boolean(title && title.trim() !== "");
+
 type RecordVoiceSessionResult =
   | { success: true; voiceSessionId: string }
   | { success: false; retryable: boolean; error: string };
@@ -363,12 +373,45 @@ export const recordVoiceSession = async ({
     };
     finalUsage.cost = finalUsage.duration * COST_PER_VOICE_SECOND_IN_CENTS;
 
+    // Deterministic id — one document per session, so a replay updates the
+    // existing record instead of creating a second one for the same call.
+    const voiceSessionRef = usage.sessionId
+      ? db.collection(COLLECTIONS.VOICE_SESSIONS).doc(usage.sessionId)
+      : db.collection(COLLECTIONS.VOICE_SESSIONS).doc();
+
+    // Check if an existing session document is available to reuse metadata & verify ownership
+    let existingData: VoiceSessionUsage | undefined;
+    if (usage.sessionId) {
+      const snap = await voiceSessionRef.get();
+      if (snap.exists) {
+        existingData = snap.data() as VoiceSessionUsage;
+        if (existingData.userId !== usage.userId) {
+          throw new SessionOwnershipError(
+            "voice session document belongs to another user",
+          );
+        }
+      }
+    }
+
+    // Populate title/summary from existing session document if available
+    if (!isValidTitle(finalUsage.title) && isValidTitle(existingData?.title)) {
+      finalUsage.title = existingData!.title;
+    }
+    if (
+      !isValidSummary(finalUsage.summary) &&
+      isValidSummary(existingData?.summary)
+    ) {
+      finalUsage.summary = existingData!.summary;
+    }
+
     // Whether the buffer existed when it was read, and which revision it was
     // at. The release at the bottom needs both: a Gemini summarization call sits
     // between the read and the delete — seconds, not microseconds — and the
     // buffer is the only thing the scheduler can retry from.
     let bufferExisted = false;
     let bufferRevision: Timestamp | undefined;
+    let instructorName = "Evelyn";
+    let userName = "User";
 
     // Fetch temporary buffer to reconstruct complete session state
     if (usage.sessionId) {
@@ -398,7 +441,11 @@ export const recordVoiceSession = async ({
           // declares the client SDK's Timestamp because the browser writes it,
           // while this runs under the Admin SDK and has to compare admin ones.
           const revision: unknown = bufferSnap.get("updatedAt");
-          bufferRevision = revision instanceof Timestamp ? revision : undefined;
+          bufferRevision =
+            revision instanceof Timestamp ? revision : undefined;
+          instructorName =
+            bufferData.preferedVoice?.preferedVoiceName || "Evelyn";
+          userName = bufferData.userName || "User";
 
           // Prevent underbilling by taking the max duration. Both sides go
           // through the contract first — the buffer's duration is written by the
@@ -422,44 +469,42 @@ export const recordVoiceSession = async ({
             ? usage.transcripts
             : [];
           finalUsage.transcripts = [...bufferTranscripts, ...clientTranscripts];
-
-          // Overwrite title and summary with complete context
-          if (bufferTranscripts.length > 0) {
-            const { title, summary } = await summarizeConversation({
-              transcripts: finalUsage.transcripts,
-              instructor:
-                bufferData.preferedVoice?.preferedVoiceName || "Evelyn",
-              user: bufferData.userName || "User",
-            });
-            finalUsage.title = title;
-            finalUsage.summary = summary;
-          }
         }
       }
     }
 
-    // Ensure title and summary are populated if buffer was not available
-    if (!finalUsage.title || !finalUsage.summary) {
+    // Only summarize if title or summary are still missing/invalid after checking existing metadata
+    if (
+      !isValidTitle(finalUsage.title) ||
+      !isValidSummary(finalUsage.summary)
+    ) {
       if (finalUsage.transcripts.length > 0) {
         const { title, summary } = await summarizeConversation({
           transcripts: finalUsage.transcripts,
-          instructor: "Evelyn",
-          user: "User",
+          instructor: instructorName,
+          user: userName,
         });
-        finalUsage.title = finalUsage.title || title;
-        finalUsage.summary = finalUsage.summary || summary;
-      } else {
-        finalUsage.title = finalUsage.title || "Untitled Consultation";
-        finalUsage.summary =
-          finalUsage.summary || "No conversation content recorded.";
+
+        if (!isValidTitle(finalUsage.title) && isValidTitle(title)) {
+          finalUsage.title = title;
+        }
+        if (!isValidSummary(finalUsage.summary) && isValidSummary(summary)) {
+          finalUsage.summary = summary;
+        }
       }
     }
 
-    // Deterministic id — one document per session, so a replay updates the
-    // existing record instead of creating a second one for the same call.
-    const voiceSessionRef = usage.sessionId
-      ? db.collection(COLLECTIONS.VOICE_SESSIONS).doc(usage.sessionId)
-      : db.collection(COLLECTIONS.VOICE_SESSIONS).doc();
+    // Fallbacks if summarization yielded invalid/empty results
+    if (!isValidTitle(finalUsage.title)) {
+      finalUsage.title = isValidTitle(existingData?.title)
+        ? existingData!.title
+        : "Untitled Consultation";
+    }
+    if (!isValidSummary(finalUsage.summary)) {
+      finalUsage.summary = isValidSummary(existingData?.summary)
+        ? existingData!.summary
+        : "No conversation content recorded.";
+    }
 
     // The transaction returns the duration the record now carries, which is the
     // figure we bill: if an earlier finalizer saw more audio than this pass, the
@@ -508,8 +553,16 @@ export const recordVoiceSession = async ({
           nextTranscripts.length > previousTranscripts.length
             ? nextTranscripts
             : previousTranscripts,
-        title: finalUsage.title || previous.title,
-        summary: finalUsage.summary || previous.summary,
+        title: isValidTitle(finalUsage.title)
+          ? finalUsage.title
+          : isValidTitle(previous.title)
+          ? previous.title
+          : "Untitled Consultation",
+        summary: isValidSummary(finalUsage.summary)
+          ? finalUsage.summary
+          : isValidSummary(previous.summary)
+          ? previous.summary
+          : "No conversation content recorded.",
       };
 
       // Carry audio forward only when this pass actually has some.
