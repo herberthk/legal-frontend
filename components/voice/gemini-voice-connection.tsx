@@ -3,6 +3,7 @@
 import React, {
   useState,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
@@ -232,14 +233,26 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     userName,
     userId,
   });
-  beaconPayloadRef.current = {
-    sessionId,
-    duration,
-    getTranscripts,
-    preferedVoice,
-    userName,
-    userId,
-  };
+
+  // Committed after the render lands, never assigned during it. React is free to
+  // start a render, throw it away and re-render with different values — under
+  // the React Compiler and concurrent rendering that is a normal occurrence, not
+  // an edge case — and a ref written from a discarded pass keeps a payload the
+  // UI never adopted. Here that means the beacon bills a duration or a sessionId
+  // that never existed.
+  //
+  // useLayoutEffect, not useEffect: it runs synchronously at commit, so there is
+  // no interval in which an unload could read the previous second's payload.
+  useLayoutEffect(() => {
+    beaconPayloadRef.current = {
+      sessionId,
+      duration,
+      getTranscripts,
+      preferedVoice,
+      userName,
+      userId,
+    };
+  }, [sessionId, duration, getTranscripts, preferedVoice, userName, userId]);
 
   // Fires when the page goes away while seconds are still unbilled.
   //
@@ -569,7 +582,13 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
 
   // Update the ref whenever the callback changes to ensure useGeminiLive
   // always has access to the latest version for the 30-min timeout.
-  handleEndCallRef.current = handleEndCall;
+  //
+  // Same rule as beaconPayloadRef: committed in a layout effect so a render that
+  // React discards can never leave the timeout holding a callback closed over
+  // state the component never actually rendered with.
+  useLayoutEffect(() => {
+    handleEndCallRef.current = handleEndCall;
+  }, [handleEndCall]);
 
   useEffect(() => {
     if (isCreditExhausted && wsStatus === "open") {

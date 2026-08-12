@@ -96,9 +96,20 @@ export function useFirebaseSync({
         // Only clear the transcripts that were CONFIRMED written.
         // Any transcripts that arrived during the awaits above are safely preserved
         // at the front of allTranscriptsRef.current.
-        allTranscriptsRef.current = allTranscriptsRef.current.slice(
-          syncingTranscriptsRef.current.length,
-        );
+        //
+        // Guarded on the session still being the same one: starting a call
+        // replaces `allTranscriptsRef.current` with a fresh array and mints a new
+        // sessionId together, so if that happened while the writes above were in
+        // flight, the entries at the front of the array now belong to the NEW
+        // call. Slicing them off would delete the new session's opening turns
+        // from the only place they exist — they were never written to any buffer.
+        // The batch above already landed on the previous session's document, so
+        // the stale bookkeeping is simply dropped instead.
+        if (sessionIdRef.current === sessionId) {
+          allTranscriptsRef.current = allTranscriptsRef.current.slice(
+            syncingTranscriptsRef.current.length,
+          );
+        }
         syncingTranscriptsRef.current = [];
       } catch (error) {
         console.error("[gemini-live] Sync failed:", error);

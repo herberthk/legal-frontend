@@ -98,3 +98,5 @@ x-xss-protection: 1; mode=block
 }
 
 mzp: uRDLdu@rLMf8MPH
+
+Run lint + typecheck + vitest

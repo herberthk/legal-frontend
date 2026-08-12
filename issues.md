@@ -4,3 +4,4 @@
 - Redesign the voice session downloaded PDF
 - Make chat streaming smooth
 - Cannot login in windows app
+- investigate buffer sync logic
