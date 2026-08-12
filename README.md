@@ -121,6 +121,8 @@ An AI-powered legal guidance and consultation platform built with Next.js 16 (Ap
   bun run test:sdk
   ```
 
+  **Before committing/pushing**, run lint, typecheck (`bunx tsc --noEmit`), and vitest to ensure code quality.
+
 - **Build Web Worker Separately**:
 
   ```bash

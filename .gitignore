@@ -81,3 +81,6 @@ nylon
 
 # apk/bundle outputs
 outputs
+
+# scratch/notes file (may contain sensitive info)
+text.txt
