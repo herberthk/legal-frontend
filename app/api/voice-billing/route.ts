@@ -152,7 +152,7 @@ export async function POST(req: Request) {
     // still on disk for the scheduler to finalize.
     if (!result.success) {
       return NextResponse.json(
-        { error: result.error },
+        { error: "Failed to process billing" },
         { status: result.retryable ? 503 : 500 },
       );
     }
