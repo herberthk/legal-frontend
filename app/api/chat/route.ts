@@ -1,5 +1,5 @@
 import { GoogleLanguageModelOptions } from "@ai-sdk/google";
-import { convertToModelMessages, createUIMessageStreamResponse, streamText, toUIMessageStream, UIMessage } from "ai";
+import { convertToModelMessages, createUIMessageStreamResponse, smoothStream, streamText, toUIMessageStream, UIMessage } from "ai";
 
 import {
   getAuthenticatedUserId,
@@ -192,6 +192,12 @@ export async function POST(req: Request) {
           },
         } satisfies GoogleLanguageModelOptions,
       },
+      // Reshape Gemini's bursty, multi-sentence chunks into an even word-by-word
+      // cadence so the client renders a steady stream instead of large jumps.
+      // Smooths BOTH the answer and the reasoning/"thinking" stream. delayInMs:10
+      // drains at ~100 words/sec, which keeps even very long answers under the
+      // maxDuration=30s ceiling (see note above the export).
+      experimental_transform: smoothStream({ chunking: "word", delayInMs: 10 }),
       messages: modelMessages,
       onEnd: async ({ text, usage }) => {
         const totalTokens =

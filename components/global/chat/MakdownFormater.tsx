@@ -3,6 +3,7 @@ import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import { splitMarkdownBlocks, hasMath } from "./markdown-utils";
 // import "katex/dist/katex.min.css";
 
 type MarkdownFormatterProps = {
@@ -12,31 +13,64 @@ type MarkdownFormatterProps = {
   isReasoning?: boolean;
 };
 
-// Define plugins outside the component to keep references stable
-const REMARK_PLUGINS = [remarkGfm, remarkMath];
-// Pass rehypeKatex as a tuple with options so $$..$$ display math and \[..\]
-// inline delimiters are both processed. trust:true allows KaTeX macros,
-// strict:false suppresses warnings for unsupported LaTeX features.
-const REHYPE_PLUGINS: [typeof rehypeKatex, Record<string, unknown>][] = [
+// Stable plugin references, chosen per-block. remark-gfm is always on
+// (tables/strikethrough are common in legal answers). remark-math + rehype-katex
+// run ONLY on blocks that actually contain math delimiters (see hasMath), so the
+// common no-math block skips the KaTeX pipeline entirely. trust:true allows
+// KaTeX macros; strict:false suppresses warnings for unsupported LaTeX.
+const REMARK_GFM_ONLY = [remarkGfm];
+const REMARK_WITH_MATH = [remarkGfm, remarkMath];
+const REHYPE_WITH_MATH: [typeof rehypeKatex, Record<string, unknown>][] = [
   [rehypeKatex, { trust: true, strict: false }],
 ];
+const REHYPE_NONE: never[] = [];
 
-const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({ 
-  content, 
-  role, 
+type MarkdownBlockProps = {
+  content: string;
+  showCaret: boolean;
+  components: Components;
+};
+
+// A single top-level markdown block. Wrapped in memo so that, during streaming,
+// only the last (growing) block re-parses — every sealed block above it keeps a
+// byte-identical `content` string and a stable `components` ref, so React skips
+// it entirely. This is the fix for the O(n²) whole-message re-parse that made
+// long answers feel janky.
+const MarkdownBlock = memo(function MarkdownBlock({
+  content,
+  showCaret,
+  components,
+}: MarkdownBlockProps) {
+  const applyMath = hasMath(content);
+  // The caret marker is injected only into the last block's string, so every
+  // sealed block stays byte-identical (and memoized). The <p> renderer swaps
+  // the marker for the animated dot.
+  const displayContent = showCaret ? content + " ▋" : content;
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={applyMath ? REMARK_WITH_MATH : REMARK_GFM_ONLY}
+      rehypePlugins={applyMath ? REHYPE_WITH_MATH : REHYPE_NONE}
+      components={components}
+    >
+      {displayContent}
+    </ReactMarkdown>
+  );
+});
+
+const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
+  content,
+  role,
   isStreaming = false,
-  isReasoning = false
+  isReasoning = false,
 }) => {
-  // If streaming, append a special character that we'll render as the cursor
-  const displayContent = isStreaming ? content + " ▋" : content;
-
   // Memoize the components map to avoid recreating it on every render,
   // which causes ReactMarkdown to teardown and rebuild the virtual DOM.
   const components: Components = useMemo(() => ({
     p: ({ children, ...props }) => {
       // Check if children contains our cursor marker
       const childrenArray = React.Children.toArray(children);
-      const hasCursor = childrenArray.some(child => 
+      const hasCursor = childrenArray.some(child =>
         typeof child === 'string' && child.includes('▋')
       );
 
@@ -260,14 +294,31 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
     ),
   }), [role, isReasoning]);
 
+  // Split into top-level blocks so sealed blocks memoize and only the growing
+  // tail re-parses. Cheap O(n) line scan — and with the client render throttle
+  // this runs ~25×/sec, not per token.
+  const blocks = useMemo(() => splitMarkdownBlocks(content), [content]);
+
+  // Nothing yet: show a lone caret while streaming (matches prior behavior when
+  // the first token hasn't arrived), otherwise render nothing.
+  if (blocks.length === 0) {
+    return isStreaming ? (
+      <MarkdownBlock content="" showCaret components={components} />
+    ) : null;
+  }
+
+  const lastIndex = blocks.length - 1;
   return (
-    <ReactMarkdown
-      remarkPlugins={REMARK_PLUGINS}
-      rehypePlugins={REHYPE_PLUGINS}
-      components={components}
-    >
-      {displayContent}
-    </ReactMarkdown>
+    <>
+      {blocks.map((block, i) => (
+        <MarkdownBlock
+          key={i}
+          content={block}
+          showCaret={isStreaming && i === lastIndex}
+          components={components}
+        />
+      ))}
+    </>
   );
 };
 
