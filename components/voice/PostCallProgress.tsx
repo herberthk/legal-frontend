@@ -11,17 +11,17 @@ type Props = {
 
 const STAGES: { id: PostCallStage; label: string; desc: string }[] = [
   {
+    id: "billing",
+    label: "Initiating Session",
+    desc: "Summarizing and generating notes",
+  },
+  {
     id: "encoding",
     label: "Encoding Audio",
     desc: "Processing your conversation",
   },
-  {
-    id: "billing",
-    label: "Finalizing Session",
-    desc: "Summarizing and generating notes",
-  },
   { id: "uploading", label: "Uploading", desc: "Saving recording securely" },
-  { id: "saving", label: "Updating Record", desc: "Syncing your database" },
+  { id: "saving", label: "Updating Record", desc: "Syncing our database" },
   { id: "done", label: "Complete", desc: "Your session is ready!" },
 ];
 
