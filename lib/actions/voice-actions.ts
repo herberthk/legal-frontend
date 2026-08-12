@@ -438,6 +438,23 @@ export const recordVoiceSession = async ({
       }
     }
 
+    // Ensure title and summary are populated if buffer was not available
+    if (!finalUsage.title || !finalUsage.summary) {
+      if (finalUsage.transcripts.length > 0) {
+        const { title, summary } = await summarizeConversation({
+          transcripts: finalUsage.transcripts,
+          instructor: "Evelyn",
+          user: "User",
+        });
+        finalUsage.title = finalUsage.title || title;
+        finalUsage.summary = finalUsage.summary || summary;
+      } else {
+        finalUsage.title = finalUsage.title || "Untitled Consultation";
+        finalUsage.summary =
+          finalUsage.summary || "No conversation content recorded.";
+      }
+    }
+
     // Deterministic id — one document per session, so a replay updates the
     // existing record instead of creating a second one for the same call.
     const voiceSessionRef = usage.sessionId

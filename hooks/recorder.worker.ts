@@ -103,6 +103,12 @@ function seedLegacySessionMeta(transaction: IDBTransaction) {
     .index("sessionId_timestamp")
     .openKeyCursor();
 
+  cursorRequest.onerror = (event) => {
+    // Abandon back-fill on cursor failure without aborting the versionchange transaction
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   cursorRequest.onsuccess = () => {
     const cursor = cursorRequest.result;
     if (!cursor) return;

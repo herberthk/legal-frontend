@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  recordVoiceSession,
-  summarizeConversation,
-} from "@/lib/actions/voice-actions";
+import { recordVoiceSession } from "@/lib/actions/voice-actions";
 import { getAuthenticatedUserId } from "@/lib/actions/auth";
 import {
   COST_PER_VOICE_SECOND_IN_CENTS,
@@ -117,28 +114,20 @@ export async function POST(req: Request) {
       );
     }
 
-    const { sessionId, duration, transcripts, preferedVoice, userName } =
-      parsed.data;
+    const { sessionId, duration, transcripts } = parsed.data;
 
     // Whole seconds only — the deduction is per-second and a fractional value
     // would leave sub-cent dust that the idempotency check can never settle.
     const billableDuration = Math.floor(duration);
 
-    // Process the summary server-side
-    const { title, summary } = await summarizeConversation({
-      transcripts,
-      instructor: preferedVoice?.preferedVoiceName || "Evelyn",
-      user: userName || "User",
-    });
-
     const usage: FirestoreWrite<VoiceSessionUsage, "createdAt"> = {
       userId,
-      summary,
+      summary: "",
       transcripts,
       sessionId,
       cost: billableDuration * COST_PER_VOICE_SECOND_IN_CENTS,
       duration: billableDuration,
-      title,
+      title: "",
       audioUrl: "",
       createdAt: FieldValue.serverTimestamp(),
     };
@@ -151,6 +140,7 @@ export async function POST(req: Request) {
     // have retried. A failure reply keeps that fallback armed, and the buffer is
     // still on disk for the scheduler to finalize.
     if (!result.success) {
+      console.error("Voice billing failed:", result.error);
       return NextResponse.json(
         { error: "Failed to process billing" },
         { status: result.retryable ? 503 : 500 },
