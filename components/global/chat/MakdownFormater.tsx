@@ -3,7 +3,7 @@ import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { splitMarkdownBlocks, hasMath } from "./markdown-utils";
+import { splitMarkdownBlocks, hasMath, hasReferenceDefinitionsOrFootnotes } from "./markdown-utils";
 // import "katex/dist/katex.min.css";
 
 type MarkdownFormatterProps = {
@@ -16,12 +16,13 @@ type MarkdownFormatterProps = {
 // Stable plugin references, chosen per-block. remark-gfm is always on
 // (tables/strikethrough are common in legal answers). remark-math + rehype-katex
 // run ONLY on blocks that actually contain math delimiters (see hasMath), so the
-// common no-math block skips the KaTeX pipeline entirely. trust:true allows
-// KaTeX macros; strict:false suppresses warnings for unsupported LaTeX.
+// common no-math block skips the KaTeX pipeline entirely. trust:false disables
+// unsafe LaTeX commands like \href, \includegraphics; strict:false suppresses
+// warnings for unsupported LaTeX.
 const REMARK_GFM_ONLY = [remarkGfm];
 const REMARK_WITH_MATH = [remarkGfm, remarkMath];
 const REHYPE_WITH_MATH: [typeof rehypeKatex, Record<string, unknown>][] = [
-  [rehypeKatex, { trust: true, strict: false }],
+  [rehypeKatex, { trust: false, strict: false }],
 ];
 const REHYPE_NONE: never[] = [];
 
@@ -64,6 +65,13 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
   isStreaming = false,
   isReasoning = false,
 }) => {
+  // Detect if content uses reference-style links or footnotes, which require
+  // document-wide scope and break if split across blocks.
+  const usesScopedFeatures = useMemo(
+    () => hasReferenceDefinitionsOrFootnotes(content),
+    [content]
+  );
+
   // Memoize the components map to avoid recreating it on every render,
   // which causes ReactMarkdown to teardown and rebuild the virtual DOM.
   const components: Components = useMemo(() => ({
@@ -297,7 +305,13 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
   // Split into top-level blocks so sealed blocks memoize and only the growing
   // tail re-parses. Cheap O(n) line scan — and with the client render throttle
   // this runs ~25×/sec, not per token.
-  const blocks = useMemo(() => splitMarkdownBlocks(content), [content]);
+  // EXCEPTION: bypass splitting when the document uses reference-style links
+  // or footnotes, which require document-wide scope (the definition can be in
+  // a different block than the usage). In that case, render as a single block.
+  const blocks = useMemo(
+    () => (usesScopedFeatures ? [content] : splitMarkdownBlocks(content)),
+    [content, usesScopedFeatures]
+  );
 
   // Nothing yet: show a lone caret while streaming (matches prior behavior when
   // the first token hasn't arrived), otherwise render nothing.

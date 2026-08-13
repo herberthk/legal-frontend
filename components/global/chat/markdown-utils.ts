@@ -39,6 +39,7 @@ export function splitMarkdownBlocks(content: string): string[] {
   let current: string[] = [];
   let inFence = false;
   let fenceChar = "";
+  let fenceLength = 0;
 
   const firstNonBlank = (): string | undefined =>
     current.find((l) => !isBlank(l));
@@ -61,17 +62,19 @@ export function splitMarkdownBlocks(content: string): string[] {
       if (open) {
         inFence = true;
         fenceChar = open[1][0]; // "`" or "~"
+        fenceLength = open[1].length; // Track opening fence length
         current.push(line);
         continue;
       }
     } else {
       current.push(line);
       const t = line.trim();
-      const closes =
-        fenceChar === "`" ? /^`{3,}$/.test(t) : /^~{3,}$/.test(t);
-      if (closes) {
+      // Per CommonMark, closing fence must use same char and >= opening length
+      const closingMatch = t.match(fenceChar === "`" ? /^(`{3,})$/ : /^(~{3,})$/);
+      if (closingMatch && closingMatch[1].length >= fenceLength) {
         inFence = false;
         fenceChar = "";
+        fenceLength = 0;
       }
       continue;
     }
@@ -137,4 +140,19 @@ export function hasMath(s: string): boolean {
   if (s.includes("$$") || s.includes("\\[") || s.includes("\\(")) return true;
   if (s.indexOf("$") === -1) return false;
   return /\$(?=\S)[^$\n]*?\S\$/.test(s);
+}
+
+/**
+ * Detects whether markdown contains reference-style link definitions or footnotes.
+ * These features require document-wide scope and break if split across blocks.
+ *
+ * Matches:
+ *  - Reference link definitions: [ref]: url or [ref]: url "title"
+ *  - Footnote definitions: [^note]: text
+ */
+export function hasReferenceDefinitionsOrFootnotes(s: string): boolean {
+  if (!s) return false;
+  // Reference link definitions at line start: [identifier]: url
+  // Footnote definitions at line start: [^identifier]: text
+  return /^\s*\[\^?[^\]]+\]:\s+/m.test(s);
 }

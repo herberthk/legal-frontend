@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { splitMarkdownBlocks, hasMath } from "../markdown-utils";
+import { splitMarkdownBlocks, hasMath, hasReferenceDefinitionsOrFootnotes } from "../markdown-utils";
 
 describe("splitMarkdownBlocks", () => {
   it("returns [] for empty input", () => {
@@ -125,6 +125,23 @@ describe("splitMarkdownBlocks", () => {
     expect(splitMarkdownBlocks("- a\n\n")).toEqual(["- a"]);
     expect(splitMarkdownBlocks("- a\n\n- b")).toEqual(["- a\n\n- b"]);
   });
+
+  it("does not close a 4-backtick fence with a 3-backtick line (CommonMark spec)", () => {
+    // Per CommonMark, closing fence must have >= opening fence length
+    const md = "````js\nconst x = 1;\n```\nstill inside\n````";
+    expect(splitMarkdownBlocks(md)).toEqual([md]);
+  });
+
+  it("closes a 3-backtick fence with a 4-backtick line", () => {
+    // Closing fence with more chars than opening is valid
+    const md = "```\ncode\n````";
+    expect(splitMarkdownBlocks(md)).toEqual([md]);
+  });
+
+  it("does not close a 5-tilde fence with a 3-tilde line", () => {
+    const md = "~~~~~\nline1\n~~~\nline2\n~~~~~";
+    expect(splitMarkdownBlocks(md)).toEqual([md]);
+  });
 });
 
 describe("hasMath", () => {
@@ -154,5 +171,33 @@ describe("hasMath", () => {
 
   it("ignores two separate currency amounts", () => {
     expect(hasMath("I paid $5 and got $3 back")).toBe(false);
+  });
+});
+
+describe("hasReferenceDefinitionsOrFootnotes", () => {
+  it("is false for empty / plain prose", () => {
+    expect(hasReferenceDefinitionsOrFootnotes("")).toBe(false);
+    expect(hasReferenceDefinitionsOrFootnotes("Just plain text.")).toBe(false);
+  });
+
+  it("detects reference-style link definitions", () => {
+    expect(hasReferenceDefinitionsOrFootnotes("[ref]: https://example.com")).toBe(true);
+    expect(hasReferenceDefinitionsOrFootnotes('[ref]: https://example.com "title"')).toBe(true);
+    expect(hasReferenceDefinitionsOrFootnotes("  [1]: http://example.org")).toBe(true);
+  });
+
+  it("detects footnote definitions", () => {
+    expect(hasReferenceDefinitionsOrFootnotes("[^note]: explanation")).toBe(true);
+    expect(hasReferenceDefinitionsOrFootnotes("[^1]: first footnote")).toBe(true);
+  });
+
+  it("ignores inline links and regular brackets", () => {
+    expect(hasReferenceDefinitionsOrFootnotes("[text](url)")).toBe(false);
+    expect(hasReferenceDefinitionsOrFootnotes("plain [text] here")).toBe(false);
+  });
+
+  it("detects definitions in multi-line content", () => {
+    const md = "Some text.\n\n[ref]: https://example.com\n\nMore text.";
+    expect(hasReferenceDefinitionsOrFootnotes(md)).toBe(true);
   });
 });
