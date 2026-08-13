@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { splitMarkdownBlocks, hasMath } from "../markdown-utils";
+import {
+  splitMarkdownBlocks,
+  hasMath,
+  hasReferenceDefinitions,
+} from "../markdown-utils";
 
 describe("splitMarkdownBlocks", () => {
   it("returns [] for empty input", () => {
@@ -52,6 +56,24 @@ describe("splitMarkdownBlocks", () => {
 
   it("keeps a tilde-fenced code block intact", () => {
     const md = "~~~\nline1\n\nline2\n~~~";
+    expect(splitMarkdownBlocks(md)).toEqual([md]);
+  });
+
+  it("does not close a 4-backtick fence on a 3-backtick line (CommonMark)", () => {
+    // The ` ``` ` line is shorter than the 4-backtick opener, so it is fenced
+    // content, not a closer — the whole thing must stay one block.
+    const md = "````js\nconst a = 1;\n```\nconst b = 2;\n````";
+    expect(splitMarkdownBlocks(md)).toEqual([md]);
+  });
+
+  it("closes a 4-backtick fence on a 4-backtick (or longer) line", () => {
+    expect(splitMarkdownBlocks("````\ncode\n````")).toEqual([
+      "````\ncode\n````",
+    ]);
+  });
+
+  it("does not close a 4-tilde fence on a 3-tilde line", () => {
+    const md = "~~~~\ncode\n~~~\nmore\n~~~~";
     expect(splitMarkdownBlocks(md)).toEqual([md]);
   });
 
@@ -154,5 +176,34 @@ describe("hasMath", () => {
 
   it("ignores two separate currency amounts", () => {
     expect(hasMath("I paid $5 and got $3 back")).toBe(false);
+  });
+});
+
+describe("hasReferenceDefinitions", () => {
+  it("detects a definition after a leading reference usage", () => {
+    expect(
+      hasReferenceDefinitions("See [the docs][1].\n\n[1]: https://example.com")
+    ).toBe(true);
+  });
+
+  it("detects a definition at the very start of the string", () => {
+    expect(hasReferenceDefinitions("[1]: https://example.com\n\nSee [it][1].")).toBe(
+      true
+    );
+  });
+
+  it("allows up to three leading spaces (CommonMark)", () => {
+    expect(hasReferenceDefinitions("   [1]: https://example.com")).toBe(true);
+  });
+
+  it("is false for plain prose and inline links", () => {
+    expect(hasReferenceDefinitions("Just text.")).toBe(false);
+    expect(hasReferenceDefinitions("See [the docs](https://example.com).")).toBe(
+      false
+    );
+  });
+
+  it("does not treat footnote-style definitions as reference defs", () => {
+    expect(hasReferenceDefinitions("[^1]: a footnote")).toBe(false);
   });
 });

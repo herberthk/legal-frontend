@@ -39,6 +39,7 @@ export function splitMarkdownBlocks(content: string): string[] {
   let current: string[] = [];
   let inFence = false;
   let fenceChar = "";
+  let fenceLength = 0;
 
   const firstNonBlank = (): string | undefined =>
     current.find((l) => !isBlank(l));
@@ -61,17 +62,24 @@ export function splitMarkdownBlocks(content: string): string[] {
       if (open) {
         inFence = true;
         fenceChar = open[1][0]; // "`" or "~"
+        fenceLength = open[1].length;
         current.push(line);
         continue;
       }
     } else {
       current.push(line);
       const t = line.trim();
+      // CommonMark: a fence closes only on a run of the same character at least
+      // as long as the opening fence. A shorter run (e.g. 3 backticks under a
+      // 4-backtick opener) is fenced content, not a closer. `t` is trimmed, so a
+      // matching line is exactly its own run of fence characters.
+      const isFenceRun = /^`{3,}$/.test(t) || /^~{3,}$/.test(t);
       const closes =
-        fenceChar === "`" ? /^`{3,}$/.test(t) : /^~{3,}$/.test(t);
+        isFenceRun && t.charAt(0) === fenceChar && t.length >= fenceLength;
       if (closes) {
         inFence = false;
         fenceChar = "";
+        fenceLength = 0;
       }
       continue;
     }
@@ -137,4 +145,21 @@ export function hasMath(s: string): boolean {
   if (s.includes("$$") || s.includes("\\[") || s.includes("\\(")) return true;
   if (s.indexOf("$") === -1) return false;
   return /\$(?=\S)[^$\n]*?\S\$/.test(s);
+}
+
+/**
+ * Detect GFM reference-style link definitions (`[id]: url`) anywhere in a
+ * document. Such a definition is a formatting reference that other blocks
+ * (separated by blank lines) depend on, but splitting the document into
+ * independently-parsed blocks loses that document-scoped state — the
+ * definition must be rendered in the same ReactMarkdown parse as its usages.
+ *
+ * Conservative match: a line like `[label]: url` / `[label]: <url>` at the
+ * start of a line (up to 3 leading spaces, per CommonMark). Deliberately does
+ * not match footnote definitions (`[^id]:`), since footnotes aren't rendered
+ * here anyway.
+ */
+export function hasReferenceDefinitions(s: string): boolean {
+  if (!s) return false;
+  return /(?:^|\n)\s{0,3}\[(?!\^)[^\]\n]+\]:\s*\S/.test(s);
 }
