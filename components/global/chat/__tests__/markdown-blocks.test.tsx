@@ -147,6 +147,18 @@ describe("splitMarkdownBlocks", () => {
     expect(splitMarkdownBlocks("- a\n\n")).toEqual(["- a"]);
     expect(splitMarkdownBlocks("- a\n\n- b")).toEqual(["- a\n\n- b"]);
   });
+
+  it("does not close a fence on a line with 4+ leading spaces (CommonMark)", () => {
+    // A line with 4+ leading spaces is indented code, not a fence closer.
+    const md = "```\ncode\n    ```\nmore\n```";
+    expect(splitMarkdownBlocks(md)).toEqual([md]);
+  });
+
+  it("does not close a fence on a tab-indented line (CommonMark)", () => {
+    // A line starting with a tab is indented code, not a fence closer.
+    const md = "```\ncode\n\t```\nmore\n```";
+    expect(splitMarkdownBlocks(md)).toEqual([md]);
+  });
 });
 
 describe("hasMath", () => {

@@ -28,4 +28,22 @@ describe("MarkdownFormatter", () => {
     const link = screen.getByRole("link", { name: "the docs" }) as HTMLAnchorElement;
     expect(link.getAttribute("href")).toBe("https://example.com");
   });
+
+  it("renders a reference definition that follows its usage during streaming", () => {
+    // When isStreaming is true, two trailing newlines are appended to ensure
+    // proper rendering of a reference definition that immediately follows its usage.
+    render(
+      <MarkdownFormatter
+        content={'See [the docs][1].[1]: https://example.com'}
+        role="assistant"
+        isStreaming={true}
+      />
+    );
+
+    // The definition must resolve even when it immediately follows the usage
+    // (no blank line separator) during streaming.
+    const link = screen.getByRole("link", { name: "the docs" }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("https://example.com");
+    expect(screen.queryByText("[the docs][1]")).toBeNull();
+  });
 });

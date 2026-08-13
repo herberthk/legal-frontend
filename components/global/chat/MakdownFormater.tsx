@@ -314,7 +314,7 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
   if (refDefs) {
     return (
       <MarkdownBlock
-        content={content}
+        content={isStreaming ? content + '\n\n' : content}
         showCaret={isStreaming}
         components={components}
       />

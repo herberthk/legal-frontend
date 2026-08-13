@@ -68,11 +68,17 @@ export function splitMarkdownBlocks(content: string): string[] {
       }
     } else {
       current.push(line);
-      const t = line.trim();
       // CommonMark: a fence closes only on a run of the same character at least
       // as long as the opening fence. A shorter run (e.g. 3 backticks under a
-      // 4-backtick opener) is fenced content, not a closer. `t` is trimmed, so a
-      // matching line is exactly its own run of fence characters.
+      // 4-backtick opener) is fenced content, not a closer. The closing line must
+      // have 0-3 leading spaces (no tabs, no 4+ spaces), otherwise it's indented
+      // content that stays inside the fence.
+      const indentMatch = line.match(/^( {0,3})(?=\S|$)/);
+      if (!indentMatch) {
+        // Line starts with tab or 4+ spaces — fenced content, not a closer.
+        continue;
+      }
+      const t = line.trim();
       const isFenceRun = /^`{3,}$/.test(t) || /^~{3,}$/.test(t);
       const closes =
         isFenceRun && t.charAt(0) === fenceChar && t.length >= fenceLength;
