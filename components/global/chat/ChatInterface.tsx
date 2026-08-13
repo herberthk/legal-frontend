@@ -180,6 +180,11 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     error: chatError,
     setMessages,
   } = useChat({
+    // Batch streamed message/data updates to ~25/sec (one per ~2–3 frames)
+    // instead of re-rendering on every network chunk. This is the single
+    // biggest lever for smooth, non-bursty streaming. (`experimental_throttle`
+    // is the deprecated alias for this same option.)
+    throttle: 40,
     transport: new DefaultChatTransport({
       // prepareSendMessagesRequest is called right before each fetch, so
       // chatSessionIdRef.current is always the newest value — never stale.
@@ -499,14 +504,17 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       if (distFromBottom > 150) return;
     }
 
-    if (container) {
-      // Use instant scroll during active streaming or initial load to prevent smooth-scroll queueing jitter
-      const scrollBehavior = (isInitialScroll.current || isLoadingChat) ? "auto" : "smooth";
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: scrollBehavior });
-      } else {
-        container.scrollTop = container.scrollHeight;
-      }
+    // During active streaming or the initial load, pin to the bottom with a
+    // direct scrollTop write. It's a single cheap property set with no animation
+    // queue, so the fast, throttled content growth never fights an in-flight
+    // smooth-scroll — that fight is the main source of streaming scroll jank.
+    // Only the post-answer settle uses a smooth scrollIntoView.
+    if (isInitialScroll.current || isLoadingChat) {
+      container.scrollTop = container.scrollHeight;
+    } else if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    } else {
+      container.scrollTop = container.scrollHeight;
     }
     isInitialScroll.current = false;
   }, [isLoadingChat]);
