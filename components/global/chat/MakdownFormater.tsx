@@ -3,7 +3,11 @@ import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { splitMarkdownBlocks, hasMath } from "./markdown-utils";
+import {
+  splitMarkdownBlocks,
+  hasMath,
+  hasReferenceDefinitions,
+} from "./markdown-utils";
 // import "katex/dist/katex.min.css";
 
 type MarkdownFormatterProps = {
@@ -16,12 +20,14 @@ type MarkdownFormatterProps = {
 // Stable plugin references, chosen per-block. remark-gfm is always on
 // (tables/strikethrough are common in legal answers). remark-math + rehype-katex
 // run ONLY on blocks that actually contain math delimiters (see hasMath), so the
-// common no-math block skips the KaTeX pipeline entirely. trust:true allows
-// KaTeX macros; strict:false suppresses warnings for unsupported LaTeX.
+// common no-math block skips the KaTeX pipeline entirely. trust:false blocks
+// KaTeX's I/O commands (\href, \url, \includegraphics) that can emit arbitrary
+// attributes/links — the equations this app renders never use those; strict:false
+// suppresses warnings for unsupported LaTeX.
 const REMARK_GFM_ONLY = [remarkGfm];
 const REMARK_WITH_MATH = [remarkGfm, remarkMath];
 const REHYPE_WITH_MATH: [typeof rehypeKatex, Record<string, unknown>][] = [
-  [rehypeKatex, { trust: true, strict: false }],
+  [rehypeKatex, { trust: false, strict: false }],
 ];
 const REHYPE_NONE: never[] = [];
 
@@ -298,6 +304,22 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
   // tail re-parses. Cheap O(n) line scan — and with the client render throttle
   // this runs ~25×/sec, not per token.
   const blocks = useMemo(() => splitMarkdownBlocks(content), [content]);
+
+  // Reference-style link definitions ([id]: url) are document-scoped — a
+  // definition separated from its usage by a blank line would be lost if each
+  // block parsed independently. When present, render the whole document through
+  // one MarkdownBlock so the definition and its references share a parse scope.
+  // The common case (no reference defs) keeps the per-block streaming/memo path.
+  const refDefs = useMemo(() => hasReferenceDefinitions(content), [content]);
+  if (refDefs) {
+    return (
+      <MarkdownBlock
+        content={content}
+        showCaret={isStreaming}
+        components={components}
+      />
+    );
+  }
 
   // Nothing yet: show a lone caret while streaming (matches prior behavior when
   // the first token hasn't arrived), otherwise render nothing.
