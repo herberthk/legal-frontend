@@ -28,4 +28,22 @@ describe("MarkdownFormatter", () => {
     const link = screen.getByRole("link", { name: "the docs" }) as HTMLAnchorElement;
     expect(link.getAttribute("href")).toBe("https://example.com");
   });
+
+  it("renders a reference-style link whose definition follows its usage while streaming", () => {
+    // When streaming, the definition lands as the final line with no trailing
+    // newline. The reference-definition branch must close it with two trailing
+    // newlines so the reference still resolves as a link rather than leaking
+    // literal text (such as the caret marker) into the rendered output.
+    render(
+      <MarkdownFormatter
+        content={'See [the docs][1].\n\n[1]: https://example.com'}
+        role="assistant"
+        isStreaming
+      />
+    );
+
+    const link = screen.getByRole("link", { name: "the docs" }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("https://example.com");
+    expect(screen.queryByText("[the docs][1]")).toBeNull();
+  });
 });

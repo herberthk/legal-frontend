@@ -312,9 +312,15 @@ const MarkdownFormatter: React.FC<MarkdownFormatterProps> = ({
   // The common case (no reference defs) keeps the per-block streaming/memo path.
   const refDefs = useMemo(() => hasReferenceDefinitions(content), [content]);
   if (refDefs) {
+    // During streaming a definition that follows its usage may arrive as the
+    // final line with no trailing newline. Appending two newlines lets the
+    // parser close the definition cleanly (and gives room for the caret marker)
+    // so the reference renders as a link rather than literal text. Non-streaming
+    // content is left byte-identical so memoization keeps working.
+    const contentForBlock = isStreaming ? `${content}\n\n` : content;
     return (
       <MarkdownBlock
-        content={content}
+        content={contentForBlock}
         showCaret={isStreaming}
         components={components}
       />
