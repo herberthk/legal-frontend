@@ -21,4 +21,5 @@ export const COLLECTIONS = {
   ANALYTICS: "analytics",
   SYSTEM_CONFIG: "systemConfig",
   SYSTEM_CONFIG_AUDITS: "systemConfigAudits",
+  RATE_LIMITS: "rateLimits",
 } as const;

@@ -4,6 +4,7 @@ import { auth, db } from "@/firebase/admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
 import { sendOtp } from "./email";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limiter";
 import {
   COLLECTIONS,
   FREE_WELCOME_TEXT_TOKENS,
@@ -113,6 +114,36 @@ export async function signUp(
 export async function initiateSignup(params: SignUpParams) {
   const { name, email, password } = params;
   try {
+    // 0. IP & Email Rate Limiting (Prevent OTP flooding)
+    const clientIp = await getClientIp();
+    const ipLimit = await checkRateLimit({
+      action: "signup_ip",
+      key: clientIp,
+      maxAttempts: 5,
+      windowSeconds: 15 * 60,
+    });
+
+    if (!ipLimit.success) {
+      return {
+        success: false,
+        message: ipLimit.message || "Too many signup attempts from this IP. Please try again later.",
+      };
+    }
+
+    const emailLimit = await checkRateLimit({
+      action: "signup_email",
+      key: email,
+      maxAttempts: 3,
+      windowSeconds: 15 * 60,
+    });
+
+    if (!emailLimit.success) {
+      return {
+        success: false,
+        message: emailLimit.message || "Too many verification requests for this email. Please try again later.",
+      };
+    }
+
     // 1. Check if user already exists in Firebase Auth
     try {
       await auth.getUserByEmail(email);
@@ -346,6 +377,36 @@ export async function isAuthenticated() {
  */
 export async function forgotPassword(email: string) {
   try {
+    // 0. IP & Email Rate Limiting (Prevent password reset enumeration/spam)
+    const clientIp = await getClientIp();
+    const ipLimit = await checkRateLimit({
+      action: "reset_ip",
+      key: clientIp,
+      maxAttempts: 5,
+      windowSeconds: 15 * 60,
+    });
+
+    if (!ipLimit.success) {
+      return {
+        success: false,
+        message: ipLimit.message || "Too many password reset attempts from this IP. Please try again later.",
+      };
+    }
+
+    const emailLimit = await checkRateLimit({
+      action: "reset_email",
+      key: email,
+      maxAttempts: 3,
+      windowSeconds: 15 * 60,
+    });
+
+    if (!emailLimit.success) {
+      return {
+        success: false,
+        message: emailLimit.message || "Too many password reset requests for this email. Please try again later.",
+      };
+    }
+
     // Check if user exists first
     const user = await auth.getUserByEmail(email);
 
@@ -537,6 +598,36 @@ export async function recordUserStats(
  */
 export async function resendOtpAction(email: string, type: "signup" | "reset") {
   try {
+    // 0. IP & Email Rate Limiting for OTP resends
+    const clientIp = await getClientIp();
+    const ipLimit = await checkRateLimit({
+      action: "resend_otp_ip",
+      key: clientIp,
+      maxAttempts: 5,
+      windowSeconds: 15 * 60,
+    });
+
+    if (!ipLimit.success) {
+      return {
+        success: false,
+        message: ipLimit.message || "Too many OTP resend requests from this IP. Please try again later.",
+      };
+    }
+
+    const emailLimit = await checkRateLimit({
+      action: "resend_otp_email",
+      key: email,
+      maxAttempts: 3,
+      windowSeconds: 10 * 60,
+    });
+
+    if (!emailLimit.success) {
+      return {
+        success: false,
+        message: emailLimit.message || "Too many OTP resend requests for this email. Please try again later.",
+      };
+    }
+
     if (type === "signup") {
       const pendingRef = db.collection(COLLECTIONS.PENDING_SIGNUPS).doc(email);
       const pendingSnap = await pendingRef.get();

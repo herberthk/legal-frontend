@@ -146,5 +146,8 @@ service cloud.firestore {
     match /pendingSignups/{docId} {
       allow read, write: if false; 
     }
+    match /rateLimits/{docId} {
+      allow read, write: if false; 
+    }
   }
 }

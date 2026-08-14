@@ -7,6 +7,7 @@ import {
   saveChatMessage,
   checkUserCanSend
 } from "@/lib";
+import { verifyAppCheckHeader } from "@/lib/app-check-server";
 import {
   LEGAL_ADVISER_SYSTEM_INSTRUCTION,
   CHARS_PER_TOKEN,
@@ -27,6 +28,17 @@ const MAX_HISTORY_MESSAGES = 6;
 
 export async function POST(req: Request) {
   try {
+    // 0. Verify App Check token
+    const appCheckResult = await verifyAppCheckHeader(req);
+    // console.log("appCheckResult appCheckResult", appCheckResult, "appCheckResult.valid: ", appCheckResult.valid);
+    
+    if (!appCheckResult.valid) {
+      return new Response(
+        JSON.stringify({ error: appCheckResult.error || "Unauthorized client application." }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     const { messages }: { messages: UIMessage[] } = await req.json();
 
     // Read session ID from the custom header set by prepareSendMessagesRequest

@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { getAppCheckToken } from "@/lib/firebaseAppCheck";
 
 /**
  * Custom hook to manage fetching and caching the Gemini ephemeral token.
@@ -20,7 +21,12 @@ export function useEphemeralToken() {
     // Clear the cache before fetching so a failed fetch doesn't leave a stale entry
     ephemeralTokenRef.current = null;
 
-    const res = await fetch("/api/gemini-token");
+    const appCheckToken = await getAppCheckToken();
+    const res = await fetch("/api/gemini-token", {
+      headers: {
+        ...(appCheckToken ? { "x-firebase-appcheck": appCheckToken } : {}),
+      },
+    });
     if (!res.ok) {
       throw new Error(`Failed to fetch ephemeral token: ${res.statusText}`);
     }
