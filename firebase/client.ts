@@ -18,6 +18,12 @@ import {
 } from "firebase/messaging";
 import { getFunctions } from "firebase/functions";
 
+import {
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+  AppCheck,
+} from "firebase/app-check";
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -32,6 +38,39 @@ const firebaseConfig = {
 const app =
   getApps().find((app) => app.name === "[DEFAULT]") ||
   initializeApp(firebaseConfig, "[DEFAULT]");
+
+// ─── Firebase App Check Initialization ─────────────────────────────────────────
+export let appCheck: AppCheck | null = null;
+
+if (typeof window !== "undefined") {
+  // Support local development debug tokens
+  if (process.env.NODE_ENV !== "production") {
+    const debugToken = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN;
+    if (debugToken) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN =
+        debugToken === "true" ? true : debugToken;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+  }
+
+  const appCheckKey =
+    process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_KEY ||
+    process.env.NEXT_PUBLIC_FIREBASE_RECAPTCHA_SITE_KEY;
+
+  if (appCheckKey) {
+    try {
+      appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(appCheckKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (err) {
+      console.warn("[AppCheck] Failed to initialize App Check:", err);
+    }
+  }
+}
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);

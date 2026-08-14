@@ -3,6 +3,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { getStorage } from "firebase-admin/storage";
+import { getAppCheck } from "firebase-admin/app-check";
 
 const firebaseAdminConfig = {
   credential: cert({
@@ -21,6 +22,7 @@ export const auth = getAuth(adminApp);
 export const db = getFirestore(adminApp);
 export const messaging = getMessaging(adminApp);
 export const storageAdmin = getStorage(adminApp);
+export const adminAppCheck = getAppCheck(adminApp);
 // Ensure the region matches your deployed cloud function setup (e.g., us-central1)
 // export const functions = getFunctions(adminApp, "us-central1");
 

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/firebase/client";
 import { saveDocumentReview } from "@/lib/actions/review";
+import { getAppCheckToken } from "@/lib/firebaseAppCheck";
 import {
   BUCKETS,
   MAX_REVIEW_FILE_SIZE,
@@ -141,8 +142,12 @@ export function useDocumentReview() {
       const formData = new FormData();
       formData.append("file", file);
 
+      const appCheckToken = await getAppCheckToken();
       const response = await fetch("/api/review", {
         method: "POST",
+        headers: {
+          ...(appCheckToken ? { "x-firebase-appcheck": appCheckToken } : {}),
+        },
         body: formData,
       });
 

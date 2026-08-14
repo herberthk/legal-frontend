@@ -72,9 +72,15 @@ declare namespace NodeJS {
     GOOGLE_CLIENT_EMAIL: string;
     GOOGLE_PRIVATE_KEY: string;
 
-    // Nylon pay
-    NYLON_PAY_API_KEY: string;
-    NYLON_PAY_API_SECRET: string;
-    NYLON_PAY_WEBHOOK_SECRET: string;
+    // Firebase App Check reCAPTCHA configuration
+    /**
+     * The site key for the reCAPTCHA provider. This is **NOT** the same
+     * as the private key. You can get this from the Firebase Console
+     * under "App Check" → "reCAPTCHA provider" → "Provider configuration".
+     */
+    NEXT_PUBLIC_FIREBASE_RECAPTCHA_SITE_KEY: string;
+    NEXT_PUBLIC_FIREBASE_APPCHECK_KEY: string;
+    NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN?: string;
+    DISABLE_APP_CHECK?: string;
   }
 }

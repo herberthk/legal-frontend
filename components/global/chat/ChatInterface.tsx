@@ -18,6 +18,7 @@ import { getCurrentUser } from "@/lib/actions/auth";
 import { DefaultChatTransport, generateId } from "ai";
 import ChatInput, { ChatInputRef } from "./ChatInput";
 import { checkCanSend } from "@/lib";
+import { getAppCheckToken } from "@/lib/firebaseAppCheck";
 import { getMessageText } from "./chat-hepers";
 import { ChatHero } from "./ChatHero";
 import { ChatMessage } from "./ChatMessage";
@@ -188,13 +189,17 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     transport: new DefaultChatTransport({
       // prepareSendMessagesRequest is called right before each fetch, so
       // chatSessionIdRef.current is always the newest value — never stale.
-      prepareSendMessagesRequest: ({ messages: msgs, id }) => ({
-        headers: {
-          "x-chat-id": chatSessionIdRef.current ?? "",
-          "x-first-message": !chatSessionId ? "true" : "false",
-        },
-        body: { messages: msgs, id },
-      }),
+      prepareSendMessagesRequest: async ({ messages: msgs, id }) => {
+        const appCheckToken = await getAppCheckToken();
+        return {
+          headers: {
+            "x-chat-id": chatSessionIdRef.current ?? "",
+            "x-first-message": !chatSessionId ? "true" : "false",
+            ...(appCheckToken ? { "x-firebase-appcheck": appCheckToken } : {}),
+          },
+          body: { messages: msgs, id },
+        };
+      },
     }),
     onFinish: async ({ message }) => {
       // Update session stats with estimated token count

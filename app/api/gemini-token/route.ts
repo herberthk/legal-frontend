@@ -1,11 +1,21 @@
 import { getCurrentUser } from "@/lib/actions/auth";
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
+import { verifyAppCheckHeader } from "@/lib/app-check-server";
 
 //force to use edge runtime
 // export const runtime = "edge";
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const appCheckResult = await verifyAppCheckHeader(req);
+    //console.log("appCheckResult appCheckResult", appCheckResult, "appCheckResult.valid: ", appCheckResult.valid);
+    if (!appCheckResult.valid) {
+      return NextResponse.json(
+        { error: appCheckResult.error || "Unauthorized client application" },
+        { status: 401 },
+      );
+    }
+
     const user = await getCurrentUser();
 
     if (!user) {

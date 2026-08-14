@@ -2,6 +2,7 @@ import { generateText, Output, ModelMessage  } from "ai";
 import { z } from 'zod';
 import { getAuthenticatedUserId } from "@/lib/actions/auth";
 import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
+import { verifyAppCheckHeader } from "@/lib/app-check-server";
 import {
   LEGAL_DOCUMENT_REVIEW_PROMPT,
   CHARS_PER_TOKEN,
@@ -60,6 +61,15 @@ const legalReviewSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    // 0. Verify App Check token
+    const appCheckResult = await verifyAppCheckHeader(req);
+    if (!appCheckResult.valid) {
+      return Response.json(
+        { error: appCheckResult.error || "Unauthorized client application." },
+        { status: 401 },
+      );
+    }
+
     // 1. Authenticate user
     const userId = await getAuthenticatedUserId();
     if (!userId) {
