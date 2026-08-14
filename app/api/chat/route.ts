@@ -14,8 +14,8 @@ import {
 } from "@/constants";
 import { vertex } from "@/lib/actions/vertex";
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// Allow streaming responses up to 50 seconds
+export const maxDuration = 50;
 
 // Cache dynamic imports so they are only loaded once per cold start
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -197,7 +197,7 @@ export async function POST(req: Request) {
       // Smooths BOTH the answer and the reasoning/"thinking" stream. delayInMs:10
       // drains at ~100 words/sec, which keeps even very long answers under the
       // maxDuration=30s ceiling (see note above the export).
-      experimental_transform: smoothStream({ chunking: "word", delayInMs: 10 }),
+      experimental_transform: smoothStream({ chunking: "word", delayInMs: 20 }),
       messages: modelMessages,
       onEnd: async ({ text, usage }) => {
         const totalTokens =
