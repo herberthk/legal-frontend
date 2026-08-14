@@ -371,6 +371,22 @@ export async function isAuthenticated() {
 }
 
 /**
+ * Helper to deliver a password reset OTP email.
+ */
+async function deliverResetOtp(user: {
+  uid: string;
+  email?: string;
+  displayName?: string;
+}) {
+  return await sendOtp({
+    id: user.uid,
+    email: user.email || "",
+    name: user.displayName || user.email?.split("@")[0] || "User",
+    type: "reset",
+  });
+}
+
+/**
  * Sends a password reset email to the specified email address
  * @param email - The email address to send the reset link to
  * @returns Object with success status and message
@@ -411,12 +427,7 @@ export async function forgotPassword(email: string) {
     const user = await auth.getUserByEmail(email);
 
     // Send the custom OTP email
-    const otpsent = await sendOtp({
-      id: user.uid,
-      email: user.email || email,
-      name: user.displayName || user.email?.split("@")[0] || "User",
-      type: "reset",
-    });
+    const otpsent = await deliverResetOtp(user);
 
     if (!otpsent) {
       return {
@@ -598,37 +609,37 @@ export async function recordUserStats(
  */
 export async function resendOtpAction(email: string, type: "signup" | "reset") {
   try {
-    // 0. IP & Email Rate Limiting for OTP resends
     const clientIp = await getClientIp();
-    const ipLimit = await checkRateLimit({
-      action: "resend_otp_ip",
-      key: clientIp,
-      maxAttempts: 5,
-      windowSeconds: 15 * 60,
-    });
-
-    if (!ipLimit.success) {
-      return {
-        success: false,
-        message: ipLimit.message || "Too many OTP resend requests from this IP. Please try again later.",
-      };
-    }
-
-    const emailLimit = await checkRateLimit({
-      action: "resend_otp_email",
-      key: email,
-      maxAttempts: 3,
-      windowSeconds: 10 * 60,
-    });
-
-    if (!emailLimit.success) {
-      return {
-        success: false,
-        message: emailLimit.message || "Too many OTP resend requests for this email. Please try again later.",
-      };
-    }
 
     if (type === "signup") {
+      const ipLimit = await checkRateLimit({
+        action: "resend_otp_ip",
+        key: clientIp,
+        maxAttempts: 5,
+        windowSeconds: 15 * 60,
+      });
+
+      if (!ipLimit.success) {
+        return {
+          success: false,
+          message: ipLimit.message || "Too many OTP resend requests from this IP. Please try again later.",
+        };
+      }
+
+      const emailLimit = await checkRateLimit({
+        action: "resend_otp_email",
+        key: email,
+        maxAttempts: 3,
+        windowSeconds: 10 * 60,
+      });
+
+      if (!emailLimit.success) {
+        return {
+          success: false,
+          message: emailLimit.message || "Too many OTP resend requests for this email. Please try again later.",
+        };
+      }
+
       const pendingRef = db.collection(COLLECTIONS.PENDING_SIGNUPS).doc(email);
       const pendingSnap = await pendingRef.get();
 
@@ -653,10 +664,62 @@ export async function resendOtpAction(email: string, type: "signup" | "reset") {
 
       return { success: true, message: "New verification code sent!" };
     } else {
-      // For reset, we just reuse forgotPassword logic as it does exactly what we need
-      return await forgotPassword(email);
+      // For reset OTP resend: apply reset limits directly without double-counting or invoking forgotPassword
+      const ipLimit = await checkRateLimit({
+        action: "reset_ip",
+        key: clientIp,
+        maxAttempts: 5,
+        windowSeconds: 15 * 60,
+      });
+
+      if (!ipLimit.success) {
+        return {
+          success: false,
+          message: ipLimit.message || "Too many password reset attempts from this IP. Please try again later.",
+        };
+      }
+
+      const emailLimit = await checkRateLimit({
+        action: "reset_email",
+        key: email,
+        maxAttempts: 3,
+        windowSeconds: 15 * 60,
+      });
+
+      if (!emailLimit.success) {
+        return {
+          success: false,
+          message: emailLimit.message || "Too many password reset requests for this email. Please try again later.",
+        };
+      }
+
+      const user = await auth.getUserByEmail(email);
+      const otpsent = await deliverResetOtp(user);
+
+      if (!otpsent) {
+        return {
+          success: false,
+          message: "Failed to send verification code. Please try again.",
+        };
+      }
+
+      return {
+        success: true,
+        message: "New verification code sent!",
+      };
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (error as any).code === "auth/user-not-found"
+    ) {
+      return {
+        success: false,
+        message: "No account found with this email address.",
+      };
+    }
+
     console.error("ResendOtpAction Error:", error);
     return {
       success: false,
