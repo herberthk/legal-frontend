@@ -57,8 +57,12 @@ const LoginPage = () => {
           // 4. Capture and Record User Statistics
           const stats = getDeviceStats();
           if (stats) {
-            // We don't await this to keep login fast (best performance)
-            recordUserStats({ ...stats });
+            // Fire-and-forget to keep login fast; handle the promise so a failed
+            // background analytics write can't become an unhandled rejection.
+            // Non-fatal — log only, never interrupt the auth flow.
+            recordUserStats({ ...stats }).catch((err) =>
+              console.error("recordUserStats failed:", err),
+            );
           }
 
           setUser(user);
