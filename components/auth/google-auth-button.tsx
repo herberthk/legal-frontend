@@ -61,7 +61,12 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
         // 4. Record User Statistics
         const stats = getDeviceStats();
         if (stats) {
-          recordUserStats({ ...stats });
+          // Fire-and-forget to keep sign-in fast; handle the promise so a failed
+          // background analytics write can't become an unhandled rejection.
+          // Non-fatal — log only, never interrupt the auth flow.
+          recordUserStats({ ...stats }).catch((err) =>
+            console.error("recordUserStats failed:", err),
+          );
         }
 
          // 5. Fetch user profile to determine role-based redirection

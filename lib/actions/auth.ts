@@ -536,6 +536,19 @@ export async function recordUserStats(
     return { success: false };
   }
 
+  // Bound abuse from an authenticated caller: normal usage records once per login,
+  // so a small per-user allowance lets legitimate re-logins through while stopping
+  // loops that would pollute analytics counters or run up Firestore write costs.
+  const statsLimit = await checkRateLimit({
+    action: "record_user_stats",
+    key: userId,
+    maxAttempts: 10,
+    windowSeconds: 10 * 60,
+  });
+  if (!statsLimit.success) {
+    return { success: false };
+  }
+
   const { headers } = await import("next/headers");
   const headerList = await headers();
 
