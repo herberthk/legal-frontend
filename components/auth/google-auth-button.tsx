@@ -61,7 +61,7 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
         // 4. Record User Statistics
         const stats = getDeviceStats();
         if (stats) {
-          recordUserStats(user.uid, { ...stats });
+          recordUserStats({ ...stats });
         }
 
          // 5. Fetch user profile to determine role-based redirection

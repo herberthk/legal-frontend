@@ -526,9 +526,16 @@ export async function resetPasswordWithOtp(email: string, newPassword: string) {
  * Records user statistics in Firestore.
  */
 export async function recordUserStats(
-  userId: string,
   stats: Omit<UserStats, "userId" | "ip" | "createdAt" | "country" | "city">,
 ) {
+  // Derive the user from the verified session cookie — never trust a client-supplied uid.
+  // This also gates the analytics writes behind authentication, so anonymous callers
+  // can't spam this action to inflate counters or run up Firestore write costs.
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return { success: false };
+  }
+
   const { headers } = await import("next/headers");
   const headerList = await headers();
 

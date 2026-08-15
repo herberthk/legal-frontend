@@ -29,18 +29,21 @@ export interface RateLimitResult {
 export async function getClientIp(): Promise<string> {
   try {
     const headerList = await headers();
+
+    // Prefer headers set by the hosting platform, which clients cannot spoof.
+    // Vercel sets x-real-ip to the true client IP; Cloudflare sets cf-connecting-ip.
+    const realIp = headerList.get("x-real-ip")?.trim();
+    if (realIp) return realIp;
+
+    const cfIp = headerList.get("cf-connecting-ip")?.trim();
+    if (cfIp) return cfIp;
+
+    // Fall back to x-forwarded-for last. Its leftmost entry can be client-supplied
+    // behind some proxies, so it is the least trustworthy source for rate limiting.
     const forwardedFor = headerList.get("x-forwarded-for");
     if (forwardedFor) {
-      // Return the first client IP in the proxy chain
-      return forwardedFor.split(",")[0].trim();
-    }
-    const realIp = headerList.get("x-real-ip");
-    if (realIp) {
-      return realIp.trim();
-    }
-    const cfIp = headerList.get("cf-connecting-ip");
-    if (cfIp) {
-      return cfIp.trim();
+      const firstIp = forwardedFor.split(",")[0]?.trim();
+      if (firstIp) return firstIp;
     }
   } catch {
     // Fallback if called outside header context
