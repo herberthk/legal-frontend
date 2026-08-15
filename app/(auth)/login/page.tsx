@@ -58,7 +58,7 @@ const LoginPage = () => {
           const stats = getDeviceStats();
           if (stats) {
             // We don't await this to keep login fast (best performance)
-            recordUserStats(user.id, { ...stats });
+            recordUserStats({ ...stats });
           }
 
           setUser(user);
