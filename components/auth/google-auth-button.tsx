@@ -57,11 +57,19 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
       const sessionResult = await signIn({ idToken });
 
       if (sessionResult.success) {
-       
+
         // 4. Record User Statistics
         const stats = getDeviceStats();
         if (stats) {
-          recordUserStats({ ...stats });
+          recordUserStats({ ...stats })
+            .then((result) => {
+              if (!result.success) {
+                console.error("Failed to record user stats");
+              }
+            })
+            .catch((error) => {
+              console.error("Error recording user stats:", error);
+            });
         }
 
          // 5. Fetch user profile to determine role-based redirection

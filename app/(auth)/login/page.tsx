@@ -58,7 +58,15 @@ const LoginPage = () => {
           const stats = getDeviceStats();
           if (stats) {
             // We don't await this to keep login fast (best performance)
-            recordUserStats({ ...stats });
+            recordUserStats({ ...stats })
+              .then((result) => {
+                if (!result.success) {
+                  console.error("Failed to record user stats");
+                }
+              })
+              .catch((error) => {
+                console.error("Error recording user stats:", error);
+              });
           }
 
           setUser(user);

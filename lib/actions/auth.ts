@@ -536,6 +536,19 @@ export async function recordUserStats(
     return { success: false };
   }
 
+  // Apply per-user rate limiting to prevent spam
+  const userRateLimit = await checkRateLimit({
+    action: "record_stats",
+    key: userId,
+    maxAttempts: 10,
+    windowSeconds: 60 * 60, // 10 attempts per hour
+  });
+
+  if (!userRateLimit.success) {
+    console.warn(`Rate limit exceeded for user stats: ${userId}`);
+    return { success: false };
+  }
+
   const { headers } = await import("next/headers");
   const headerList = await headers();
 
