@@ -25,14 +25,14 @@ export async function GET(
 
   const url = new URL(req.url);
 
+  let limit = 10;
   if (url.searchParams.has("limit")) {
     const rawLimit = Number(url.searchParams.get("limit"));
     if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 50) {
       return badRequest("limit must be an integer between 1 and 50");
     }
+    limit = rawLimit;
   }
-  const rawLimit = Number(url.searchParams.get("limit") ?? "10");
-  const limit = Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 50 ? rawLimit : 10;
 
   const cursorId = url.searchParams.get("cursorId");
   const cursorCreatedAt = url.searchParams.get("cursorCreatedAt");

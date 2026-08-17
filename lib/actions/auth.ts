@@ -10,6 +10,7 @@ import {
   FREE_WELCOME_TEXT_TOKENS,
   FREE_WELCOME_VOICE_SECONDS,
 } from "@/constants";
+import { getFriendlyErrorMessage } from "@/lib/errors";
 
 /**
  * Session duration constant set to 1 week in seconds
@@ -736,7 +737,8 @@ export async function resendOtpAction(email: string, type: "signup" | "reset") {
     ) {
       return {
         success: false,
-        message: "No account found with this email address.",
+        code: "user-not-found",
+        message: getFriendlyErrorMessage("auth/user-not-found"),
       };
     }
 

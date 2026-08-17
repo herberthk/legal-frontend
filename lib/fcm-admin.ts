@@ -66,11 +66,19 @@ export async function sendPushToUser({
         errCode === "messaging/registration-token-not-registered" ||
         errCode === "messaging/invalid-registration-token"
       ) {
-        const docId = getFCMTokenDocId(tokens[idx]);
+        const rawToken = tokens[idx];
+        const docId = getFCMTokenDocId(rawToken);
         staleCleanup.push(
           db
             .collection(COLLECTIONS.FCM_TOKENS)
             .doc(docId)
+            .delete()
+            .catch(() => {
+              /* silently ignore cleanup errors */
+            }),
+          db
+            .collection(COLLECTIONS.FCM_TOKENS)
+            .doc(rawToken)
             .delete()
             .catch(() => {
               /* silently ignore cleanup errors */

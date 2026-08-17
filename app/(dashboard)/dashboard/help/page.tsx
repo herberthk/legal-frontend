@@ -13,11 +13,15 @@ const HelpPage = async () => {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  // Parallel fetching
+  // Trigger seeding in background without blocking or rejecting page data
+  seedHelpArticles().catch((err) => {
+    console.error("Failed to seed help articles in background:", err);
+  });
+
+  // Parallel fetching for page data
   const [ticketsResult, faqsResult] = await Promise.all([
     getUserSupportTickets(user.id),
     getHelpArticles(),
-    seedHelpArticles(), // Runs in background, seeds if empty
   ]);
   const tickets = ticketsResult.success ? ticketsResult.tickets : [];
   const faqs = faqsResult.success ? faqsResult.articles : [];

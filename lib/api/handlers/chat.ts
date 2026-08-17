@@ -48,7 +48,20 @@ async function fetchAttachment(rawUrl: string): Promise<Buffer> {
     signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) throw new Error(`Attachment fetch failed: ${response.status}`);
-  return Buffer.from(await response.arrayBuffer());
+
+  // Guard against unexpectedly large downloads (e.g. a 500 MB file that exhausts server RAM).
+  const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
+  const contentLength = Number(response.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_ATTACHMENT_BYTES) {
+    throw new Error(`Attachment too large (${contentLength} bytes). Maximum allowed is 10 MB.`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  if (arrayBuffer.byteLength > MAX_ATTACHMENT_BYTES) {
+    throw new Error(`Attachment too large (${arrayBuffer.byteLength} bytes). Maximum allowed is 10 MB.`);
+  }
+
+  return Buffer.from(arrayBuffer);
 }
 
 export async function handleChatRequest(

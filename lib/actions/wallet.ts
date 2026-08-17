@@ -356,6 +356,7 @@ export async function getTransaction(transactionId: string) {
     const data = doc.data();
     return {
       success: true,
+      notFound: false,
       transaction: {
         ...data,
         id: doc.id,

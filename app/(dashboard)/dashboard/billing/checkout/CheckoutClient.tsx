@@ -203,7 +203,6 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     setIsVerifying(true);
     try {
       const res = await verifyPhoneNumber(parsed.formattedNumber!);
-      console.log("res", res)
       if (res.success && 'data' in res ) {
         setVerifiedName(res.data?.fullName || null);
       } else {
@@ -216,11 +215,17 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     }
   }, [phoneNumber]);
 
+  const idempotencyKeyRef = useRef<string | null>(null);
+
   const handleInitiateMobileMoney = useCallback(async () => {
     const parsed = parseUgandanNumber(phoneNumber);
     if (!parsed.isValid) {
       toast.error(parsed.error ?? "Invalid phone number format");
       return;
+    }
+
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = crypto.randomUUID();
     }
 
     setIsProcessing(true);
@@ -230,14 +235,16 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
         msisdn: parsed.formattedNumber!,
         amount,
         userName: verifiedName || undefined,
+        idempotencyKey: idempotencyKeyRef.current,
       });
 
-      if (res.success && res.data?.reference) {
+      if (res.success) {
+        idempotencyKeyRef.current = null;
         resetCheckout();
         resetVerification();
         router.push(`/dashboard/billing/checkout/waiting?ref=${res.data.reference}`);
       } else {
-        toast.error("Failed to initialize Mobile Money");
+        toast.error(res.error || "Failed to initialize Mobile Money");
       }
     } catch {
       toast.error("Error connecting to Mobile Money gateway");

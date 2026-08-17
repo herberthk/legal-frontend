@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { saveTranscriptionRecord } from "@/services/transcribe";
-import { ok, badRequest, notFoundError } from "@/lib/api/v1/response";
+import { ok, badRequest, notFoundError, internalError } from "@/lib/api/v1/response";
 
 /**
  * `POST /api/v1/transcriptions/records` — persists a completed transcription to
@@ -38,7 +38,10 @@ export async function POST(req: Request) {
 
   const result = await saveTranscriptionRecord(parsed.data, gate.userId);
   if (!result.success) {
-    return notFoundError(result.error || "Failed to save transcription record.");
+    if (result.notFound) {
+      return notFoundError(result.error || "Transcription not found.");
+    }
+    return internalError(result.error || "Failed to save transcription record.");
   }
   return ok(result);
 }

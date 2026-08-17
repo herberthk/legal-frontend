@@ -21,7 +21,6 @@ export async function GET(req: Request) {
   const rawSize = Number(url.searchParams.get("pageSize") ?? "10");
   const pageSize = Number.isInteger(rawSize) && rawSize > 0 && rawSize <= 50 ? rawSize : 10;
   const type = url.searchParams.get("type") ?? "ALL";
-  // const duration = url.searchParams.get("duration") ?? "all";
   const durationParam = url.searchParams.get("duration");
   const duration =
     DURATIONS.includes(durationParam as (typeof DURATIONS)[number])

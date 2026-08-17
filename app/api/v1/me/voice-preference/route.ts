@@ -6,7 +6,7 @@ import { ok, badRequest, internalError } from "@/lib/api/v1/response";
 /**
  * Permitted voice identifiers matching the global Voice union.
  */
-const ALLOWED_VOICE_IDS = [
+export const VOICES = [
   "Puck",
   "Charon",
   "Kore",
@@ -26,12 +26,14 @@ const ALLOWED_VOICE_IDS = [
   "Umbriel",
 ] as const;
 
+export type VoiceId = (typeof VOICES)[number];
+
 /**
  * `PATCH /api/v1/me/voice-preference` — sets the user's preferred Gemini Live
  * voice. `preferedVoiceId` is validated against the permitted Voice allowlist.
  */
 const schema = z.object({
-  preferedVoiceId: z.enum(ALLOWED_VOICE_IDS),
+  preferedVoiceId: z.enum(VOICES),
   preferedVoiceName: z.string().min(1).max(120),
 });
 

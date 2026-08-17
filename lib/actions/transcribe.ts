@@ -35,7 +35,12 @@ export async function saveTranscriptionRecord(
     TranscriptionRecord,
     "id" | "createdAt" | "updatedAt" | "userId"
   > & { id?: string },
-) {
+): Promise<{
+  success: boolean;
+  id?: string;
+  notFound?: boolean;
+  error?: string;
+}> {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) {
@@ -55,7 +60,12 @@ export async function getTranscriptions(
   beforeId?: string,
   searchQuery?: string,
   timeRange?: "24h" | "7d" | "30d" | "all",
-) {
+): Promise<{
+  success: boolean;
+  transcriptions: TranscriptionRecord[];
+  hasMore: boolean;
+  error?: string;
+}> {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) {
@@ -86,18 +96,23 @@ export async function getTranscriptions(
   }
 }
 
-export async function getTranscriptionRecord(id: string) {
+export async function getTranscriptionRecord(id: string): Promise<{
+  success: boolean;
+  record?: TranscriptionRecord;
+  notFound?: boolean;
+  error?: string;
+}> {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, notFound: false, error: "Unauthorized" };
     }
 
     return await transcribeService.getTranscriptionRecord(id, userId);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error getting transcription action:", error);
-    return { success: false, error: error.message };
+    return { success: false, notFound: false, error: error.message };
   }
 }
 
@@ -105,20 +120,21 @@ export async function deleteTranscriptionRecord(
   id: string,
 ): Promise<{
   success: boolean;
+  notFound?: boolean;
   error?: string;
   fileUrl?: string;
 }> {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, notFound: false, error: "Unauthorized" };
     }
 
     return await transcribeService.deleteTranscriptionRecord(id, userId);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error deleting transcription action:", error);
-    return { success: false, error: error.message };
+    return { success: false, notFound: false, error: error.message };
   }
 }
 

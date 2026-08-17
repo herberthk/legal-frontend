@@ -3,6 +3,7 @@ import { db, messaging } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
 import { getCurrentUser } from "@/lib/actions/auth";
 import { MulticastMessage } from "firebase-admin/messaging";
+import { getFCMTokenDocId } from "@/lib/fcm-utils";
 
 type SendPushBody = {
   userId: string;
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
     }
 
     const tokens = tokensSnap.docs.map((d) => d.data().token as string);
-    console.log("[FCM] Sending push notification to user:", tokens);
+
 
     const message: MulticastMessage = {
       tokens,
@@ -86,8 +87,11 @@ export async function POST(req: Request) {
           errCode === "messaging/registration-token-not-registered" ||
           errCode === "messaging/invalid-registration-token"
         ) {
+          const rawToken = tokens[idx];
+          const docId = getFCMTokenDocId(rawToken);
           staleTokenDeletions.push(
-            db.collection(COLLECTIONS.FCM_TOKENS).doc(tokens[idx]).delete(),
+            db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).delete().catch(() => {}),
+            db.collection(COLLECTIONS.FCM_TOKENS).doc(rawToken).delete().catch(() => {}),
           );
         } else {
           console.error(

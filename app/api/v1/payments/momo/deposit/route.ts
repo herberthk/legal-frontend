@@ -12,8 +12,8 @@ import { ok, badRequest } from "@/lib/api/v1/response";
  */
 const schema = z.object({
   msisdn: z.string().min(6).max(20),
-  amount: z.number().positive().max(7_000_000).optional(),
-  amountUgx: z.number().positive().max(7_000_000).optional(),
+  amount: z.number().min(1000).max(7_000_000).optional(),
+  amountUgx: z.number().min(1000).max(7_000_000).optional(),
   userName: z.string().max(120).optional(),
   idempotencyKey: z.string().min(1).max(128).optional(),
 }).refine((data) => data.amount !== undefined || data.amountUgx !== undefined, {
@@ -31,13 +31,17 @@ export async function POST(req: Request) {
     return badRequest("Invalid JSON body");
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid request body");
+  if (!parsed.success) return badRequest(parsed.error.issues[0]?.message || "Invalid request body");
 
   const headerIdempotencyKey =
     req.headers.get("idempotency-key") ||
     req.headers.get("x-idempotency-key") ||
     undefined;
   const idempotencyKey = parsed.data.idempotencyKey || headerIdempotencyKey;
+
+  if (!idempotencyKey) {
+    return badRequest("idempotencyKey is required for deposit requests");
+  }
 
   const canonicalAmount = parsed.data.amount ?? parsed.data.amountUgx!;
 

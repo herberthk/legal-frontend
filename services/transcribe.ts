@@ -132,7 +132,7 @@ export async function saveTranscriptionRecord(
     "id" | "createdAt" | "updatedAt" | "userId"
   > & { id?: string },
   userId: string,
-) {
+): Promise<{ success: boolean; id?: string; notFound?: boolean; error?: string }> {
   try {
     if (!userId) {
       throw new Error("Unauthorized");
@@ -145,7 +145,11 @@ export async function saveTranscriptionRecord(
       const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc(id);
       const doc = await docRef.get();
       if (!doc.exists || doc.data()?.userId !== userId) {
-        throw new Error("Unauthorized or Transcription not found");
+        return {
+          success: false,
+          notFound: true,
+          error: "Transcription record not found or unauthorized",
+        };
       }
       await docRef.update({
         ...updateData,
@@ -165,7 +169,7 @@ export async function saveTranscriptionRecord(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error saving transcription:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to save transcription record." };
   }
 }
 
@@ -221,8 +225,10 @@ export async function getTranscriptions(
         .collection(COLLECTIONS.TRANSCRIPTIONS)
         .doc(beforeId)
         .get();
-      if (cursorDoc.exists) {
-        collectionRef = collectionRef.startAfter(cursorDoc);
+      if (cursorDoc.exists && cursorDoc.data()?.userId === userId) {
+        if (!searchQuery || typeof cursorDoc.data()?.title === "string") {
+          collectionRef = collectionRef.startAfter(cursorDoc);
+        }
       }
     }
 
@@ -250,12 +256,20 @@ export async function getTranscriptions(
       success: false,
       transcriptions: [],
       hasMore: false,
-      error: error.message,
+      error: "Failed to retrieve transcriptions.",
     };
   }
 }
 
-export async function getTranscriptionRecord(id: string, userId: string) {
+export async function getTranscriptionRecord(
+  id: string,
+  userId: string,
+): Promise<{
+  success: boolean;
+  notFound?: boolean;
+  record?: TranscriptionRecord;
+  error?: string;
+}> {
   try {
     if (!userId) {
       throw new Error("Unauthorized");
@@ -264,7 +278,7 @@ export async function getTranscriptionRecord(id: string, userId: string) {
     const doc = await db.collection(COLLECTIONS.TRANSCRIPTIONS).doc(id).get();
 
     if (!doc.exists || doc.data()?.userId !== userId) {
-      return { success: false, error: "Transcription not found" };
+      return { success: false, notFound: true, error: "Transcription not found" };
     }
 
     const data = doc.data();
@@ -281,7 +295,7 @@ export async function getTranscriptionRecord(id: string, userId: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error getting transcription:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to retrieve transcription." };
   }
 }
 
@@ -290,6 +304,7 @@ export async function deleteTranscriptionRecord(
   userId: string,
 ): Promise<{
   success: boolean;
+  notFound?: boolean;
   error?: string;
   fileUrl?: string;
 }> {
@@ -302,11 +317,11 @@ export async function deleteTranscriptionRecord(
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      return { success: false, error: "Transcription not found" };
+      return { success: false, notFound: true, error: "Transcription not found" };
     }
 
     if (doc.data()?.userId !== userId) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, notFound: true, error: "Unauthorized" };
     }
 
     const fileUrl = doc.data()?.fileUrl as string;
@@ -317,6 +332,6 @@ export async function deleteTranscriptionRecord(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error deleting transcription:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to delete transcription." };
   }
 }

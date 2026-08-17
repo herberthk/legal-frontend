@@ -16,5 +16,5 @@ export async function GET(req: Request) {
 
   const result = await getHelpArticles(category);
   if (!result.success) return internalError(result.error);
-  return ok({ articles: result.articles });
+  return ok(result.articles);
 }
