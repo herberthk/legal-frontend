@@ -19,12 +19,19 @@ interface TranscribeDocumentParams {
   fileName: string;
 }
 
-export async function transcribeDocument(params: TranscribeDocumentParams) {
+export async function transcribeDocument(
+  params: TranscribeDocumentParams,
+  // Mobile/Bearer path passes the token-verified uid; web callers omit it and
+  // keep resolving identity from the session cookie (behaviour unchanged). The
+  // metered AI call + billing below must stay single-sourced, so v1 reuses this
+  // function rather than duplicating the deduction logic.
+  userIdOverride?: string,
+) {
   const { base64Data, mimeType, formatMode, fileName } = params;
 
   try {
     // 1. Authenticate user
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) {
       throw new Error("Unauthorized: Please sign in to transcribe documents.");
     }
@@ -133,9 +140,12 @@ export async function saveTranscriptionRecord(
     TranscriptionRecord,
     "id" | "createdAt" | "updatedAt" | "userId"
   > & { id?: string },
+  // Mobile/Bearer path passes the token-verified uid; web callers omit it and
+  // keep resolving identity from the session cookie (behaviour unchanged).
+  userIdOverride?: string,
 ) {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) {
       throw new Error("Unauthorized");
     }
@@ -176,9 +186,12 @@ export async function getTranscriptions(
   beforeId?: string,
   searchQuery?: string,
   timeRange?: "24h" | "7d" | "30d" | "all",
+  // Mobile/Bearer path passes the token-verified uid; web callers omit it and
+  // keep resolving identity from the session cookie (behaviour unchanged).
+  userIdOverride?: string,
 ) {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) {
       throw new Error("Unauthorized");
     }
@@ -257,9 +270,9 @@ export async function getTranscriptions(
   }
 }
 
-export async function getTranscriptionRecord(id: string) {
+export async function getTranscriptionRecord(id: string, userIdOverride?: string) {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) {
       throw new Error("Unauthorized");
     }
@@ -288,13 +301,16 @@ export async function getTranscriptionRecord(id: string) {
   }
 }
 
-export async function deleteTranscriptionRecord(id: string): Promise<{
+export async function deleteTranscriptionRecord(
+  id: string,
+  userIdOverride?: string,
+): Promise<{
   success: boolean;
   error?: string;
   fileUrl?: string;
 }> {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) {
       throw new Error("Unauthorized");
     }
