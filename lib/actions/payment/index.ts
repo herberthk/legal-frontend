@@ -76,73 +76,137 @@ export const initiateCheckoutPayment = async (params: {
   amountUsd?:      number;
   userName?:       string;
   idempotencyKey?: string;
-}): Promise<{success:boolean, data?: {
-    reference:     string;
-    transactionId: string;
-    status:        TransactionStatus;
-  }} | {success:false, error: string}> =>
- {  
+}): Promise<
+  | {
+      success: true;
+      data: {
+        reference:     string;
+        transactionId: string;
+        status:        TransactionStatus | string;
+      };
+    }
+  | { success: false; error: string }
+> => {  
   try {
+    if (!params.userId || typeof params.userId !== "string") {
+      return { success: false, error: "Unauthorized caller" };
+    }
+
     const rawAmount = params.amount ?? params.amountUgx;
-    if (!rawAmount || typeof rawAmount !== "number" || rawAmount <= 0) {
-      return { success: false, error: "Invalid payment amount" };
+    if (!rawAmount || typeof rawAmount !== "number" || rawAmount < 1000 || rawAmount > 7_000_000) {
+      return { success: false, error: "Invalid payment amount. Must be between 1,000 and 7,000,000 UGX" };
     }
     const amountUgx = Math.floor(rawAmount);
 
-    // If an idempotency key is supplied, check for an existing transaction
-    if (params.idempotencyKey) {
-      const existingSnap = await db
-        .collection(COLLECTIONS.TRANSACTIONS)
-        .where("userId", "==", params.userId)
-        .where("idempotencyKey", "==", params.idempotencyKey)
-        .limit(1)
-        .get();
-
-      if (!existingSnap.empty) {
-        const existingDoc = existingSnap.docs[0];
-        const existingData = existingDoc.data() as Transaction;
-        return {
-          success: true,
-          data: {
-            reference: existingData.reference || existingDoc.id,
-            transactionId: existingDoc.id,
-            status: existingData.status as TransactionStatus,
-          },
-        };
-      }
-    }
-
     // Derive USD amount strictly using trusted server exchange rate
     const amountUsd = amountUgx / USD_TO_UGX_EXCHANGE_RATE;
-
-    const externalReference = pawapay.deposits.generateId(); // UUIDv4;
-
-    // Detect provider from phone prefix for storage/display purposes
     const { provider } = parseUgandanNumber(params.msisdn);
     const method: TransactionMethod = provider === "MTN" ? "MTN" : "AIRTEL";
     const feeResult = pawapay.calculateFee(amountUgx);
-
-    // Pre-create Firestore transaction record in "pending" state.
-    // If PawaPay later fails, we mark it "failed" below.
-    const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference);
     const total = amountUgx + feeResult.fee;
-    const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> & { idempotencyKey?: string } = {
-      userId: params.userId,
-      type: "DEPOSIT",
-      description: `Funds Deposit via Mobile Money (${method})`,
-      amount: Math.round(amountUsd * 100),
-      createdAt: FieldValue.serverTimestamp(),
-      details: `Phone: ${params.msisdn}`,
-      reference: externalReference,
-      status: "PENDING",
-      fee: feeResult.fee,
-      method,
-      ...(params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : {}),
-    };
 
-    await transactionRef.set({
-      ...transaction
+    // Deterministic external reference
+    const generatedReference = pawapay.deposits.generateId();
+
+    // Perform atomic idempotency claim via Firestore transaction
+    type ClaimResult =
+      | { isExisting: true; success: true; data: { reference: string; transactionId: string; status: TransactionStatus | string } }
+      | { isExisting: true; success: false; error: string }
+      | { isExisting: false; externalReference: string; transactionRef: FirebaseFirestore.DocumentReference; claimRef?: FirebaseFirestore.DocumentReference };
+
+    const claimResult: ClaimResult = await db.runTransaction(async (transaction) => {
+      if (params.idempotencyKey) {
+        const claimDocId = `${params.userId}_${params.idempotencyKey}`;
+        const claimRef = db.collection("idempotency_claims").doc(claimDocId);
+        const claimSnap = await transaction.get(claimRef);
+
+        if (claimSnap.exists) {
+          const claimData = claimSnap.data() as {
+            transactionId: string;
+            reference: string;
+            // Firestore stores the app-level status string, not the PawaPay SDK enum
+            status: "PENDING" | "COMPLETED" | "FAILED" | "ACCEPTED" | string;
+          };
+
+          if (claimData.status === "FAILED") {
+            return {
+              isExisting: true,
+              success: false,
+              error: "Previous payment attempt with this key has failed. Please start a new payment.",
+            };
+          }
+
+          return {
+            isExisting: true,
+            success: true,
+            data: {
+              reference: claimData.reference || claimData.transactionId,
+              transactionId: claimData.transactionId,
+              status: claimData.status,
+            },
+          };
+        }
+
+        const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(generatedReference);
+        const txData: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> & { idempotencyKey?: string } = {
+          userId: params.userId,
+          type: "DEPOSIT",
+          description: `Funds Deposit via Mobile Money (${method})`,
+          amount: Math.round(amountUsd * 100),
+          createdAt: FieldValue.serverTimestamp(),
+          details: `Phone: ${params.msisdn}`,
+          reference: generatedReference,
+          status: "PENDING",
+          fee: feeResult.fee,
+          method,
+          idempotencyKey: params.idempotencyKey,
+        };
+
+        transaction.set(transactionRef, txData);
+        transaction.set(claimRef, {
+          userId: params.userId,
+          idempotencyKey: params.idempotencyKey,
+          transactionId: generatedReference,
+          reference: generatedReference,
+          status: "PENDING",
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        return {
+          isExisting: false,
+          externalReference: generatedReference,
+          transactionRef,
+          claimRef,
+        };
+      }
+
+      const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(generatedReference);
+      const txData: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
+        userId: params.userId,
+        type: "DEPOSIT",
+        description: `Funds Deposit via Mobile Money (${method})`,
+        amount: Math.round(amountUsd * 100),
+        createdAt: FieldValue.serverTimestamp(),
+        details: `Phone: ${params.msisdn}`,
+        reference: generatedReference,
+        status: "PENDING",
+        fee: feeResult.fee,
+        method,
+      };
+
+      transaction.set(transactionRef, txData);
+      return {
+        isExisting: false,
+        externalReference: generatedReference,
+        transactionRef,
+      };
     });
+
+    if (claimResult.isExisting) {
+      return claimResult;
+    }
+
+    const { externalReference, transactionRef, claimRef } = claimResult;
 
     const result = await pawapay.deposits.initiate({
       depositId: externalReference,
@@ -160,26 +224,33 @@ export const initiateCheckoutPayment = async (params: {
       ]
     });
 
-    if(result.status !=='ACCEPTED'){
+    if (result.status !== 'ACCEPTED') {
       await transactionRef.update({ status: "FAILED" }).catch((err) =>
-      console.error("[initiateCheckoutPayment] Failed to mark tx as failed:", err)
-    );
-    
-    return {
-      success:false, 
-      error: "Failed to initiate payment, Try again"}
+        console.error("[initiateCheckoutPayment] Failed to mark tx as failed:", err)
+      );
+      if (claimRef) {
+        await claimRef.update({ status: "FAILED" }).catch((err) =>
+          console.error("[initiateCheckoutPayment] Failed to mark claim as failed:", err)
+        );
+      }
+      
+      return {
+        success: false, 
+        error: "Failed to initiate payment, Try again"
+      };
     }
     
     return {
-      success:true, 
+      success: true, 
       data: {
         reference:     result.depositId,
         transactionId: transactionRef.id,
         status:        result.status,
-    }}
-  }catch(err){
-    console.log(err)
-    customPawapayError(err)
-    return {success:false, error:"Failed to initiate payment"}
+      }
+    };
+  } catch (err) {
+    console.error("initiateCheckoutPayment error:", err);
+    customPawapayError(err);
+    return { success: false, error: "Failed to initiate payment" };
   }
 }

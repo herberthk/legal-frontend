@@ -105,12 +105,18 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import auth from "@react-native-firebase/auth";
 import appCheck from "@react-native-firebase/app-check";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL!;
 
 export function useLegalChat(chatId: string) {
   const isFirst = useRef(true);
+
+  // Reset the first-message flag whenever the active chat session changes so
+  // that title generation fires correctly for every new session.
+  useEffect(() => {
+    isFirst.current = true;
+  }, [chatId]);
 
   return useChat({
     transport: new DefaultChatTransport({

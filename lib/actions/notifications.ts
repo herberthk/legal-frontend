@@ -234,7 +234,10 @@ export async function saveFCMToken(userId: string, token: string) {
 export async function removeFCMToken(token: string) {
   try {
     const docId = getFCMTokenDocId(token);
-    await db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).delete();
+    await Promise.allSettled([
+      db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).delete(),
+      db.collection(COLLECTIONS.FCM_TOKENS).doc(token).delete(),
+    ]);
     return { success: true };
   } catch (error) {
     console.error("[FCM] Error removing token:", error);

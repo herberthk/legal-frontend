@@ -116,9 +116,12 @@ export async function reviewDocument(): Promise<Review> {
   const headers = await authHeaders();          // Authorization + X-Firebase-AppCheck ONLY
   // IMPORTANT: do not set Content-Type — FormData adds the multipart boundary.
 
-  // Abort after 100 s — safely under the 120 s server maxDuration.
+  // Abort after 130 s — intentionally above the 120 s server maxDuration so the
+  // server response always arrives before the client times out, unless the server
+  // itself hangs. A client-side abort at ≤ 120 s would silently discard a review
+  // the server already completed (non-retryable wasted charge).
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 100_000);
+  const timeoutId = setTimeout(() => controller.abort(), 130_000);
 
   let res: Response;
   try {

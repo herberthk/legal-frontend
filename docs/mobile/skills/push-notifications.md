@@ -120,17 +120,29 @@ await messaging().deleteToken();   // optional: force a fresh token next login
 ### Component-level notification listeners (inside React)
 
 ```ts
-// 1. Foreground — the OS does NOT show a banner; you render it yourself.
-const unsubOnMessage = messaging().onMessage(async (msg) => {
-  showInAppBanner(msg.notification?.title, msg.notification?.body);
-  refetchUnread();                       // keep the bell badge fresh
-});
+import { useEffect } from "react";
 
-// 2. Background (app running, not focused) — tapped notification opens the app.
-const unsubOnOpened = messaging().onNotificationOpenedApp((msg) => deepLink(msg.data?.url));
+// Wrap component-level listeners in useEffect so they are registered once and
+// cleaned up when the component unmounts — bare declarations outside an effect
+// accumulate a new listener on every render.
+useEffect(() => {
+  // 1. Foreground — the OS does NOT show a banner; you render it yourself.
+  const unsubOnMessage = messaging().onMessage(async (msg) => {
+    showInAppBanner(msg.notification?.title, msg.notification?.body);
+    refetchUnread();                       // keep the bell badge fresh
+  });
 
-// 3. Quit (app not running) — the notification that launched the app.
-messaging().getInitialNotification().then((msg) => { if (msg) deepLink(msg.data?.url); });
+  // 2. Background (app running, not focused) — tapped notification opens the app.
+  const unsubOnOpened = messaging().onNotificationOpenedApp((msg) => deepLink(msg.data?.url));
+
+  // 3. Quit (app not running) — the notification that launched the app.
+  messaging().getInitialNotification().then((msg) => { if (msg) deepLink(msg.data?.url); });
+
+  return () => {
+    unsubOnMessage();
+    unsubOnOpened();
+  };
+}, []);
 ```
 
 ### Standalone background message handler (root `index.js`, outside React)

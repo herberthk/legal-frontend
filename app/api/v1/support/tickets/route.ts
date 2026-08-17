@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
   const result = await getUserSupportTickets(gate.userId);
   if (!result.success) return internalError(result.error);
-  return ok({ tickets: result.tickets });
+  return ok(result.tickets);
 }
 
 const createSchema = z.object({

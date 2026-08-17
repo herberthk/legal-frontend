@@ -27,11 +27,28 @@ export async function GET(req: Request) {
   return ok(result);
 }
 
+const ALLOWED_STORAGE_HOSTS = new Set([
+  "firebasestorage.googleapis.com",
+  "storage.googleapis.com",
+]);
+
+const storageUrlSchema = z.string().max(2048).refine((val) => {
+  try {
+    const url = new URL(val);
+    return url.protocol === "https:" && ALLOWED_STORAGE_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+}, { message: "fileUrl must be a valid HTTPS Firebase Storage URL" });
+
+// Bounded array of plain objects — used for keyClauses, risks, recommendations,
+// and scoreBreakdown. z.record(z.string(), z.unknown()) accepts any key/value shape returned
+// by the review analysis endpoint without silently dropping fields.
 const objectArray = z.array(z.record(z.string(), z.unknown())).max(500);
 
 const saveSchema = z.object({
   fileName: z.string().min(1).max(300),
-  fileUrl: z.url().max(2048),
+  fileUrl: storageUrlSchema,
   documentType: z.string().min(1).max(200),
   summary: z.string().max(20_000),
   overallScore: z.number().min(0).max(100),
