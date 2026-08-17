@@ -8,9 +8,12 @@ import { getAuthenticatedUserId } from "./auth";
 // ─── Save a completed document review ─────────────────────────────────────────
 export async function saveDocumentReview(
   data: Omit<DocumentReview, "id" | "userId" | "createdAt" | "updatedAt">,
+  // Mobile/Bearer path passes the token-verified uid; web callers omit it and
+  // keep resolving identity from the session cookie (behaviour unchanged).
+  userIdOverride?: string,
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) throw new Error("Unauthorized");
 
     const docRef = db.collection(COLLECTIONS.DOCUMENT_REVIEWS).doc();
@@ -33,6 +36,9 @@ export async function saveDocumentReview(
 export async function getDocumentReviews(
   limitCount = 9,
   beforeId?: string,
+  // Mobile/Bearer path passes the token-verified uid; web callers omit it and
+  // keep resolving identity from the session cookie (behaviour unchanged).
+  userIdOverride?: string,
 ): Promise<{
   success: boolean;
   reviews: DocumentReview[];
@@ -40,7 +46,7 @@ export async function getDocumentReviews(
   error?: string;
 }> {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) throw new Error("Unauthorized");
 
     let query: FirebaseFirestore.Query = db
@@ -83,13 +89,16 @@ export async function getDocumentReviews(
 }
 
 // ─── Get a single review by ID ────────────────────────────────────────────────
-export async function getDocumentReview(id: string): Promise<{
+export async function getDocumentReview(
+  id: string,
+  userIdOverride?: string,
+): Promise<{
   success: boolean;
   review?: DocumentReview;
   error?: string;
 }> {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) throw new Error("Unauthorized");
 
     const doc = await db
@@ -120,13 +129,16 @@ export async function getDocumentReview(id: string): Promise<{
 }
 
 // ─── Delete a review ──────────────────────────────────────────────────────────
-export async function deleteDocumentReview(id: string): Promise<{
+export async function deleteDocumentReview(
+  id: string,
+  userIdOverride?: string,
+): Promise<{
   success: boolean;
   fileUrl?: string;
   error?: string;
 }> {
   try {
-    const userId = await getAuthenticatedUserId();
+    const userId = userIdOverride ?? (await getAuthenticatedUserId());
     if (!userId) throw new Error("Unauthorized");
 
     const docRef = db.collection(COLLECTIONS.DOCUMENT_REVIEWS).doc(id);
