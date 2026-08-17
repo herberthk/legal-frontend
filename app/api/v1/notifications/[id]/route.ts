@@ -2,7 +2,7 @@ import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { deleteNotification } from "@/lib/actions/notifications";
 import { verifyDocOwnership } from "@/lib/api/v1/ownership";
 import { COLLECTIONS } from "@/constants";
-import { ok, notFoundError } from "@/lib/api/v1/response";
+import { ok, notFoundError, internalError } from "@/lib/api/v1/response";
 
 /**
  * `DELETE /api/v1/notifications/:id` — deletes one notification. `deleteNotification`
@@ -21,5 +21,6 @@ export async function DELETE(
   if (!owned) return notFoundError("Notification not found.");
 
   const result = await deleteNotification(id);
+  if (!result.success) return internalError(result.error || "Failed to delete notification.");
   return ok(result);
 }

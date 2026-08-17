@@ -1,6 +1,6 @@
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { markAllAsRead } from "@/lib/actions/notifications";
-import { ok } from "@/lib/api/v1/response";
+import { ok, internalError } from "@/lib/api/v1/response";
 
 /**
  * `POST /api/v1/notifications/read-all` — marks every unread notification for
@@ -12,5 +12,6 @@ export async function POST(req: Request) {
   if (gate instanceof Response) return gate;
 
   const result = await markAllAsRead(gate.userId);
+  if (!result.success) return internalError(result.error || "Failed to mark notifications as read.");
   return ok(result);
 }

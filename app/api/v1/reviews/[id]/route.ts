@@ -1,6 +1,6 @@
 import { requireMobileAuth } from "@/lib/api/v1/guard";
-import { getDocumentReview, deleteDocumentReview } from "@/lib/actions/review";
-import { ok, notFoundError } from "@/lib/api/v1/response";
+import { getDocumentReview, deleteDocumentReview } from "@/services/review";
+import { ok, notFoundError, internalError } from "@/lib/api/v1/response";
 
 /**
  * `GET /api/v1/reviews/:id` — one document review.
@@ -17,7 +17,11 @@ export async function GET(
 
   const { id } = await params;
   const result = await getDocumentReview(id, gate.userId);
-  if (!result.success) return notFoundError(result.error || "Review not found.");
+  if (!result.success) {
+    return result.notFound
+      ? notFoundError(result.error || "Review not found.")
+      : internalError(result.error || "Failed to retrieve review.");
+  }
   return ok(result);
 }
 
@@ -30,6 +34,10 @@ export async function DELETE(
 
   const { id } = await params;
   const result = await deleteDocumentReview(id, gate.userId);
-  if (!result.success) return notFoundError(result.error || "Review not found.");
+  if (!result.success) {
+    return result.notFound
+      ? notFoundError(result.error || "Review not found.")
+      : internalError(result.error || "Failed to delete review.");
+  }
   return ok(result);
 }

@@ -106,7 +106,12 @@ GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_
 
 async function signInWithGoogle() {
   await GoogleSignin.hasPlayServices();
-  const { idToken } = await GoogleSignin.signIn();
+  const response = await GoogleSignin.signIn();
+  if (response.type === "cancelled") return; // user dismissed the dialog
+
+  const idToken = response.data?.idToken;
+  if (!idToken) throw new Error("Google Sign-In succeeded but no ID token was returned.");
+
   const credential = auth.GoogleAuthProvider.credential(idToken);
   await auth().signInWithCredential(credential);
 

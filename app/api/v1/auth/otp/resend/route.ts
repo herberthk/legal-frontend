@@ -23,5 +23,14 @@ export async function POST(req: Request) {
   if (!parsed.success) return badRequest("Invalid request body");
 
   const result = await resendOtpAction(parsed.data.email, parsed.data.type);
+  if (
+    parsed.data.type === "reset" &&
+    (result.success || result.message === "No account found with this email address.")
+  ) {
+    return ok({
+      success: true,
+      message: "If an account exists with this email, a verification code has been sent.",
+    });
+  }
   return ok(result);
 }

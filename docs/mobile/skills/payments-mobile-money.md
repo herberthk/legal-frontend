@@ -57,10 +57,9 @@ else confirmWithUser(res.data!.fullName);   // "Send to Jane Doe?"
 ```
 POST /payments/momo/deposit
 {
-  "msisdn":    "256770000000",   // 6–20 chars
-  "amountUgx": 19000,            // raw UGX integer, > 0, ≤ 7,000,000
-  "amountUsd": 5,                // original USD amount (for the receipt/record)
-  "userName":  "Jane Doe"        // optional, ≤ 120 chars (display only)
+  "msisdn":   "256770000000",   // 6–20 chars
+  "amount":   19000,            // raw UGX integer, > 0, ≤ 7,000,000 (canonical amount)
+  "userName": "Jane Doe"        // optional, ≤ 120 chars (display only)
 }
 → 200 { "data": { "success": true, "data": {
     "reference":     "…",        // use this for status polling
@@ -70,13 +69,12 @@ POST /payments/momo/deposit
 → 200 { "data": { "success": false, "error": "Failed to initiate payment, Try again" } }
 ```
 
-- **`amountUgx` is the base amount in UGX.** The server adds a **3% mobile-money fee**
-  on top (`total = amountUgx + fee`) — that total is what the user is charged on their
-  phone; the credited wallet value corresponds to `amountUsd`. Show the fee before
-  confirming.
-- **`amountUsd`** is the dollar value the top-up represents (stored on the transaction
-  in cents = `amountUsd × 100`). Convert from UGX with the exchange constant:
-  `amountUsd = amountUgx / 3800` (see `billing-and-usage.md`).
+- **`amount` is the base amount in UGX.** The server adds a **3% mobile-money fee**
+  on top (`total = amount + fee`) — that total is what the user is charged on their
+  phone.
+- **USD amount is derived server-side** using the trusted exchange rate:
+  `amountUsd = amount / 3800` (stored on the transaction in cents = `amountUsd × 100`).
+  Clients do not supply `amountUsd`.
 - `status: "ACCEPTED"` means **PawaPay queued it and pushed a PIN prompt to the
   phone** — it is *not* payment confirmation. Wait for the webhook via polling.
 
@@ -87,7 +85,7 @@ const res = await apiFetch<{
   error?: string;
 }>("/payments/momo/deposit", {
   method: "POST",
-  body: JSON.stringify({ msisdn, amountUgx, amountUsd, userName }),
+  body: JSON.stringify({ msisdn, amount, userName }),
 });
 if (!res.success || !res.data) throw new Error(res.error ?? "Could not start the deposit.");
 const { reference } = res.data;   // → poll this
@@ -117,9 +115,21 @@ export async function pollUntilSettled(
 ): Promise<"COMPLETED" | "FAILED" | "TIMEOUT"> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const res = await apiFetch<{ success: boolean; status: string }>(
-      `/payments/status/${encodeURIComponent(reference)}`,
-    ).catch(() => null);          // tolerate a transient network blip and retry
+    let res: { success: boolean; status: string } | null = null;
+    try {
+      res = await apiFetch<{ success: boolean; status: string }>(
+        `/payments/status/${encodeURIComponent(reference)}`,
+      );
+    } catch (err: unknown) {
+      // Only swallow genuine transient network blips (no response at all).
+      // Re-throw auth failures, 404 (wrong reference / ownership), and any
+      // structured API error so they surface immediately instead of retrying.
+      const isNetworkBlip =
+        err instanceof TypeError ||
+        (err instanceof Error && err.message.toLowerCase().includes("network"));
+      if (!isNetworkBlip) throw err;
+      // Transient blip — wait and retry.
+    }
     const status = res?.status;
     if (status === "COMPLETED" || status === "FAILED") return status;
     await new Promise((r) => setTimeout(r, intervalMs));

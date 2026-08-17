@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/firebase/admin";
-import { COLLECTIONS } from "@/constants";
+import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 
 
@@ -59,57 +59,92 @@ export async function verifyPhoneNumber(
 // ── Full checkout payment (with Firestore persistence) ────────────────────────
 
 /**
- * Initiates a real mobile money deposit via Ssentezo and records the
+ * Initiates a real mobile money deposit via PawaPay and records the
  * pending transaction in Firestore. The callback route will finalise it.
  *
  * @param params.userId      - Firebase UID of the paying user
  * @param params.msisdn      - Phone in 256XXXXXXXXX format (already validated)
- * @param params.amountUgx   - Raw UGX integer (500–7,000,000). Min enforced: 1000
- * @param params.amountUsd   - Original USD amount for receipt display
- * @param params.userName    - Optional display name sent to Ssentezo
+ * @param params.amount      - Raw UGX integer (1,000–7,000,000)
+ * @param params.amountUgx   - Backward-compatible alias for amount
+ * @param params.userName    - Optional display name sent to PawaPay
  */
 export const initiateCheckoutPayment = async (params: {
-  userId:     string;
-  msisdn:     string;
-  amountUgx:  number;
-  amountUsd:  number;
-  userName?:  string; 
+  userId:          string;
+  msisdn:          string;
+  amount?:         number;
+  amountUgx?:      number;
+  amountUsd?:      number;
+  userName?:       string;
+  idempotencyKey?: string;
 }): Promise<{success:boolean, data?: {
     reference:     string;
     transactionId: string;
     status:        TransactionStatus;
   }} | {success:false, error: string}> =>
  {  
-  try{
-  const externalReference = pawapay.deposits.generateId(); // UUIDv4;
+  try {
+    const rawAmount = params.amount ?? params.amountUgx;
+    if (!rawAmount || typeof rawAmount !== "number" || rawAmount <= 0) {
+      return { success: false, error: "Invalid payment amount" };
+    }
+    const amountUgx = Math.floor(rawAmount);
 
-  // Detect provider from phone prefix for storage/display purposes
-  const { provider } = parseUgandanNumber(params.msisdn);
-  const method: TransactionMethod = provider === "MTN" ? "MTN" : "AIRTEL";
-  const feeResult = pawapay.calculateFee(params.amountUgx);
+    // If an idempotency key is supplied, check for an existing transaction
+    if (params.idempotencyKey) {
+      const existingSnap = await db
+        .collection(COLLECTIONS.TRANSACTIONS)
+        .where("userId", "==", params.userId)
+        .where("idempotencyKey", "==", params.idempotencyKey)
+        .limit(1)
+        .get();
 
-  // Pre-create Firestore transaction record in "pending" state.
-  // If Ssentezo later fails, we mark it "failed" below.
-  const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference);
-  const total = params.amountUgx + feeResult.fee;
-     const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> = {
-            userId: params.userId,
-            type: "DEPOSIT",
-            description: `Funds Deposit via Mobile Money (${method})`,
-            amount: params.amountUsd * 100,
-            createdAt: FieldValue.serverTimestamp(),
-            details: `Phone: ${params.msisdn}`,
-            reference: externalReference,
-            status: "PENDING",
-            fee:feeResult.fee,
-            method,
-          };
+      if (!existingSnap.empty) {
+        const existingDoc = existingSnap.docs[0];
+        const existingData = existingDoc.data() as Transaction;
+        return {
+          success: true,
+          data: {
+            reference: existingData.reference || existingDoc.id,
+            transactionId: existingDoc.id,
+            status: existingData.status as TransactionStatus,
+          },
+        };
+      }
+    }
 
-      await transactionRef.set({
+    // Derive USD amount strictly using trusted server exchange rate
+    const amountUsd = amountUgx / USD_TO_UGX_EXCHANGE_RATE;
+
+    const externalReference = pawapay.deposits.generateId(); // UUIDv4;
+
+    // Detect provider from phone prefix for storage/display purposes
+    const { provider } = parseUgandanNumber(params.msisdn);
+    const method: TransactionMethod = provider === "MTN" ? "MTN" : "AIRTEL";
+    const feeResult = pawapay.calculateFee(amountUgx);
+
+    // Pre-create Firestore transaction record in "pending" state.
+    // If PawaPay later fails, we mark it "failed" below.
+    const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference);
+    const total = amountUgx + feeResult.fee;
+    const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> & { idempotencyKey?: string } = {
+      userId: params.userId,
+      type: "DEPOSIT",
+      description: `Funds Deposit via Mobile Money (${method})`,
+      amount: Math.round(amountUsd * 100),
+      createdAt: FieldValue.serverTimestamp(),
+      details: `Phone: ${params.msisdn}`,
+      reference: externalReference,
+      status: "PENDING",
+      fee: feeResult.fee,
+      method,
+      ...(params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : {}),
+    };
+
+    await transactionRef.set({
       ...transaction
-      });
+    });
 
-       const result = await pawapay.deposits.initiate({
+    const result = await pawapay.deposits.initiate({
       depositId: externalReference,
       payer: {
         type: "MMO",
@@ -121,8 +156,8 @@ export const initiateCheckoutPayment = async (params: {
       currency: "UGX",
       customerMessage: "Wallet Topup",
       metadata: [
-    { baseAmount: params.amountUgx }
-  ]
+        { baseAmount: amountUgx }
+      ]
     });
 
     if(result.status !=='ACCEPTED'){

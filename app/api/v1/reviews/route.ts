@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
-import { getDocumentReviews, saveDocumentReview } from "@/lib/actions/review";
-import { ok, badRequest } from "@/lib/api/v1/response";
+import { getDocumentReviews, saveDocumentReview } from "@/services/review";
+import { ok, badRequest, internalError } from "@/lib/api/v1/response";
 
 /**
  * `GET /api/v1/reviews` — paginated document-review history (cursor via
@@ -19,10 +19,11 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const rawLimit = Number(url.searchParams.get("limit") ?? "9");
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? rawLimit : 9;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? Math.floor(rawLimit) : 9;
   const beforeId = url.searchParams.get("beforeId") ?? undefined;
 
   const result = await getDocumentReviews(limit, beforeId, gate.userId);
+  if (!result.success) return internalError(result.error || "Failed to retrieve document reviews.");
   return ok(result);
 }
 
@@ -30,7 +31,7 @@ const objectArray = z.array(z.record(z.string(), z.unknown())).max(500);
 
 const saveSchema = z.object({
   fileName: z.string().min(1).max(300),
-  fileUrl: z.string().url().max(2048),
+  fileUrl: z.url().max(2048),
   documentType: z.string().min(1).max(200),
   summary: z.string().max(20_000),
   overallScore: z.number().min(0).max(100),
@@ -62,5 +63,6 @@ export async function POST(req: Request) {
     parsed.data as Omit<DocumentReview, "id" | "userId" | "createdAt" | "updatedAt">,
     gate.userId,
   );
+  if (!result.success) return internalError(result.error || "Failed to save document review.");
   return ok(result);
 }

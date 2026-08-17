@@ -1,6 +1,6 @@
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { getVoiceSessions } from "@/lib/actions/voice";
-import { ok } from "@/lib/api/v1/response";
+import { ok, internalError } from "@/lib/api/v1/response";
 
 /**
  * `GET /api/v1/voice/sessions` — paginated Gemini Live session history for the
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const rawPage = Number(url.searchParams.get("page") ?? "1");
   const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
   const rawLimit = Number(url.searchParams.get("limit") ?? "10");
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? rawLimit : 10;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? Math.floor(rawLimit) : 10;
 
   const filterParam = url.searchParams.get("filter");
   const filter = USAGE_FILTERS.includes(filterParam as (typeof USAGE_FILTERS)[number])
@@ -32,5 +32,6 @@ export async function GET(req: Request) {
     filter,
     searchQuery,
   });
+  if (!result.success) return internalError("Failed to retrieve voice sessions.");
   return ok(result);
 }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireMobileAuth, requireMobileUser } from "@/lib/api/v1/guard";
 import { createSupportTicket, getUserSupportTickets } from "@/lib/actions/support";
-import { ok, badRequest } from "@/lib/api/v1/response";
+import { ok, badRequest, internalError } from "@/lib/api/v1/response";
 
 /**
  * `GET  /api/v1/support/tickets` — the caller's tickets (newest first).
@@ -15,8 +15,9 @@ export async function GET(req: Request) {
   const gate = await requireMobileAuth(req);
   if (gate instanceof Response) return gate;
 
-  const tickets = await getUserSupportTickets(gate.userId);
-  return ok(tickets);
+  const result = await getUserSupportTickets(gate.userId);
+  if (!result.success) return internalError(result.error);
+  return ok({ tickets: result.tickets });
 }
 
 const createSchema = z.object({
@@ -50,5 +51,6 @@ export async function POST(req: Request) {
     priority: parsed.data.priority,
     ...(parsed.data.transactionId ? { transactionId: parsed.data.transactionId } : {}),
   });
+  if (!result.success) return internalError(result.error || "Failed to create support ticket.");
   return ok(result);
 }

@@ -63,7 +63,7 @@ This route is **not enveloped** (it mirrors the web handler for single-sourcing)
 |---|---|
 | 400 | no file / >10 MB / unsupported type |
 | 402 | out of credit — route to top-up |
-| 422 | file unreadable (empty, corrupt, encrypted, no text layer) |
+| 422 | file unreadable (empty, corrupt, encrypted, or corrupted document structure) |
 | 401 | auth / App Check |
 | 500 | unexpected |
 
@@ -74,8 +74,7 @@ This route is **not enveloped** (it mirrors the web handler for single-sourcing)
 ## Server behavior (context)
 
 - Text-based **PDF/DOCX** → text is extracted server-side and analyzed as text.
-- **Scanned PDFs / images** → sent to Gemini natively as a visual file (OCR-like).
-  You just upload the file; the server decides the path.
+- **Scanned PDFs / images** → supported natively! Sent to Gemini as visual files (multimodal OCR + reasoning). You just upload the file; the server automatically detects scanned documents and routes them through the visual path.
 - Cost is estimated up front; insufficient credit returns **402 before** any work.
 - `maxDuration` is **120 s** — set a generous client timeout (see below).
 
@@ -117,11 +116,27 @@ export async function reviewDocument(): Promise<Review> {
   const headers = await authHeaders();          // Authorization + X-Firebase-AppCheck ONLY
   // IMPORTANT: do not set Content-Type — FormData adds the multipart boundary.
 
-  const res = await fetch(`${BASE_URL}/review`, {
-    method: "POST",
-    headers,
-    body: form,
-  });
+  // Abort after 100 s — safely under the 120 s server maxDuration.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 100_000);
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/review`, {
+      method: "POST",
+      headers,
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      // Retryable — server may not have started processing yet.
+      throw new Error("Review timed out. Please try again.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const json = await res.json().catch(() => null);
   if (!res.ok || !json?.success) {

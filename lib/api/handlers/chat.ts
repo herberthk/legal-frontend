@@ -30,13 +30,26 @@ import { vertex } from "@/lib/actions/vertex";
  * re-verifying the web chat flow.
  */
 
-// Cache dynamic imports so they are only loaded once per cold start
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedPdfParse: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedMammoth: any = null;
+import { extractDocumentText } from "@/lib/document-extractor";
 
 const MAX_HISTORY_MESSAGES = 6;
+
+const ALLOWED_FILE_HOSTS = new Set([
+  "firebasestorage.googleapis.com",
+  "storage.googleapis.com",
+]);
+
+async function fetchAttachment(rawUrl: string): Promise<Buffer> {
+  const url = new URL(rawUrl);
+  if (url.protocol !== "https:" || !ALLOWED_FILE_HOSTS.has(url.hostname)) {
+    throw new Error("Attachment URL is not allowed.");
+  }
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Attachment fetch failed: ${response.status}`);
+  return Buffer.from(await response.arrayBuffer());
+}
 
 export async function handleChatRequest(
   req: Request,
@@ -45,10 +58,23 @@ export async function handleChatRequest(
   try {
     const { messages }: { messages: UIMessage[] } = await req.json();
 
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No messages provided." }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
     // Read session ID from the custom header set by prepareSendMessagesRequest
     const rawSessionId = req.headers.get("x-chat-id");
     const sessionId =
       rawSessionId && rawSessionId.length > 0 ? rawSessionId : null;
+
+    if (sessionId === null) {
+      return new Response(
+        JSON.stringify({ error: "Missing x-chat-id header." }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
     const isFirstMessage = req.headers.get("x-first-message");
 
     const { canSend, reason, user } = await checkUserCanSend(userId);
@@ -110,22 +136,9 @@ export async function handleChatRequest(
               partProcessingPromises.push(
                 (async () => {
                   try {
-                    const response = await fetch(part.url);
-                    const arrayBuffer = await response.arrayBuffer();
-                    const buffer = Buffer.from(arrayBuffer);
-                    if (!cachedPdfParse) {
-                      const pdfParseModule = await import("pdf-parse");
-                      cachedPdfParse =
-                        pdfParseModule.default || pdfParseModule;
-                    }
-                    const parsed = await cachedPdfParse(buffer);
-                    // Apply a minimum floor of 500 tokens for scanned/image-only PDFs
-                    // that have no embedded text layer, to prevent 0-token underestimation.
-                    const pdfTokens = Math.max(
-                      500,
-                      Math.ceil(parsed.text.length / CHARS_PER_TOKEN),
-                    );
-                    estimatedInputTokens += pdfTokens;
+                    const buffer = await fetchAttachment(part.url);
+                    const extracted = await extractDocumentText(buffer, "pdf");
+                    estimatedInputTokens += extracted.estimatedTokens;
                   } catch (e) {
                     console.error(
                       "Failed to parse PDF for token estimation in chat:",
@@ -135,7 +148,7 @@ export async function handleChatRequest(
                   }
                 })(),
               );
-            } else if (part.mediaType.startsWith("image/")) {
+            } else if (part.mediaType?.startsWith("image/")) {
               estimatedInputTokens += 258;
             }
           }
@@ -150,19 +163,12 @@ export async function handleChatRequest(
             partProcessingPromises.push(
               (async () => {
                 try {
-                  const response = await fetch(part.url);
-                  const arrayBuffer = await response.arrayBuffer();
-                  const buffer = Buffer.from(arrayBuffer);
-                  if (!cachedMammoth) {
-                    cachedMammoth = await import("mammoth");
-                  }
-                  const result = await cachedMammoth.extractRawText({ buffer });
-                  const docxText = result.value;
+                  const buffer = await fetchAttachment(part.url);
+                  const extracted = await extractDocumentText(buffer, "docx");
+                  const docxText = extracted.text;
 
                   if (msg === lastUserMessage) {
-                    estimatedInputTokens += Math.ceil(
-                      docxText.length / CHARS_PER_TOKEN,
-                    );
+                    estimatedInputTokens += extracted.estimatedTokens;
                   }
 
                   // Replace the file part with a text part so Gemini doesn't reject the MIME type

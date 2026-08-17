@@ -2,7 +2,7 @@ import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { verifyDocOwnership } from "@/lib/api/v1/ownership";
 import { COLLECTIONS } from "@/constants";
 import { getChatMessages } from "@/lib/actions/chat";
-import { ok, notFoundError } from "@/lib/api/v1/response";
+import { ok, badRequest, notFoundError, internalError } from "@/lib/api/v1/response";
 
 /**
  * `GET /api/v1/chats/:id/messages` — paginated messages for a session (oldest
@@ -24,16 +24,33 @@ export async function GET(
   if (!owned) return notFoundError("Chat session not found.");
 
   const url = new URL(req.url);
+
+  if (url.searchParams.has("limit")) {
+    const rawLimit = Number(url.searchParams.get("limit"));
+    if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 50) {
+      return badRequest("limit must be an integer between 1 and 50");
+    }
+  }
   const rawLimit = Number(url.searchParams.get("limit") ?? "10");
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? rawLimit : 10;
+  const limit = Number.isInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 50 ? rawLimit : 10;
 
   const cursorId = url.searchParams.get("cursorId");
   const cursorCreatedAt = url.searchParams.get("cursorCreatedAt");
+
+  if ((cursorId && !cursorCreatedAt) || (!cursorId && cursorCreatedAt)) {
+    return badRequest("Both cursorId and cursorCreatedAt must be provided together");
+  }
+
+  if (cursorCreatedAt && Number.isNaN(Date.parse(cursorCreatedAt))) {
+    return badRequest("cursorCreatedAt must be a valid date string");
+  }
+
   const cursor =
     cursorId && cursorCreatedAt
       ? { id: cursorId, createdAt: cursorCreatedAt }
       : undefined;
 
   const result = await getChatMessages(id, limit, cursor);
+  if (!result.success) return internalError("Failed to retrieve chat messages.");
   return ok(result);
 }

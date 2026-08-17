@@ -12,9 +12,12 @@ import { ok, badRequest } from "@/lib/api/v1/response";
  */
 const schema = z.object({
   msisdn: z.string().min(6).max(20),
-  amountUgx: z.number().positive().max(7_000_000),
-  amountUsd: z.number().positive().max(100_000),
+  amount: z.number().positive().max(7_000_000).optional(),
+  amountUgx: z.number().positive().max(7_000_000).optional(),
   userName: z.string().max(120).optional(),
+  idempotencyKey: z.string().min(1).max(128).optional(),
+}).refine((data) => data.amount !== undefined || data.amountUgx !== undefined, {
+  message: "Either amount or amountUgx is required",
 });
 
 export async function POST(req: Request) {
@@ -30,12 +33,20 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid request body");
 
+  const headerIdempotencyKey =
+    req.headers.get("idempotency-key") ||
+    req.headers.get("x-idempotency-key") ||
+    undefined;
+  const idempotencyKey = parsed.data.idempotencyKey || headerIdempotencyKey;
+
+  const canonicalAmount = parsed.data.amount ?? parsed.data.amountUgx!;
+
   const result = await initiateCheckoutPayment({
     userId: gate.userId,
     msisdn: parsed.data.msisdn,
-    amountUgx: parsed.data.amountUgx,
-    amountUsd: parsed.data.amountUsd,
+    amount: canonicalAmount,
     userName: parsed.data.userName,
+    idempotencyKey,
   });
   return ok(result);
 }

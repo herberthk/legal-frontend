@@ -69,7 +69,9 @@ X-Firebase-AppCheck: <app-check-token>
   in-action rate limiting) or on `POST /voice/billing` (fired from a backgrounded
   app where a token may be unobtainable; billing must not be lost).
 - Local development bypasses App Check when the server env has
-  `DISABLE_APP_CHECK=true`. With the bypass on you can omit the header entirely.
+  `DISABLE_APP_CHECK=true` in non-production environments (`NODE_ENV !== "production"`).
+  In non-production, missing or unverified debug tokens also softly fall back when App
+  Check keys are not configured. With bypass/fallback on you can omit the header entirely.
 
 Full setup (App Attest / DeviceCheck on iOS, Play Integrity on Android) is in
 `skills/app-check.md`. **Read it before wiring real requests** — a missing App
@@ -96,10 +98,15 @@ Error `code` is one of:
 `UNAUTHENTICATED` · `APP_CHECK_FAILED` · `PAYMENT_REQUIRED` · `BAD_REQUEST` ·
 `NOT_FOUND` · `FORBIDDEN` · `RATE_LIMITED` · `INTERNAL`.
 
-HTTP status is meaningful and mapped to the code (401/402/400/404/403/500). A
+HTTP status is meaningful and mapped to the code (401/402/400/404/403/500/503). A
 route that wraps an action which itself returns `{ success, ... }` puts that whole
 object inside `data` — inspect `data.success` for the operation result, and the
 HTTP status for transport/auth/credit outcomes.
+
+> **500 vs 503**: both carry `code: "INTERNAL"`. **500** means a non-retryable
+> server fault (bug, unexpected Firestore error). **503** means a retryable
+> billing/resource failure — wait briefly and retry the same request with the
+> same idempotency key.
 
 ### Three deliberate exceptions
 
