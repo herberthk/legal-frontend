@@ -5,6 +5,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { cookies } from "next/headers";
 import { sendOtp } from "./email";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limiter";
+import { getFriendlyErrorMessage } from "@/lib/errors";
 import {
   COLLECTIONS,
   FREE_WELCOME_TEXT_TOKENS,
@@ -736,7 +737,8 @@ export async function resendOtpAction(email: string, type: "signup" | "reset") {
     ) {
       return {
         success: false,
-        message: "No account found with this email address.",
+        code: "user-not-found",
+        message: getFriendlyErrorMessage("auth/user-not-found"),
       };
     }
 

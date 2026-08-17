@@ -57,9 +57,10 @@ else confirmWithUser(res.data!.fullName);   // "Send to Jane Doe?"
 ```
 POST /payments/momo/deposit
 {
-  "msisdn":   "256770000000",   // 6–20 chars
-  "amount":   19000,            // raw UGX integer, > 0, ≤ 7,000,000 (canonical amount)
-  "userName": "Jane Doe"        // optional, ≤ 120 chars (display only)
+  "msisdn":        "256770000000",   // 6–20 chars
+  "amount":        19000,            // raw UGX integer, > 0, ≤ 7,000,000 (canonical amount)
+  "userName":      "Jane Doe",       // optional, ≤ 120 chars (display only)
+  "idempotencyKey": "uuid-here"      // required, ≤ 128 chars (mobile client generates one per deposit and reuses for retries)
 }
 → 200 { "data": { "success": true, "data": {
     "reference":     "…",        // use this for status polling
@@ -75,20 +76,28 @@ POST /payments/momo/deposit
 - **USD amount is derived server-side** using the trusted exchange rate:
   `amountUsd = amount / 3800` (stored on the transaction in cents = `amountUsd × 100`).
   Clients do not supply `amountUsd`.
+- **`idempotencyKey` is required** for safe retries. The mobile client generates one
+  UUID per deposit intent and reuses it for all retries of that deposit. The server
+  deduplicates by this key, returning the existing transaction if one matches.
 - `status: "ACCEPTED"` means **PawaPay queued it and pushed a PIN prompt to the
   phone** — it is *not* payment confirmation. Wait for the webhook via polling.
 
 ```ts
+// Generate one idempotency key per deposit intent
+const idempotencyKey = generateUUID();
+
 const res = await apiFetch<{
   success: boolean;
   data?: { reference: string; transactionId: string; status: string };
   error?: string;
 }>("/payments/momo/deposit", {
   method: "POST",
-  body: JSON.stringify({ msisdn, amount, userName }),
+  body: JSON.stringify({ msisdn, amount, userName, idempotencyKey }),
 });
 if (!res.success || !res.data) throw new Error(res.error ?? "Could not start the deposit.");
 const { reference } = res.data;   // → poll this
+
+// On network failure, retry with the SAME idempotencyKey
 ```
 
 ## Step 3 — poll for confirmation

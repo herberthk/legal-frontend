@@ -3,7 +3,7 @@
 import { db } from "@/firebase/admin";
 import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
-
+import { getAuthenticatedUserId } from "@/lib/actions/auth";
 
 import { parseUgandanNumber } from "@/utils";
 import { customPawapayError } from "@/sdk/error";
@@ -62,14 +62,14 @@ export async function verifyPhoneNumber(
  * Initiates a real mobile money deposit via PawaPay and records the
  * pending transaction in Firestore. The callback route will finalise it.
  *
- * @param params.userId      - Firebase UID of the paying user
+ * @param params.userId      - Firebase UID of the paying user (verified against session)
  * @param params.msisdn      - Phone in 256XXXXXXXXX format (already validated)
  * @param params.amount      - Raw UGX integer (1,000–7,000,000)
  * @param params.amountUgx   - Backward-compatible alias for amount
  * @param params.userName    - Optional display name sent to PawaPay
  */
 export const initiateCheckoutPayment = async (params: {
-  userId:          string;
+  userId?:         string;
   msisdn:          string;
   amount?:         number;
   amountUgx?:      number;
@@ -81,19 +81,40 @@ export const initiateCheckoutPayment = async (params: {
     transactionId: string;
     status:        TransactionStatus;
   }} | {success:false, error: string}> =>
- {  
+ {
   try {
+    // Derive userId from authenticated server state, never trust params.userId
+    const authenticatedUserId = await getAuthenticatedUserId();
+    if (!authenticatedUserId) {
+      return { success: false, error: "Authentication required" };
+    }
+
+    // If params.userId is provided, verify it matches the authenticated user
+    if (params.userId && params.userId !== authenticatedUserId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const userId = authenticatedUserId;
+
     const rawAmount = params.amount ?? params.amountUgx;
     if (!rawAmount || typeof rawAmount !== "number" || rawAmount <= 0) {
       return { success: false, error: "Invalid payment amount" };
     }
     const amountUgx = Math.floor(rawAmount);
 
+    // Validate amount against route schema limits
+    if (amountUgx < 1000) {
+      return { success: false, error: "Amount must be at least 1,000 UGX" };
+    }
+    if (amountUgx > 7000000) {
+      return { success: false, error: "Amount must not exceed 7,000,000 UGX" };
+    }
+
     // If an idempotency key is supplied, check for an existing transaction
     if (params.idempotencyKey) {
       const existingSnap = await db
         .collection(COLLECTIONS.TRANSACTIONS)
-        .where("userId", "==", params.userId)
+        .where("userId", "==", userId)
         .where("idempotencyKey", "==", params.idempotencyKey)
         .limit(1)
         .get();
@@ -101,6 +122,16 @@ export const initiateCheckoutPayment = async (params: {
       if (!existingSnap.empty) {
         const existingDoc = existingSnap.docs[0];
         const existingData = existingDoc.data() as Transaction;
+
+        // Terminal FAILED transactions should return failure, not success
+        if (existingData.status === "FAILED") {
+          return {
+            success: false,
+            error: "Previous payment attempt failed. Please try a new payment.",
+          };
+        }
+
+        // Return existing transaction for PENDING, ACCEPTED, or COMPLETED statuses
         return {
           success: true,
           data: {
@@ -127,7 +158,7 @@ export const initiateCheckoutPayment = async (params: {
     const transactionRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference);
     const total = amountUgx + feeResult.fee;
     const transaction: FirestoreWrite<Omit<Transaction, "id">, "createdAt"> & { idempotencyKey?: string } = {
-      userId: params.userId,
+      userId,
       type: "DEPOSIT",
       description: `Funds Deposit via Mobile Money (${method})`,
       amount: Math.round(amountUsd * 100),

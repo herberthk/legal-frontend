@@ -116,9 +116,9 @@ export async function reviewDocument(): Promise<Review> {
   const headers = await authHeaders();          // Authorization + X-Firebase-AppCheck ONLY
   // IMPORTANT: do not set Content-Type — FormData adds the multipart boundary.
 
-  // Abort after 100 s — safely under the 120 s server maxDuration.
+  // Abort after 135 s — exceeds the 120 s server maxDuration with transport margin.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 100_000);
+  const timeoutId = setTimeout(() => controller.abort(), 135_000);
 
   let res: Response;
   try {
@@ -130,8 +130,9 @@ export async function reviewDocument(): Promise<Review> {
     });
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      // Retryable — server may not have started processing yet.
-      throw new Error("Review timed out. Please try again.");
+      // Non-retryable — server may still be processing, but outcome is unknown.
+      // Do not suggest retry; user should check review history for the result.
+      throw new Error("Review timed out. Check your review history for the result.");
     }
     throw err;
   } finally {

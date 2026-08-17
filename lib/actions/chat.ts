@@ -126,7 +126,7 @@ export async function getChatSessions(userId: string, limit = 20) {
     return { success: true, sessions };
   } catch (error) {
     console.error("Error getting chat sessions:", error);
-    return { success: true, sessions: [] };
+    return { success: false, sessions: [] };
   }
 }
 
@@ -173,7 +173,7 @@ export async function getChatMessages(
     return { success: true, messages, hasMore };
   } catch (error) {
     console.error("Error getting chat messages:", error);
-    return { success: true, messages: [], hasMore: false };
+    return { success: false, messages: [], hasMore: false };
   }
 }
 

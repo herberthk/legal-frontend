@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   const result = await resendOtpAction(parsed.data.email, parsed.data.type);
   if (
     parsed.data.type === "reset" &&
-    (result.success || result.message === "No account found with this email address.")
+    (result.success || ("code" in result && result.code === "user-not-found"))
   ) {
     return ok({
       success: true,

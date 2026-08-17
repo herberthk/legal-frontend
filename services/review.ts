@@ -22,7 +22,7 @@ export async function saveDocumentReview(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("saveDocumentReview error:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to save document review" };
   }
 }
 
@@ -50,9 +50,15 @@ export async function getDocumentReviews(
         .collection(COLLECTIONS.DOCUMENT_REVIEWS)
         .doc(beforeId)
         .get();
-      if (cursorDoc.exists) {
-        query = query.startAfter(cursorDoc);
+      if (!cursorDoc.exists || cursorDoc.data()?.userId !== userId) {
+        return {
+          success: false,
+          reviews: [],
+          hasMore: false,
+          error: "Invalid cursor: document not found or unauthorized",
+        };
       }
+      query = query.startAfter(cursorDoc);
     }
 
     const snapshot = await query.limit(limitCount + 1).get();
@@ -75,7 +81,7 @@ export async function getDocumentReviews(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("getDocumentReviews error:", error);
-    return { success: false, reviews: [], hasMore: false, error: error.message };
+    return { success: false, reviews: [], hasMore: false, error: "Failed to retrieve document reviews" };
   }
 }
 
@@ -115,7 +121,7 @@ export async function getDocumentReview(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("getDocumentReview error:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to retrieve document review" };
   }
 }
 
@@ -146,7 +152,7 @@ export async function deleteDocumentReview(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("deleteDocumentReview error:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to delete document review" };
   }
 }
 
@@ -157,6 +163,7 @@ export async function updateDocumentReview(
   userId: string,
 ): Promise<{
   success: boolean;
+  notFound?: boolean;
   error?: string;
 }> {
   try {
@@ -165,9 +172,9 @@ export async function updateDocumentReview(
     const docRef = db.collection(COLLECTIONS.DOCUMENT_REVIEWS).doc(id);
     const doc = await docRef.get();
 
-    if (!doc.exists) return { success: false, error: "Review not found" };
+    if (!doc.exists) return { success: false, notFound: true, error: "Review not found" };
     if (doc.data()?.userId !== userId)
-      return { success: false, error: "Unauthorized" };
+      return { success: false, notFound: true, error: "Unauthorized" };
 
     await docRef.update({
       ...data,
@@ -178,6 +185,6 @@ export async function updateDocumentReview(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("updateDocumentReview error:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: "Failed to update document review" };
   }
 }
