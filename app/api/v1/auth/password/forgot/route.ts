@@ -21,5 +21,11 @@ export async function POST(req: Request) {
   if (!parsed.success) return badRequest("Invalid request body");
 
   const result = await forgotPassword(parsed.data.email);
+  if (result.success || result.code === "user-not-found") {
+    return ok({
+      success: true,
+      message: "If an account exists with this email, a reset code has been sent.",
+    });
+  }
   return ok(result);
 }

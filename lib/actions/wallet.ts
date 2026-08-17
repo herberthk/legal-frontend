@@ -351,7 +351,7 @@ export async function getTransaction(transactionId: string) {
   try {
     const doc = await db.collection(COLLECTIONS.TRANSACTIONS).doc(transactionId).get();
     if (!doc.exists) {
-      return { success: false, message: "Transaction not found" };
+      return { success: false, notFound: true, message: "Transaction not found" };
     }
     const data = doc.data();
     return {
@@ -364,7 +364,7 @@ export async function getTransaction(transactionId: string) {
     };
   } catch (error) {
     console.error("Error getting transaction by ID:", error);
-    return { success: false, message: "Failed to fetch transaction details" };
+    return { success: false, notFound: false, message: "Failed to fetch transaction details" };
   }
 }
 

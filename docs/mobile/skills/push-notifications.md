@@ -45,16 +45,28 @@ npx expo install @react-native-firebase/app @react-native-firebase/messaging
 Request permission, get the token, and register it:
 
 ```ts
+import { Platform, PermissionsAndroid } from "react-native";
 import messaging from "@react-native-firebase/messaging";
 
 export async function registerForPush() {
-  // iOS asks; Android 13+ also needs POST_NOTIFICATIONS (request via expo-notifications or PermissionsAndroid).
+  // 1. On Android 13+ (API 33+), runtime POST_NOTIFICATIONS permission is required:
+  if (Platform.OS === "android" && Platform.Version >= 33) {
+    const androidGranted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+    );
+    if (androidGranted !== PermissionsAndroid.RESULTS.GRANTED) {
+      return;
+    }
+  }
+
+  // 2. Request messaging authorization (APNs on iOS, FCM settings on Android):
   const status = await messaging().requestPermission();
   const granted =
     status === messaging.AuthorizationStatus.AUTHORIZED ||
     status === messaging.AuthorizationStatus.PROVISIONAL;
   if (!granted) return;
 
+  // 3. Obtain registration token and register with backend:
   const token = await messaging().getToken();
   await apiFetch("/notifications/register-device", {
     method: "POST",
@@ -105,29 +117,36 @@ await messaging().deleteToken();   // optional: force a fresh token next login
 
 ## Receiving a push (three app states)
 
+### Component-level notification listeners (inside React)
+
 ```ts
 // 1. Foreground — the OS does NOT show a banner; you render it yourself.
-messaging().onMessage(async (msg) => {
+const unsubOnMessage = messaging().onMessage(async (msg) => {
   showInAppBanner(msg.notification?.title, msg.notification?.body);
   refetchUnread();                       // keep the bell badge fresh
 });
 
 // 2. Background (app running, not focused) — tapped notification opens the app.
-messaging().onNotificationOpenedApp((msg) => deepLink(msg.data?.url));
+const unsubOnOpened = messaging().onNotificationOpenedApp((msg) => deepLink(msg.data?.url));
 
 // 3. Quit (app not running) — the notification that launched the app.
 messaging().getInitialNotification().then((msg) => { if (msg) deepLink(msg.data?.url); });
+```
 
-// 4. Data-only messages while backgrounded — MUST be a top-level handler (index.js),
-//    registered outside any component, or it won't run.
-messaging().setBackgroundMessageHandler(async (msg) => {
-  // e.g. bump a local badge count; keep this fast and side-effect-light.
+### Standalone background message handler (root `index.js`, outside React)
+
+```ts
+// index.js (must be registered at module root before AppRegistry.registerComponent):
+import messaging from "@react-native-firebase/messaging";
+
+messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+  // Handles data-only messages while backgrounded or quit.
+  // Keep this fast and side-effect-light (e.g. updating local notification badge).
 });
 ```
 
 - **Foreground pushes show no OS banner** by default — render your own in-app toast.
-- `setBackgroundMessageHandler` must be registered at module top level (e.g. in
-  `index.js`), not inside a component, or Android won't invoke it when quit.
+- `setBackgroundMessageHandler` must be registered at module top level (in `index.js`), not inside a React component, or Android won't invoke it when quit.
 - Use the push `data.url` to deep-link; the durable content lives in the inbox.
 
 ## The in-app inbox

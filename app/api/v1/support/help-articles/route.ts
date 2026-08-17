@@ -1,6 +1,6 @@
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { getHelpArticles } from "@/lib/actions/support";
-import { ok } from "@/lib/api/v1/response";
+import { ok, internalError } from "@/lib/api/v1/response";
 
 /**
  * `GET /api/v1/support/help-articles` — FAQ/help content, optionally filtered by
@@ -14,6 +14,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const category = url.searchParams.get("category") ?? undefined;
 
-  const articles = await getHelpArticles(category);
-  return ok(articles);
+  const result = await getHelpArticles(category);
+  if (!result.success) return internalError(result.error);
+  return ok({ articles: result.articles });
 }

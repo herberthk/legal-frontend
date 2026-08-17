@@ -225,13 +225,10 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
 
     setIsProcessing(true);
     try {
-      const amountUgx = amount;
-      const amountUsd = amount / USD_TO_UGX_EXCHANGE_RATE;
       const res = await initiateCheckoutPayment({
         userId: user.id,
         msisdn: parsed.formattedNumber!,
-        amountUgx,
-        amountUsd,
+        amount,
         userName: verifiedName || undefined,
       });
 

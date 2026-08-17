@@ -94,10 +94,11 @@ headers["X-Firebase-AppCheck"] = token;
 
 ## Dev bypass
 
-The backend honors `DISABLE_APP_CHECK=true` (server env). With it on, the server
-skips App Check entirely and you may omit the header. Use it for local emulator
-testing and CI smoke tests. **It is a server-side flag** — you cannot set it from
-the app; ask whoever runs the backend, or set it in your local `.env`.
+The backend honors `DISABLE_APP_CHECK=true` (server env) **only in non-production environments** (`NODE_ENV !== "production"`). In production, this flag is strictly ignored.
+
+Additionally, in non-production environments (`NODE_ENV !== "production"`), if neither App Check key (`NEXT_PUBLIC_FIREBASE_APPCHECK_KEY` nor `NEXT_PUBLIC_FIREBASE_RECAPTCHA_SITE_KEY`) is configured on the server, missing or unverified debug tokens softly fall back to allowed.
+
+With bypass/fallback active in development, you may omit the header. **It is a server-side configuration** — set it in your backend `.env` or development runtime.
 
 ## Best practices
 

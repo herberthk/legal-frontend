@@ -32,10 +32,13 @@ export const createSupportTicket = async (
 
 /**
  * Fetches all support tickets for a specific user.
+ *
+ * Returns a discriminated result so callers can distinguish a Firestore failure
+ * (which should surface as a 500) from a legitimate empty ticket list.
  */
 export const getUserSupportTickets = async (
   userId: string,
-): Promise<Complaint[]> => {
+): Promise<{ success: true; tickets: Complaint[] } | { success: false; error: string }> => {
   try {
     const snapshot = await db
       .collection(COLLECTIONS.SUPPORT_TICKETS)
@@ -43,7 +46,7 @@ export const getUserSupportTickets = async (
       .orderBy("createdAt", "desc")
       .get();
 
-    return snapshot.docs.map((doc) => ({
+    const tickets = snapshot.docs.map((doc) => ({
       ...doc.data(),
       id: doc.id,
       createdAt:
@@ -53,18 +56,23 @@ export const getUserSupportTickets = async (
         doc.data().updatedAt?.toDate().toISOString() ||
         new Date().toISOString(),
     })) as Complaint[];
+
+    return { success: true, tickets };
   } catch (error) {
     console.error("Error fetching user tickets:", error);
-    return [];
+    return { success: false, error: "Failed to retrieve tickets." };
   }
 };
 
 /**
  * Fetches help articles (FAQs) from Firestore.
+ *
+ * Returns a discriminated result so callers can distinguish a Firestore failure
+ * from a legitimately empty collection (which surfaces hardcoded defaults).
  */
 export const getHelpArticles = async (
   category?: string,
-): Promise<HelpArticle[]> => {
+): Promise<{ success: true; articles: HelpArticle[] } | { success: false; error: string }> => {
   try {
     let query: FirebaseFirestore.Query = db.collection(
       COLLECTIONS.HELP_ARTICLES,
@@ -78,38 +86,43 @@ export const getHelpArticles = async (
     console.log("snapshot.docs.length", snapshot.docs.length);
     // If no articles exist, return some default ones (we can seed the DB later)
     if (snapshot.empty) {
-      return [
-        {
-          id: "default-1",
-          title: "How do I add funds?",
-          category: "Billing",
-          content:
-            "You can add funds via Mobile Money or Credit Card in the Billing dashboard.",
-          order: 1,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "default-2",
-          title: "Is my data secure?",
-          category: "Privacy",
-          content:
-            "All chat sessions are encrypted and stored securely in our private cloud.",
-          order: 2,
-          createdAt: new Date().toISOString(),
-        },
-      ] as HelpArticle[];
+      return {
+        success: true,
+        articles: [
+          {
+            id: "default-1",
+            title: "How do I add funds?",
+            category: "Billing",
+            content:
+              "You can add funds via Mobile Money or Credit Card in the Billing dashboard.",
+            order: 1,
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: "default-2",
+            title: "Is my data secure?",
+            category: "Privacy",
+            content:
+              "All chat sessions are encrypted and stored securely in our private cloud.",
+            order: 2,
+            createdAt: new Date().toISOString(),
+          },
+        ] as HelpArticle[],
+      };
     }
 
-    return snapshot.docs?.map((doc) => ({
+    const articles = snapshot.docs?.map((doc) => ({
       ...doc.data(),
       id: doc.id,
       createdAt:
         doc.data().createdAt?.toDate().toISOString() ||
         new Date().toISOString(),
     })) as HelpArticle[];
+
+    return { success: true, articles };
   } catch (error) {
     console.error("Error fetching help articles:", error);
-    return [];
+    return { success: false, error: "Failed to retrieve help articles." };
   }
 };
 

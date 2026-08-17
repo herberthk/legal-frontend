@@ -1,6 +1,6 @@
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { getLatestUnreadNotifications } from "@/lib/actions/notifications";
-import { ok } from "@/lib/api/v1/response";
+import { ok, internalError } from "@/lib/api/v1/response";
 
 /**
  * `GET /api/v1/notifications/unread` — the five most recent unread
@@ -12,5 +12,6 @@ export async function GET(req: Request) {
   if (gate instanceof Response) return gate;
 
   const result = await getLatestUnreadNotifications(gate.userId);
+  if (!result.success) return internalError("Failed to retrieve notifications.");
   return ok(result);
 }

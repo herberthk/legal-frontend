@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { FieldValue } from "firebase-admin/firestore";
+import { db } from "@/firebase/admin";
 import { recordVoiceSession } from "@/lib/actions/voice-actions";
 import { getUserIdFromRequest } from "@/lib/api/v1/auth";
 import {
+  COLLECTIONS,
   COST_PER_VOICE_SECOND_IN_CENTS,
   MAX_VOICE_SESSION_SECONDS,
 } from "@/constants";
@@ -38,12 +40,13 @@ const bodySchema = z.object({
   // "/" can't create a nested doc outside the depth-1 firestore.rules match.
   sessionId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "invalid sessionId"),
 
-  // Reject NaN/Infinity explicitly — either would corrupt the balance arithmetic.
+  // Client duration is optional/telemetry only; server calculates authoritative duration.
   duration: z
     .number()
     .refine((n) => Number.isFinite(n), "duration must be finite")
     .min(0)
-    .max(MAX_VOICE_SESSION_SECONDS),
+    .max(MAX_VOICE_SESSION_SECONDS)
+    .optional(),
 
   transcripts: z
     .array(transcriptSchema)
@@ -84,10 +87,29 @@ export async function POST(req: Request) {
     return badRequest("Invalid request body");
   }
 
-  const { sessionId, duration, transcripts } = parsed.data;
+  const { sessionId, transcripts } = parsed.data;
 
-  // Whole seconds only — the deduction is per-second.
-  const billableDuration = Math.floor(duration);
+  // Retrieve the server-authoritative voice session reservation
+  const sessionRef = db.collection(COLLECTIONS.VOICE_SESSIONS).doc(sessionId);
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) {
+    return badRequest("Voice session reservation not found");
+  }
+
+  const sessionData = sessionSnap.data() as VoiceSessionUsage & {
+    startedAt?: FirebaseFirestore.Timestamp;
+    createdAt?: FirebaseFirestore.Timestamp;
+  };
+
+  if (sessionData.userId !== userId) {
+    return unauthenticated();
+  }
+
+  // Derive duration from server timing / reservation rather than trusting client-supplied duration
+  const startTimestamp = sessionData.startedAt || sessionData.createdAt;
+  const startMs = startTimestamp?.toDate ? startTimestamp.toDate().getTime() : Date.now();
+  const serverElapsedSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+  const billableDuration = Math.min(serverElapsedSeconds, MAX_VOICE_SESSION_SECONDS);
 
   const usage: FirestoreWrite<VoiceSessionUsage, "createdAt"> = {
     userId,

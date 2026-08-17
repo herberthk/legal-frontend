@@ -13,6 +13,7 @@ export const maxDuration = 120;
 export async function POST(req: Request) {
   // 0. Verify App Check token
   const appCheckResult = await verifyAppCheckHeader(req);
+  console.log("appCheckResult", appCheckResult);
   if (!appCheckResult.valid) {
     return Response.json(
       { error: appCheckResult.error || "Unauthorized client application." },

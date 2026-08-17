@@ -9,7 +9,7 @@
 
 - The `POST /chat` SSE contract (`x-vercel-ai-ui-message-stream: v1`).
 - Consuming it in RN with **`expo/fetch`** + `@ai-sdk/react`'s `useChat`.
-- The **`x-chat-id` billing gotcha** — no chat id means no billing *and* no persistence.
+- The **`x-chat-id` billing gotcha** — no chat id means no billing _and_ no persistence.
 - Sending document/image attachments (upload to Storage first).
 - Rendering reasoning ("thinking") parts, and a hand-rolled parser fallback.
 
@@ -44,11 +44,13 @@ data: [DONE]
 
 ```jsonc
 // 402 out of credit, 401 auth/appcheck, 500 generation error
-{ "error": "Insufficient tokens. This message requires ~1,200 tokens but you only have ~300…" }
+{
+  "error": "Insufficient tokens. This message requires ~1,200 tokens but you only have ~300…",
+}
 ```
 
 Map **402 → the top-up flow** (`payments-*` skills). The server estimates cost
-*before* streaming and rejects up front, so a 402 arrives instead of a stream.
+_before_ streaming and rejects up front, so a 402 arrives instead of a stream.
 
 ## Model & server behavior (for context)
 
@@ -72,10 +74,13 @@ correctness trap, not a free tier.
 
 ```ts
 // 1. Create (or reuse) a session — see account-and-history.md
-const { sessionId } = await apiFetch<{ success: boolean; sessionId: string }>("/chats", {
-  method: "POST",
-  body: JSON.stringify({ title: "New chat" }),
-});
+const { sessionId } = await apiFetch<{ success: boolean; sessionId: string }>(
+  "/chats",
+  {
+    method: "POST",
+    body: JSON.stringify({ title: "New chat" }),
+  },
+);
 
 // 2. Every /chat request for this conversation sends x-chat-id: sessionId
 ```
@@ -100,6 +105,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import auth from "@react-native-firebase/auth";
 import appCheck from "@react-native-firebase/app-check";
+import { useRef } from "react";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL!;
 
@@ -113,18 +119,26 @@ export function useLegalChat(chatId: string) {
       fetch: expoFetch as unknown as typeof globalThis.fetch,
       // Attach a FRESH token + App Check + the chat id on every send.
       headers: async () => {
-        const user = auth().currentUser!;
+        const user = auth().currentUser;
+        if (!user) {
+          // Not signed in yet — surface the error immediately rather than
+          // crashing with a null-dereference inside getIdToken().
+          throw new Error("Authentication required.");
+        }
         const [idToken, ac] = await Promise.all([
           user.getIdToken(),
-          appCheck().getToken(false).catch(() => null),
+          appCheck()
+            .getToken(false)
+            .catch(() => null),
         ]);
         const h: Record<string, string> = {
           Authorization: `Bearer ${idToken}`,
-          "x-chat-id": chatId,
           "x-first-message": isFirst.current ? "true" : "false",
         };
+        // Only attach x-chat-id once we have a real session ID.
+        // Sending an empty value would create a server-side session conflict.
+        if (chatId) h["x-chat-id"] = chatId;
         if (ac?.token) h["X-Firebase-AppCheck"] = ac.token;
-        isFirst.current = false;
         return h;
       },
       // Send only the tail the server actually uses.
@@ -134,9 +148,37 @@ export function useLegalChat(chatId: string) {
         body: { messages: messages.slice(-6) },
       }),
     }),
+    // Prevent sending while chatId is empty — useChat will re-enable once
+    // the prop updates to a non-empty value.
+    disabled: !chatId,
+    onFinish: () => {
+      // Mark first turn completed ONLY when a message response finishes successfully.
+      // Failed turns will retain x-first-message: "true" on retry so title generation works.
+      isFirst.current = false;
+    },
     onError: (err) => {
-      // Body is `{ error: string }`. Detect the 402 paywall by message/status.
-      // Route to top-up if it looks like a credit error.
+      // Body is flat `{ error: string }`. Inspect status and error message:
+      const status = (err as { status?: number }).status;
+      const message = err.message || "";
+
+      // 402 Paywall / Insufficient Credits: route to top-up screen
+      if (
+        status === 402 ||
+        message.toLowerCase().includes("insufficient credit") ||
+        message.toLowerCase().includes("token")
+      ) {
+        router.push("/billing/topup");
+        return;
+      }
+
+      // 401 Auth / App Check failure: prompt sign-in / re-auth
+      if (status === 401 || message.toLowerCase().includes("authentication required")) {
+        showErrorToast("Session expired. Please sign in again.");
+        return;
+      }
+
+      // 500 / Network / General Server error: surface clear error message
+      showErrorToast(message || "An error occurred while generating a response.");
     },
   });
 }
@@ -145,18 +187,21 @@ export function useLegalChat(chatId: string) {
 Render `message.parts`:
 
 ```tsx
-{messages.map((m) => (
-  <View key={m.id}>
-    {m.parts.map((part, i) => {
-      if (part.type === "text") return <Markdown key={i}>{part.text}</Markdown>;
-      if (part.type === "reasoning")
-        return <ThinkingBlock key={i} text={part.text} />; // collapsible "thinking"
-      if (part.type === "file")
-        return <Attachment key={i} url={part.url} name={part.filename} />;
-      return null;
-    })}
-  </View>
-))}
+{
+  messages.map((m) => (
+    <View key={m.id}>
+      {m.parts.map((part, i) => {
+        if (part.type === "text")
+          return <Markdown key={i}>{part.text}</Markdown>;
+        if (part.type === "reasoning")
+          return <ThinkingBlock key={i} text={part.text} />; // collapsible "thinking"
+        if (part.type === "file")
+          return <Attachment key={i} url={part.url} name={part.filename} />;
+        return null;
+      })}
+    </View>
+  ));
+}
 ```
 
 ## Sending attachments (PDF / image / DOCX)
@@ -169,8 +214,11 @@ import storage from "@react-native-firebase/storage";
 import * as DocumentPicker from "expo-document-picker";
 
 const picked = await DocumentPicker.getDocumentAsync({
-  type: ["application/pdf", "image/*",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  type: [
+    "application/pdf",
+    "image/*",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ],
 });
 if (picked.canceled) return;
 const asset = picked.assets[0];
@@ -202,7 +250,9 @@ directly and parse `data:` frames:
 ```ts
 const res = await expoFetch(`${BASE_URL}/chat`, {
   method: "POST",
-  headers: { /* auth + appcheck + x-chat-id + content-type */ },
+  headers: {
+    /* auth + appcheck + x-chat-id + content-type */
+  },
   body: JSON.stringify({ messages }),
 });
 if (!res.ok) throw new Error((await res.json()).error);
@@ -222,7 +272,10 @@ while (true) {
     const payload = line.slice(6);
     if (payload === "[DONE]") return answer;
     const evt = JSON.parse(payload);
-    if (evt.type === "text-delta") { answer += evt.delta; onToken(answer); }
+    if (evt.type === "text-delta") {
+      answer += evt.delta;
+      onToken(answer);
+    }
     // evt.type === "reasoning-delta" → optional "thinking" UI
   }
 }
@@ -257,7 +310,7 @@ while (true) {
   is a fallback but must be the variant that supports a POST body + custom headers.
 - Errors here are `{ error: string }`, **not** the `{ error: { code, message } }`
   envelope — don't run them through `apiFetch`'s parser.
-- A 402 arrives as an error response *before* any stream frame; handle it in
+- A 402 arrives as an error response _before_ any stream frame; handle it in
   `onError`/the initial `!res.ok` check, not mid-stream.
 - The reasoning stream is on by default; if your UI has no place for it, drop
   `reasoning` parts rather than rendering them inline with the answer.

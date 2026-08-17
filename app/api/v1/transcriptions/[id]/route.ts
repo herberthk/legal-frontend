@@ -2,7 +2,7 @@ import { requireMobileAuth } from "@/lib/api/v1/guard";
 import {
   getTranscriptionRecord,
   deleteTranscriptionRecord,
-} from "@/lib/actions/transcribe";
+} from "@/services/transcribe";
 import { ok, notFoundError } from "@/lib/api/v1/response";
 
 /**

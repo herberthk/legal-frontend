@@ -47,13 +47,18 @@ export class ApiError extends Error {
   }
 }
 
-async function authHeaders(forceRefresh = false): Promise<Record<string, string>> {
+async function authHeaders(
+  forceRefreshAuth = false,
+  forceRefreshAppCheck = false,
+): Promise<Record<string, string>> {
   const user = auth().currentUser;
   if (!user) throw new ApiError(401, "UNAUTHENTICATED", "Not signed in.");
 
   const [idToken, appCheckResult] = await Promise.all([
-    user.getIdToken(forceRefresh),
-    appCheck().getToken(/* forceRefresh */ false).catch(() => null),
+    user.getIdToken(forceRefreshAuth),
+    appCheck()
+      .getToken(forceRefreshAppCheck)
+      .catch(() => null),
   ]);
 
   const headers: Record<string, string> = {
@@ -67,7 +72,7 @@ async function authHeaders(forceRefresh = false): Promise<Record<string, string>
 
 /**
  * JSON fetch for the enveloped routes. Returns the unwrapped `data`.
- * Automatically refreshes the ID token once on a 401 and retries.
+ * Automatically refreshes the ID token / App Check token once on a 401 and retries.
  */
 export async function apiFetch<T = unknown>(
   path: string,
@@ -76,16 +81,17 @@ export async function apiFetch<T = unknown>(
 ): Promise<T> {
   const headers = {
     "Content-Type": "application/json",
-    ...(await authHeaders(_retried)), // force-refresh the token on the retry
     ...(init.headers ?? {}),
+    ...(await authHeaders(_retried, _retried)), // fresh auth + App Check headers take precedence
   };
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
-  // Retry once on an expired/revoked token.
+  // Retry once on an expired/revoked auth token or stale App Check token:
   if (res.status === 401 && !_retried) {
     const body = await res.clone().json().catch(() => null);
-    if (body?.error?.code === "UNAUTHENTICATED") {
+    const code = body?.error?.code;
+    if (code === "UNAUTHENTICATED" || code === "APP_CHECK_FAILED") {
       return apiFetch<T>(path, init, true);
     }
   }

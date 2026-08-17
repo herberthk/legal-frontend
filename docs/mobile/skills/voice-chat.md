@@ -124,8 +124,18 @@ function onmessage(msg) {
   if (msg.sessionResumptionUpdate?.newHandle) {
     previousHandle = msg.sessionResumptionUpdate.newHandle;
   }
-  // Server asks to rotate the socket — close and reconnect with the handle.
-  if (msg.goAway && duration < 1800) session.close();
+  // Server asks to rotate the socket.
+  // If we've hit the 30-minute cap, close permanently and settle billing once.
+  // Otherwise, reconnect with the saved handle.
+  if (msg.goAway) {
+    if (duration >= 1800) {
+      session.close();
+      reconnectAllowed = false;  // prevent further reconnect attempts
+      settleBilling();            // call exactly once at cap
+    } else {
+      session.close();           // will reconnect with previousHandle (see connect logic)
+    }
+  }
 
   // Audio out.
   for (const part of msg.serverContent?.modelTurn?.parts ?? []) {
@@ -197,13 +207,11 @@ Authorization: Bearer <id-token>
 Content-Type: application/json
 {
   "sessionId": "<uuid>",
-  "duration": 137.4,                          # seconds; server floors to whole seconds
+  "duration": 137.4,                          # seconds; server derives authoritative billing
   "transcripts": [                            # role is "user" | "AI" (capitalized)
     { "role": "user", "content": "…" },
     { "role": "AI",   "content": "…" }
-  ],
-  "preferedVoice": { "preferedVoiceId": "…", "preferedVoiceName": "…" },  # optional
-  "userName": "Jane"                          # optional
+  ]
 }
 → 200 { "data": { "voiceSessionId": "…" } }
 ```

@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
-import { transcribeDocument, getTranscriptions } from "@/lib/actions/transcribe";
+import { transcribeDocument, getTranscriptions } from "@/services/transcribe";
 import {
   ok,
   badRequest,
   paymentRequired,
   internalError,
 } from "@/lib/api/v1/response";
+import { MAX_REVIEW_FILE_SIZE } from "@/constants";
 
 /**
  * `POST /api/v1/transcriptions` — runs a metered Gemini transcription over a
@@ -19,9 +20,17 @@ import {
  */
 export const maxDuration = 120;
 
+// base64 inflates bytes by 4/3
+const MAX_BASE64_LENGTH = Math.ceil((MAX_REVIEW_FILE_SIZE * 4) / 3);
+
 const postSchema = z.object({
-  base64Data: z.string().min(1),
-  mimeType: z.string().min(1).max(200),
+  base64Data: z.string().min(1).max(MAX_BASE64_LENGTH),
+  mimeType: z.enum([
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+ ]),
   formatMode: z.enum(["professional", "original"]),
   fileName: z.string().min(1).max(300),
 });
@@ -58,7 +67,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const rawLimit = Number(url.searchParams.get("limit") ?? "10");
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? rawLimit : 10;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? Math.floor(rawLimit) : 10;
   const beforeId = url.searchParams.get("beforeId") ?? undefined;
   const q = url.searchParams.get("q") ?? undefined;
   const tr = timeRangeSchema.safeParse(url.searchParams.get("timeRange"));
@@ -70,5 +79,6 @@ export async function GET(req: Request) {
     tr.success ? tr.data : undefined,
     gate.userId,
   );
+  if (!result.success) return internalError(result.error || "Failed to retrieve transcriptions.");
   return ok(result);
 }

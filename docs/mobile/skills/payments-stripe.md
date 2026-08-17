@@ -129,8 +129,15 @@ first. Reconcile with either:
 ```ts
 const { cancelled, reference } = await topUp(5);
 if (!cancelled) {
-  await pollUntilSettled(reference);     // shared helper (payments-mobile-money.md)
-  await refetchMe();                     // refresh the wallet
+  const status = await pollUntilSettled(reference); // shared helper (payments-mobile-money.md)
+  if (status === "COMPLETED") {
+    await refetchMe();                              // balance now updated
+  } else if (status === "FAILED") {
+    showError("The payment didn't go through.");
+  } else {
+    // TIMEOUT — payment still processing server-side
+    showInfo("Still processing — pull to refresh in a moment.");
+  }
 }
 ```
 

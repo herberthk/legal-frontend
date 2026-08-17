@@ -23,11 +23,7 @@ import { vertex } from "@/lib/actions/vertex";
  * re-verifying the web review flow.
  */
 
-// Cache dynamic imports so they are only loaded once per cold start, reducing per-request latency
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedPdfParse: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedMammoth: any = null;
+import { extractDocumentText } from "@/lib/document-extractor";
 
 // Static schema declaration to avoid recreating validation objects on every request
 const legalReviewSchema = z.object({
@@ -167,32 +163,22 @@ export async function handleReviewRequest(
       useMultimodalFile = true;
     } else {
       try {
-        if (isPdf) {
-          if (!cachedPdfParse) {
-            const pdfParseModule = await import("pdf-parse");
-            cachedPdfParse = pdfParseModule.default || pdfParseModule;
-          }
-          const parsed = await cachedPdfParse(buffer);
-          const pdfText = parsed.text || "";
-          pageCount = parsed.numpages || 1;
+        const extracted = await extractDocumentText(buffer, isPdf ? "pdf" : "docx");
+        pageCount = extracted.pageCount;
 
-          if (pdfText.trim().length < 100) {
+        if (isPdf) {
+          if (extracted.isScannedPdf) {
             // Scanned PDF: Fall back to native visual file upload
             useMultimodalFile = true;
-            estimatedInputTokens = pageCount * 1000;
+            estimatedInputTokens = extracted.estimatedTokens;
           } else {
             // Text-based PDF: Send extracted text for consistency & cost efficiency
             useMultimodalFile = false;
-            extractedText = pdfText;
-            estimatedInputTokens = Math.ceil(pdfText.length / CHARS_PER_TOKEN);
+            extractedText = extracted.text;
+            estimatedInputTokens = extracted.estimatedTokens;
           }
         } else if (isDocx) {
-          if (!cachedMammoth) {
-            cachedMammoth = await import("mammoth");
-          }
-          const result = await cachedMammoth.extractRawText({ buffer });
-          const docxText = result.value || "";
-          if (!docxText.trim()) {
+          if (!extracted.text.trim()) {
             return Response.json(
               {
                 error:
@@ -201,10 +187,9 @@ export async function handleReviewRequest(
               { status: 422 },
             );
           }
-          pageCount = Math.max(1, Math.ceil(docxText.length / 3000));
           useMultimodalFile = false;
-          extractedText = docxText;
-          estimatedInputTokens = Math.ceil(docxText.length / CHARS_PER_TOKEN);
+          extractedText = extracted.text;
+          estimatedInputTokens = extracted.estimatedTokens;
         }
       } catch (error) {
         console.error("Document parsing error:", error);

@@ -2,7 +2,7 @@ import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { markAsRead } from "@/lib/actions/notifications";
 import { verifyDocOwnership } from "@/lib/api/v1/ownership";
 import { COLLECTIONS } from "@/constants";
-import { ok, notFoundError } from "@/lib/api/v1/response";
+import { ok, notFoundError, internalError } from "@/lib/api/v1/response";
 
 /**
  * `POST /api/v1/notifications/:id/read` — marks one notification read.
@@ -21,5 +21,6 @@ export async function POST(
   if (!owned) return notFoundError("Notification not found.");
 
   const result = await markAsRead(id);
+  if (!result.success) return internalError(result.error || "Failed to mark notification as read.");
   return ok(result);
 }

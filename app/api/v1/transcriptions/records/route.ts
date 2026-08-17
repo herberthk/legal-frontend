@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
-import { saveTranscriptionRecord } from "@/lib/actions/transcribe";
-import { ok, badRequest } from "@/lib/api/v1/response";
+import { saveTranscriptionRecord } from "@/services/transcribe";
+import { ok, badRequest, notFoundError } from "@/lib/api/v1/response";
 
 /**
  * `POST /api/v1/transcriptions/records` — persists a completed transcription to
@@ -15,7 +15,7 @@ const schema = z.object({
   id: z.string().min(1).max(128).optional(),
   title: z.string().min(1).max(300),
   fileName: z.string().min(1).max(300),
-  fileUrl: z.string().url().max(2048).optional(),
+  fileUrl: z.url().max(2048).optional(),
   transcribedText: z.string().min(1).max(900_000),
   formatMode: z.enum(["professional", "original"]),
   tokensUsed: z.number().int().nonnegative().optional(),
@@ -37,5 +37,8 @@ export async function POST(req: Request) {
   }
 
   const result = await saveTranscriptionRecord(parsed.data, gate.userId);
+  if (!result.success) {
+    return notFoundError(result.error || "Failed to save transcription record.");
+  }
   return ok(result);
 }

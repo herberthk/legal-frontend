@@ -14,11 +14,13 @@ const HelpPage = async () => {
   if (!user) return null;
 
   // Parallel fetching
-  const [tickets, faqs] = await Promise.all([
+  const [ticketsResult, faqsResult] = await Promise.all([
     getUserSupportTickets(user.id),
     getHelpArticles(),
     seedHelpArticles(), // Runs in background, seeds if empty
   ]);
+  const tickets = ticketsResult.success ? ticketsResult.tickets : [];
+  const faqs = faqsResult.success ? faqsResult.articles : [];
 
   return <DirectionalTransition> 
             <SupportPage user={user} initialTickets={tickets} faqs={faqs} />

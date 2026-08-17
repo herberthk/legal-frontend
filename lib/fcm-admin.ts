@@ -8,6 +8,7 @@
 
 import { COLLECTIONS } from "@/constants";
 import { db, messaging } from "@/firebase/admin";
+import { getFCMTokenDocId } from "@/lib/fcm-utils";
 
 interface SendPushOptions {
   userId: string;
@@ -65,10 +66,11 @@ export async function sendPushToUser({
         errCode === "messaging/registration-token-not-registered" ||
         errCode === "messaging/invalid-registration-token"
       ) {
+        const docId = getFCMTokenDocId(tokens[idx]);
         staleCleanup.push(
           db
             .collection(COLLECTIONS.FCM_TOKENS)
-            .doc(tokens[idx])
+            .doc(docId)
             .delete()
             .catch(() => {
               /* silently ignore cleanup errors */

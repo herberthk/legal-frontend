@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { getChatSessions, createChatSession } from "@/lib/actions/chat";
-import { ok, badRequest } from "@/lib/api/v1/response";
+import { ok, badRequest, internalError } from "@/lib/api/v1/response";
 
 /**
  * `GET /api/v1/chats` — the caller's chat sessions (most recent first).
@@ -15,9 +15,10 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const rawLimit = Number(url.searchParams.get("limit") ?? "20");
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? rawLimit : 20;
+  const limit = Number.isInteger(rawLimit) && rawLimit > 0 && rawLimit <= 50 ? rawLimit : 20;
 
   const result = await getChatSessions(gate.userId, limit);
+  if (!result.success) return internalError("Failed to retrieve chat sessions.");
   return ok(result);
 }
 
@@ -34,8 +35,9 @@ export async function POST(req: Request) {
     return badRequest("Invalid JSON body");
   }
   const parsed = createSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid request body");
+  if (!parsed.success) return badRequest(parsed.error.issues[0]?.message || "Invalid request body");
 
   const result = await createChatSession(gate.userId, parsed.data.title);
+  if (!result.success) return internalError("Failed to create chat session.");
   return ok(result);
 }
