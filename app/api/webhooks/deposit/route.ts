@@ -31,8 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid deposit ID' }, { status: 400 });
   }
   const { depositId: externalReference, status, providerTransactionId, country } = cb;
-
-  // amountUGX from callback metadata is untrusted; only used as a last-resort fallback.
+  
   // The authoritative credit amount is derived from the persisted server-side value after the transaction.
 
   try {
@@ -81,12 +80,13 @@ export async function POST(req: NextRequest) {
       if (status === "COMPLETED") {
         // `amount` is already stored in cents at initiation using the trusted rate.
         const creditAmount = amount;
-        if (!creditAmount || creditAmount <= 0) {
-          console.error(
-            `[pawaPay callback] Refusing to credit non-positive amount for ${externalReference}`
+        if (!Number.isSafeInteger(creditAmount) || creditAmount <= 0) {
+          // This is a data-integrity error in our own Firestore record, not a
+          // missing-document case. Throw so runTransaction rejects → outer catch
+          // returns 500 → PawaPay retries the callback rather than dropping it.
+          throw new Error(
+            `[pawaPay callback] Invalid persisted amount (${creditAmount}) for ${externalReference}; aborting to trigger provider retry`
           );
-          notFound = true;
-          return;
         }
         const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
         const userSnap = await transaction.get(userRef);
