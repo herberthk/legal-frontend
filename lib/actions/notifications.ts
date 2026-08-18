@@ -263,7 +263,12 @@ export async function removeFCMToken(token: string) {
       }
     }
 
-    await Promise.allSettled(deletions);
+    const results = await Promise.allSettled(deletions);
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      console.error("[FCM] Failed to delete token documents:", failed);
+      return { success: false, error: "Failed to remove token" };
+    }
     return { success: true };
   } catch (error) {
     console.error("[FCM] Error removing token:", error);
