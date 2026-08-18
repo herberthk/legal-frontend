@@ -131,7 +131,7 @@ const TransactionTableBody: React.FC<TransactionTableBodyProps> = ({
               >
                 {t.amount > 0 ? "+" : ""}$
                 {parseFloat((t.amount / 100).toString()).toFixed(2)} (UGX{" "}
-                {((t.amount / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString()}
+                {(Math.round((t.amount / 100) * USD_TO_UGX_EXCHANGE_RATE)).toLocaleString()}
                 )
               </td>
               <td className="p-2 md:px-6 py-4 text-right">

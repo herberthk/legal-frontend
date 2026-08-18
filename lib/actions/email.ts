@@ -142,15 +142,21 @@ export const sendTransactionReceiptEmail = async ({
   receiptUrl,
   newBalanceInCents,
   transactionId,
-}: SendReceiptParams): Promise<void> => {
+}: SendReceiptParams): Promise<{ success: boolean; error?: string }> => {
   try {
     // Fetch user details from Firestore
     const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
     if (!userDoc.exists) {
-      console.error(`sendTransactionReceiptEmail: user ${userId} not found`);
-      return;
+      const err = `sendTransactionReceiptEmail: user ${userId} not found`;
+      console.error(err);
+      return { success: false, error: err };
     }
     const userData = userDoc.data() as { name: string; email: string };
+    if (!userData.email) {
+      const err = `sendTransactionReceiptEmail: user ${userId} has no email address`;
+      console.error(err);
+      return { success: false, error: err };
+    }
 
     const amountDollars = amountInCents / 100;
     const newBalanceDollars = newBalanceInCents / 100;
@@ -163,7 +169,7 @@ export const sendTransactionReceiptEmail = async ({
 
     const emailHtml = await render(
       TransactionReceiptEmail({
-        userName: userData.name,
+        userName: userData.name || "Customer",
         userEmail: userData.email,
         amountUSD: formatUSD(amountDollars),
         amountUGX: formatUgx(amountDollars),
@@ -172,7 +178,7 @@ export const sendTransactionReceiptEmail = async ({
         date,
         newBalanceUSD: formatUSD(newBalanceDollars),
         receiptUrl,
-        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/transactions/${transactionId}`,
+        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL || ""}/dashboard/transactions/${transactionId}`,
       })
     );
 
@@ -184,9 +190,11 @@ export const sendTransactionReceiptEmail = async ({
     });
 
     console.log(`Receipt email sent to ${userData.email} for ref ${reference}`);
+    return { success: true };
   } catch (error) {
-    // Non-fatal — log but do not throw so payment flow is not disrupted
-    console.error("sendTransactionReceiptEmail error:", error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error("sendTransactionReceiptEmail error:", errorMsg);
+    return { success: false, error: errorMsg };
   }
 };
 
