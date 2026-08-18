@@ -97,10 +97,14 @@ export const initiateCheckoutPayment = async (params: {
 > => {  
   try {
     const sessionUserId = await getAuthenticatedUserId();
-    const userId = params.userId || sessionUserId;
-    if (!userId || (sessionUserId && params.userId && params.userId !== sessionUserId)) {
+    if (!sessionUserId) {
       return { success: false, error: "Unauthorized caller", terminal: true };
     }
+
+    if (params.userId && params.userId !== sessionUserId) {
+      return { success: false, error: "Unauthorized caller", terminal: true };
+    }
+    const userId = sessionUserId;
 
     if (
       !params.idempotencyKey ||

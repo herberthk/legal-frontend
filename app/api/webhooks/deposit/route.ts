@@ -7,7 +7,17 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Webhook callback ─────────────────────────────────────────────────────────────
-
+type WebhookResult =
+      | { outcome: "notFound" }
+      | { outcome: "alreadyProcessed" }
+      | {
+          outcome: "processed";
+          userId: string;
+          amount: number;
+          method: string;
+          newBalance: number;
+        };
+        
 export async function POST(req: NextRequest) {
   const { valid, body, error } = await verifyPawaPayCallback(req);
 
@@ -22,8 +32,8 @@ export async function POST(req: NextRequest) {
   }
   const { depositId: externalReference, status, providerTransactionId, country } = cb;
 
-  // Extract baseAmount from metadata object (provided as string, e.g. "190000")
-  const amountUGX = Number((cb.metadata)?.baseAmount) || 0;
+  // amountUGX from callback metadata is untrusted; only used as a last-resort fallback.
+  // The authoritative credit amount is derived from the persisted server-side value after the transaction.
 
   try {
     const txRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference);
@@ -69,7 +79,15 @@ export async function POST(req: NextRequest) {
       }
 
       if (status === "COMPLETED") {
-        const creditAmount = Math.round((amountUGX / USD_TO_UGX_EXCHANGE_RATE) * 100);
+        // `amount` is already stored in cents at initiation using the trusted rate.
+        const creditAmount = amount;
+        if (!creditAmount || creditAmount <= 0) {
+          console.error(
+            `[pawaPay callback] Refusing to credit non-positive amount for ${externalReference}`
+          );
+          notFound = true;
+          return;
+        }
         const userRef = db.collection(COLLECTIONS.USERS).doc(userId);
         const userSnap = await transaction.get(userRef);
         const currentBalance = userSnap.data()?.balance || 0;
@@ -123,7 +141,7 @@ export async function POST(req: NextRequest) {
         }),
         createNotification(userId, {
           title: "Deposit Successful",
-          message: `Your Mobile Money deposit of UGX ${(amountUGX).toLocaleString("en-UG")} was successful.`,
+          message: `Your Mobile Money deposit of UGX ${Math.round((amount / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString("en-UG")} was successful.`,
           type: "SUCCESS",
           url: "/dashboard/billing",
         }),
@@ -141,9 +159,10 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (dbErr) {
-    // Log but still return 200 — never let DB errors cause PawaPay retry loops
     console.error("[pawaPay callback] DB update failed:", dbErr);
+    // Processing is idempotent via the atomic transaction and claim checks,
+    // so ask the provider to retry rather than dropping the deposit.
+    return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
   }
-
   return NextResponse.json({ received: true }, { status: 200 });
 }
