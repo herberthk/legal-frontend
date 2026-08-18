@@ -136,6 +136,7 @@ export function useFCMPushNotifications(): UseFCMReturn {
       if (!token) return; // Exit if no token is available.
 
       try {
+        setError(null);
         const m = await messaging();
         if (!m) return;
 
