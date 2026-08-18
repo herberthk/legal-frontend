@@ -405,6 +405,10 @@ declare global {
     type: OutboxTaskType;
     status: OutboxTaskStatus;
     payload: OutboxTaskPayload;
+    channels?: {
+      email?: boolean;
+      notification?: boolean;
+    };
     attempts: number;
     maxAttempts: number;
     lastError?: string;

@@ -26,7 +26,7 @@ interface TransactionReceiptEmailProps {
   date: string;            // Human readable date string
   newBalanceUSD: string;   // e.g. "$120.00"
   receiptUrl?: string;     // Only for Stripe card payments
-  dashboardUrl: string;
+  dashboardUrl?: string;
 }
 
 export const TransactionReceiptEmail = ({
@@ -133,12 +133,14 @@ export const TransactionReceiptEmail = ({
             </Section>
           )}
 
-          {/* ── CTA ── */}
-          <Section style={{ textAlign: "center", marginBottom: "32px" }}>
-            <Button href={dashboardUrl} style={ctaButton}>
-              View Transaction
-            </Button>
-          </Section>
+          {/* ── CTA (Only when a valid absolute dashboardUrl is provided) ── */}
+          {dashboardUrl && (
+            <Section style={{ textAlign: "center", marginBottom: "32px" }}>
+              <Button href={dashboardUrl} style={ctaButton}>
+                View Transaction
+              </Button>
+            </Section>
+          )}
 
           {/* ── Security Note ── */}
           <Section style={securityNote}>
@@ -163,11 +165,15 @@ export const TransactionReceiptEmail = ({
             <Text style={footerText}>
               <Link href="mailto:info@netbritz.com" style={footerLink}>
                 info@netbritz.com
-              </Link>{" "}
-              &bull;{" "}
-              <Link href={dashboardUrl} style={footerLink}>
-                Dashboard
               </Link>
+              {dashboardUrl && (
+                <>
+                  {" "}&bull;{" "}
+                  <Link href={dashboardUrl} style={footerLink}>
+                    Dashboard
+                  </Link>
+                </>
+              )}
             </Text>
           </Section>
         </Container>

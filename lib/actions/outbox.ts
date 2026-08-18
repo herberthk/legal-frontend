@@ -81,51 +81,83 @@ export async function processOutboxTask(taskId: string): Promise<{ success: bool
     const { task } = taskToProcess;
     const { type, payload } = task;
 
+    let emailDone = !!task.channels?.email;
+    let notifDone = !!task.channels?.notification;
+    const failures: string[] = [];
+
     try {
       if (type === "DEPOSIT_COMPLETED") {
         const rate = payload.exchangeRate || USD_TO_UGX_EXCHANGE_RATE;
         const amountUgxFormatted = Math.round((payload.amountInCents / 100) * rate).toLocaleString("en-UG");
 
-        const [emailResult, notifResult] = await Promise.all([
-          sendTransactionReceiptEmail({
-            userId: payload.userId,
-            amountInCents: payload.amountInCents,
-            paymentMethod: payload.paymentMethod,
-            reference: payload.reference,
-            receiptUrl: payload.receiptUrl,
-            newBalanceInCents: payload.newBalanceInCents,
-            transactionId: payload.transactionId,
-          }),
-          createNotification(payload.userId, {
-            title: "Deposit Successful",
-            message: `Your Mobile Money deposit of UGX ${amountUgxFormatted} was successful.`,
-            type: "SUCCESS",
-            url: "/dashboard/billing",
-          }),
-        ]);
+        const channelTasks: Promise<void>[] = [];
 
-        if (!emailResult.success || !notifResult.success) {
-          const failures: string[] = [];
-          if (!emailResult.success) failures.push(`Email: ${emailResult.error || "delivery failed"}`);
-          if (!notifResult.success) failures.push(`Notification: ${notifResult.error || "delivery failed"}`);
+        if (!emailDone) {
+          channelTasks.push(
+            sendTransactionReceiptEmail({
+              userId: payload.userId,
+              amountInCents: payload.amountInCents,
+              paymentMethod: payload.paymentMethod,
+              reference: payload.reference,
+              receiptUrl: payload.receiptUrl,
+              newBalanceInCents: payload.newBalanceInCents,
+              transactionId: payload.transactionId,
+            }).then((res) => {
+              if (res.success) {
+                emailDone = true;
+              } else {
+                failures.push(`Email: ${res.error || "delivery failed"}`);
+              }
+            })
+          );
+        }
+
+        if (!notifDone) {
+          channelTasks.push(
+            createNotification(payload.userId, {
+              title: "Deposit Successful",
+              message: `Your Mobile Money deposit of UGX ${amountUgxFormatted} was successful.`,
+              type: "SUCCESS",
+              url: "/dashboard/billing",
+            }).then((res) => {
+              if (res.success) {
+                notifDone = true;
+              } else {
+                failures.push(`Notification: ${res.error || "delivery failed"}`);
+              }
+            })
+          );
+        }
+
+        await Promise.all(channelTasks);
+
+        if (failures.length > 0) {
           throw new Error(failures.join("; "));
         }
       } else if (type === "DEPOSIT_FAILED") {
-        const notifResult = await createNotification(payload.userId, {
-          title: "Deposit Failed",
-          message: "Your Mobile Money deposit could not be completed. Please try again.",
-          type: "ERROR",
-          url: "/dashboard/billing/checkout",
-        });
+        if (!notifDone) {
+          const res = await createNotification(payload.userId, {
+            title: "Deposit Failed",
+            message: "Your Mobile Money deposit could not be completed. Please try again.",
+            type: "ERROR",
+            url: "/dashboard/billing/checkout",
+          });
 
-        if (!notifResult.success) {
-          throw new Error(`Notification: ${notifResult.error || "delivery failed"}`);
+          if (res.success) {
+            notifDone = true;
+          } else {
+            throw new Error(`Notification: ${res.error || "delivery failed"}`);
+          }
         }
       }
 
       // Mark task as COMPLETED
       await taskRef.update({
         status: "COMPLETED",
+        channels: {
+          email: emailDone,
+          notification: notifDone,
+        },
         processedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
@@ -142,6 +174,10 @@ export async function processOutboxTask(taskId: string): Promise<{ success: bool
 
       await taskRef.update({
         status: isTerminal ? "FAILED" : "PENDING",
+        channels: {
+          email: emailDone,
+          notification: notifDone,
+        },
         attempts: nextAttempts,
         lastError: errorMessage,
         nextRetryAt: Timestamp.fromDate(nextRetryDate),
