@@ -7,16 +7,16 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Webhook callback ─────────────────────────────────────────────────────────────
-type WebhookResult =
-      | { outcome: "notFound" }
-      | { outcome: "alreadyProcessed" }
-      | {
-          outcome: "processed";
-          userId: string;
-          amount: number;
-          method: string;
-          newBalance: number;
-        };
+// type WebhookResult =
+//       | { outcome: "notFound" }
+//       | { outcome: "alreadyProcessed" }
+//       | {
+//           outcome: "processed";
+//           userId: string;
+//           amount: number;
+//           method: string;
+//           newBalance: number;
+//         };
         
 export async function POST(req: NextRequest) {
   const { valid, body, error } = await verifyPawaPayCallback(req);
@@ -31,9 +31,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid deposit ID' }, { status: 400 });
   }
   const { depositId: externalReference, status, providerTransactionId, country } = cb;
-  
+  console.log("cb ", cb);
   // The authoritative credit amount is derived from the persisted server-side value after the transaction.
-
   try {
     const txRef = db.collection(COLLECTIONS.TRANSACTIONS).doc(externalReference);
 
@@ -129,34 +128,41 @@ export async function POST(req: NextRequest) {
     const paymentMethodLabel = method === "MTN" ? "MTN Mobile Money" : "Airtel Money";
 
     if (status === "COMPLETED") {
-      // Non-blocking side-effects (fire and forget)
-      Promise.all([
-        sendTransactionReceiptEmail({
-          userId,
-          amountInCents: amount,
-          paymentMethod: paymentMethodLabel,
-          reference: externalReference,
-          newBalanceInCents: newBalance,
-          transactionId: externalReference,
-        }),
-        createNotification(userId, {
-          title: "Deposit Successful",
-          message: `Your Mobile Money deposit of UGX ${Math.round((amount / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString("en-UG")} was successful.`,
-          type: "SUCCESS",
-          url: "/dashboard/billing",
-        }),
-      ]).catch((err) =>
-        console.error("[pawaPay callback] Side-effect error:", err)
-      );
+      try {
+        await Promise.all([
+          sendTransactionReceiptEmail({
+            userId,
+            amountInCents: amount,
+            paymentMethod: paymentMethodLabel,
+            reference: externalReference,
+            newBalanceInCents: newBalance,
+            transactionId: externalReference,
+          }).catch((err) =>
+            console.error("[pawaPay callback] Receipt email error:", err)
+          ),
+          createNotification(userId, {
+            title: "Deposit Successful",
+            message: `Your Mobile Money deposit of UGX ${Math.round((amount / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString("en-UG")} was successful.`,
+            type: "SUCCESS",
+            url: "/dashboard/billing",
+          }).catch((err) =>
+            console.error("[pawaPay callback] Notification error:", err)
+          ),
+        ]);
+      } catch (err) {
+        console.error("[pawaPay callback] Side-effect error:", err);
+      }
     } else if (status === "FAILED") {
-      createNotification(userId, {
-        title: "Deposit Failed",
-        message: "Your Mobile Money deposit could not be completed. Please try again.",
-        type: "ERROR",
-        url: "/dashboard/billing/checkout",
-      }).catch((err) =>
-        console.error("[pawaPay callback] Failed notification error:", err)
-      );
+      try {
+        await createNotification(userId, {
+          title: "Deposit Failed",
+          message: "Your Mobile Money deposit could not be completed. Please try again.",
+          type: "ERROR",
+          url: "/dashboard/billing/checkout",
+        });
+      } catch (err) {
+        console.error("[pawaPay callback] Failed notification error:", err);
+      }
     }
   } catch (dbErr) {
     console.error("[pawaPay callback] DB update failed:", dbErr);

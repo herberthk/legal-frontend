@@ -40,30 +40,7 @@ export async function verifyPhoneNumber(
 }
 }
 
-// ── Test-page initiatePayment (no Firestore — kept for app/test/wallet) ───────
 
-// export async function initiatePayment(params: {
-//   msisdn: string;
-//   amount: number;
-// }): Promise<SsentezoActionResult<{ reference: string; status: TransactionStatus }>> {
-//   const externalReference = generateTxRef();
-
-//   //@ts-ignore
-//   return withSsentezo(async () => {
-//     const result = await wallet.transactions.deposit({
-//       externalReference,
-//       msisdn:          params.msisdn,
-//       amount:          params.amount,
-//       reason:          "Wallet Top Up",
-//       successCallback: CALLBACK_URL,
-//       failureCallback: CALLBACK_URL,
-//     });
-
-//     return { reference: externalReference, status: result.transactionStatus };
-//   });
-// }
-
-// ── Full checkout payment (with Firestore persistence) ────────────────────────
 
 /**
  * Initiates a real mobile money deposit via PawaPay and records the
@@ -177,7 +154,7 @@ export const initiateCheckoutPayment = async (params: {
         userId,
         type: "DEPOSIT",
         description: `Funds Deposit via Mobile Money (${method})`,
-        amount: Math.round(amountUsd * 100),
+        amount: amountUsd * 100,
         createdAt: FieldValue.serverTimestamp(),
         details: `Phone: ${params.msisdn}`,
         reference: generatedReference,
