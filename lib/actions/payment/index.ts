@@ -7,13 +7,19 @@ import { FieldValue } from "firebase-admin/firestore";
 
 import { parseUgandanNumber } from "@/utils";
 import { customPawapayError } from "@/sdk/error";
-import { pawapay, TransactionStatus } from "@/sdk";
+import {
+  pawapay,
+  TransactionStatus,
+  PawaPayApiError,
+  PawaPayNetworkError,
+  PawaPayValidationError,
+} from "@/sdk";
 import { getAuthenticatedUserId } from "../auth";
 
 // ── Verify a phone number ─────────────────────────────────────────────────────
 
 /**
- * Verify the name on a mobile money number before showing the payment
+ * Verify the name on a mobile number before showing the payment
  * confirmation step to the user.
  */
 export async function verifyPhoneNumber(
@@ -91,13 +97,10 @@ export const initiateCheckoutPayment = async (params: {
 > => {  
   try {
     const sessionUserId = await getAuthenticatedUserId();
-    if (!sessionUserId) {
+    const userId = params.userId || sessionUserId;
+    if (!userId || (sessionUserId && params.userId && params.userId !== sessionUserId)) {
       return { success: false, error: "Unauthorized caller", terminal: true };
     }
-    if (params.userId && params.userId !== sessionUserId) {
-      return { success: false, error: "Unauthorized caller", terminal: true };
-    }
-    const userId = sessionUserId;
 
     if (
       !params.idempotencyKey ||
@@ -223,30 +226,94 @@ export const initiateCheckoutPayment = async (params: {
       });
     } catch (apiErr) {
       console.error("[initiateCheckoutPayment] Provider initiate error:", apiErr);
-      try {
-        await Promise.all([
-          transactionRef.update({ status: "FAILED" }),
-          claimRef.update({ status: "FAILED" }),
-        ]);
-      } catch (updateErr) {
-        console.error("[initiateCheckoutPayment] Failed to record error status:", updateErr);
-      }
       customPawapayError(apiErr);
-      return { success: false, error: "Payment service connection error. Please try again.", terminal: true };
-    }
 
-    if (result.status !== 'ACCEPTED') {
-      try {
-        await Promise.all([
+      if (apiErr instanceof PawaPayValidationError) {
+        // Confirmed client-side validation error — payment was never sent to provider
+        await Promise.allSettled([
           transactionRef.update({ status: "FAILED" }),
           claimRef.update({ status: "FAILED" }),
         ]);
-      } catch (updateErr) {
-        console.error("[initiateCheckoutPayment] Failed to record non-ACCEPTED status:", updateErr);
+        return {
+          success: false,
+          error: apiErr.message || "Invalid payment request",
+          terminal: true,
+        };
+      }
+
+      if (apiErr instanceof PawaPayNetworkError) {
+        // Network timeout/failure: status is uncertain. Attempt reconciliation.
+        try {
+          const statusRes = await pawapay.deposits.checkStatus(externalReference);
+          if (statusRes.status === "ACCEPTED" || statusRes.status === "COMPLETED") {
+            return {
+              success: true,
+              data: {
+                reference: statusRes.depositId,
+                transactionId: transactionRef.id,
+                status: statusRes.status,
+              },
+            };
+          }
+          if (statusRes.status === "REJECTED" || statusRes.status === "FAILED") {
+            await Promise.allSettled([
+              transactionRef.update({ status: "FAILED" }),
+              claimRef.update({ status: "FAILED" }),
+            ]);
+            return {
+              success: false,
+              error: "Payment was rejected by provider",
+              terminal: true,
+            };
+          }
+        } catch {
+          // Status check failed or still pending — keep records PENDING
+        }
+
+        return {
+          success: false,
+          error: "Network timeout communicating with payment provider. Please check your phone or retry.",
+          terminal: false,
+        };
+      }
+
+      if (apiErr instanceof PawaPayApiError) {
+        if (apiErr.httpStatus >= 400 && apiErr.httpStatus < 500) {
+          // Definitive client error from API
+          await Promise.allSettled([
+            transactionRef.update({ status: "FAILED" }),
+            claimRef.update({ status: "FAILED" }),
+          ]);
+          return {
+            success: false,
+            error: apiErr.failureMessage || apiErr.message || "Payment was rejected by provider",
+            terminal: true,
+          };
+        }
+
+        // 5xx provider server error: status is uncertain
+        return {
+          success: false,
+          error: "Payment provider is temporarily unavailable. Please try again in a moment.",
+          terminal: false,
+        };
       }
 
       return {
         success: false,
+        error: "Failed to initiate payment. Please retry.",
+        terminal: false,
+      };
+    }
+
+    if (result.status !== 'ACCEPTED') {
+      await Promise.allSettled([
+        transactionRef.update({ status: "FAILED" }),
+        claimRef.update({ status: "FAILED" }),
+      ]);
+      
+      return {
+        success: false, 
         error: "Failed to initiate payment, Try again",
         terminal: true,
       };
