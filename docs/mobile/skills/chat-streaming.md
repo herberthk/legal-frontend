@@ -157,23 +157,36 @@ export function useLegalChat(chatId: string) {
       isFirst.current = false;
     },
     onError: (err) => {
-      // Body is flat `{ error: string }`. Inspect status and error message:
+      // Body is flat `{ error: string }`. Inspect status and stable error code:
       const status = (err as { status?: number }).status;
+      const code = (err as { code?: string }).code;
       const message = err.message || "";
 
       // 402 Paywall / Insufficient Credits: route to top-up screen
-      if (
-        status === 402 ||
-        message.toLowerCase().includes("insufficient credit") ||
-        message.toLowerCase().includes("token")
-      ) {
+      if (status === 402) {
         router.push("/billing/topup");
         return;
       }
 
-      // 401 Auth / App Check failure: prompt sign-in / re-auth
-      if (status === 401 || message.toLowerCase().includes("authentication required")) {
+      // 401 Unauthenticated: prompt sign-in / re-auth
+      if (code === "UNAUTHENTICATED") {
         showErrorToast("Session expired. Please sign in again.");
+        // Navigate to sign-in or trigger re-authentication
+        return;
+      }
+
+      // App Check failure: refresh App Check token and retry
+      if (code === "APP_CHECK_FAILED") {
+        // Refresh App Check token and retry the request
+        appCheck()
+          .getToken(true)
+          .then(() => {
+            // Retry logic here or prompt user to retry
+            showErrorToast("Security check failed. Please try again.");
+          })
+          .catch(() => {
+            showErrorToast("Security verification failed. Please restart the app.");
+          });
         return;
       }
 
