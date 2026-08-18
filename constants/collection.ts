@@ -22,4 +22,5 @@ export const COLLECTIONS = {
   SYSTEM_CONFIG: "systemConfig",
   SYSTEM_CONFIG_AUDITS: "systemConfigAudits",
   RATE_LIMITS: "rateLimits",
+  IDEMPOTENCY_CLAIMS: "idempotencyClaims",
 } as const;

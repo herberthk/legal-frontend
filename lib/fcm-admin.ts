@@ -73,16 +73,13 @@ export async function sendPushToUser({
             .collection(COLLECTIONS.FCM_TOKENS)
             .doc(docId)
             .delete()
-            .catch(() => {
-              /* silently ignore cleanup errors */
-            }),
+            .catch(() => {}),
           db
             .collection(COLLECTIONS.FCM_TOKENS)
-            .doc(rawToken)
-            .delete()
-            .catch(() => {
-              /* silently ignore cleanup errors */
-            }),
+            .where("token", "==", rawToken)
+            .get()
+            .then((snap) => Promise.all(snap.docs.map((d) => d.ref.delete())))
+            .catch(() => {}),
         );
       } else {
         console.error(`[FCM] Delivery failed for token[${idx}]:`, res.error);

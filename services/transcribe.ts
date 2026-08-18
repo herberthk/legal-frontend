@@ -316,12 +316,8 @@ export async function deleteTranscriptionRecord(
     const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc(id);
     const doc = await docRef.get();
 
-    if (!doc.exists) {
+    if (!doc.exists || doc.data()?.userId !== userId) {
       return { success: false, notFound: true, error: "Transcription not found" };
-    }
-
-    if (doc.data()?.userId !== userId) {
-      return { success: false, notFound: true, error: "Unauthorized" };
     }
 
     const fileUrl = doc.data()?.fileUrl as string;

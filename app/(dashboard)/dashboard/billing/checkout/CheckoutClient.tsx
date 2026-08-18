@@ -244,6 +244,9 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
         resetVerification();
         router.push(`/dashboard/billing/checkout/waiting?ref=${res.data.reference}`);
       } else {
+        if (res.terminal) {
+          idempotencyKeyRef.current = null;
+        }
         toast.error(res.error || "Failed to initialize Mobile Money");
       }
     } catch {

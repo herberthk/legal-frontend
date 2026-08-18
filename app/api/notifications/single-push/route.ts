@@ -89,7 +89,12 @@ export async function POST(req: Request) {
           const docId = getFCMTokenDocId(rawToken);
           staleTokenDeletions.push(
             db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).delete().catch(() => {}),
-            db.collection(COLLECTIONS.FCM_TOKENS).doc(rawToken).delete().catch(() => {}),
+            db
+              .collection(COLLECTIONS.FCM_TOKENS)
+              .where("token", "==", rawToken)
+              .get()
+              .then((snap) => Promise.all(snap.docs.map((d) => d.ref.delete())))
+              .catch(() => {}),
           );
         } else {
           console.error(

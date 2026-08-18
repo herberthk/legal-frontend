@@ -45,12 +45,18 @@ export const seedHelpArticles = async () => {
     console.log("Seeding help articles...");
     const batch = db.batch();
     articles.forEach((article) => {
-      const docRef = colRef.doc();
-      batch.set(docRef, {
-        ...article,
-        id: docRef.id,
-        createdAt: FieldValue.serverTimestamp(),
-      });
+      const docId = `help_seed_${article.order}`;
+      const docRef = colRef.doc(docId);
+      batch.set(
+        docRef,
+        {
+          ...article,
+          id: docId,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
     });
     await batch.commit();
     console.log("Seeding complete.");

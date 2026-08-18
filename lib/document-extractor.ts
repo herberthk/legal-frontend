@@ -62,7 +62,7 @@ export async function extractDocumentText(
     const result = await cachedMammoth.extractRawText({ buffer });
     const docxText = result.value || "";
     const pageCount = Math.max(1, Math.ceil(docxText.length / 3000));
-    const estimatedTokens = Math.max(500, Math.ceil(docxText.length / CHARS_PER_TOKEN));
+    const estimatedTokens = Math.ceil(docxText.length / CHARS_PER_TOKEN);
 
     return {
       text: docxText,
