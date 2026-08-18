@@ -14,6 +14,7 @@ interface UseFCMReturn {
   permission: PermissionState;
   isSupported: boolean;
   token: string | null;
+  error: string | null;
   showSoftPrompt: boolean;
   requestPermission: () => Promise<void>;
   dismissSoftPrompt: () => void;
@@ -41,6 +42,7 @@ export function useFCMPushNotifications(): UseFCMReturn {
   const savedTokenRef = useRef<string | null>(null);
 
   const [showSoftPrompt, setShowSoftPrompt] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // ── Detect support ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -133,88 +135,96 @@ export function useFCMPushNotifications(): UseFCMReturn {
     const setupListener = async () => {
       if (!token) return; // Exit if no token is available.
 
-      const m = await messaging();
-      if (!m) return;
+      try {
+        setError(null);
+        const m = await messaging();
+        if (!m) return;
 
-      // Step 9: Register a listener for incoming FCM messages.
-      const unsub = onMessage(m, (payload) => {
-        console.log("Foreground push notification received:", payload);
-        if (Notification.permission !== "granted") return;
+        // Step 9: Register a listener for incoming FCM messages.
+        const unsub = onMessage(m, (payload) => {
+          console.log("Foreground push notification received:", payload);
+          if (Notification.permission !== "granted") return;
 
-        const link = payload.fcmOptions?.link || payload.data?.link;
+          const link = payload.fcmOptions?.link || payload.data?.link;
 
-        if (link) {
-          toast.info(payload.notification?.title, {
-            description: payload.notification?.body,
-            duration: 10000,
-            style: {
-              background: "#09172b",
-              border: "0.5px dashed white",
-              borderRadius: "12px",
-            },
-
-            action: {
-              label: "View",
-              actionButtonStyle: {
-                color: "white",
-                background: "black",
-                padding: "2px",
-                cursor: "pointer",
-              },
-              onClick: () => {
-                const link = payload.fcmOptions?.link || payload.data?.link;
-                if (link) {
-                  window.open(link, "_self");
-                }
-              },
-            },
-          });
-        } else {
-          toast.info(payload.notification?.title, {
-            description: payload.notification?.body,
-            duration: 6000,
-            style: {
-              background: "#09172b",
-              border: "0.5px solid white",
-              borderRadius: "12px",
-            },
-          });
-        }
-
-        // --------------------------------------------
-        // Disable this if you only want toast notifications.
-        // Vibrate the device manually in the foreground if supported
-        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-          navigator.vibrate([200, 100, 200]);
-        }
-
-        const n = new Notification(
-          payload.notification?.title || "Legal Adviser",
-          {
-            body: payload.notification?.body || "New update received",
-            icon: "/icons/apple-icon-180.png",
-            badge: "/icons/mstile-icon-128.png",
-            data: link ? { url: link } : undefined,
-            tag: "legal-adviser-push",
-          },
-        );
-
-        // Step 10: Handle notification click event to navigate to a link if present.
-        n.onclick = (event) => {
-          event.preventDefault();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const link = (event.target as any)?.data?.url;
           if (link) {
-            window.open(link, "_self");
-          }
-        };
-        // --------------------------------------------
-      });
+            toast.info(payload.notification?.title, {
+              description: payload.notification?.body,
+              duration: 10000,
+              style: {
+                background: "#09172b",
+                border: "0.5px dashed white",
+                borderRadius: "12px",
+              },
 
-      if (isMounted) {
-        unsubscribe = unsub;
-      } else {
-        unsub();
+              action: {
+                label: "View",
+                actionButtonStyle: {
+                  color: "white",
+                  background: "black",
+                  padding: "2px",
+                  cursor: "pointer",
+                },
+                onClick: () => {
+                  const link = payload.fcmOptions?.link || payload.data?.link;
+                  if (link) {
+                    window.open(link, "_self");
+                  }
+                },
+              },
+            });
+          } else {
+            toast.info(payload.notification?.title, {
+              description: payload.notification?.body,
+              duration: 6000,
+              style: {
+                background: "#09172b",
+                border: "0.5px solid white",
+                borderRadius: "12px",
+              },
+            });
+          }
+
+          // --------------------------------------------
+          // Disable this if you only want toast notifications.
+          // Vibrate the device manually in the foreground if supported
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+            navigator.vibrate([200, 100, 200]);
+          }
+
+          const n = new Notification(
+            payload.notification?.title || "Legal Adviser",
+            {
+              body: payload.notification?.body || "New update received",
+              icon: "/icons/apple-icon-180.png",
+              badge: "/icons/mstile-icon-128.png",
+              data: link ? { url: link } : undefined,
+              tag: "legal-adviser-push",
+            },
+          );
+
+          // Step 10: Handle notification click event to navigate to a link if present.
+          n.onclick = (event) => {
+            event.preventDefault();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const link = (event.target as any)?.data?.url;
+            if (link) {
+              window.open(link, "_self");
+            }
+          };
+          // --------------------------------------------
+        });
+
+        if (isMounted) {
+          unsubscribe = unsub;
+        } else {
+          unsub();
+        }
+      } catch (err) {
+        console.error("[FCM] Failed to setup foreground listener:", err);
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Failed to setup push notification listener");
+        }
       }
     };
 
@@ -231,6 +241,7 @@ export function useFCMPushNotifications(): UseFCMReturn {
     permission,
     isSupported,
     token,
+    error,
     showSoftPrompt,
     requestPermission,
     dismissSoftPrompt,

@@ -242,6 +242,14 @@ export async function removeFCMToken(token: string) {
     if (!authUserId) return { success: false, error: "Unauthorized" };
 
     const docId = getFCMTokenDocId(token);
+    const docRef = db.collection(COLLECTIONS.FCM_TOKENS).doc(docId);
+    const docSnap = await docRef.get();
+
+    const deletions: Promise<unknown>[] = [];
+
+    if (docSnap.exists && docSnap.data()?.userId === authUserId) {
+      deletions.push(docRef.delete());
+    }
 
     const querySnapshot = await db
       .collection(COLLECTIONS.FCM_TOKENS)
@@ -249,10 +257,18 @@ export async function removeFCMToken(token: string) {
       .where("token", "==", token)
       .get();
 
-    await Promise.all([
-      db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).delete(),
-      ...querySnapshot.docs.map((d) => d.ref.delete()),
-    ]);
+    for (const doc of querySnapshot.docs) {
+      if (doc.id !== docId) {
+        deletions.push(doc.ref.delete());
+      }
+    }
+
+    const results = await Promise.allSettled(deletions);
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      console.error("[FCM] Failed to delete token documents:", failed);
+      return { success: false, error: "Failed to remove token" };
+    }
     return { success: true };
   } catch (error) {
     console.error("[FCM] Error removing token:", error);
