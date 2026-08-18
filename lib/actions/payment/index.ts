@@ -91,10 +91,13 @@ export const initiateCheckoutPayment = async (params: {
 > => {  
   try {
     const sessionUserId = await getAuthenticatedUserId();
-    const userId = params.userId || sessionUserId;
-    if (!userId || (sessionUserId && params.userId && params.userId !== sessionUserId)) {
+    if (!sessionUserId) {
       return { success: false, error: "Unauthorized caller", terminal: true };
     }
+    if (params.userId && params.userId !== sessionUserId) {
+      return { success: false, error: "Unauthorized caller", terminal: true };
+    }
+    const userId = sessionUserId;
 
     if (
       !params.idempotencyKey ||
@@ -220,22 +223,30 @@ export const initiateCheckoutPayment = async (params: {
       });
     } catch (apiErr) {
       console.error("[initiateCheckoutPayment] Provider initiate error:", apiErr);
-      await Promise.allSettled([
-        transactionRef.update({ status: "FAILED" }),
-        claimRef.update({ status: "FAILED" }),
-      ]);
+      try {
+        await Promise.all([
+          transactionRef.update({ status: "FAILED" }),
+          claimRef.update({ status: "FAILED" }),
+        ]);
+      } catch (updateErr) {
+        console.error("[initiateCheckoutPayment] Failed to record error status:", updateErr);
+      }
       customPawapayError(apiErr);
       return { success: false, error: "Payment service connection error. Please try again.", terminal: true };
     }
 
     if (result.status !== 'ACCEPTED') {
-      await Promise.allSettled([
-        transactionRef.update({ status: "FAILED" }),
-        claimRef.update({ status: "FAILED" }),
-      ]);
-      
+      try {
+        await Promise.all([
+          transactionRef.update({ status: "FAILED" }),
+          claimRef.update({ status: "FAILED" }),
+        ]);
+      } catch (updateErr) {
+        console.error("[initiateCheckoutPayment] Failed to record non-ACCEPTED status:", updateErr);
+      }
+
       return {
-        success: false, 
+        success: false,
         error: "Failed to initiate payment, Try again",
         terminal: true,
       };

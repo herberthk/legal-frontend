@@ -77,6 +77,10 @@ async function fetchAttachment(rawUrl: string): Promise<Buffer> {
     }
   }
 
+  if (totalBytes === 0) {
+    throw new Error("Attachment response body is empty (0 bytes)");
+  }
+
   return Buffer.concat(chunks);
 }
 

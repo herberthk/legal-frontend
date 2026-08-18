@@ -39,26 +39,35 @@ export const seedHelpArticles = async () => {
   ];
 
   const colRef = db.collection(COLLECTIONS.HELP_ARTICLES);
-  const snapshot = await colRef.limit(1).get();
 
-  if (snapshot.empty) {
-    console.log("Seeding help articles...");
-    const batch = db.batch();
-    articles.forEach((article) => {
-      const docId = `help_seed_${article.order}`;
-      const docRef = colRef.doc(docId);
+  console.log("Seeding help articles...");
+  const batch = db.batch();
+
+  for (const article of articles) {
+    const docId = `help_seed_${article.order}`;
+    const docRef = colRef.doc(docId);
+    const docSnap = await docRef.get();
+
+    if (docSnap.exists) {
       batch.set(
         docRef,
         {
           ...article,
           id: docId,
-          createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
       );
-    });
-    await batch.commit();
-    console.log("Seeding complete.");
+    } else {
+      batch.set(docRef, {
+        ...article,
+        id: docId,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
   }
+
+  await batch.commit();
+  console.log("Seeding complete.");
 };

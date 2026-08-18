@@ -217,12 +217,11 @@ export async function saveFCMToken(userId?: string, token?: string) {
   try {
     if (!token) return { success: false, error: "Missing token" };
     const authUserId = await getAuthenticatedUserId();
-    const effectiveUserId = authUserId || userId;
-    if (!effectiveUserId) return { success: false, error: "Unauthorized" };
+    if (!authUserId) return { success: false, error: "Unauthorized" };
 
     const docId = getFCMTokenDocId(token);
     await db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).set({
-      userId: effectiveUserId,
+      userId: authUserId,
       token,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -239,16 +238,20 @@ export async function saveFCMToken(userId?: string, token?: string) {
  */
 export async function removeFCMToken(token: string) {
   try {
-    const docId = getFCMTokenDocId(token);
-    const queryDelete = db
-      .collection(COLLECTIONS.FCM_TOKENS)
-      .where("token", "==", token)
-      .get()
-      .then((snap) => Promise.all(snap.docs.map((d) => d.ref.delete())));
+    const authUserId = await getAuthenticatedUserId();
+    if (!authUserId) return { success: false, error: "Unauthorized" };
 
-    await Promise.allSettled([
+    const docId = getFCMTokenDocId(token);
+
+    const querySnapshot = await db
+      .collection(COLLECTIONS.FCM_TOKENS)
+      .where("userId", "==", authUserId)
+      .where("token", "==", token)
+      .get();
+
+    await Promise.all([
       db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).delete(),
-      queryDelete,
+      ...querySnapshot.docs.map((d) => d.ref.delete()),
     ]);
     return { success: true };
   } catch (error) {
