@@ -37,7 +37,7 @@ const TransactionDetailPage: FC<PageProps> = async ({ params }) => {
   const t = res.transaction;
   const isDeposit = t.type === "DEPOSIT";
   const absAmountDollars = Math.abs(t.amount / 100);
-  const absAmountUgx = absAmountDollars * USD_TO_UGX_EXCHANGE_RATE;
+  const absAmountUgx = Math.round(absAmountDollars * USD_TO_UGX_EXCHANGE_RATE);
 
   return (
     <DirectionalTransition>

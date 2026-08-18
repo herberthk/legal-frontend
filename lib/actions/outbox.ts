@@ -1,5 +1,3 @@
-"use server";
-
 import { db } from "@/firebase/admin";
 import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from "@/constants";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
@@ -7,6 +5,30 @@ import { sendTransactionReceiptEmail } from "./email";
 import { createNotification } from "./notifications";
 
 const MAX_ATTEMPTS = 5;
+
+/**
+ * Concurrency runner to process items with a fixed pool limit.
+ */
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  const executing: Promise<void>[] = [];
+  for (const item of items) {
+    const p = Promise.resolve().then(() => fn(item));
+    executing.push(p);
+    const cleanup = () => {
+      const idx = executing.indexOf(p);
+      if (idx !== -1) executing.splice(idx, 1);
+    };
+    p.then(cleanup, cleanup);
+    if (executing.length >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  await Promise.all(executing);
+}
 
 /**
  * Process a single outbox task by ID.
@@ -64,7 +86,7 @@ export async function processOutboxTask(taskId: string): Promise<{ success: bool
         const rate = payload.exchangeRate || USD_TO_UGX_EXCHANGE_RATE;
         const amountUgxFormatted = Math.round((payload.amountInCents / 100) * rate).toLocaleString("en-UG");
 
-        await Promise.all([
+        const [emailResult, notifResult] = await Promise.all([
           sendTransactionReceiptEmail({
             userId: payload.userId,
             amountInCents: payload.amountInCents,
@@ -81,13 +103,24 @@ export async function processOutboxTask(taskId: string): Promise<{ success: bool
             url: "/dashboard/billing",
           }),
         ]);
+
+        if (!emailResult.success || !notifResult.success) {
+          const failures: string[] = [];
+          if (!emailResult.success) failures.push(`Email: ${emailResult.error || "delivery failed"}`);
+          if (!notifResult.success) failures.push(`Notification: ${notifResult.error || "delivery failed"}`);
+          throw new Error(failures.join("; "));
+        }
       } else if (type === "DEPOSIT_FAILED") {
-        await createNotification(payload.userId, {
+        const notifResult = await createNotification(payload.userId, {
           title: "Deposit Failed",
           message: "Your Mobile Money deposit could not be completed. Please try again.",
           type: "ERROR",
           url: "/dashboard/billing/checkout",
         });
+
+        if (!notifResult.success) {
+          throw new Error(`Notification: ${notifResult.error || "delivery failed"}`);
+        }
       }
 
       // Mark task as COMPLETED
@@ -103,7 +136,7 @@ export async function processOutboxTask(taskId: string): Promise<{ success: bool
       const nextAttempts = (task.attempts || 0) + 1;
       const isTerminal = nextAttempts >= (task.maxAttempts || MAX_ATTEMPTS);
 
-      // Exponential backoff: 30s, 60s, 120s, 240s...
+      // Exponential backoff: 30s, 60s, 120s, 240s... up to 1 hour
       const backoffSeconds = Math.min(30 * Math.pow(2, nextAttempts - 1), 3600);
       const nextRetryDate = new Date(Date.now() + backoffSeconds * 1000);
 
@@ -115,7 +148,7 @@ export async function processOutboxTask(taskId: string): Promise<{ success: bool
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      console.error(`[Outbox] Task ${taskId} failed (attempt ${nextAttempts}):`, errorMessage);
+      console.error(`[Outbox] Task ${taskId} delivery failed (attempt ${nextAttempts}):`, errorMessage);
       return { success: false, message: errorMessage };
     }
   } catch (outerErr: unknown) {
@@ -125,8 +158,8 @@ export async function processOutboxTask(taskId: string): Promise<{ success: bool
 }
 
 /**
- * Process all pending outbox tasks that are due for execution.
- * Can be invoked by a cron job, worker, or scheduler.
+ * Process all pending or stale outbox tasks that are due for execution.
+ * Enforces batch limits and bounded concurrency.
  */
 export async function processPendingOutboxTasks(limitCount: number = 20): Promise<{
   processed: number;
@@ -135,7 +168,10 @@ export async function processPendingOutboxTasks(limitCount: number = 20): Promis
 }> {
   try {
     const now = Timestamp.now();
-    const [retrySnapshot, initialPendingSnapshot] = await Promise.all([
+    // Stale threshold: recover tasks stuck in PROCESSING for more than 2 minutes
+    const staleThreshold = Timestamp.fromMillis(Date.now() - 2 * 60 * 1000);
+
+    const [retrySnapshot, initialPendingSnapshot, staleProcessingSnapshot] = await Promise.all([
       db
         .collection(COLLECTIONS.OUTBOX)
         .where("status", "==", "PENDING")
@@ -148,16 +184,28 @@ export async function processPendingOutboxTasks(limitCount: number = 20): Promis
         .where("attempts", "==", 0)
         .limit(limitCount)
         .get(),
+      db
+        .collection(COLLECTIONS.OUTBOX)
+        .where("status", "==", "PROCESSING")
+        .where("updatedAt", "<=", staleThreshold)
+        .limit(limitCount)
+        .get(),
     ]);
 
-    const docIds = new Set<string>();
-    retrySnapshot.docs.forEach((doc) => docIds.add(doc.id));
-    initialPendingSnapshot.docs.forEach((doc) => docIds.add(doc.id));
+    const docIdsSet = new Set<string>();
+    retrySnapshot.docs.forEach((doc) => docIdsSet.add(doc.id));
+    initialPendingSnapshot.docs.forEach((doc) => docIdsSet.add(doc.id));
+    staleProcessingSnapshot.docs.forEach((doc) => docIdsSet.add(doc.id));
+
+    // Enforce the requested batch limit
+    const targetIds = Array.from(docIdsSet).slice(0, limitCount);
 
     let succeeded = 0;
     let failed = 0;
 
-    const promises = Array.from(docIds).map(async (id) => {
+    // Process tasks using a bounded worker pool (max 5 parallel workers)
+    const CONCURRENCY_LIMIT = 5;
+    await runWithConcurrency(targetIds, CONCURRENCY_LIMIT, async (id) => {
       const res = await processOutboxTask(id);
       if (res.success) {
         succeeded++;
@@ -166,10 +214,8 @@ export async function processPendingOutboxTasks(limitCount: number = 20): Promis
       }
     });
 
-    await Promise.allSettled(promises);
-
     return {
-      processed: docIds.size,
+      processed: targetIds.length,
       succeeded,
       failed,
     };

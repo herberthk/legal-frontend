@@ -4,7 +4,7 @@ import { db } from '@/firebase/admin';
 import { processOutboxTask } from '@/lib/actions/outbox';
 import { verifyPawaPayCallback } from '@/sdk/verify';
 import { FieldValue } from 'firebase-admin/firestore';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 
 // ── Webhook callback ─────────────────────────────────────────────────────────────
         
@@ -163,10 +163,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    // Trigger immediate outbox task processing asynchronously (non-blocking for provider SLA)
-    processOutboxTask(externalReference).catch((err) =>
-      console.error(`[pawaPay callback] Background outbox processing error for ${externalReference}:`, err)
-    );
+    // Schedule immediate outbox task processing using Next.js after() to keep runtime alive
+    after(async () => {
+      try {
+        await processOutboxTask(externalReference);
+      } catch (err) {
+        console.error(`[pawaPay callback] Background outbox processing error for ${externalReference}:`, err);
+      }
+    });
   } catch (dbErr) {
     console.error("[pawaPay callback] DB update failed:", dbErr);
     // Processing is idempotent via the atomic transaction and claim checks,
