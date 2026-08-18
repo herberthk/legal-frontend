@@ -97,10 +97,10 @@ export const initiateCheckoutPayment = async (params: {
     if (!rawAmount || typeof rawAmount !== "number" || rawAmount < 1000 || rawAmount > 7_000_000) {
       return { success: false, error: "Invalid payment amount. Must be between 1,000 and 7,000,000 UGX", terminal: true };
     }
-    const amountUgx = Math.floor(rawAmount);
+    const amountUgx = Math.round(rawAmount);
 
     // Derive USD amount strictly using trusted server exchange rate
-    const amountUsd = amountUgx / USD_TO_UGX_EXCHANGE_RATE;
+    const amountUsd = Number((amountUgx / USD_TO_UGX_EXCHANGE_RATE).toFixed(4));
     const { provider } = parseUgandanNumber(params.msisdn);
     const method: TransactionMethod = provider === "MTN" ? "MTN" : "AIRTEL";
     const feeResult = pawapay.calculateFee(amountUgx);
