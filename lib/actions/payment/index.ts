@@ -278,6 +278,16 @@ export const initiateCheckoutPayment = async (params: {
       }
 
       if (apiErr instanceof PawaPayApiError) {
+        if (apiErr.isRateLimitError || apiErr.isAuthError) {
+          // Never reached provider processing, or a server-side credential fault.
+          // Keep records PENDING so the same idempotency key can be retried.
+          return {
+            success: false,
+            error: "Payment provider is temporarily unavailable. Please try again in a moment.",
+            terminal: false,
+          };
+        }
+
         if (apiErr.httpStatus >= 400 && apiErr.httpStatus < 500) {
           // Definitive client error from API
           await Promise.allSettled([
