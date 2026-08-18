@@ -56,12 +56,28 @@ async function fetchAttachment(rawUrl: string): Promise<Buffer> {
     throw new Error(`Attachment too large (${contentLength} bytes). Maximum allowed is 10 MB.`);
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  if (arrayBuffer.byteLength > MAX_ATTACHMENT_BYTES) {
-    throw new Error(`Attachment too large (${arrayBuffer.byteLength} bytes). Maximum allowed is 10 MB.`);
+  if (!response.body) {
+    throw new Error("Attachment response body is empty");
   }
 
-  return Buffer.from(arrayBuffer);
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_ATTACHMENT_BYTES) {
+        await reader.cancel();
+        throw new Error(`Attachment too large (${totalBytes} bytes). Maximum allowed is 10 MB.`);
+      }
+      chunks.push(value);
+    }
+  }
+
+  return Buffer.concat(chunks);
 }
 
 export async function handleChatRequest(

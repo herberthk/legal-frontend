@@ -126,6 +126,8 @@ import { useEffect } from "react";
 // cleaned up when the component unmounts — bare declarations outside an effect
 // accumulate a new listener on every render.
 useEffect(() => {
+  let isMounted = true;
+
   // 1. Foreground — the OS does NOT show a banner; you render it yourself.
   const unsubOnMessage = messaging().onMessage(async (msg) => {
     showInAppBanner(msg.notification?.title, msg.notification?.body);
@@ -136,9 +138,17 @@ useEffect(() => {
   const unsubOnOpened = messaging().onNotificationOpenedApp((msg) => deepLink(msg.data?.url));
 
   // 3. Quit (app not running) — the notification that launched the app.
-  messaging().getInitialNotification().then((msg) => { if (msg) deepLink(msg.data?.url); });
+  messaging()
+    .getInitialNotification()
+    .then((msg) => {
+      if (isMounted && msg) deepLink(msg.data?.url);
+    })
+    .catch((err) => {
+      console.error("Failed to get initial notification:", err);
+    });
 
   return () => {
+    isMounted = false;
     unsubOnMessage();
     unsubOnOpened();
   };

@@ -5,6 +5,7 @@ import { COLLECTIONS } from "@/constants";
 import { revalidatePath } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
 import { getFCMTokenDocId } from "@/lib/fcm-utils";
+import { getAuthenticatedUserId } from "./auth";
 
 /**
  * Creates a new notification for a user.
@@ -212,11 +213,16 @@ export const getLatestUnreadNotifications = async (userId: string) => {
  * Saves (upserts) an FCM registration token for a user.
  * Tokens are stored in the top-level `fcmTokens` collection using a deterministic hash key.
  */
-export async function saveFCMToken(userId: string, token: string) {
+export async function saveFCMToken(userId?: string, token?: string) {
   try {
+    if (!token) return { success: false, error: "Missing token" };
+    const authUserId = await getAuthenticatedUserId();
+    const effectiveUserId = authUserId || userId;
+    if (!effectiveUserId) return { success: false, error: "Unauthorized" };
+
     const docId = getFCMTokenDocId(token);
     await db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).set({
-      userId,
+      userId: effectiveUserId,
       token,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -224,7 +230,7 @@ export async function saveFCMToken(userId: string, token: string) {
     return { success: true };
   } catch (error) {
     console.error("[FCM] Error saving token:", error);
-    return { success: false };
+    return { success: false, error: "Failed to save token" };
   }
 }
 
@@ -234,13 +240,19 @@ export async function saveFCMToken(userId: string, token: string) {
 export async function removeFCMToken(token: string) {
   try {
     const docId = getFCMTokenDocId(token);
+    const queryDelete = db
+      .collection(COLLECTIONS.FCM_TOKENS)
+      .where("token", "==", token)
+      .get()
+      .then((snap) => Promise.all(snap.docs.map((d) => d.ref.delete())));
+
     await Promise.allSettled([
       db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).delete(),
-      db.collection(COLLECTIONS.FCM_TOKENS).doc(token).delete(),
+      queryDelete,
     ]);
     return { success: true };
   } catch (error) {
     console.error("[FCM] Error removing token:", error);
-    return { success: false };
+    return { success: false, error: "Failed to remove token" };
   }
 }

@@ -146,9 +146,9 @@ export async function deleteDocumentReview(
     const docRef = db.collection(COLLECTIONS.DOCUMENT_REVIEWS).doc(id);
     const doc = await docRef.get();
 
-    if (!doc.exists) return { success: false, notFound: true, error: "Review not found" };
-    if (doc.data()?.userId !== userId)
-      return { success: false, notFound: true, error: "Unauthorized" };
+    if (!doc.exists || doc.data()?.userId !== userId) {
+      return { success: false, notFound: true, error: "Review not found" };
+    }
 
     const fileUrl = doc.data()?.fileUrl as string | undefined;
     await docRef.delete();
@@ -177,9 +177,9 @@ export async function updateDocumentReview(
     const docRef = db.collection(COLLECTIONS.DOCUMENT_REVIEWS).doc(id);
     const doc = await docRef.get();
 
-    if (!doc.exists) return { success: false, notFound: true, error: "Review not found" };
-    if (doc.data()?.userId !== userId)
-      return { success: false, notFound: true, error: "Unauthorized" };
+    if (!doc.exists || doc.data()?.userId !== userId) {
+      return { success: false, notFound: true, error: "Review not found" };
+    }
 
     await docRef.update({
       ...data,
