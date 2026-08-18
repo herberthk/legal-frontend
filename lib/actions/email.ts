@@ -167,6 +167,18 @@ export const sendTransactionReceiptEmail = async ({
       timeZone: "Africa/Nairobi",
     });
 
+    const getSafeDashboardUrl = (txId: string): string | undefined => {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+      if (!baseUrl) return undefined;
+      try {
+        const parsed = new URL(baseUrl);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
+        return `${baseUrl.replace(/\/+$/, "")}/dashboard/transactions/${txId}`;
+      } catch {
+        return undefined;
+      }
+    };
+
     const emailHtml = await render(
       TransactionReceiptEmail({
         userName: userData.name || "Customer",
@@ -178,7 +190,7 @@ export const sendTransactionReceiptEmail = async ({
         date,
         newBalanceUSD: formatUSD(newBalanceDollars),
         receiptUrl,
-        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL || ""}/dashboard/transactions/${transactionId}`,
+        dashboardUrl: getSafeDashboardUrl(transactionId),
       })
     );
 
