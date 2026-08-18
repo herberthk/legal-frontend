@@ -33,7 +33,8 @@ async function handleOutboxCron(req: NextRequest) {
    
     const { searchParams } = new URL(req.url);
     const limitParam = searchParams.get("limit");
-    const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 20, 100) : 20;
+    const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : Number.NaN;
+    const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 100) : 20;
 
     const result = await processPendingOutboxTasks(limit);
 
