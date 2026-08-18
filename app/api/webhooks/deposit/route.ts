@@ -1,22 +1,12 @@
 
 import { COLLECTIONS, USD_TO_UGX_EXCHANGE_RATE } from '@/constants';
 import { db } from '@/firebase/admin';
-import { createNotification, sendTransactionReceiptEmail } from '@/lib';
+import { processOutboxTask } from '@/lib/actions/outbox';
 import { verifyPawaPayCallback } from '@/sdk/verify';
 import { FieldValue } from 'firebase-admin/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ── Webhook callback ─────────────────────────────────────────────────────────────
-// type WebhookResult =
-//       | { outcome: "notFound" }
-//       | { outcome: "alreadyProcessed" }
-//       | {
-//           outcome: "processed";
-//           userId: string;
-//           amount: number;
-//           method: string;
-//           newBalance: number;
-//         };
         
 export async function POST(req: NextRequest) {
   const { valid, body, error } = await verifyPawaPayCallback(req);
@@ -76,10 +66,13 @@ export async function POST(req: NextRequest) {
         return;
       }
 
+      const paymentMethodLabel = method === "MTN" ? "MTN Mobile Money" : "Airtel Money";
+      const outboxRef = db.collection(COLLECTIONS.OUTBOX).doc(externalReference);
+
       if (status === "COMPLETED") {
         // `amount` is already stored in cents at initiation using the trusted rate.
         const creditAmount = amount;
-        if (!Number.isSafeInteger(creditAmount) || creditAmount <= 0) {
+        if (!Number.isFinite(creditAmount) || creditAmount <= 0) {
           // This is a data-integrity error in our own Firestore record, not a
           // missing-document case. Throw so runTransaction rejects → outer catch
           // returns 500 → PawaPay retries the callback rather than dropping it.
@@ -98,11 +91,56 @@ export async function POST(req: NextRequest) {
         if (claimRef) {
           transaction.set(claimRef, { status: "COMPLETED" }, { merge: true });
         }
+
+        // Atomically record Transactional Outbox task for email & in-app notification
+        transaction.set(
+          outboxRef,
+          {
+            type: "DEPOSIT_COMPLETED",
+            status: "PENDING",
+            payload: {
+              userId,
+              amountInCents: creditAmount,
+              paymentMethod: paymentMethodLabel,
+              reference: externalReference,
+              newBalanceInCents: newBalance,
+              transactionId: externalReference,
+              exchangeRate: USD_TO_UGX_EXCHANGE_RATE,
+            },
+            attempts: 0,
+            maxAttempts: 5,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
       } else if (status === "FAILED") {
         transaction.update(txRef, { status: "FAILED", providerTransactionId, country });
         if (claimRef) {
           transaction.set(claimRef, { status: "FAILED" }, { merge: true });
         }
+
+        // Atomically record Transactional Outbox task for failure notification
+        transaction.set(
+          outboxRef,
+          {
+            type: "DEPOSIT_FAILED",
+            status: "PENDING",
+            payload: {
+              userId,
+              amountInCents: amount,
+              paymentMethod: paymentMethodLabel,
+              reference: externalReference,
+              newBalanceInCents: 0,
+              transactionId: externalReference,
+            },
+            attempts: 0,
+            maxAttempts: 5,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
 
       // Record in PROCCESSED_TRANSACTIONS atomically within the transaction
@@ -125,45 +163,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    const paymentMethodLabel = method === "MTN" ? "MTN Mobile Money" : "Airtel Money";
-
-    if (status === "COMPLETED") {
-      try {
-        await Promise.all([
-          sendTransactionReceiptEmail({
-            userId,
-            amountInCents: amount,
-            paymentMethod: paymentMethodLabel,
-            reference: externalReference,
-            newBalanceInCents: newBalance,
-            transactionId: externalReference,
-          }).catch((err) =>
-            console.error("[pawaPay callback] Receipt email error:", err)
-          ),
-          createNotification(userId, {
-            title: "Deposit Successful",
-            message: `Your Mobile Money deposit of UGX ${Math.round((amount / 100) * USD_TO_UGX_EXCHANGE_RATE).toLocaleString("en-UG")} was successful.`,
-            type: "SUCCESS",
-            url: "/dashboard/billing",
-          }).catch((err) =>
-            console.error("[pawaPay callback] Notification error:", err)
-          ),
-        ]);
-      } catch (err) {
-        console.error("[pawaPay callback] Side-effect error:", err);
-      }
-    } else if (status === "FAILED") {
-      try {
-        await createNotification(userId, {
-          title: "Deposit Failed",
-          message: "Your Mobile Money deposit could not be completed. Please try again.",
-          type: "ERROR",
-          url: "/dashboard/billing/checkout",
-        });
-      } catch (err) {
-        console.error("[pawaPay callback] Failed notification error:", err);
-      }
-    }
+    // Trigger immediate outbox task processing asynchronously (non-blocking for provider SLA)
+    processOutboxTask(externalReference).catch((err) =>
+      console.error(`[pawaPay callback] Background outbox processing error for ${externalReference}:`, err)
+    );
   } catch (dbErr) {
     console.error("[pawaPay callback] DB update failed:", dbErr);
     // Processing is idempotent via the atomic transaction and claim checks,

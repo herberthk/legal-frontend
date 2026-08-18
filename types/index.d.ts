@@ -384,5 +384,34 @@ declare global {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     changes: Record<string, { old: any; new: any }>;
   };
+
+  // --- Transactional Outbox Types ---
+  type OutboxTaskType = "DEPOSIT_COMPLETED" | "DEPOSIT_FAILED";
+  type OutboxTaskStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+
+  type OutboxTaskPayload = {
+    userId: string;
+    amountInCents: number;
+    paymentMethod: string;
+    reference: string;
+    newBalanceInCents: number;
+    transactionId: string;
+    receiptUrl?: string;
+    exchangeRate?: number;
+  };
+
+  type OutboxTask = {
+    id: string;
+    type: OutboxTaskType;
+    status: OutboxTaskStatus;
+    payload: OutboxTaskPayload;
+    attempts: number;
+    maxAttempts: number;
+    lastError?: string;
+    nextRetryAt?: string;
+    createdAt: string;
+    processedAt?: string;
+    updatedAt?: string;
+  };
 }
 export {};
