@@ -223,10 +223,10 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
       return;
     }
 
+    const currentKey = idempotencyKey ?? crypto.randomUUID();
     if (!idempotencyKey) {
-      setIdempotencyKey(crypto.randomUUID());
+      setIdempotencyKey(currentKey);
     }
-    const currentKey = idempotencyKey || crypto.randomUUID();
 
     setIsProcessing(true);
     try {
