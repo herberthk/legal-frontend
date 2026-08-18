@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const cb = body as DepositPayLoad;
   if (!cb.depositId) {
-    return NextResponse.json({ error: 'Invalid deposit ID' }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid deposit ID' }, { status: 400 });
   }
   const { depositId: externalReference, status, providerTransactionId, country } = cb;
 
