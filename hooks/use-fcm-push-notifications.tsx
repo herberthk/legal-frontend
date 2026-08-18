@@ -127,6 +127,9 @@ export function useFCMPushNotifications(): UseFCMReturn {
   }, [isSupported, userId, requestPermission]);
 
   useEffect(() => {
+    let isMounted = true;
+    let unsubscribe: Unsubscribe | null = null;
+
     const setupListener = async () => {
       if (!token) return; // Exit if no token is available.
 
@@ -134,7 +137,7 @@ export function useFCMPushNotifications(): UseFCMReturn {
       if (!m) return;
 
       // Step 9: Register a listener for incoming FCM messages.
-      const unsubscribe = onMessage(m, (payload) => {
+      const unsub = onMessage(m, (payload) => {
         console.log("Foreground push notification received:", payload);
         if (Notification.permission !== "granted") return;
 
@@ -208,19 +211,20 @@ export function useFCMPushNotifications(): UseFCMReturn {
         // --------------------------------------------
       });
 
-      return unsubscribe;
+      if (isMounted) {
+        unsubscribe = unsub;
+      } else {
+        unsub();
+      }
     };
 
-    let unsubscribe: Unsubscribe | null = null;
-
-    setupListener().then((unsub) => {
-      if (unsub) {
-        unsubscribe = unsub;
-      }
-    });
+    setupListener();
 
     // Step 11: Cleanup the listener when the component unmounts.
-    return () => unsubscribe?.();
+    return () => {
+      isMounted = false;
+      unsubscribe?.();
+    };
   }, [token]);
 
   return {
