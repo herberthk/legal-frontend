@@ -66,6 +66,7 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     amount, setAmount,
     paymentMethod, setPaymentMethod,
     phoneNumber, setPhoneNumber,
+    idempotencyKey, setIdempotencyKey,
     goBack, resetCheckout,
   } = useCheckoutStore();
 
@@ -215,8 +216,6 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     }
   }, [phoneNumber]);
 
-  const idempotencyKeyRef = useRef<string | null>(null);
-
   const handleInitiateMobileMoney = useCallback(async () => {
     const parsed = parseUgandanNumber(phoneNumber);
     if (!parsed.isValid) {
@@ -224,8 +223,9 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
       return;
     }
 
-    if (!idempotencyKeyRef.current) {
-      idempotencyKeyRef.current = crypto.randomUUID();
+    const currentKey = idempotencyKey ?? crypto.randomUUID();
+    if (!idempotencyKey) {
+      setIdempotencyKey(currentKey);
     }
 
     setIsProcessing(true);
@@ -235,17 +235,17 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
         msisdn: parsed.formattedNumber!,
         amount,
         userName: verifiedName || undefined,
-        idempotencyKey: idempotencyKeyRef.current,
+        idempotencyKey: currentKey,
       });
 
       if (res.success) {
-        idempotencyKeyRef.current = null;
+        setIdempotencyKey(null);
         resetCheckout();
         resetVerification();
         router.push(`/dashboard/billing/checkout/waiting?ref=${res.data.reference}`);
       } else {
         if (res.terminal) {
-          idempotencyKeyRef.current = null;
+          setIdempotencyKey(null);
         }
         toast.error(res.error || "Failed to initialize Mobile Money");
       }
@@ -254,7 +254,7 @@ export const CheckoutClient: FC<Props> = ({ user, balance }) => {
     } finally {
       setIsProcessing(false);
     }
-  }, [user.id, amount, phoneNumber, verifiedName, resetCheckout, resetVerification, router]);
+  }, [user.id, amount, phoneNumber, verifiedName, idempotencyKey, setIdempotencyKey, resetCheckout, resetVerification, router]);
 
   // ── Stripe success callback ─────────────────────────────────────────────
   const handleStripeSuccess = useCallback(

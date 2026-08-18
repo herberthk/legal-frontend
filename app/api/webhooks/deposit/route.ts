@@ -48,12 +48,12 @@ export async function POST(req: NextRequest) {
     const txData = snapshot.data() as Transaction;
     // console.log("tx data", txData)
 
-    const { userId, amount, method } = txData;
+    const { userId, amount, method, idempotencyKey } = txData;
 
     if (status === "COMPLETED") {
       const creditAmount = Math.round((amountUGX / USD_TO_UGX_EXCHANGE_RATE) * 100);
       let newBalance = 0;
-      
+
 
       // Atomically check status and credit user balance (USD cents) to prevent race conditions
       await db.runTransaction(async (transaction) => {
@@ -65,6 +65,12 @@ export async function POST(req: NextRequest) {
 
         transaction.update(snapshot.ref, { status: "COMPLETED",providerTransactionId,country });
         transaction.update(userRef, { balance: newBalance });
+
+        if (idempotencyKey) {
+          const claimDocId = Buffer.from(`${userId}:${idempotencyKey}`).toString("base64url");
+          const claimRef = db.collection(COLLECTIONS.IDEMPOTENCY_CLAIMS).doc(claimDocId);
+          transaction.set(claimRef, { status: "COMPLETED" }, { merge: true });
+        }
       });
 
       const paymentMethodLabel = method === "MTN" ? "MTN Mobile Money" : "Airtel Money";
@@ -92,6 +98,12 @@ export async function POST(req: NextRequest) {
     } else if (status === "FAILED") {
       await db.runTransaction(async (transaction) => {
         transaction.update(snapshot.ref, { status: "FAILED", providerTransactionId,country });
+
+        if (idempotencyKey) {
+          const claimDocId = Buffer.from(`${userId}:${idempotencyKey}`).toString("base64url");
+          const claimRef = db.collection(COLLECTIONS.IDEMPOTENCY_CLAIMS).doc(claimDocId);
+          transaction.set(claimRef, { status: "FAILED" }, { merge: true });
+        }
       });
 
       createNotification(userId, {

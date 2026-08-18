@@ -11,12 +11,14 @@ interface CheckoutState {
   amount: number;
   paymentMethod: PaymentMethodType;
   phoneNumber: string;
+  idempotencyKey: string | null;
 
   // Actions
   setStep: (step: CheckoutStep) => void;
   setAmount: (amount: number) => void;
   setPaymentMethod: (method: PaymentMethodType) => void;
   setPhoneNumber: (phone: string) => void;
+  setIdempotencyKey: (key: string | null) => void;
   resetCheckout: () => void;
   goBack: () => void;
 }
@@ -26,6 +28,7 @@ const DEFAULT_STATE = {
   amount: 38000, // Default to 38,000 UGX ($10 USD)
   paymentMethod: "mobile_money" as PaymentMethodType,
   phoneNumber: "",
+  idempotencyKey: null,
 };
 
 export const useCheckoutStore = create<CheckoutState>()(
@@ -37,6 +40,7 @@ export const useCheckoutStore = create<CheckoutState>()(
       setAmount: (amount) => set({ amount }),
       setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
       setPhoneNumber: (phoneNumber) => set({ phoneNumber }),
+      setIdempotencyKey: (idempotencyKey) => set({ idempotencyKey }),
 
       resetCheckout: () => set(DEFAULT_STATE),
 
@@ -66,6 +70,7 @@ export const useCheckoutStore = create<CheckoutState>()(
         amount: state.amount,
         paymentMethod: state.paymentMethod,
         phoneNumber: state.phoneNumber,
+        idempotencyKey: state.idempotencyKey,
       }),
       // Skip server-side hydration to avoid mismatch
       skipHydration: true,
