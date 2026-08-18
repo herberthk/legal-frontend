@@ -84,5 +84,15 @@ overrideMethod	@	installHook.js:1
 await in (anonymous)		
 (anonymous)	@	gemini-voice-connection.tsx:391
 
+installHook.js:1 [gemini-live] Connection error: AbortError: Unable to load a worklet's module.
+overrideMethod	@	installHook.js:1
+(anonymous)	@	use-gemini-live.ts:644
+await in (anonymous)		
+(anonymous)	@	gemini-voice-connection.tsx:391
+<ForwardRef(motion.button)>		
+(anonymous)	@	ConnectionErrorOverlay.tsx:201
+<ConnectionErrorOverlay>		
+(anonymous)	@	voice-interface.tsx:261
+
 
 gcloud auth application-default login

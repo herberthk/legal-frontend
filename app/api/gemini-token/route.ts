@@ -8,7 +8,7 @@ import { verifyAppCheckHeader } from "@/lib/app-check-server";
 export async function GET(req: Request) {
   try {
     const appCheckResult = await verifyAppCheckHeader(req);
-    //console.log("appCheckResult appCheckResult", appCheckResult, "appCheckResult.valid: ", appCheckResult.valid);
+    // console.log("appCheckResult appCheckResult", appCheckResult, "appCheckResult.valid: ", appCheckResult.valid);
     if (!appCheckResult.valid) {
       return NextResponse.json(
         { error: appCheckResult.error || "Unauthorized client application" },
