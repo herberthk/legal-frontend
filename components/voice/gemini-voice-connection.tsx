@@ -26,6 +26,15 @@ const DEFAULT_VOICE_PREFERENCE: PreferedVoice = {
   preferedVoiceName: "Evelyn",
 };
 
+// Connecting is timed in two halves, because only one of them is ours to rush.
+// Claiming the mic can block on a permission dialog for as long as the user
+// takes to read it; everything after it — ephemeral token, socket handshake —
+// is network work that should land in seconds. A single budget covering both
+// has to be generous enough for the dialog, which leaves it too slack to catch
+// a hang. So: a loose ceiling until the mic is live, then a strict one.
+const MIC_GRANT_TIMEOUT_MS = 60_000;
+const CONNECT_TIMEOUT_MS = 15_000;
+
 const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   freeVoiceSeconds,
   balance,
@@ -52,6 +61,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
 
   // Stable ref to avoid circular dependencies with the hook
   const handleEndCallRef = useRef<() => Promise<void>>(null);
+  const armConnectTimeoutRef = useRef<((ms: number) => void) | null>(null);
 
   const totalAllowedSeconds = useMemo(() => {
     return freeVoiceSeconds + balance / COST_PER_VOICE_SECOND_IN_CENTS;
@@ -88,6 +98,11 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // this here rather than before connect() guarantees the recorder and the
     // billing path are keyed to the same session.
     onSessionStart: startSession,
+    // The permission dialog is behind us, so tighten the connect budget onto
+    // the network work that is left.
+    onMicReady: useCallback(() => {
+      armConnectTimeoutRef.current?.(CONNECT_TIMEOUT_MS);
+    }, []),
     totalAllowedSeconds,
   });
   const [isMuted, setIsMuted] = useState(false);
@@ -337,6 +352,36 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     [],
   );
 
+  // ── Connection timeout ─────────────────────────────────────────────────────
+  // If wsStatus never transitions away from "connecting" within the current
+  // budget, we abort and surface a timeout error. The hook's catch block will
+  // also fire setWsStatus("error") eventually, but this covers the case where
+  // the SDK hangs without throwing (e.g. DNS resolution timeout).
+  //
+  // Re-armable, because the budget tightens once the mic is live (onMicReady).
+  // Clearing first is what makes that safe: overwriting the ref would orphan
+  // the previous timer, and an orphaned timer disconnects the attempt that
+  // replaced it — closing the AudioContext while its worklets are still
+  // loading, which is exactly the InvalidStateError/AbortError pair.
+  const armConnectTimeout = useCallback(
+    (ms: number) => {
+      if (connectTimeoutRef.current) clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = setTimeout(() => {
+        // Only fire if we're STILL in the connecting phase
+        if (wsStatusRef.current === "connecting") {
+          setConnectionError({ kind: "timeout" });
+          // Attempt a clean disconnect — ignore failures
+          disconnect().catch(() => {});
+        }
+      }, ms);
+    },
+    [disconnect],
+  );
+
+  useLayoutEffect(() => {
+    armConnectTimeoutRef.current = armConnectTimeout;
+  }, [armConnectTimeout]);
+
   const handleStartCall = useCallback(async () => {
     if (wsStatus === "connecting" || wsStatus === "open" || isCreditExhausted)
       return;
@@ -373,19 +418,12 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // scope right now is one call behind, and every chunk would be filed under
     // a session that billing and cleanup never look at.
 
-    // ── Connection timeout ─────────────────────────────────────────────────
-    // If wsStatus never transitions away from "connecting" within 15 s,
-    // we abort and surface a timeout error. The hook's catch block will also
-    // fire setWsStatus("error") eventually, but this covers the case where
-    // the SDK hangs without throwing (e.g. DNS resolution timeout).
-    connectTimeoutRef.current = setTimeout(() => {
-      // Only fire if we're STILL in the connecting phase
-      if (wsStatusRef.current === "connecting") {
-        setConnectionError({ kind: "timeout" });
-        // Attempt a clean disconnect — ignore failures
-        disconnect().catch(() => {});
-      }
-    }, 15_000);
+    // Loose ceiling for now: claimMicStream may be sitting on a permission
+    // dialog, and aborting a call because the user reads slowly is wrong. The
+    // hook's onMicReady tightens this to CONNECT_TIMEOUT_MS the moment the mic
+    // is live. The ceiling still stands if that never happens — getUserMedia
+    // can hang without ever resolving or rejecting.
+    armConnectTimeout(MIC_GRANT_TIMEOUT_MS);
 
     try {
       await connect();
@@ -403,7 +441,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     }
   }, [
     connect,
-    disconnect,
+    armConnectTimeout,
     wsStatus,
     isCreditExhausted,
     classifyConnectionError,

@@ -12,6 +12,7 @@ import { createGeminiAudioChain } from "./use-gemini-live/audio-setup";
 import {
   claimMicStream,
   detectNativeSampleRate,
+  parkMicStream,
 } from "./use-gemini-live/mic-stream";
 import { useFirebaseSync } from "./use-gemini-live/use-firebase-sync";
 import { useEphemeralToken } from "./use-gemini-live/use-ephemeral-token";
@@ -24,6 +25,7 @@ export const useGeminiLive = ({
   onAIAudioChunk,
   onDurationLimitReached,
   onSessionStart,
+  onMicReady,
   totalAllowedSeconds,
 }: UseGeminiLiveOptions) => {
   // Session UI states
@@ -110,6 +112,7 @@ export const useGeminiLive = ({
   const onUserAudioChunkRef = useRef(onUserAudioChunk);
   const onAIAudioChunkRef = useRef(onAIAudioChunk);
   const onSessionStartRef = useRef(onSessionStart);
+  const onMicReadyRef = useRef(onMicReady);
 
   useEffect(() => {
     onUserAudioChunkRef.current = onUserAudioChunk;
@@ -122,6 +125,10 @@ export const useGeminiLive = ({
   useEffect(() => {
     onSessionStartRef.current = onSessionStart;
   }, [onSessionStart]);
+
+  useEffect(() => {
+    onMicReadyRef.current = onMicReady;
+  }, [onMicReady]);
 
   const sessionStartRef = useRef<number>(0);
 
@@ -304,12 +311,51 @@ export const useGeminiLive = ({
           // Reuses the stream MicrophoneSoftPrompt already obtained when one is
           // live, so Firefox isn't asked to prompt a second time.
           const stream = await claimMicStream();
+
+          // Every await between here and the worklet nodes is a window where
+          // this attempt can be superseded — the 15s connect timeout, an End
+          // tap, or a second connect all run disconnectFromGemini, which
+          // closes the context. Building on a closed context does not fail
+          // quietly: addModule rejects with AbortError ("Unable to load a
+          // worklet's module") and the AudioWorkletNode constructor throws
+          // InvalidStateError ("No execution context available"). A mic prompt
+          // left open past the timeout hits this every time, so re-check after
+          // each await and bail instead.
+          const isSuperseded = (c: AudioContext) =>
+            isDisconnectingRef.current ||
+            audioCtxRef.current !== c ||
+            c.state === "closed";
+
+          // Park rather than stop: whoever superseded us owns the teardown and
+          // the UI status, and a parked stream lets the retry reuse this grant
+          // instead of prompting again. MicrophoneSoftPrompt releases it if the
+          // user leaves the page without retrying.
+          const abandon = () => {
+            if (mediaStreamRef.current === stream)
+              mediaStreamRef.current = null;
+            parkMicStream(stream);
+          };
+
+          if (isSuperseded(ctx)) {
+            abandon();
+            return;
+          }
           mediaStreamRef.current = stream;
+
+          // The mic is live and this attempt is still the current one, so the
+          // caller's connect timeout can stop making room for a permission
+          // dialog and get strict about the network work that is left.
+          onMicReadyRef.current?.();
 
           await Promise.all([
             ctx.audioWorklet.addModule("/js/pcm-processor.js"),
             ctx.audioWorklet.addModule("/js/pcm-player-processor.js"),
           ]);
+
+          if (isSuperseded(ctx)) {
+            abandon();
+            return;
+          }
 
           try {
             source = ctx.createMediaStreamSource(stream);
@@ -330,6 +376,12 @@ export const useGeminiLive = ({
               ctx.audioWorklet.addModule("/js/pcm-processor.js"),
               ctx.audioWorklet.addModule("/js/pcm-player-processor.js"),
             ]);
+
+            if (isSuperseded(ctx)) {
+              abandon();
+              return;
+            }
+
             source = ctx.createMediaStreamSource(stream);
           }
 

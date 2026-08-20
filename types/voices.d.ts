@@ -117,7 +117,7 @@ declare global {
     | "mic_denied" // NotAllowedError / PermissionDeniedError
     | "mic_unavailable" // NotFoundError / no mic device
     | "token_failed" // ephemeral token fetch failed (auth/server issue)
-    | "timeout" // connection took > 15 s
+    | "timeout" // connection stalled past its budget (see onMicReady)
     | "generic"; // everything else
 
 
@@ -164,6 +164,18 @@ declare global {
        * and cleanup know nothing about.
        */
       onSessionStart?: (sessionId: string) => void;
+
+      /**
+       * Called once the microphone stream is live and the attempt is still
+       * current, i.e. everything left before "open" is network work.
+       *
+       * Exists so the caller can time the two halves of connecting separately.
+       * Claiming the mic can block on a permission dialog for as long as the
+       * user takes to read it, while the token fetch and socket handshake that
+       * follow should be quick — one timeout spanning both has to be generous
+       * enough for the dialog, which makes it useless for catching a hang.
+       */
+      onMicReady?: () => void;
       
       /**
        * The total number of seconds allowed for this session based on balance + free time.
