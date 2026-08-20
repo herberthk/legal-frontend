@@ -76,23 +76,5 @@ mzp: uRDLdu@rLMf8MPH
 
 Run lint + typecheck + vitest
 
-[gemini-live] Connection error: InvalidStateError: Failed to construct 'AudioWorkletNode': AudioWorkletNode cannot be created: No execution context available.
-    at useGeminiLive.useCallback[connectToGemini] (use-gemini-live.ts:333:19)
-    at async GeminiVoiceConnection.useCallback[handleStartCall] (gemini-voice-connection.tsx:391:7)
-overrideMethod	@	installHook.js:1
-(anonymous)	@	use-gemini-live.ts:642
-await in (anonymous)		
-(anonymous)	@	gemini-voice-connection.tsx:391
-
-installHook.js:1 [gemini-live] Connection error: AbortError: Unable to load a worklet's module.
-overrideMethod	@	installHook.js:1
-(anonymous)	@	use-gemini-live.ts:644
-await in (anonymous)		
-(anonymous)	@	gemini-voice-connection.tsx:391
-<ForwardRef(motion.button)>		
-(anonymous)	@	ConnectionErrorOverlay.tsx:201
-<ConnectionErrorOverlay>		
-(anonymous)	@	voice-interface.tsx:261
-
 
 gcloud auth application-default login
