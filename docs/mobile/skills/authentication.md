@@ -138,6 +138,15 @@ POST /auth/password/verify   { "email", "otp" }             → marks OTP verifi
 POST /auth/password/reset    { "email", "newPassword" }     → sets new password
 ```
 
+> **`forgot` never reveals whether the email exists.** Both a real account and an
+> unknown address return the same
+> `200 { "data": { "success": true, "message": "If an account exists with this email, a reset code has been sent." } }`.
+> This is a deliberate account-enumeration guard, so **`success: true` is not proof
+> an OTP was sent.** Show that message verbatim and advance to the OTP screen
+> regardless — never branch the UI on it, and never tell the user "no account found"
+> at this step. The real signal arrives at `verify`, which fails for a code that was
+> never issued.
+
 ```ts
 await postJson("/auth/password/forgot", { email });
 // … user enters OTP …
@@ -148,6 +157,7 @@ await postJson("/auth/password/reset", { email, newPassword });
 ```
 
 OTP rules (server-enforced): max 3 verify attempts, 15-minute expiry.
+`otp` is validated as a 4–10 character string; `newPassword` must be 6–128 chars.
 
 ---
 
@@ -158,6 +168,13 @@ POST /auth/otp/resend   { "email", "type": "signup" | "reset" }
 ```
 
 Use the correct `type` for the flow in progress. Also rate-limited server-side.
+
+**`type: "reset"` carries the same enumeration guard as `forgot`** — an unknown
+email still returns
+`200 { "data": { "success": true, "message": "If an account exists with this email, a verification code has been sent." } }`.
+`type: "signup"` does **not** mask its result: there the action's real
+`{ success, message }` comes back, because the address was already submitted in
+step 1 of signup so nothing new is leaked.
 
 ---
 
@@ -195,3 +212,7 @@ revocation anyway.
 - A brand-new Google user may hit an authed route before `profile/sync` completes;
   call `profile/sync` immediately after `signInWithCredential` and await it before
   navigating into the app.
+- **`success: true` from `/auth/password/forgot` (and from `/auth/otp/resend` with
+  `type: "reset"`) does not mean the email exists.** Both mask a missing account
+  behind a generic "If an account exists…" message to prevent enumeration. Don't
+  gate navigation on it or surface "no such account" there.

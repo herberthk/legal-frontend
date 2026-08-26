@@ -17,8 +17,8 @@
 ## Architecture
 
 ```
- GET /voice/token ──► ephemeral token (60 min)
-        │
+ GET /voice/token ──► { token (60 min), sessionId }   ← server mints BOTH and
+        │                                              reserves the session
         ▼
  @google/genai  live.connect({ model:"gemini-3.1-flash-live-preview", config })
    over the device WebSocket  ◄─────────────────────────────────────────┐
@@ -28,31 +28,50 @@
    AI  ◄─ 24 kHz Int16 PCM ◄─ base64 ◄─ msg.serverContent.modelTurn.parts┘
         │
    on end / app background ─► POST /voice/billing { sessionId, duration, transcripts }
+                                                    ▲
+                              the SAME sessionId returned by /voice/token
 ```
 
 Two things are portable as-is: the **`@google/genai` package** (it runs on RN's
 WebSocket + Hermes) and **all the session orchestration** (config, resumption,
 transcript accumulation). Only the audio graph changes.
 
-## Step 1 — mint the ephemeral token
+## Step 1 — mint the ephemeral token (and get your `sessionId`)
 
 ```
 GET /voice/token
 Authorization: Bearer <id-token>
 X-Firebase-AppCheck: <app-check-token>
-→ 200 { "data": { "token": "auth_tokens/…" } }
+→ 200 { "data": { "token": "auth_tokens/…", "sessionId": "3f9c…" } }
+→ 402 { "error": { "code": "PAYMENT_REQUIRED", "message": "Insufficient credit for voice session" } }
+→ 500 { "error": { "code": "INTERNAL", "message": "Failed to create ephemeral token" } }
 ```
 
 The real API key never reaches the device. The token lasts 60 minutes and allows
 5 minutes to open a session. **Fetch it immediately before connecting**, not at app
 start.
 
+> **`sessionId` is server-minted — never generate your own.** This call also
+> pre-creates the server-authoritative voice-session **reservation** in Firestore
+> (`voiceSessions/{sessionId}`, `status: "ACTIVE"`, with the server start time that
+> billing is computed from). `POST /voice/billing` looks that reservation up and
+> returns **400 `Voice session reservation not found`** for any id it did not mint —
+> so a client-generated UUID means the call is never billed and never saved. Keep the
+> returned `sessionId` for the lifetime of the call and send it back at settle time.
+
+This endpoint also performs the **pre-flight credit check**: a user with no free
+voice seconds and insufficient balance gets **402** here, before any audio is
+captured. Surface a top-up prompt on 402 rather than opening the socket.
+
 ## Step 2 — connect
 
 ```ts
 import { GoogleGenAI, Modality, type LiveConnectConfig } from "@google/genai";
 
-const { token } = await apiFetch<{ token: string }>("/voice/token");
+const { token, sessionId } = await apiFetch<{ token: string; sessionId: string }>(
+  "/voice/token",
+);
+// Keep `sessionId` for the whole call — it is what /voice/billing settles against.
 
 const ai = new GoogleGenAI({
   apiKey: token,                          // the ephemeral token, not the real key
@@ -190,13 +209,15 @@ On barge-in / interruption, cancel every scheduled source and reset `nextStart =
 
 ## Step 6 — settle billing (idempotent)
 
-Generate a **session id once per call** and reuse it for billing. It must match
-`^[A-Za-z0-9_-]{1,64}$` — a UUID qualifies:
+Use the **`sessionId` you received from `GET /voice/token`** (Step 1). Do **not**
+generate one: the server already created the reservation under its own id, and
+billing rejects any other value with `400 Voice session reservation not found`.
 
 ```ts
-import "react-native-get-random-values";
-import { v4 as uuidv4 } from "uuid";
-const sessionId = uuidv4();
+// From Step 2 — one sessionId per call, minted server-side.
+const { token, sessionId } = await apiFetch<{ token: string; sessionId: string }>(
+  "/voice/token",
+);
 ```
 
 When the call ends — user hangs up, or the app backgrounds — post the settle:
@@ -206,15 +227,61 @@ POST /voice/billing            # App Check NOT required (see below)
 Authorization: Bearer <id-token>
 Content-Type: application/json
 {
-  "sessionId": "<uuid>",
-  "duration": 137.4,                          # seconds; server derives authoritative billing
+  "sessionId": "<the sessionId from /voice/token>",
+  "duration": 137.4,                          # OPTIONAL, telemetry only — see note
   "transcripts": [                            # role is "user" | "AI" (capitalized)
     { "role": "user", "content": "…" },
     { "role": "AI",   "content": "…" }
-  ]
+  ],
+  "preferedVoice": {                          # optional
+    "preferedVoiceId": "Zephyr",
+    "preferedVoiceName": "Zephyr"
+  },
+  "userName": "Ada"                           # optional
 }
 → 200 { "data": { "voiceSessionId": "…" } }
+→ 400 { "error": { "code": "BAD_REQUEST",     "message": "Voice session reservation not found" } }
+→ 400 { "error": { "code": "BAD_REQUEST",     "message": "Invalid request body" } }
+→ 401 { "error": { "code": "UNAUTHENTICATED", "message": "Authentication required." } }
+→ 503 { "error": { "code": "INTERNAL",        "message": "Failed to process billing" } }   # retryable
+→ 500 { "error": { "code": "INTERNAL",        "message": "Failed to process billing" } }   # not retryable
 ```
+
+`sessionId` must match `^[A-Za-z0-9_-]{1,64}$` (the server-minted value always
+does). A **401** here means either no/invalid Bearer token *or* the session belongs
+to a different uid — the endpoint does not distinguish the two on purpose.
+
+> **⚠️ Do not settle billing through `apiFetch`.** The reference wrapper in
+> `error-handling.md` calls `auth().signOut()` on any `401 UNAUTHENTICATED` that
+> survives one retry — correct for a dead token, but wrong here: a `sessionId` that
+> isn't yours returns that same 401, so a stale or mismatched id would **sign the
+> user out of the app** instead of just failing the settle. Post this route with a
+> dedicated helper (or pass a flag that suppresses the sign-out) and treat its 401
+> as "this session isn't mine — drop it", never as "the session is dead."
+
+```ts
+// Bearer-only, and NO sign-out on 401 — see the warning above.
+async function settleVoiceBilling(body: VoiceBillingBody) {
+  const user = auth().currentUser;
+  if (!user) return; // nothing to settle against
+  const res = await fetch(`${BASE_URL}/voice/billing`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${await user.getIdToken()}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) return;               // foreign/stale session — discard, do NOT sign out
+  if (res.status === 503) return scheduleRetry(body); // retryable
+  if (!res.ok) reportError(await res.json().catch(() => null));
+}
+```
+
+> **`duration` is optional and advisory.** The server ignores it for money: it
+> computes the billable duration from the reservation's own `startedAt` timestamp,
+> clamped to `MAX_VOICE_SESSION_SECONDS` (1800). Send it for telemetry if you like;
+> omitting it changes nothing about what the user is charged.
 
 Fire it from an `AppState` `background`/`inactive` transition (RN has no
 `sendBeacon`). **`/voice/billing` deliberately does not require App Check** — a
@@ -248,7 +315,6 @@ chars total. Trim before sending.
 | Raw mic PCM only | `react-native-live-audio-stream` / `@dr.pogodin/react-native-audio` | native `AudioRecord` |
 | Downsample 48k→16k | do it in JS (linear/decimate) on the capture callback | native resampler in a fork |
 | Keep screen awake | `expo-keep-awake` (`useKeepAwake()`) | `react-native-keep-awake` |
-| Randomness for `sessionId` | `react-native-get-random-values` + `uuid` | `expo-crypto` |
 
 `react-native-audio-api` is the closest analogue to the web implementation — it
 gives you a real `AudioContext` so the mic-worklet-equivalent (an
@@ -279,9 +345,17 @@ directly. Prefer it unless you already depend on WebRTC.
 - `httpOptions.apiVersion` **must be `"v1alpha"`** on the client `GoogleGenAI`, or
   the ephemeral token is rejected.
 - The token is short-lived — mint it right before connecting; don't cache it.
+- **Never generate the `sessionId` client-side.** It comes from `GET /voice/token`,
+  which reserves it server-side; any other value fails billing with
+  `400 Voice session reservation not found`, leaving the call unbilled and unsaved.
+  No `uuid` / `react-native-get-random-values` dependency is needed for this.
+- One `/voice/token` call = one billable session. Don't reuse a `sessionId` across
+  separate calls, and don't fetch a fresh token mid-call just to reconnect — use
+  `sessionResumption` with the saved handle instead (Step 5), which keeps the same
+  `sessionId`.
 - Transcript `role` is **`"AI"` (capitalized)**, not `"assistant"` or `"ai"`.
-- `duration` is **seconds** (a float is fine — the server floors it); do not send
-  milliseconds.
+- `duration` is **optional telemetry** — the server bills from its own reservation
+  timestamp. If you do send it, use **seconds** (a float is fine), never milliseconds.
 - Don't attach the App Check header logic to `/voice/billing` in a way that *blocks*
   the request if the token is missing — send Bearer-only and let it through.
 - The web mixes recording at 48 kHz for local capture; that's a web-only convenience

@@ -105,7 +105,7 @@ const { chartData, totalPeriodCost } = await apiFetch(`/usage/chart?${q}`);
 Page-based ledger of free-credit grants/resets:
 
 ```
-GET /usage/free-credits?page=1&pageSize=20        # pageSize ≤ 50
+GET /usage/free-credits?page=1&pageSize=20        # page ≥1 (default 1), pageSize ≤ 50 (default 10)
 → 200 { "data": { "success": true, "records": FreeCreditHistory[], "totalCount": 42, "totalPages": 3 } }
 ```
 
@@ -120,8 +120,19 @@ GET /transactions/:id
 → 404 NOT_FOUND        # missing OR not owned
 ```
 
-- `type` filters (`ALL` default) by transaction type; `duration` (`all` default)
-  windows by recency (`today`, `yesterday`, …).
+- **Defaults:** `page=1`, `pageSize=10` (max 50 — a larger value is clamped, not
+  rejected), `type=ALL`, `duration=all`. Pass `pageSize` explicitly if you want
+  more than 10 rows per page; the default is easy to mistake for "no more data."
+- `duration` is a **closed 5-value enum** — anything outside it falls back to `all`:
+
+  ```
+  all   today   yesterday   last_week   month
+  ```
+
+  Note there is **no `custom`** here (unlike `/usage`), so a date-range picker has
+  no server support on this route — filter client-side if you need one.
+- `type` is forwarded to the query **verbatim and unvalidated**; an unrecognised
+  value simply matches nothing and yields an empty page rather than a 400.
 - `/transactions/:id` is owner-guarded — a foreign/unknown id is **404** (not 403).
 - `Transaction` (ambient type) includes `amount`, `currency`, `type`, `status`,
   `reference`, timestamps. Deposits complete via provider **webhooks**, so a
@@ -158,7 +169,20 @@ Keep this single conversion helper; never scatter the `3800`/`100` literals.
 
 - Everything cost-related from the API is **cents**, not dollars, not UGX.
 - `usage.totalCost` and `chart.cost` are cents too — a "$3.33" spend is `333`.
-- `duration` (transactions) and `filter` (usage) are **different** query vocab —
-  transactions use `today|yesterday|…|all`; usage uses `today|yesterday|last_week|month|custom`.
+- `duration` (transactions) and `filter` (usage) are **different** query vocab and
+  have **different defaults**:
+
+  | Route | Param | Values | Default |
+  |---|---|---|---|
+  | `/transactions` | `duration` | `all` `today` `yesterday` `last_week` `month` | `all` |
+  | `/usage` | `filter` | `today` `yesterday` `last_week` `month` `custom` | **`today`** |
+  | `/usage/chart` | `filter` | same as `/usage` | **`last_week`** |
+
+  So `/usage` and `/usage/chart` share a vocabulary but **not** a default — calling
+  both with no `filter` gives you today's totals beside a week-long chart. Always
+  pass `filter` explicitly when the two are shown together.
+- Only `/usage` and `/usage/chart` accept `custom` + `start`/`end`, and only when
+  **all three** are present (`filter === "custom" && start && end`); a `custom` with
+  a missing bound silently falls back to the default window rather than erroring.
 - A `canSend: true` is not a guarantee — the authoritative check is on the AI route,
   which can still 402.

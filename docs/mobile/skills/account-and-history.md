@@ -41,7 +41,18 @@ PATCH /me/voice-preference
 → 200 { "data": { "success": true, … } }
 ```
 
-`preferedVoiceId` feeds the Gemini Live `voiceName` (see `voice-chat.md`).
+`preferedVoiceId` feeds the Gemini Live `voiceName` (see `voice-chat.md`). It is a
+**closed 17-value enum** — anything else is `400 Invalid request body`:
+
+```
+Puck  Charon  Kore  Fenrir  Aoede  Zephyr  Terra  Lyra  Orion
+Ursa  Nova  Pegasus  Hydra  Leda  Orus  Achernar  Umbriel
+```
+
+Mirror this list in the client (it is exported as `VOICES` server-side) and build
+the voice picker from it rather than a free-text field. **Both fields are
+required** — `preferedVoiceName` is a free display label (1–120 chars) and is *not*
+checked against the enum, but omitting it is still `400 Invalid request body`.
 
 ```ts
 const me = await apiFetch<User>("/me");
@@ -160,7 +171,15 @@ Stop paging when `hasMore === false` (cursor lists) or a short page returns (voi
 
 - Balances are **cents**; format via the UGX conversion, never raw.
 - `/chats/:id/messages` needs **both** `cursorId` and `cursorCreatedAt` — sending
-  one without the other is ignored (treated as no cursor).
+  one without the other is a hard **`400 Both cursorId and cursorCreatedAt must be
+  provided together`**, not a silently-ignored cursor. Send both or neither.
+  `cursorCreatedAt` must also parse as a date (`Date.parse`) or it's
+  `400 cursorCreatedAt must be a valid date string` — pass the record's ISO
+  `createdAt` through unchanged.
+- `limit` on `/chats/:id/messages` is **strictly validated**: a non-integer, `<1`, or
+  `>50` value is `400 limit must be an integer between 1 and 50`. This differs from
+  `GET /chats`, where an invalid `limit` is silently coerced to the default 20 —
+  don't assume one route's leniency applies to the other.
 - Chat messages come oldest-first; reverse for a bottom-anchored chat view or render
   in a `FlatList` with `inverted` and prepend older pages.
 - Renaming/deleting a chat you don't own returns 404 (IDOR guard), not 403.

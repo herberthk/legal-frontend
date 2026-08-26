@@ -20,8 +20,14 @@ Authorization: Bearer <id-token>
 X-Firebase-AppCheck: <app-check-token>
 Content-Type: multipart/form-data          # set by FormData — do NOT set it yourself
 
-form field: file   (PDF, DOCX, PNG/JPG/WEBP — max 10 MB)
+form field: file   (PDF, DOCX, or ANY image/* — max 10 MB)
 ```
+
+**Accepted types are broader here than on `/transcriptions`.** The check is
+`application/pdf`, the DOCX mime type, or **any** mime type starting with
+`image/` — so `image/heic`, `image/gif`, `image/tiff` and friends all pass, unlike
+the 4-value enum on `/transcriptions` (see `transcription.md`). Anything else is
+`400 Unsupported file type…`.
 
 This route is **not enveloped** (it mirrors the web handler for single-sourcing).
 
@@ -75,7 +81,9 @@ This route is **not enveloped** (it mirrors the web handler for single-sourcing)
 
 - Text-based **PDF/DOCX** → text is extracted server-side and analyzed as text.
 - **Scanned PDFs / images** → supported natively! Sent to Gemini as visual files (multimodal OCR + reasoning). You just upload the file; the server automatically detects scanned documents and routes them through the visual path.
-- Cost is estimated up front; insufficient credit returns **402 before** any work.
+- Cost is estimated up front; insufficient credit returns **402 before** any work —
+  the credit check runs *before* the multipart body is even parsed, so a 402 can
+  arrive without the file having been uploaded in full.
 - `maxDuration` is **120 s** — set a generous client timeout (see below).
 
 ## RN implementation
@@ -204,7 +212,7 @@ interface Review {
     method: "POST",
     body: JSON.stringify({
       fileName: review.fileName,
-      fileUrl,                    // Storage download URL of the uploaded file
+      fileUrl,                    // REQUIRED — Firebase Storage HTTPS URL only
       documentType: review.documentType,
       summary: review.summary,
       overallScore: review.overallScore,
@@ -218,6 +226,23 @@ interface Review {
     }),
   });
   ```
+
+  **`fileUrl` is required and host-restricted.** It must be an **HTTPS** URL
+  (≤2048 chars) on `firebasestorage.googleapis.com` or
+  `storage.googleapis.com`; anything else — a local `file://` uri, an `http://`
+  link, a third-party CDN, or omitting it entirely — is
+  `400 fileUrl must be a valid HTTPS Firebase Storage URL`. **You must upload to
+  Storage before you can save the review**, so there is no "save now, attach the
+  file later" path. (Note the asymmetry: `POST /transcriptions/records` accepts any
+  HTTPS `fileUrl` and treats it as optional.)
+
+  Every other field is required too, with these caps: `fileName` 1–300,
+  `documentType` 1–200, `summary` ≤20,000 chars, `overallScore` 0–100,
+  `highlights` ≤200 items of ≤4,000 chars each, and `keyClauses` / `risks` /
+  `recommendations` / `scoreBreakdown` ≤500 objects each. `tokensUsed` and
+  `pageCount` must be non-negative integers. A violation is a generic
+  `400 Invalid request body`, so pass the `review` object through unmodified rather
+  than re-deriving these fields.
 
   Listing/reading/deleting saved reviews (`GET /reviews`, `GET /reviews/:id`,
   `DELETE /reviews/:id`) is in `account-and-history.md`.

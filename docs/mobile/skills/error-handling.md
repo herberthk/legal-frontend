@@ -20,13 +20,28 @@
 | 401 | `UNAUTHENTICATED` | missing/expired/revoked ID token | refresh token once, retry; if still 401, sign out |
 | 401 | `APP_CHECK_FAILED` | missing/invalid App Check token | re-obtain App Check token; do **not** sign the user out |
 | 402 | `PAYMENT_REQUIRED` | out of credit / inactive account | route to top-up (`skills/payments-*`) |
-| 403 | `FORBIDDEN` | authenticated but not allowed | show "not allowed"; rare on mobile |
 | 404 | `NOT_FOUND` | resource missing **or not owned** | treat as "gone"; never assume it exists |
-| 429 | `RATE_LIMITED` | too many requests | back off and retry later |
-| 500/503 | `INTERNAL` | server/upstream error | retry with backoff (503) or report (500) |
+| 500 | `INTERNAL` | non-retryable server fault | report; don't auto-retry |
+| 503 | `INTERNAL` | retryable upstream/billing failure | back off and retry the same request |
 
 > **404 is deliberately ambiguous.** Ownership checks return 404 (not 403) so a
 > caller can't probe which ids exist. Don't special-case it as "forbidden."
+
+> **⚠️ One route breaks the "401 = dead token" rule: `POST /voice/billing`.** It
+> answers **401 `UNAUTHENTICATED`** when the `sessionId` belongs to a different uid,
+> not only when the token is bad — so routing it through `apiFetch` would hit the
+> `auth().signOut()` branch below and **sign the user out because of a stale session
+> id**. Settle voice billing with a dedicated helper that treats 401 as "this
+> session isn't mine, discard it" (see `voice-chat.md`). Everywhere else, a
+> post-retry `401 UNAUTHENTICATED` genuinely does mean the session is dead.
+
+> **`403 FORBIDDEN` and `429 RATE_LIMITED` are defined but unused.** Both codes
+> exist in the `ApiErrorCode` union in `lib/api/v1/response.ts`, but **no route
+> under `app/api/v1/**` currently emits either** — authorization failures are
+> flattened to 404 by the ownership guards, and the pre-auth `/auth/**` routes rate
+> limit inside the action rather than returning 429. Handle them defensively in a
+> catch-all branch (they're cheap to support and may appear later), but don't build
+> UI flows that depend on receiving them.
 
 ## Reference implementation
 
@@ -102,7 +117,7 @@ export async function apiFetch<T = unknown>(
     const code = json?.error?.code ?? "INTERNAL";
     const message = json?.error?.message ?? `Request failed (${res.status}).`;
     if (res.status === 401 && code === "UNAUTHENTICATED") {
-      await auth().signOut(); // token can't be salvaged
+      await auth().signOut(); // token can't be salvaged — but see the /voice/billing warning
     }
     throw new ApiError(res.status, code, message);
   }
@@ -110,6 +125,12 @@ export async function apiFetch<T = unknown>(
   return json.data as T;
 }
 ```
+
+> **The `signOut()` above assumes a 401 always means a dead token.** That holds for
+> every route except `POST /voice/billing`, which also returns
+> `401 UNAUTHENTICATED` when the `sessionId` isn't the caller's. Don't route that
+> one through `apiFetch` (see `voice-chat.md`), or add an
+> `{ allowUnauthenticated: true }` option that skips the sign-out.
 
 Usage:
 
@@ -150,11 +171,19 @@ if (!res.ok || !json.success) throw new Error(json.error ?? "Review failed.");
 - **Distinguish `APP_CHECK_FAILED` from `UNAUTHENTICATED`.** The former is a
   device/attestation problem — re-obtain the App Check token and retry; do not
   sign the user out.
+- **`POST /voice/billing` must not go through `apiFetch`.** That route answers a
+  `sessionId` belonging to another uid with `401 UNAUTHENTICATED` (not 404), so the
+  sign-out branch above would kick a perfectly valid user out of the app over a
+  stale session id. Post it with a Bearer-only helper that treats 401 as "discard
+  this session" — see `voice-chat.md`. It's also the one authenticated route with
+  App Check **off**.
 - **Map 402 to the paywall.** Any AI action can return 402; funnel it to the
   top-up flow rather than a generic error toast.
 - **Offline & retry.** Wrap idempotent GETs with a small exponential backoff on
-  network errors and 503. Never auto-retry non-idempotent POSTs (payments,
-  ticket replies) — surface the failure and let the user decide.
+  network errors and 503. Don't blind-retry a non-idempotent POST (ticket replies,
+  record saves) — surface the failure and let the user decide. The **one exception**
+  is `POST /payments/momo/deposit`, which is idempotency-keyed: a `503` there *should*
+  be retried with the **same** `idempotencyKey` (see `payments-mobile-money.md`).
 
 ## Gotchas
 

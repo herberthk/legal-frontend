@@ -5,8 +5,14 @@ client of Legal Adviser. It is written to be read by an AI coding agent: every
 endpoint, request/response shape, auth rule, and platform-specific gotcha needed
 to build the mobile app is here.
 
-- **`openapi.yaml`** — OpenAPI 3.1 spec for the entire `/api/v1` surface. Machine-readable source of truth for request/response shapes.
-- **`skills/*.md`** — one focused guide per feature. Each has: description · endpoints · request/response · RN implementation (with code) · package alternatives · best practices · gotchas.
+- **`skills/*.md`** — one focused guide per feature, and the **source of truth** for request/response shapes. Each has: description · endpoints · request/response · RN implementation (with code) · package alternatives · best practices · gotchas.
+- **§5 below** — the complete route index: every `/api/v1` endpoint, its auth requirements, and which skill documents it.
+
+> There is deliberately **no `openapi.yaml`**. The prose skills are hand-verified
+> against the route handlers; a second generated spec would drift from them silently
+> and there'd be no way to tell which one was lying. Treat the skill docs plus the
+> §5 index as the contract, and the route handlers under `app/api/v1/**` as the
+> final arbiter.
 
 > The web app is unchanged. Mobile consumes the **same server logic** through a
 > new, versioned HTTP surface (`/api/v1`). Web keeps authenticating by session
@@ -96,9 +102,10 @@ Every JSON route returns one of two shapes:
 
 Error `code` is one of:
 `UNAUTHENTICATED` · `APP_CHECK_FAILED` · `PAYMENT_REQUIRED` · `BAD_REQUEST` ·
-`NOT_FOUND` · `FORBIDDEN` · `RATE_LIMITED` · `INTERNAL`.
+`NOT_FOUND` · `INTERNAL`. (`FORBIDDEN` and `RATE_LIMITED` are declared in the
+`ApiErrorCode` union but no route emits them — see `skills/error-handling.md`.)
 
-HTTP status is meaningful and mapped to the code (401/402/400/404/403/500/503). A
+HTTP status is meaningful and mapped to the code (400/401/402/404/500/503). A
 route that wraps an action which itself returns `{ success, ... }` puts that whole
 object inside `data` — inspect `data.success` for the operation result, and the
 HTTP status for transport/auth/credit outcomes.
@@ -152,11 +159,12 @@ Grouped by the skill that documents it. All paths are relative to the base URL.
 ### AI features — `skills/chat-streaming.md`, `skills/document-review.md`, `skills/voice-chat.md`, `skills/transcription.md`
 | Method | Path | App Check | Notes |
 |---|---|---|---|
-| POST | `/chat` | on | SSE stream; header `x-chat-id` gates billing/persistence |
+| POST | `/chat` | on | SSE stream; header `x-chat-id` is **required** — a missing one is a 400 |
 | POST | `/review` | on | multipart `file`; structured review |
-| GET | `/voice/token` | on | ephemeral Gemini Live token |
+| POST | `/reviews` | on | persist a completed review (upload `fileUrl` to Storage first) |
+| GET | `/voice/token` | on | ephemeral Gemini Live token **+ server-minted `sessionId`** |
 | POST | `/voice/billing` | **off** | settle a voice session (idempotent) |
-| POST | `/transcriptions` | on | `{base64Data, mimeType, formatMode, fileName}` |
+| POST | `/transcriptions` | on | `{base64Data, mimeType, formatMode, fileName}` — `mimeType` is a 4-value enum (pdf/png/jpeg/webp) |
 | POST | `/transcriptions/records` | on | persist an edited transcript |
 
 ### History & records — `skills/account-and-history.md`
@@ -166,7 +174,7 @@ Grouped by the skill that documents it. All paths are relative to the base URL.
 | GET | `/chats/:id/messages` |
 | PATCH · DELETE | `/chats/:id` |
 | GET | `/voice/sessions` · `/voice/sessions/:id` |
-| GET | `/reviews` · `/reviews/:id` · DELETE `/reviews/:id` |
+| GET | `/reviews` · `/reviews/:id` · POST `/reviews` · DELETE `/reviews/:id` |
 | GET | `/transcriptions` · `/transcriptions/:id` · DELETE `/transcriptions/:id` |
 
 ### Billing, usage & payments — `skills/billing-and-usage.md`, `skills/payments-stripe.md`, `skills/payments-mobile-money.md`
@@ -177,7 +185,7 @@ Grouped by the skill that documents it. All paths are relative to the base URL.
 | GET | `/transactions` · `/transactions/:id` | wallet history |
 | POST | `/payments/stripe/intent` | `{amountInDollars}` → `clientSecret` |
 | POST | `/payments/momo/verify` | `{msisdn}` → registered name |
-| POST | `/payments/momo/deposit` | `{msisdn, amountUgx, amountUsd}` → `reference` |
+| POST | `/payments/momo/deposit` | `{msisdn, amount, idempotencyKey, userName?}` → `{reference, transactionId, status}` — **`idempotencyKey` required**; 400 = terminal, 503 = retry same key |
 | GET | `/payments/status/:reference` | poll deposit status |
 
 ### Notifications & support — `skills/push-notifications.md`, `skills/support.md`
@@ -216,7 +224,7 @@ usage is in the relevant skill.
 | PCM ring-buffer playback | `react-native-audio-api` `AudioBufferSourceNode`, or native `AudioTrack`/`AudioQueue` | the trickiest piece — see `voice-chat.md` |
 | mic capture | `react-native-audio-api`, or `react-native-live-audio-stream` / `@dr.pogodin/react-native-audio` | must emit 16 kHz Int16 PCM |
 | IndexedDB + Web Worker + `mediabunny` (recorder) | `react-native-mmkv`/SQLite + native encoder | or skip client-side recording |
-| `crypto.randomUUID` | `react-native-get-random-values` + `uuid` | or `expo-crypto` |
+| `crypto.randomUUID` | `react-native-get-random-values` + `uuid`, or `expo-crypto`'s `randomUUID()` | needed for the deposit `idempotencyKey` — **not** for voice `sessionId`, which the server mints |
 | `NoSleep` wake-lock | `expo-keep-awake` / `react-native-keep-awake` | keep screen awake during voice |
 | `navigator.sendBeacon` | `AppState` `background` + `fetch` | best-effort; server billing is idempotent |
 | `@stripe/stripe-js` | `@stripe/stripe-react-native` | confirm the `clientSecret` from `/payments/stripe/intent` |
@@ -235,7 +243,10 @@ usage is in the relevant skill.
    the reference implementation — build it before any feature.
 3. Layer features on top, each from its skill: chat (SSE), review (multipart),
    voice (WebSocket + native audio), billing/payments, notifications, support.
-4. Validate the client against `openapi.yaml` (`redocly lint openapi.yaml`).
+4. Verify each feature against its skill doc's "endpoints" block and the §5 route
+   index — request shape, response envelope, and every status code listed. When a
+   doc and a route handler disagree, the handler in `app/api/v1/**` wins; fix the
+   doc.
 
 Firebase project config (the `NEXT_PUBLIC_FIREBASE_*` values) is shared with the
 web app — reuse the same Firebase project so tokens verify. Never embed any

@@ -4,7 +4,7 @@ import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
 import { revalidatePath } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
-import { getFCMTokenDocId } from "@/lib/fcm-utils";
+import { saveFCMTokenFor, removeFCMTokenFor } from "@/services/fcm";
 import { getAuthenticatedUserId } from "./auth";
 
 /**
@@ -210,68 +210,33 @@ export const getLatestUnreadNotifications = async (userId: string) => {
 // ─── FCM Token Management ─────────────────────────────────────────────────────
 
 /**
- * Saves (upserts) an FCM registration token for a user.
+ * Saves (upserts) an FCM registration token for the **signed-in web user**.
  * Tokens are stored in the top-level `fcmTokens` collection using a deterministic hash key.
+ *
+ * Identity comes from the `session` cookie, so the `userId` argument is accepted
+ * only for backward compatibility with existing call sites and is ignored — this
+ * file is `"use server"`, so trusting a client-supplied uid here would let an
+ * attacker register their own device under a victim's account.
+ *
+ * Mobile callers must NOT use this action (a Bearer client has no cookie);
+ * `app/api/v1/notifications/register-device` calls `saveFCMTokenFor` directly
+ * with the uid it verified from the Firebase ID token.
  */
 export async function saveFCMToken(userId?: string, token?: string) {
-  try {
-    if (!token) return { success: false, error: "Missing token" };
-    const authUserId = await getAuthenticatedUserId();
-    if (!authUserId) return { success: false, error: "Unauthorized" };
+  if (!token) return { success: false, error: "Missing token" };
+  const authUserId = await getAuthenticatedUserId();
+  if (!authUserId) return { success: false, error: "Unauthorized" };
 
-    const docId = getFCMTokenDocId(token);
-    await db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).set({
-      userId: authUserId,
-      token,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    return { success: true };
-  } catch (error) {
-    console.error("[FCM] Error saving token:", error);
-    return { success: false, error: "Failed to save token" };
-  }
+  return saveFCMTokenFor(authUserId, token);
 }
 
 /**
- * Removes a stale or revoked FCM registration token.
+ * Removes a stale or revoked FCM registration token for the signed-in web user.
+ * Mobile callers use `app/api/v1/notifications/device` instead.
  */
 export async function removeFCMToken(token: string) {
-  try {
-    const authUserId = await getAuthenticatedUserId();
-    if (!authUserId) return { success: false, error: "Unauthorized" };
+  const authUserId = await getAuthenticatedUserId();
+  if (!authUserId) return { success: false, error: "Unauthorized" };
 
-    const docId = getFCMTokenDocId(token);
-    const docRef = db.collection(COLLECTIONS.FCM_TOKENS).doc(docId);
-    const docSnap = await docRef.get();
-
-    const deletions: Promise<unknown>[] = [];
-
-    if (docSnap.exists && docSnap.data()?.userId === authUserId) {
-      deletions.push(docRef.delete());
-    }
-
-    const querySnapshot = await db
-      .collection(COLLECTIONS.FCM_TOKENS)
-      .where("userId", "==", authUserId)
-      .where("token", "==", token)
-      .get();
-
-    for (const doc of querySnapshot.docs) {
-      if (doc.id !== docId) {
-        deletions.push(doc.ref.delete());
-      }
-    }
-
-    const results = await Promise.allSettled(deletions);
-    const failed = results.filter((r) => r.status === "rejected");
-    if (failed.length > 0) {
-      console.error("[FCM] Failed to delete token documents:", failed);
-      return { success: false, error: "Failed to remove token" };
-    }
-    return { success: true };
-  } catch (error) {
-    console.error("[FCM] Error removing token:", error);
-    return { success: false, error: "Failed to remove token" };
-  }
+  return removeFCMTokenFor(authUserId, token);
 }
