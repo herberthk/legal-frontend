@@ -64,14 +64,13 @@ X-Firebase-AppCheck: <app-check-token>
 Content-Type: application/json
 {
   "msisdn":         "256770000000",   // 6–20 chars
-  "amount":         19000,            // UGX integer, 1,000 – 7,000,000 (canonical amount)
+  "amount":         19000,            // UGX number (rounded by Math.round), 1,000 – 7,000,000
   "idempotencyKey": "b2f1…",          // REQUIRED, 1–128 chars — see below
-  "userName":       "Jane Doe"        // optional, ≤ 120 chars (display only)
 }
 → 200 { "data": {
     "reference":     "…",        // use this for status polling
     "transactionId": "…",
-    "status":        "ACCEPTED"  // PawaPay accepted the request (not yet paid)
+    "status":        "ACCEPTED" | "PENDING"  // current claim/provider status
 } }
 → 400 { "error": { "code": "BAD_REQUEST", "message": "…" } }   # terminal — do NOT retry this key
 → 401 { "error": { "code": "UNAUTHENTICATED", "message": "Authentication required." } }
@@ -89,14 +88,18 @@ double-tapped deposit cannot charge the user twice.
 - Send it **either** as the `idempotencyKey` body field **or** as an
   `Idempotency-Key` / `X-Idempotency-Key` header. The body field wins if both are
   present.
-- Any string, 1–128 chars — a UUID is the obvious choice
-  (`crypto.randomUUID()` after importing `react-native-get-random-values`, or
-  `expo-crypto`'s `randomUUID()`).
+- Any string, 1–128 chars — a UUID is the obvious choice. Use `uuid.v4()` from
+  the `uuid` package after importing the `react-native-get-random-values`
+  polyfill to ensure cryptographic randomness.
 
 **Replay semantics.** Re-posting a key that already has a live claim returns
 **`200` with the original `reference`, `transactionId` and `status`** — no second
-charge, no new transaction. The one exception: if the earlier attempt reached a
-terminal failure, the replay returns
+charge, no new transaction. The returned `status` reflects the current state of
+the claim at the time of the request; idempotent retries may return 200 with
+`PENDING` for an existing claim that has not yet been accepted by the provider.
+This status does not indicate settlement — clients must continue polling the
+reference for the final outcome. The one exception: if the earlier attempt
+reached a terminal failure, the replay returns
 **`400 Previous payment attempt with this key has failed. Please start a new payment.`** —
 mint a fresh key at that point.
 
@@ -131,8 +134,11 @@ again in a moment.` On a timeout the PIN prompt may already be on the user's pho
 say so, and start polling instead of silently failing.
 
 ```ts
+import { v4 as uuidv4 } from "uuid";
+import "react-native-get-random-values";
+
 // One key per user intent — generated when the user presses Pay, reused on retries.
-const idempotencyKey = randomUUID();
+const idempotencyKey = uuidv4();
 
 async function startDeposit() {
   try {
@@ -142,13 +148,15 @@ async function startDeposit() {
       status: string;
     }>("/payments/momo/deposit", {
       method: "POST",
-      body: JSON.stringify({ msisdn, amount, userName, idempotencyKey }),
+      body: JSON.stringify({ msisdn, amount, idempotencyKey }),
     });
     return reference;                     // → poll this
   } catch (err) {
     // apiFetch throws ApiError { status, code, message } — see error-handling.md
-    if (err.status === 503) return retryWithSameKey(idempotencyKey);  // safe
-    throw err;                                                        // 400 → terminal
+    if (err instanceof ApiError && err.status === 503) {
+      return retryWithSameKey(idempotencyKey);  // safe
+    }
+    throw err;                                  // 400 → terminal
   }
 }
 ```
@@ -222,8 +230,9 @@ else showInfo("Still processing — pull to refresh in a moment.");   // TIMEOUT
 - **Poll with backoff and a cap.** 3 s interval, ~90 s ceiling; on `TIMEOUT` fall back
   to "processing" + a manual refresh rather than blocking the UI forever. The webhook
   may still confirm after you stop polling — `/me` will reflect it on next fetch.
-- **Poll even after a `503`.** The provider may have accepted the deposit before the
-  timeout; the reference exists, so let status polling be the source of truth.
+- **Retry with the same idempotency key after a `503` until you receive a `200`
+  response with the generated `reference`.** Once you have the reference, begin
+  status polling — do not poll before obtaining that reference.
 - **Refetch `/me` after `COMPLETED`** for the new balance; don't add it client-side.
 - **Guide the PIN prompt.** After `ACCEPTED`, tell the user to check their phone and
   enter their mobile-money PIN — the app can't trigger or read that dialog.

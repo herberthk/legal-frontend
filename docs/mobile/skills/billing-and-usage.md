@@ -120,9 +120,10 @@ GET /transactions/:id
 → 404 NOT_FOUND        # missing OR not owned
 ```
 
-- **Defaults:** `page=1`, `pageSize=10` (max 50 — a larger value is clamped, not
-  rejected), `type=ALL`, `duration=all`. Pass `pageSize` explicitly if you want
-  more than 10 rows per page; the default is easy to mistake for "no more data."
+- **Defaults:** `page=1`, `pageSize=10` (max 50 — values outside the range 1–50
+  fall back to 10, not clamped), `type=ALL`, `duration=all`. Pass `pageSize`
+  explicitly if you want more than 10 rows per page; the default is easy to
+  mistake for "no more data."
 - `duration` is a **closed 5-value enum** — anything outside it falls back to `all`:
 
   ```
