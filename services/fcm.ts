@@ -53,20 +53,23 @@ export async function removeFCMTokenFor(userId: string, token: string) {
 
     const docId = getFCMTokenDocId(token);
     const docRef = db.collection(COLLECTIONS.FCM_TOKENS).doc(docId);
-    const docSnap = await docRef.get();
 
-    const deletions: Promise<unknown>[] = [];
+    // Use transaction to ensure atomic read-check-delete
+    await db.runTransaction(async (transaction) => {
+      const docSnap = await transaction.get(docRef);
+      if (docSnap.exists && docSnap.data()?.userId === userId) {
+        transaction.delete(docRef);
+      }
+    });
 
-    if (docSnap.exists && docSnap.data()?.userId === userId) {
-      deletions.push(docRef.delete());
-    }
-
+    // Clean up any duplicates outside the transaction
     const querySnapshot = await db
       .collection(COLLECTIONS.FCM_TOKENS)
       .where("userId", "==", userId)
       .where("token", "==", token)
       .get();
 
+    const deletions: Promise<unknown>[] = [];
     for (const doc of querySnapshot.docs) {
       if (doc.id !== docId) {
         deletions.push(doc.ref.delete());
@@ -76,7 +79,7 @@ export async function removeFCMTokenFor(userId: string, token: string) {
     const results = await Promise.allSettled(deletions);
     const failed = results.filter((r) => r.status === "rejected");
     if (failed.length > 0) {
-      console.error("[FCM] Failed to delete token documents:", failed);
+      console.error("[FCM] Failed to delete duplicate token documents:", failed);
       return { success: false, error: "Failed to remove token" };
     }
     return { success: true };

@@ -103,6 +103,7 @@ export const initiateDeposit = async (
           transactionId: string;
           reference: string;
           status: "PENDING" | "COMPLETED" | "FAILED" | "ACCEPTED" | string;
+          providerAccepted?: boolean;
         };
 
         if (claimData.status === "FAILED") {
@@ -114,14 +115,25 @@ export const initiateDeposit = async (
           };
         }
 
+        // Only treat as successful if provider has accepted it
+        if (claimData.providerAccepted) {
+          return {
+            isExisting: true,
+            success: true,
+            data: {
+              reference: claimData.reference || claimData.transactionId,
+              transactionId: claimData.transactionId,
+              status: claimData.status,
+            },
+          };
+        }
+
+        // Claim exists but provider hasn't accepted yet — allow retry to provider
         return {
-          isExisting: true,
-          success: true,
-          data: {
-            reference: claimData.reference || claimData.transactionId,
-            transactionId: claimData.transactionId,
-            status: claimData.status,
-          },
+          isExisting: false,
+          externalReference: claimData.reference || claimData.transactionId,
+          transactionRef: db.collection(COLLECTIONS.TRANSACTIONS).doc(claimData.transactionId),
+          claimRef,
         };
       }
 
@@ -203,6 +215,8 @@ export const initiateDeposit = async (
         try {
           const statusRes = await pawapay.deposits.checkStatus(externalReference);
           if (statusRes.status === "ACCEPTED" || statusRes.status === "COMPLETED") {
+            // Mark provider acceptance
+            await claimRef.update({ providerAccepted: true });
             return {
               success: true,
               data: {
@@ -285,6 +299,9 @@ export const initiateDeposit = async (
         terminal: true,
       };
     }
+
+    // Mark that provider has accepted this claim
+    await claimRef.update({ providerAccepted: true });
 
     return {
       success: true,

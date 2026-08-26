@@ -89,7 +89,13 @@ export async function transcribe(formatMode: "professional" | "original") {
   }
 
   // Check the real size before encoding — a 400 from the server won't tell you why.
-  if ((asset.size ?? 0) > MAX_REVIEW_FILE_SIZE) {
+  // If size is unknown, reject or obtain actual size from asset.uri file info.
+  if (asset.size == null) {
+    const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+    if (!fileInfo.exists || fileInfo.size == null || fileInfo.size > MAX_REVIEW_FILE_SIZE) {
+      throw new Error("File is too large (max 10 MB) or inaccessible.");
+    }
+  } else if (asset.size > MAX_REVIEW_FILE_SIZE) {
     throw new Error("File is too large (max 10 MB).");
   }
 
