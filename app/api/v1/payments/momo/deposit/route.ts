@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
-import { initiateCheckoutPayment } from "@/lib/actions/payment";
-import { ok, badRequest } from "@/lib/api/v1/response";
+import { initiateDeposit } from "@/services/payment";
+import { ok, badRequest, apiError } from "@/lib/api/v1/response";
 
 /**
  * `POST /api/v1/payments/momo/deposit` — initiates a PawaPay mobile-money
@@ -9,6 +9,11 @@ import { ok, badRequest } from "@/lib/api/v1/response";
  * client then polls `GET /api/v1/payments/status/:reference`; final crediting is
  * done by the deposit webhook (unchanged). `userId` is taken from the token, not
  * the body, since this spends/credits money.
+ *
+ * Calls `initiateDeposit` (in `services/payment.ts`) rather than the
+ * `initiateCheckoutPayment` server action: that action resolves identity from the
+ * web `session` cookie, which a Bearer client never sends, so it would always
+ * fail here. See `docs/mobile/skills/payments-mobile-money.md`.
  */
 const schema = z.object({
   msisdn: z.string().min(6).max(20),
@@ -45,12 +50,23 @@ export async function POST(req: Request) {
 
   const canonicalAmount = parsed.data.amount ?? parsed.data.amountUgx!;
 
-  const result = await initiateCheckoutPayment({
+  const result = await initiateDeposit({
     userId: gate.userId,
     msisdn: parsed.data.msisdn,
     amount: canonicalAmount,
     userName: parsed.data.userName,
     idempotencyKey,
   });
-  return ok(result);
+
+  // Never return HTTP 200 for a failed deposit — the client must be able to
+  // branch on status alone. `terminal: true` means "do not retry this key"
+  // (400); `terminal: false` means the provider may still settle or the call is
+  // safely retryable with the SAME key (503).
+  if (!result.success) {
+    return result.terminal
+      ? badRequest(result.error)
+      : apiError(503, "INTERNAL", result.error);
+  }
+
+  return ok(result.data);
 }

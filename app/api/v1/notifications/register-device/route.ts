@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
-import { saveFCMToken } from "@/lib/actions/notifications";
+import { saveFCMTokenFor } from "@/services/fcm";
 import { ok, badRequest, internalError } from "@/lib/api/v1/response";
 
 /**
@@ -9,6 +9,10 @@ import { ok, badRequest, internalError } from "@/lib/api/v1/response";
  * the token from `@react-native-firebase/messaging` and posts it here on login /
  * token refresh. The token doc is keyed by a deterministic hash of the token
  * and stores the raw token and caller's uid (from the Bearer token, never the body).
+ *
+ * Calls `saveFCMTokenFor` (in `services/fcm.ts`) rather than the `saveFCMToken`
+ * server action: that action resolves identity from the web `session` cookie,
+ * which a Bearer client never sends, so it would always fail here.
  */
 const schema = z.object({ token: z.string().min(1).max(4096) });
 
@@ -25,7 +29,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid request body");
 
-  const result = await saveFCMToken(gate.userId, parsed.data.token);
+  const result = await saveFCMTokenFor(gate.userId, parsed.data.token);
   if (!result.success) return internalError("Failed to register device token.");
-  return ok(result);
+  return ok({ success: true });
 }

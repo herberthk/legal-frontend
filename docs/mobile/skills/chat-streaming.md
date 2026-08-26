@@ -9,7 +9,7 @@
 
 - The `POST /chat` SSE contract (`x-vercel-ai-ui-message-stream: v1`).
 - Consuming it in RN with **`expo/fetch`** + `@ai-sdk/react`'s `useChat`.
-- The **`x-chat-id` billing gotcha** — no chat id means no billing _and_ no persistence.
+- **`x-chat-id` is required** — a missing header is a `400`, not a degraded stream.
 - Sending document/image attachments (upload to Storage first).
 - Rendering reasoning ("thinking") parts, and a hand-rolled parser fallback.
 
@@ -43,11 +43,29 @@ data: [DONE]
 **Errors** are a flat string, not the envelope (the AI SDK expects this):
 
 ```jsonc
-// 402 out of credit, 401 auth/appcheck, 500 generation error
+// 400 missing x-chat-id, 402 out of credit, 401 auth/appcheck, 500 generation error
 {
   "error": "Insufficient tokens. This message requires ~1,200 tokens but you only have ~300…",
 }
 ```
+
+The checks run in this exact order, so an earlier failure masks a later one:
+
+| # | Condition | Status | `error` string |
+|---|---|---|---|
+| 1 | `messages` empty or absent | 400 | `No messages provided.` |
+| 2 | `x-chat-id` missing/empty | 400 | `Missing x-chat-id header.` |
+| 3 | account inactive / no credit | 402 | (reason from `checkUserCanSend`) |
+| 4 | estimate exceeds balance | 402 | `Insufficient tokens. …` |
+| 5 | generation failure | 500 | `An error occurred during chat generation.` |
+
+An empty `messages` array is therefore a `400 No messages provided.` **before**
+`x-chat-id` is even looked at — don't send a "warm-up" request with no messages
+expecting a stream.
+
+`/chat` is the **one endpoint that does not use the `{error:{code,message}}`
+envelope** — read `error` as a plain string here, and don't route its failures
+through the envelope parser in `error-handling.md`.
 
 Map **402 → the top-up flow** (`payments-*` skills). The server estimates cost
 _before_ streaming and rejects up front, so a 402 arrives instead of a stream.
@@ -63,12 +81,19 @@ _before_ streaming and rejects up front, so a 402 arrives instead of a stream.
 - Attachments: **PDF and images stream natively**; **DOCX is extracted to text
   server-side** (via `mammoth`). You never parse documents on the device.
 
-## ⚠️ The `x-chat-id` billing gotcha
+## ⚠️ `x-chat-id` is required
 
-The server **only bills and persists a turn when a non-empty `x-chat-id` is
-present.** Without it, the response still streams (and still costs the backend
-money at the provider) but **nothing is deducted and nothing is saved.** That is a
-correctness trap, not a free tier.
+Every `/chat` request **must** carry a non-empty `x-chat-id` header. Without it the
+server rejects the request immediately:
+
+```jsonc
+// 400 — no stream is opened, nothing is billed, nothing is saved
+{ "error": "Missing x-chat-id header." }
+```
+
+The header is what the turn is billed against and persisted under, so there is no
+"anonymous stream" mode. It's checked **before** the credit pre-flight, so a missing
+header always surfaces as this 400 rather than a 402.
 
 **Therefore: create a chat session first, then stream into it.**
 
@@ -137,13 +162,16 @@ export function useLegalChat(chatId: string) {
             .getToken(false)
             .catch(() => null),
         ]);
+        if (!chatId) {
+          // The server rejects a missing x-chat-id with 400 before it opens a
+          // stream, so fail here with a clearer message than that 400 gives.
+          throw new Error("Missing x-chat-id header.");
+        }
         const h: Record<string, string> = {
           Authorization: `Bearer ${idToken}`,
+          "x-chat-id": chatId,
           "x-first-message": isFirst.current ? "true" : "false",
         };
-        // Only attach x-chat-id once we have a real session ID.
-        // Sending an empty value would create a server-side session conflict.
-        if (chatId) h["x-chat-id"] = chatId;
         if (ac?.token) h["X-Firebase-AppCheck"] = ac.token;
         return h;
       },
@@ -154,9 +182,6 @@ export function useLegalChat(chatId: string) {
         body: { messages: messages.slice(-6) },
       }),
     }),
-    // Prevent sending while chatId is empty — useChat will re-enable once
-    // the prop updates to a non-empty value.
-    disabled: !chatId,
     onFinish: () => {
       // Mark first turn completed ONLY when a message response finishes successfully.
       // Failed turns will retain x-first-message: "true" on retry so title generation works.
@@ -189,6 +214,28 @@ export function useLegalChat(chatId: string) {
   });
 }
 ```
+
+### Gating the composer until `chatId` exists
+
+`useChat` has **no `disabled` option** — passing one is silently ignored, so it
+cannot be your guard. Block the send at the call site instead: don't render the
+composer (or keep the send button disabled) until `chatId` is non-empty.
+
+```tsx
+const { messages, sendMessage, status } = useLegalChat(chatId);
+
+<Composer
+  // No chatId yet → nothing to bill or persist against, so don't allow a send.
+  disabled={!chatId || status === "streaming"}
+  onSubmit={(text) => {
+    if (!chatId) return;
+    sendMessage({ role: "user", parts: [{ type: "text", text }] });
+  }}
+/>;
+```
+
+Better still, create the session on screen mount so `chatId` is set before the
+user can type — then the guard never fires in practice.
 
 Render `message.parts`:
 
@@ -248,6 +295,33 @@ text before sending to Gemini. PDFs/images pass through natively. Use the same
 Firebase Storage bucket as web — `firestore.rules`/Storage rules already scope
 `uploads/{uid}/…` to the owner.
 
+### Attachment URL rules (the server enforces all three)
+
+| Rule | Value | If violated |
+|---|---|---|
+| **Host allowlist** | `firebasestorage.googleapis.com` or `storage.googleapis.com`, over HTTPS | the fetch is refused; the turn continues **without** the attachment |
+| **Size** | ≤ **10 MB** (`MAX_ATTACHMENT_BYTES`) | same — attachment dropped, turn proceeds |
+| **Fetch timeout** | **15 s** | same — attachment dropped, turn proceeds |
+
+A URL on any other host — an S3 bucket, a CDN, a signed link from another
+provider, `http://` — is **not** fetched. Always upload to the project's own
+Firebase Storage bucket and send the `getDownloadURL()` result verbatim.
+
+**Attachment failure degrades; it does not error.** If the fetch is refused, times
+out, or the file is unreadable, the stream still opens and the model answers
+without the document:
+
+- a failed **PDF** is skipped (the estimate still adds ~2,000 tokens for it, so the
+  turn is billed as though a document were present);
+- a failed **DOCX** part is replaced with the literal text
+  `[Failed to read document: <filename>]`, which the model will see and may
+  reference.
+
+So there is **no status code to catch** — the only symptom is an answer that
+ignores the attachment. Verify the upload succeeded and the URL is a Storage URL
+*before* sending, and consider showing the user the resolved filename so a silent
+drop is noticeable.
+
 ## Fallback: hand-rolled SSE parser
 
 If you prefer not to depend on `@ai-sdk/react`, read the `expo/fetch` body stream
@@ -290,7 +364,8 @@ while (true) {
 ## Best practices
 
 - **Always send a real `x-chat-id`.** Create the session before the first turn.
-  Skipping it means unbilled, unsaved messages — a silent data-loss bug.
+  Omitting it is a hard `400 Missing x-chat-id header.` — no stream, nothing billed,
+  nothing saved. `useChat` has no `disabled` option, so gate the composer yourself.
 - **Fresh token per send.** Compute headers in the transport's `headers` callback
   (async), not once at hook creation — tokens expire mid-conversation.
 - **Trim history client-side to ~6.** The server ignores anything older; sending
@@ -316,7 +391,16 @@ while (true) {
   is a fallback but must be the variant that supports a POST body + custom headers.
 - Errors here are `{ error: string }`, **not** the `{ error: { code, message } }`
   envelope — don't run them through `apiFetch`'s parser.
+- **An empty `messages` array is `400 No messages provided.`** — checked *before*
+  `x-chat-id`, so a missing header won't be the error you see.
+- **Attachment URLs must be on `firebasestorage.googleapis.com` /
+  `storage.googleapis.com` over HTTPS, ≤10 MB, and fetchable within 15 s.** Violating
+  any of these drops the attachment **silently** — the stream still succeeds and the
+  answer just ignores the file. There's no error to catch, so validate client-side.
 - A 402 arrives as an error response _before_ any stream frame; handle it in
   `onError`/the initial `!res.ok` check, not mid-stream.
+- **`useChat` has no `disabled` option.** Passing `disabled: !chatId` compiles but
+  does nothing — the send still fires and the server answers `400`. Guard the
+  composer / `sendMessage` call site instead.
 - The reasoning stream is on by default; if your UI has no place for it, drop
   `reasoning` parts rather than rendering them inline with the answer.
