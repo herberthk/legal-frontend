@@ -1,5 +1,7 @@
 import { vi } from 'vitest';
 
+vi.mock('server-only', () => ({}));
+
 class IntersectionObserverMock {
   disconnect = vi.fn();
   observe = vi.fn();
