@@ -24,6 +24,11 @@ import { vertex } from "@/lib/actions/vertex";
  */
 
 import { extractDocumentText } from "@/lib/document-extractor";
+import {
+  sanitizeFilename,
+  sanitizeUntrustedDocumentText,
+  wrapDocumentForModel,
+} from "@/lib/security/sanitizer";
 
 // Static schema declaration to avoid recreating validation objects on every request
 const legalReviewSchema = z.object({
@@ -117,6 +122,10 @@ export async function handleReviewRequest(
       return Response.json({ error: "No file provided." }, { status: 400 });
     }
 
+    // Security: Sanitize filename against XSS, HTML injection, path traversal,
+    // and prompt injection delimiters before it is embedded into the system prompt.
+    const safeFilename = sanitizeFilename(file.name || "document");
+
     // 4. Validate file size
     if (file.size > MAX_REVIEW_FILE_SIZE) {
       return Response.json(
@@ -172,10 +181,19 @@ export async function handleReviewRequest(
             useMultimodalFile = true;
             estimatedInputTokens = extracted.estimatedTokens;
           } else {
-            // Text-based PDF: Send extracted text for consistency & cost efficiency
+            // Text-based PDF: Sanitize extracted text with DOMPurify + prompt injection defense
+            // before sending to the model to prevent XSS and prompt injection via document content.
+            const { sanitizedText, hasInjectionAttempt, detectedThreats } =
+              sanitizeUntrustedDocumentText(extracted.text, safeFilename);
+            if (hasInjectionAttempt) {
+              console.warn(
+                `[SECURITY WARNING] Prompt injection detected in PDF "${safeFilename}":`,
+                detectedThreats,
+              );
+            }
             useMultimodalFile = false;
-            extractedText = extracted.text;
-            estimatedInputTokens = extracted.estimatedTokens;
+            extractedText = wrapDocumentForModel(sanitizedText, safeFilename);
+            estimatedInputTokens = Math.ceil(sanitizedText.length / CHARS_PER_TOKEN);
           }
         } else if (isDocx) {
           if (!extracted.text.trim()) {
@@ -187,9 +205,19 @@ export async function handleReviewRequest(
               { status: 422 },
             );
           }
+          // Sanitize DOCX extracted text with DOMPurify + prompt injection defense
+          // before sending to the model to prevent XSS and prompt injection via document content.
+          const { sanitizedText, hasInjectionAttempt, detectedThreats } =
+            sanitizeUntrustedDocumentText(extracted.text, safeFilename);
+          if (hasInjectionAttempt) {
+            console.warn(
+              `[SECURITY WARNING] Prompt injection detected in DOCX "${safeFilename}":`,
+              detectedThreats,
+            );
+          }
           useMultimodalFile = false;
-          extractedText = extracted.text;
-          estimatedInputTokens = extracted.estimatedTokens;
+          extractedText = wrapDocumentForModel(sanitizedText, safeFilename);
+          estimatedInputTokens = Math.ceil(sanitizedText.length / CHARS_PER_TOKEN);
         }
       } catch (error) {
         console.error("Document parsing error:", error);
@@ -225,7 +253,9 @@ export async function handleReviewRequest(
     }
 
     // 9. Build messages with file contents for native multimodal processing or text review
-    const systemPrompt = LEGAL_DOCUMENT_REVIEW_PROMPT(file.name);
+    // Use the sanitized filename in the system prompt — not file.name — to prevent
+    // prompt injection via a crafted filename like: `"><script>` or `ignore instructions`
+    const systemPrompt = LEGAL_DOCUMENT_REVIEW_PROMPT(safeFilename);
     const messages: ModelMessage[] = [
       {
         role: "user",
@@ -238,13 +268,15 @@ export async function handleReviewRequest(
               },
               {
                 type: "text",
-                text: "Please perform a complete legal review of the attached document.",
+                // Sanitized filename used here too — never raw file.name
+                text: `Please perform a complete legal review of the attached document ("${safeFilename}").`,
               },
             ]
           : [
               {
                 type: "text",
-                text: `DOCUMENT TEXT:\n\n${extractedText}`,
+                // extractedText already contains the securely sandboxed wrapDocumentForModel() output
+                text: extractedText,
               },
             ],
       },
@@ -281,15 +313,17 @@ export async function handleReviewRequest(
       userId,
       type: "DOCUMENT_TRANSCRIPTION",
       tokens: actualTokens,
-      sessionId: `review-${file.name}-${Date.now()}`,
+      // Use sanitized filename in the session ID — never raw file.name
+      sessionId: `review-${safeFilename}-${Date.now()}`,
     });
 
     // 12. Return the structured review + metadata
+    // Use safeFilename in the response — never echo back raw file.name which may contain XSS payloads
     return Response.json({
       success: true,
       review: {
         ...reviewData,
-        fileName: file.name,
+        fileName: safeFilename,
         tokensUsed: actualTokens,
         pageCount,
       },

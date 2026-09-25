@@ -31,6 +31,12 @@ import { vertex } from "@/lib/actions/vertex";
  */
 
 import { extractDocumentText } from "@/lib/document-extractor";
+import {
+  sanitizeChatContent,
+  sanitizeFilename,
+  sanitizeUntrustedDocumentText,
+  wrapDocumentForModel,
+} from "@/lib/security/sanitizer";
 
 const MAX_HISTORY_MESSAGES = 6;
 
@@ -150,7 +156,14 @@ export async function handleChatRequest(
         const part = msg.parts[i] as any;
 
         if (part.type === "text") {
-          if (part.text && part.text.includes("--- Document:")) {
+          // XSS defense: Sanitize text parts in conversation history with DOMPurify
+          part.text = sanitizeChatContent(part.text || "");
+
+          if (
+            part.text &&
+            (part.text.includes("--- Document:") ||
+              part.text.includes("<untrusted_document_content"))
+          ) {
             hasDocument = true;
           }
           if (msg === lastUserMessage) {
@@ -160,6 +173,10 @@ export async function handleChatRequest(
           }
         } else if (part.type === "file") {
           hasDocument = true;
+          // Sanitize filename against XSS, HTML tags, path traversal, and injection delimiters
+          const safeFilename = sanitizeFilename(part.filename || "document");
+          part.filename = safeFilename;
+
           // If it's a PDF or Image, Gemini supports it natively inline, but we need to estimate tokens for the NEW file
           if (msg === lastUserMessage) {
             if (
@@ -198,16 +215,28 @@ export async function handleChatRequest(
                 try {
                   const buffer = await fetchAttachment(part.url);
                   const extracted = await extractDocumentText(buffer, "docx");
-                  const docxText = extracted.text;
+                  
+                  // Defend against prompt injection and XSS in extracted document text using DOMPurify and heuristic defenses
+                  const { sanitizedText, hasInjectionAttempt, detectedThreats } =
+                    sanitizeUntrustedDocumentText(extracted.text, safeFilename);
 
-                  if (msg === lastUserMessage) {
-                    estimatedInputTokens += extracted.estimatedTokens;
+                  if (hasInjectionAttempt) {
+                    console.warn(
+                      `[SECURITY WARNING] Potential prompt injection detected in file "${safeFilename}":`,
+                      detectedThreats,
+                    );
                   }
 
-                  // Replace the file part with a text part so Gemini doesn't reject the MIME type
+                  if (msg === lastUserMessage) {
+                    estimatedInputTokens += Math.ceil(
+                      sanitizedText.length / CHARS_PER_TOKEN,
+                    );
+                  }
+
+                  // Replace the file part with a securely delimited, injection-resistant prompt container
                   msg.parts[i] = {
                     type: "text",
-                    text: `\n\n--- Document: ${part.filename || "document.docx"} ---\n${docxText}\n--- End Document ---\n\n`,
+                    text: `\n\n${wrapDocumentForModel(sanitizedText, safeFilename)}\n\n`,
                   };
                 } catch (e) {
                   console.error("Failed to parse DOCX in chat:", e);
@@ -216,7 +245,7 @@ export async function handleChatRequest(
                   }
                   msg.parts[i] = {
                     type: "text",
-                    text: `\n\n[Failed to read document: ${part.filename}]\n\n`,
+                    text: `\n\n[Failed to read document: ${safeFilename}]\n\n`,
                   };
                 }
               })(),
@@ -303,13 +332,13 @@ export async function handleChatRequest(
                     // than the assistant message and they appear in the correct order in Firestore.
                     await saveChatMessage(sessionId, {
                       role: "user",
-                      // We use the original text and original file metadata preserved at the top of the route.
-                      text: originalTextToSend,
+                      // Sanitize user text with DOMPurify before saving to Firestore to prevent Stored XSS
+                      text: sanitizeChatContent(originalTextToSend),
                       tokenCount: estimatedInputTokens,
                       isFirstMessage: isFirstMessage === "true",
                       ...(originalFilePart && {
                         attachment: {
-                          name: originalFilePart.filename || "document.pdf",
+                          name: sanitizeFilename(originalFilePart.filename || "document.pdf"),
                           contentType: originalFilePart.mediaType,
                           url: originalFilePart.url,
                         },
@@ -318,7 +347,8 @@ export async function handleChatRequest(
 
                     await saveChatMessage(sessionId, {
                       role: "assistant",
-                      text: text,
+                      // Sanitize assistant text with DOMPurify before saving to Firestore to prevent Stored XSS
+                      text: sanitizeChatContent(text),
                       tokenCount: usage?.outputTokens ?? 0,
                       isFirstMessage: false,
                     });

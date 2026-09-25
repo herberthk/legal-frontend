@@ -464,7 +464,7 @@ export const useGeminiLive = ({
                 }),
               },
             ],
-          },
+          },      
         };
 
         // Resume an existing session via generated handles
