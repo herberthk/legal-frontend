@@ -1,6 +1,13 @@
+/**
+ * @type {import('next').NextConfig}
+ */
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import { withSerwist } from "@serwist/turbopack";
+import { EventEmitter } from 'events';
+
+// Increase the global maximum listeners limit from 10 to 20
+EventEmitter.defaultMaxListeners = 20;
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -9,7 +16,6 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
-    viewTransition: true
   },
   images: {
     remotePatterns: [

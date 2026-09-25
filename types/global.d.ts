@@ -80,7 +80,18 @@ declare namespace NodeJS {
      */
     NEXT_PUBLIC_FIREBASE_RECAPTCHA_SITE_KEY: string;
     NEXT_PUBLIC_FIREBASE_APPCHECK_KEY: string;
-    NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN?: string;
+    NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN: string;
     DISABLE_APP_CHECK?: string;
+
+    BUILD_ENVIRONMENT: string;
+    CRON_SECRET: string
+  }
+}
+
+declare module "jsdom" {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export class JSDOM {
+    constructor(html?: string, options?: unknown);
+    window: unknown;
   }
 }
