@@ -14,7 +14,7 @@ import { useAuthStore } from "@/store";
 import VoiceInterface from "./voice-interface";
 import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants/constants";
 import { logAnalyticsEvent } from "@/firebase/client";
-import { sendSingleNotification } from "@/lib";
+import { sendSingleNotification } from "@/lib/actions/pushNotification";
 
 interface GeminiVoiceConnectionProps {
   freeVoiceSeconds: number;

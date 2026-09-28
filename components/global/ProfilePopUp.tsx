@@ -2,7 +2,7 @@
 import { useAuthStore, usePopStore } from "@/store";
 import { LogOut, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { signOut } from "@/lib";
+import { signOut } from "@/lib/actions/auth";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

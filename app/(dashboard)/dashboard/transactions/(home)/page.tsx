@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import TransactionList from "@/components/user/TransactionList";
 import DirectionalTransition from "@/components/global/DirectionalTransition";
 

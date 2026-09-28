@@ -11,7 +11,7 @@ EventEmitter.defaultMaxListeners = 20;
 
 const nextConfig: NextConfig = {
   /* config options here */
-  serverExternalPackages: ["pdf-parse"],
+  serverExternalPackages: ["pdf-parse", "jsdom"],
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',

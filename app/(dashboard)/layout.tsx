@@ -1,6 +1,6 @@
 import Header from "@/components/global/Header";
 import Sidebar from "@/components/global/Sidebar";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { redirect } from "next/navigation";
 

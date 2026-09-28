@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint:fix": "eslint --fix",
     "test:sdk": "cd sdk/pawapay && vitest run",
-   "test": "vitest run",
+    "test": "vitest run",
     "install-apk": "adb install -r outputs/apk/LegalAdviser.apk && echo \"App installed successfully\""
   },
   "dependencies": {

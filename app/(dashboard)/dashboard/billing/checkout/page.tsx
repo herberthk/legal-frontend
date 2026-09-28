@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { redirect } from "next/navigation";
 import { CheckoutClient } from "./CheckoutClient";
 import { Metadata } from "next";

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatTime } from "@/lib";
+import { formatTime } from "@/lib/utils";
 import { formatCost } from "@/utils";
 import {
   Document,

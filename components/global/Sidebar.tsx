@@ -1,6 +1,7 @@
 "use client";
 import { useAuthStore } from "@/store";
-import { cn, signOut } from "@/lib";
+import { cn } from "@/lib/utils";
+import { signOut } from "@/lib/actions/auth";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/firebase/client";
 

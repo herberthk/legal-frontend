@@ -1,5 +1,5 @@
 import SupportPage from "@/components/user/Support";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { getUserSupportTickets, getHelpArticles } from "@/lib/actions/support";
 import { seedHelpArticles } from "@/lib/actions/seed-help";
 import DirectionalTransition from "@/components/global/DirectionalTransition";

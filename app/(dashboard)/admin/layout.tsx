@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { notFound, redirect } from "next/navigation";
 import React from "react";
 

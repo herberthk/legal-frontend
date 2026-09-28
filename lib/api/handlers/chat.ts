@@ -8,7 +8,8 @@ import {
   UIMessage,
 } from "ai";
 
-import { recordUsageAndDeduct, saveChatMessage, checkUserCanSend } from "@/lib";
+import { recordUsageAndDeduct, checkUserCanSend } from "@/lib/actions/usage";
+import { saveChatMessage } from "@/lib/actions/chat";
 import {
   LEGAL_ADVISER_SYSTEM_INSTRUCTION,
   CHARS_PER_TOKEN,

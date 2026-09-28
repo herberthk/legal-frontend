@@ -1,6 +1,6 @@
 import React from 'react';
 import AdminComplaints from '@/components/admin/AdminComplaints';
-import { getCurrentUser } from '@/lib';
+import { getCurrentUser } from '@/lib/actions/auth';
 import { getAllSupportTickets } from '@/lib/actions/support';
 import { redirect } from 'next/navigation';
 import DirectionalTransition from '@/components/global/DirectionalTransition';

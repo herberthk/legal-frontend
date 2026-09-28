@@ -1,6 +1,6 @@
 import React from "react";
 import { getSystemConfig } from "@/lib/actions/admin/config";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { notFound } from "next/navigation";
 import ConfigForm from "./ConfigForm";
 import DirectionalTransition from "@/components/global/DirectionalTransition";

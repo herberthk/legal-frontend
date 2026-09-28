@@ -13,7 +13,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { complaints as userComplaints } from "@/constants";
-import { formatDate } from "@/lib";
+import { formatDate } from "@/lib/utils";
 
 interface SupportPageProps {
   user: User;

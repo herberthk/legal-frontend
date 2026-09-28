@@ -9,7 +9,7 @@ import {
   useTransactionStatus,
   type PollingState,
 } from "@/sdk/hooks";
-import { verifyPhoneNumber } from "@/lib/actions";
+import { verifyPhoneNumber } from "@/lib/actions/payment";
 import { isValidAmount, parseUgandanNumber } from "@/utils";
 
 // ── Status badge sub-component ─────────────────────────────────────────────────

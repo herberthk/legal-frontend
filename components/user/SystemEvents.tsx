@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store";
-import { formatDate } from "@/lib";
+import { formatDate } from "@/lib/utils";
 
 const SystemEvents = () => {
   const tokenHistory = useAppStore((state) => state.tokenUsageHistory);
