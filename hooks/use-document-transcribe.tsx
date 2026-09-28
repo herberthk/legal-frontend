@@ -7,7 +7,7 @@ import {
 } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { PDFDocument } from "@/components/editor/PDFDocument";
-import { transcribeDocument } from "@/lib/actions";
+import { transcribeDocument } from "@/lib/actions/transcribe";
 import { useAuthStore } from "@/store";
 
 export type TranscribeStatus =

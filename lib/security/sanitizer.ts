@@ -1,11 +1,11 @@
 import "server-only";
 import DOMPurify from "dompurify";
-import { JSDOM } from "jsdom";
 
 /**
  * Server-safe DOMPurify singleton.
  * Next.js route handlers run in a Node.js runtime without a native `window` object.
- * We initialize a lightweight JSDOM instance to provide the window context DOMPurify requires.
+ * We dynamically initialize a lightweight JSDOM instance in Node.js runtime so static
+ * imports of jsdom (and Node built-ins like fs, vm) are never traced into bundlers.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let purifyInstance: any = null;
@@ -25,20 +25,25 @@ export function getDOMPurify(): {
       return purifyInstance;
     }
 
-    const dom = new JSDOM("");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    purifyInstance = (DOMPurify as any)(dom.window);
-    return purifyInstance;
+    if (typeof window === "undefined") {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { JSDOM } = require("jsdom");
+      const dom = new JSDOM("");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      purifyInstance = (DOMPurify as any)(dom.window);
+      return purifyInstance;
+    }
   } catch (err) {
     console.error("Failed to initialize JSDOM for DOMPurify:", err);
-    // Fallback minimal sanitizer if JSDOM instantiation fails
-    return {
-      sanitize: (dirty: string) =>
-        dirty
-          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-          .replace(/<[^>]+>/g, ""),
-    };
   }
+
+  // Fallback minimal sanitizer if DOMPurify/JSDOM is unavailable or failed
+  return {
+    sanitize: (dirty: string) =>
+      dirty
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/<[^>]+>/g, ""),
+  };
 }
 
 /**

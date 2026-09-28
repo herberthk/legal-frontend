@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
-import { getTransactionByReference } from "@/lib";
+import { getTransactionByReference } from "@/lib/actions/wallet";
 import { CustomLink } from "@/components/global/transitions";
 
 interface TransactionWaiterProps {

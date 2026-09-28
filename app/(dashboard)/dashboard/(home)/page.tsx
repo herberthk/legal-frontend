@@ -1,6 +1,6 @@
 import DirectionalTransition from "@/components/global/DirectionalTransition";
 import UserDashboard from "@/components/user/UserDashboard";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { getVoiceSessions } from "@/lib/actions/voice";
 
 const UserPage = async () => {

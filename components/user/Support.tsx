@@ -21,8 +21,7 @@ import {
 import { HelpFAQ } from "./HelpFAQ";
 import TicketChat from "./TicketChat";
 import { createSupportTicket } from "@/lib/actions/support";
-import { formatDate } from "@/lib";
-import BackButton from "../global/BackButton";
+import { formatDate } from "@/lib/utils";
 
 interface SupportPageProps {
   user: User;

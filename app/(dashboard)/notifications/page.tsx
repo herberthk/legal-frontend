@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { getNotifications } from "@/lib/actions/notifications";
 import NotificationList from "@/components/global/NotificationList";
 import { redirect } from "next/navigation";

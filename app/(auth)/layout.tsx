@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { AuthSidebar } from "./auth-sidebar";
 import { redirect } from "next/navigation";
 

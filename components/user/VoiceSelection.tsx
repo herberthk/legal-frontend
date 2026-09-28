@@ -1,5 +1,5 @@
 import { voices } from "@/constants";
-import { updateUserVoicePreference } from "@/lib";
+import { updateUserVoicePreference } from "@/lib/actions/user";
 import { useAuthStore } from "@/store";
 import { Check, Mic, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";

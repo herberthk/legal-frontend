@@ -10,7 +10,7 @@ import {
 import {
   verifyPhoneNumber,
   initiateCheckoutPayment,
-} from "@/lib/actions";
+} from "@/lib/actions/payment";
 import { toast } from "sonner";
 import { useRouter } from "nextjs-toploader/app";
 import { getStripe } from "@/lib/stripe-client";

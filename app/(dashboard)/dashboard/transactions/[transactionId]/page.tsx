@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { getTransaction } from "@/lib/actions/wallet";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import {
   ArrowLeft,
   Printer,

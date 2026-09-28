@@ -19,7 +19,7 @@ import {
   ShieldCheck,
   User as UserIcon,
 } from "lucide-react";
-import { formatDate } from "@/lib";
+import { formatDate } from "@/lib/utils";
 import AdminTicketChat from "./AdminTicketChat";
 import { updateTicketStatus } from "@/lib/actions/support";
 

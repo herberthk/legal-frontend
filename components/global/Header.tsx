@@ -10,7 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { db } from "@/firebase/client";
 import { onSnapshot, where, query, collection } from "firebase/firestore";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { cn } from "@/lib";
+import { cn } from "@/lib/utils";
 import { getInitials } from "@/utils";
 import { useClickAway } from "@uidotdev/usehooks";
 import { TRANSITION } from "@/constants";

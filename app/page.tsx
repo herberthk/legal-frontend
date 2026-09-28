@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import LandingPage from "./Landing";
 import { redirect } from "next/navigation";
 import DirectionalTransition from "@/components/global/DirectionalTransition";

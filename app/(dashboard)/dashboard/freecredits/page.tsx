@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import { getFreeCreditHistory } from "@/lib/actions/usage";
 import FreeCreditList from "@/components/user/FreeCreditList";
 import { Sparkles } from "lucide-react";

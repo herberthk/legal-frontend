@@ -1,4 +1,5 @@
-import { getCurrentUser, getTransactionStatusByReference } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
+import { getTransactionStatusByReference } from "@/lib/actions/wallet";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import Success from "./Success";

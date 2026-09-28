@@ -12,8 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { getUserUsage } from "@/lib/actions";
-import { formatDate } from "@/lib";
+import { getUserUsage } from "@/lib/actions/usage";
+import { formatDate } from "@/lib/utils";
 // import { formatDate } from "@/utils";
 
 const FILTER_OPTIONS: { label: string; value: UsageFilter }[] = [

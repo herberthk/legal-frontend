@@ -1,5 +1,5 @@
 import { BillingPage } from "@/components/user/Billing";
-import { getCurrentUser } from "@/lib";
+import { getCurrentUser } from "@/lib/actions/auth";
 import TransactionList from "@/components/user/TransactionList";
 import { Metadata } from "next";
 import DirectionalTransition from "@/components/global/DirectionalTransition";

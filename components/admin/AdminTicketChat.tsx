@@ -26,7 +26,7 @@ import {
 import { db as clientDb } from "@/firebase/client";
 import { addTicketMessage, updateTicketStatus } from "@/lib/actions/support";
 import { uploadFileToStorage } from "@/lib/firebaseStorage";
-import { formatDate } from "@/lib";
+import { formatDate } from "@/lib/utils";
 import { useAuthStore } from "@/store";
 
 interface AdminTicketChatProps {

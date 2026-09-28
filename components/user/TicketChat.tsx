@@ -27,7 +27,7 @@ import {
 import { db as clientDb } from "@/firebase/client";
 import { addTicketMessage } from "@/lib/actions/support";
 import { uploadFileToStorage } from "@/lib/firebaseStorage";
-import { formatDate } from "@/lib";
+import { formatDate } from "@/lib/utils";
 
 interface TicketChatProps {
   ticket: Complaint;

@@ -1,4 +1,4 @@
-import { getAuthenticatedUserId } from "@/lib";
+import { getAuthenticatedUserId } from "@/lib/actions/auth";
 import { verifyAppCheckHeader } from "@/lib/app-check-server";
 import { handleChatRequest } from "@/lib/api/handlers/chat";
 
