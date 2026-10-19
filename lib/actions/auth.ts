@@ -523,18 +523,41 @@ export async function resetPasswordWithOtp(email: string, newPassword: string) {
 //   return JSON.parse(session) as User;
 // };
 
+export interface RecordSessionParams {
+  userId: string;
+  ip?: string;
+  country?: string;
+  city?: string;
+  browser?: string;
+  os?: string;
+  device?: string;
+  deviceName?: string;
+  resolution?: string;
+  timezone?: string;
+  userAgent?: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number | null;
+  };
+}
+
 /**
- * Records user statistics in Firestore.
+ * Core session and demographic recording logic.
+ * Used by web `recordUserStats` and mobile `POST /api/v1/auth/session`.
  */
-export async function recordUserStats(
-  stats: Omit<UserStats, "userId" | "ip" | "createdAt" | "country" | "city">,
-) {
-  // Derive the user from the verified session cookie — never trust a client-supplied uid.
-  // This also gates the analytics writes behind authentication, so anonymous callers
-  // can't spam this action to inflate counters or run up Firestore write costs.
-  const userId = await getAuthenticatedUserId();
+export async function recordUserSession(params: RecordSessionParams) {
+  const {
+    userId,
+    ip = "Unknown",
+    country = "Unknown",
+    city = "Unknown",
+    coordinates,
+    ...stats
+  } = params;
+
   if (!userId) {
-    return { success: false };
+    return { success: false, message: "Unauthenticated" };
   }
 
   // Bound abuse from an authenticated caller: normal usage records once per login,
@@ -547,32 +570,8 @@ export async function recordUserStats(
     windowSeconds: 10 * 60,
   });
   if (!statsLimit.success) {
-    return { success: false };
+    return { success: false, message: "Rate limit exceeded" };
   }
-
-  const { headers } = await import("next/headers");
-  const headerList = await headers();
-
-  const ip =
-    headerList.get("x-forwarded-for")?.split(",")[0] ||
-    headerList.get("x-real-ip") ||
-    "Unknown";
-
-  const country = headerList.get("x-vercel-ip-country") || "Unknown";
-  const city = headerList.get("x-vercel-ip-city") || "Unknown";
-
-  const deviceStats = {
-    browser: headerList.get("x-device-browser"),
-    browserVersion: headerList.get("x-device-browser-version"),
-    os: headerList.get("x-device-os"),
-    osVersion: headerList.get("x-device-os-version"),
-    device: headerList.get("x-device-type"),
-    model: headerList.get("x-device-model"),
-    vendor: headerList.get("x-device-vendor"),
-    userAgent: headerList.get("x-device-ua"),
-  };
-
-  console.log("deviceStats", deviceStats);
 
   // Normalise values for aggregation keys (lowercase, alphanumeric only)
   const normBrowser = (stats.browser || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
@@ -584,17 +583,32 @@ export async function recordUserStats(
   try {
     const analyticsRef = db.collection(COLLECTIONS.ANALYTICS).doc("demographics");
 
+    const sessionPayload: Record<string, unknown> = {
+      ...stats,
+      userId,
+      ip,
+      country,
+      city,
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
+    if (
+      coordinates &&
+      typeof coordinates.latitude === "number" &&
+      typeof coordinates.longitude === "number"
+    ) {
+      sessionPayload.coordinates = {
+        // Round to 3 decimal places (~110m) for privacy & GDPR compliance
+        latitude: Math.round(coordinates.latitude * 1000) / 1000,
+        longitude: Math.round(coordinates.longitude * 1000) / 1000,
+        accuracy: coordinates.accuracy ?? null,
+      };
+    }
+
     // Run both writes in parallel for performance
     await Promise.all([
       // Raw session record
-      db.collection(COLLECTIONS.USER_STATS).add({
-        ...stats,
-        userId,
-        ip,
-        country,
-        city,
-        createdAt: FieldValue.serverTimestamp(),
-      }),
+      db.collection(COLLECTIONS.USER_STATS).add(sessionPayload),
       // Aggregate counters — merge:true ensures the doc is created if missing
       analyticsRef.set(
         {
@@ -621,6 +635,40 @@ export async function recordUserStats(
     console.error("Error recording user stats:", error);
     return { success: false };
   }
+}
+
+/**
+ * Records user statistics in Firestore (web sessions).
+ */
+export async function recordUserStats(
+  stats: Omit<UserStats, "userId" | "ip" | "createdAt" | "country" | "city">,
+) {
+  // Derive the user from the verified session cookie — never trust a client-supplied uid.
+  // This also gates the analytics writes behind authentication, so anonymous callers
+  // can't spam this action to inflate counters or run up Firestore write costs.
+  const userId = await getAuthenticatedUserId();
+  if (!userId) {
+    return { success: false };
+  }
+
+  const { headers } = await import("next/headers");
+  const headerList = await headers();
+
+  const ip =
+    headerList.get("x-forwarded-for")?.split(",")[0] ||
+    headerList.get("x-real-ip") ||
+    "Unknown";
+
+  const country = headerList.get("x-vercel-ip-country") || "Unknown";
+  const city = headerList.get("x-vercel-ip-city") || "Unknown";
+
+  return recordUserSession({
+    userId,
+    ip,
+    country,
+    city,
+    ...stats,
+  });
 }
 
 /**

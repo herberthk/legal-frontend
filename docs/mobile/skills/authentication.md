@@ -8,7 +8,7 @@
 
 - The ID-token model and why mobile uses it instead of the web's session cookie.
 - Email/password signup with email OTP verification (two server calls).
-- Login (pure client-side Firebase).
+- Login (client-side Firebase) + post-auth session & location telemetry (`/auth/session`).
 - Google sign-in + the `profile/sync` bootstrap.
 - Password reset (three server calls: forgot → verify → reset).
 - OTP resend.
@@ -25,8 +25,8 @@ Firebase session; the backend trusts the **ID token** it mints:
 
 Login and logout therefore need **no server route** — they are Firebase SDK
 calls. The server routes below exist only for flows the SDK can't do alone:
-OTP-gated signup, OAuth profile provisioning, and OTP password reset (all of
-which touch Firestore/email via the Admin SDK).
+OTP-gated signup, OAuth profile provisioning, post-login session telemetry with
+location, and OTP password reset (all of which touch Firestore/email via the Admin SDK).
 
 ### Packages
 
@@ -34,10 +34,9 @@ which touch Firestore/email via the Admin SDK).
 @react-native-firebase/app
 @react-native-firebase/auth
 @react-native-google-signin/google-signin   # Google sign-in
+expo-location                              # Location capture during login
+expo-device                                # Device telemetry (model, OS)
 ```
-
-Alternative: the Firebase JS SDK (`firebase/auth`) works in RN too, but
-`@react-native-firebase` is required for FCM and App Check, so standardize on it.
 
 ---
 
@@ -82,17 +81,134 @@ pre-auth, so it must **not** attach a Bearer header — use a bare fetch, not
 
 ---
 
-## Login
+## Login & Session Telemetry (Location)
 
-Pure client-side — no server route:
+Sign-in itself is client-side via the Firebase SDK:
 
 ```ts
-await auth().signInWithEmailAndPassword(email, password);
+const userCredential = await auth().signInWithEmailAndPassword(email, password);
 ```
 
 Map Firebase error codes (`auth/wrong-password`, `auth/user-not-found`,
-`auth/too-many-requests`, …) to friendly copy on the client. After sign-in, all
-API calls work via `apiFetch` (see `error-handling.md`).
+`auth/too-many-requests`, …) to friendly copy on the client.
+
+### Recording session & location (`POST /auth/session`)
+
+Immediately after sign-in (or Google sign-in / custom-token sign-in), the mobile app
+captures location and device metadata and sends them to `POST /auth/session`
+(Bearer required, App Check **on**).
+
+```
+POST /auth/session
+Authorization: Bearer <id-token>
+X-Firebase-AppCheck: <app-check-token>
+{
+  "coordinates": {
+    "latitude": 0.3476,
+    "longitude": 32.5825,
+    "accuracy": 15
+  },
+  "device": {
+    "platform": "ios",
+    "brand": "Apple",
+    "modelName": "iPhone 15 Pro",
+    "osName": "iOS",
+    "osVersion": "17.4"
+  },
+  "timezone": "Africa/Kampala",
+  "resolution": "1179x2556"
+}
+→ 200 { "data": { "success": true } }
+```
+
+### Reference React Native Implementation (`expo-location` + `expo-device`)
+
+```ts
+import * as Location from "expo-location";
+import * as Device from "expo-device";
+import { Dimensions, Platform } from "react-native";
+import { apiFetch } from "@/lib/api";
+
+/**
+ * Retrieves client location safely without blocking the login experience.
+ */
+export async function getClientLocation() {
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status !== "granted") {
+      const requested = await Location.requestForegroundPermissionsAsync();
+      if (requested.status !== "granted") return undefined;
+    }
+
+    // Try last known position first (fastest, 0ms delay)
+    const lastKnown = await Location.getLastKnownPositionAsync();
+    if (lastKnown && Date.now() - lastKnown.timestamp < 10 * 60 * 1000) {
+      return {
+        latitude: lastKnown.coords.latitude,
+        longitude: lastKnown.coords.longitude,
+        accuracy: lastKnown.coords.accuracy,
+      };
+    }
+
+    // Fall back to current position with balanced accuracy (saves battery & time)
+    const current = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return {
+      latitude: current.coords.latitude,
+      longitude: current.coords.longitude,
+      accuracy: current.coords.accuracy,
+    };
+  } catch (err) {
+    console.warn("Location capture failed (non-fatal):", err);
+    return undefined;
+  }
+}
+
+/**
+ * Fires post-login session recording (non-blocking).
+ */
+export function recordMobileLoginSession() {
+  void (async () => {
+    try {
+      const coordinates = await getClientLocation();
+      const { width, height } = Dimensions.get("screen");
+
+      await apiFetch("/auth/session", {
+        method: "POST",
+        body: JSON.stringify({
+          coordinates,
+          device: {
+            platform: Platform.OS,
+            brand: Device.brand ?? undefined,
+            modelName: Device.modelName ?? undefined,
+            osName: Device.osName ?? undefined,
+            osVersion: Device.osVersion ?? undefined,
+          },
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          resolution: `${Math.round(width)}x${Math.round(height)}`,
+        }),
+      });
+    } catch (err) {
+      console.warn("Failed to record login session telemetry:", err);
+    }
+  })();
+}
+```
+
+### Best practices for mobile location & telemetry
+
+1. **Non-blocking UX**: Never stall the login spinner or delay navigation into the
+   app waiting for GPS lock. Fire `recordMobileLoginSession()` as a background task
+   right as the user is navigated into the main screen.
+2. **Graceful degradation**: If the user denies location permission, `coordinates`
+   is omitted. The server automatically falls back to edge IP geolocation (`x-vercel-ip-country`,
+   `x-vercel-ip-city`).
+3. **Privacy by default**: Server-side code rounds GPS coordinates to 3 decimal
+   places (~110m) before saving to Firestore to protect user privacy and comply with
+   data protection regulations (GDPR / Uganda Data Protection and Privacy Act).
+4. **Fraud detection**: The server logs both client GPS coordinates and edge IP
+   geolocation, allowing cross-verification to detect proxy/VPN usage or location spoofing.
 
 ---
 
@@ -102,7 +218,9 @@ API calls work via `apiFetch` (see `error-handling.md`).
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import auth from "@react-native-firebase/auth";
 
-GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID! });
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID!,
+});
 
 async function signInWithGoogle() {
   await GoogleSignin.hasPlayServices();
@@ -110,13 +228,17 @@ async function signInWithGoogle() {
   if (response.type === "cancelled") return; // user dismissed the dialog
 
   const idToken = response.data?.idToken;
-  if (!idToken) throw new Error("Google Sign-In succeeded but no ID token was returned.");
+  if (!idToken)
+    throw new Error("Google Sign-In succeeded but no ID token was returned.");
 
   const credential = auth.GoogleAuthProvider.credential(idToken);
   await auth().signInWithCredential(credential);
 
   // Bootstrap the Firestore profile (idempotent — safe to call every sign-in).
-  await apiFetch("/auth/profile/sync", { method: "POST", body: JSON.stringify({}) });
+  await apiFetch("/auth/profile/sync", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 ```
 

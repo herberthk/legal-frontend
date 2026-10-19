@@ -40,7 +40,7 @@ guaranteed:
 |---|---|---|
 | All `/me`, `/chats`, `/reviews`, `/transcriptions`, `/voice/token`, `/voice/sessions`, `/billing`, `/usage`, `/transactions`, `/payments/**`, `/notifications/**`, `/support/**`, `/chat`, `/review` | **ON** | authenticated app traffic |
 | `/auth/signup/**`, `/auth/password/**`, `/auth/otp/resend` (6 pre-auth routes) | **OFF** | no user/session yet at signup/reset; protected by in-action rate limiting |
-| `/auth/profile/sync` | **ON** | runs *after* OAuth sign-in, so a token is available |
+| `/auth/profile/sync`, `/auth/session` | **ON** | post-auth user setup and session telemetry |
 | `POST /voice/billing` | **OFF** | fired from a backgrounded app (`AppState`), where a token may be unobtainable; billing must never be dropped, and the endpoint is idempotent + Bearer-authenticated |
 
 > **Note for anyone comparing against an older design doc:** enforcement was
