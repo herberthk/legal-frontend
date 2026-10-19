@@ -266,6 +266,11 @@ declare global {
     timezone: string;
     createdAt: string;
     userAgent: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+      accuracy?: number | null;
+    };
   };
 
   type SessionStore = {

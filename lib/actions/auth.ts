@@ -11,6 +11,7 @@ import {
   FREE_WELCOME_VOICE_SECONDS,
 } from "@/constants";
 import { getFriendlyErrorMessage } from "@/lib/errors";
+import { recordUserSession } from "@/lib/auth-session";
 
 /**
  * Session duration constant set to 1 week in seconds
@@ -524,7 +525,7 @@ export async function resetPasswordWithOtp(email: string, newPassword: string) {
 // };
 
 /**
- * Records user statistics in Firestore.
+ * Records user statistics in Firestore (web sessions).
  */
 export async function recordUserStats(
   stats: Omit<UserStats, "userId" | "ip" | "createdAt" | "country" | "city">,
@@ -534,19 +535,6 @@ export async function recordUserStats(
   // can't spam this action to inflate counters or run up Firestore write costs.
   const userId = await getAuthenticatedUserId();
   if (!userId) {
-    return { success: false };
-  }
-
-  // Bound abuse from an authenticated caller: normal usage records once per login,
-  // so a small per-user allowance lets legitimate re-logins through while stopping
-  // loops that would pollute analytics counters or run up Firestore write costs.
-  const statsLimit = await checkRateLimit({
-    action: "record_user_stats",
-    key: userId,
-    maxAttempts: 10,
-    windowSeconds: 10 * 60,
-  });
-  if (!statsLimit.success) {
     return { success: false };
   }
 
@@ -561,66 +549,13 @@ export async function recordUserStats(
   const country = headerList.get("x-vercel-ip-country") || "Unknown";
   const city = headerList.get("x-vercel-ip-city") || "Unknown";
 
-  const deviceStats = {
-    browser: headerList.get("x-device-browser"),
-    browserVersion: headerList.get("x-device-browser-version"),
-    os: headerList.get("x-device-os"),
-    osVersion: headerList.get("x-device-os-version"),
-    device: headerList.get("x-device-type"),
-    model: headerList.get("x-device-model"),
-    vendor: headerList.get("x-device-vendor"),
-    userAgent: headerList.get("x-device-ua"),
-  };
-
-  console.log("deviceStats", deviceStats);
-
-  // Normalise values for aggregation keys (lowercase, alphanumeric only)
-  const normBrowser = (stats.browser || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
-  const normOs = (stats.os || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
-  const normDevice = (stats.device || "Desktop").toLowerCase().replace(/[^a-z0-9]/g, "_");
-  const normCountry = (country || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
-  const normCity = (city || "Unknown").toLowerCase().replace(/[^a-z0-9]/g, "_");
-
-  try {
-    const analyticsRef = db.collection(COLLECTIONS.ANALYTICS).doc("demographics");
-
-    // Run both writes in parallel for performance
-    await Promise.all([
-      // Raw session record
-      db.collection(COLLECTIONS.USER_STATS).add({
-        ...stats,
-        userId,
-        ip,
-        country,
-        city,
-        createdAt: FieldValue.serverTimestamp(),
-      }),
-      // Aggregate counters — merge:true ensures the doc is created if missing
-      analyticsRef.set(
-        {
-          totalSessions: FieldValue.increment(1),
-          browsers: { [normBrowser]: FieldValue.increment(1) },
-          operatingSystems: { [normOs]: FieldValue.increment(1) },
-          devices: { [normDevice]: FieldValue.increment(1) },
-          countries: { [normCountry]: FieldValue.increment(1) },
-          cities: { [normCity]: FieldValue.increment(1) },
-          // Keep human-readable labels alongside the keys
-          browserLabels: { [normBrowser]: stats.browser || "Unknown" },
-          osLabels: { [normOs]: stats.os || "Unknown" },
-          deviceLabels: { [normDevice]: stats.device || "Desktop" },
-          countryLabels: { [normCountry]: country },
-          cityLabels: { [normCity]: city },
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      ),
-    ]);
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error recording user stats:", error);
-    return { success: false };
-  }
+  return recordUserSession({
+    ...stats,
+    userId,
+    ip,
+    country,
+    city,
+  });
 }
 
 /**
