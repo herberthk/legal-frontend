@@ -126,7 +126,7 @@ X-Firebase-AppCheck: <app-check-token>
 ```ts
 import * as Location from "expo-location";
 import * as Device from "expo-device";
-import { Dimensions, Platform } from "react-native";
+import { Dimensions, PixelRatio, Platform } from "react-native";
 import { apiFetch } from "@/lib/api";
 
 /**
@@ -186,7 +186,7 @@ export function recordMobileLoginSession() {
             osVersion: Device.osVersion ?? undefined,
           },
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          resolution: `${Math.round(width)}x${Math.round(height)}`,
+          resolution: `${PixelRatio.getPixelSizeForLayoutSize(width)}x${PixelRatio.getPixelSizeForLayoutSize(height)}`,
         }),
       });
     } catch (err) {
@@ -205,8 +205,9 @@ export function recordMobileLoginSession() {
    is omitted. The server automatically falls back to edge IP geolocation (`x-vercel-ip-country`,
    `x-vercel-ip-city`).
 3. **Privacy by default**: Server-side code rounds GPS coordinates to 3 decimal
-   places (~110m) before saving to Firestore to protect user privacy and comply with
-   data protection regulations (GDPR / Uganda Data Protection and Privacy Act).
+   places (~110m) before saving to Firestore to reduce location precision. Rounding
+   alone does not establish compliance with applicable privacy laws, including GDPR
+   or Uganda’s Data Protection and Privacy Act.
 4. **Fraud detection**: The server logs both client GPS coordinates and edge IP
    geolocation, allowing cross-verification to detect proxy/VPN usage or location spoofing.
 

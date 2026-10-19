@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
-import { ok, badRequest } from "@/lib/api/v1/response";
-import { recordUserSession } from "@/lib/actions/auth";
+import { ok, badRequest, apiError } from "@/lib/api/v1/response";
+import { recordUserSession } from "@/lib/auth-session";
 
 /**
  * `POST /api/v1/auth/session` — records user location, device metadata, and session
@@ -16,7 +16,7 @@ import { recordUserSession } from "@/lib/actions/auth";
  * Location & Privacy:
  * - Accepts optional GPS coordinates from `expo-location`.
  * - Server automatically rounds coordinates to 3 decimal places (~110m resolution)
- *   for GDPR and privacy regulation compliance.
+ *   to reduce location precision.
  * - Edge IP geolocation (Vercel headers) is logged alongside GPS coordinates to detect
  *   anomalous logins or location spoofing.
  */
@@ -85,5 +85,14 @@ export async function POST(req: Request) {
     resolution: resolution || "Unknown",
   });
 
-  return ok({ success: result.success });
+  if (!result.success) {
+    const status = {
+      UNAUTHENTICATED: 401,
+      RATE_LIMITED: 429,
+      INTERNAL: 500,
+    }[result.code];
+    return apiError(status, result.code, result.message);
+  }
+
+  return ok({ success: true });
 }
