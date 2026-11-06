@@ -207,8 +207,31 @@ interface Review {
   source file to Firebase Storage, then `POST /reviews` (enveloped) with the
   returned review fields plus `fileUrl`:
 
+  ```
+  POST /reviews
+  Authorization: Bearer <id-token>
+  X-Firebase-AppCheck: <app-check-token>
+  Content-Type: application/json
+  {
+    "fileName": "lease.pdf",
+    "fileUrl": "https://firebasestorage.googleapis.com/v0/b/.../lease.pdf?...",
+    "documentType": "Commercial Lease Agreement",
+    "summary": "…",
+    "overallScore": 72,
+    "highlights": ["…"],
+    "keyClauses": […],
+    "risks": […],
+    "recommendations": […],
+    "scoreBreakdown": […],
+    "tokensUsed": 4120,
+    "pageCount": 6
+  }
+  → 200 { "data": { "success": true, "id": "doc_rev_001" } }
+  → 400 { "error": { "code": "BAD_REQUEST", "message": "fileUrl must be a valid HTTPS Firebase Storage URL" } }
+  ```
+
   ```ts
-  await apiFetch("/reviews", {
+  const { id } = await apiFetch<{ success: boolean; id: string }>("/reviews", {
     method: "POST",
     body: JSON.stringify({
       fileName: review.fileName,
