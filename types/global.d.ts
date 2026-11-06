@@ -83,7 +83,7 @@ declare namespace NodeJS {
     NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN: string;
     DISABLE_APP_CHECK?: string;
 
-    BUILD_ENVIRONMENT: string;
+    NEXT_PUBLIC_BUILD_ENVIRONMENT: string;
     CRON_SECRET: string
   }
 }
