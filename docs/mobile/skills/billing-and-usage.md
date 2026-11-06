@@ -1,3 +1,7 @@
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:55119a58159e9606ba8a4bb374c93d4e332bd9cd3c2397a3b5b64ee5f9a9af1d -->
+
 # Billing & Usage — Mobile Agent Skill
 
 > How credit works, how to pre-flight a spend, and how to read usage/wallet
@@ -128,7 +132,7 @@ GET /usage/chart?filter=last_week&start=<ISO>&end=<ISO>&timezoneOffset=-180
 → 200 { "data": {
     "success": true,
     "chartData": ChartDataPoint[],
-    "totalPeriodCost": 840      // CENTS ($8.40)
+    "totalPeriodCost": 8.40     // US dollars ($8.40)
 } }
 ```
 
@@ -139,21 +143,21 @@ Sample JSON response:
 {
   "data": {
     "success": true,
-    "totalPeriodCost": 840,     // 840 US CENTS ($8.40)
+    "totalPeriodCost": 8.40,    // US dollars ($8.40)
     "chartData": [
       {
         "name": "Mon",
         "text": 900,            // tokens
-        "voice": 60,            // seconds
-        "document": 2,          // page count
-        "cost": 120             // US CENTS
+        "voice": 1,             // minutes
+        "document": 2,          // token count
+        "cost": 1.20            // US dollars
       },
       {
         "name": "Tue",
         "text": 1450,
-        "voice": 120,
+        "voice": 2,             // minutes
         "document": 0,
-        "cost": 210
+        "cost": 2.10            // US dollars
       }
     ]
   }
@@ -164,9 +168,9 @@ Sample JSON response:
 interface ChartDataPoint {
   name: string;               // Day label ("Mon") or hour label ("14:00")
   text: number;               // token count
-  voice: number;              // voice seconds
-  document: number;           // document pages/count
-  cost: number;               // in US CENTS
+  voice: number;              // voice minutes
+  document: number;           // token count
+  cost: number;               // in US dollars
 }
 ```
 
@@ -174,7 +178,9 @@ interface ChartDataPoint {
   bucket by day.
 - **`timezoneOffset`** is `new Date().getTimezoneOffset()` (minutes) so buckets
   align to the device's local day. Pass it or charts will be off by the UTC offset.
-- `cost` per bucket and `totalPeriodCost` are **cents**.
+- `getUsageChartData` returns `voice` in **minutes** and `document` as a **token count**.
+- `cost` per bucket and `totalPeriodCost` are **US dollars** (stored cents divided
+  by 100). For UGX display, multiply these chart values by 3800 directly.
 
 ```ts
 const q = new URLSearchParams({ filter: "last_week", timezoneOffset: String(new Date().getTimezoneOffset()) });
@@ -330,14 +336,16 @@ Keep this single conversion helper; never scatter the `3800`/`100` literals.
   call — the pre-flight can go stale.
 - **Refetch `/me` after any spend or top-up** to refresh the balance (there's no
   server push over HTTP). See `account-and-history.md`.
-- **Do all money math in cents**, convert to UGX only at render.
+- **Use cents for wallet money math**; chart costs arrive in dollars. Convert
+  to UGX only at render using the appropriate source unit.
 - **Show the three buckets** (welcome / daily free / paid) from the `User` doc so
   users understand why a call was free.
 
 ## Gotchas
 
-- Everything cost-related from the API is **cents**, not dollars, not UGX.
-- `usage.totalCost` and `chart.cost` are cents too — a "$3.33" spend is `333`.
+- Wallet amounts and `/usage` costs are **US cents**; `/usage/chart` costs are
+  **US dollars**. A "$3.33" spend is `333` in `usage.totalCost` and `3.33` in
+  `chart.cost`.
 - `duration` (transactions) and `filter` (usage) are **different** query vocab and
   have **different defaults**:
 
@@ -355,3 +363,6 @@ Keep this single conversion helper; never scatter the `3800`/`100` literals.
   a missing bound silently falls back to the default window rather than erroring.
 - A `canSend: true` is not a guarantee — the authoritative check is on the AI route,
   which can still 402.
+
+
+<!-- /coderabbit-ai-generated:v1 -->

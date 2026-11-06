@@ -44,7 +44,10 @@ export let appCheck: AppCheck | null = null;
 
 if (typeof window !== "undefined") {
   // Support local development debug tokens
-  if (process.env.NEXT_PUBLIC_BUILD_ENVIRONMENT !== "production") {
+  if (
+    (process.env.NEXT_PUBLIC_BUILD_ENVIRONMENT ?? process.env.NODE_ENV) !==
+    "production"
+  ) {
     const debugToken = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN;
     if (debugToken) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

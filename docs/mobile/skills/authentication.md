@@ -1,3 +1,7 @@
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:0ad39e3e00b6434a660ead0f8e6b5208cae77c34b37a21776e5ecf333db7448f -->
+
 # Authentication — Mobile Agent Skill
 
 > How the React Native client establishes a Firebase session and turns it into the
@@ -170,7 +174,8 @@ async function signInCustomToken(token: string): Promise<ProviderUser> {
 }
 ```
 
-> The `customToken` is **single-use** and short-lived. Exchange it immediately.
+> The `customToken` expires after one hour. Exchange it promptly and treat it as a
+> sensitive sign-in credential until it expires, even after exchanging it.
 > Pre-auth routes must use `apiFetch` with `auth: false, appCheck: false` — never attach a Bearer header.
 
 ---
@@ -438,8 +443,10 @@ POST /api/v1/auth/password/forgot
 ```
 
 > **Enumeration guard:** both a real account and an unknown address return `success: true` with the
-> generic "If an account exists..." message. Always advance to the OTP screen regardless.
-> Never branch the UI on whether `success` is true here.
+> generic "If an account exists..." message. Advance to the OTP screen only when
+> `success: true`, preserving that generic message. For `success: false`, stay on
+> the reset request screen, show an operational error, and offer a retry path
+> (after any rate-limit delay). Never distinguish known from unknown addresses.
 
 ### Step 2 — verify OTP
 
@@ -514,8 +521,11 @@ await provider.signOut();        // Firebase SDK sign-out + Google cache clear (
 resetAuthServiceState();         // clears bootstrap dedup map
 ```
 
-There is **no server logout endpoint**. Dropping the Firebase session is sufficient;
-`verifyIdToken(token, true)` rejects revoked tokens server-side.
+There is **no server logout endpoint**. Firebase sign-out clears only the local
+session; an already-issued ID token remains valid until expiry. Server-side
+rejection before expiry requires revoking the user’s refresh tokens with the
+Admin SDK (`revokeRefreshTokens(uid)`); `verifyIdToken(token, true)` then checks
+for revocation. Local sign-out does not perform this revocation.
 
 **Logout order:**
 1. Deregister the device push token (see `push-notifications.md`).
@@ -609,8 +619,9 @@ Google client IDs are read from `google-services.json` (Android) and `GoogleServ
   In dev, set `DISABLE_APP_CHECK=true` on the server or register the App Check debug token.
 - **`IN_PROGRESS` from `react-native-nitro-google-signin`** means no Activity context or
   `configure()` was not called — not that another sign-in is already in progress.
-- **`signInWithCustomToken` is single-use.** Exchange the `customToken` from
-  `/auth/signup/complete` immediately after receiving it.
+- **Custom tokens expire after one hour.** Exchange the `customToken` from
+  `/auth/signup/complete` promptly and keep it confidential until expiry, even
+  after exchanging it.
 - **Balance is in US cents.** `profile.balance` is an integer cent value. Display as dollars
   (`balance / 100`). UGX conversion is display-only.
 - **Do not call `profile/sync` from application code.** `bootstrapAccount` owns the
@@ -620,3 +631,6 @@ Google client IDs are read from `google-services.json` (Android) and `GoogleServ
 - **`onUnauthenticated`** on `AuthTokenProvider` is called by `apiFetch` after a final
   `401 UNAUTHENTICATED`. It signs the user out via Firebase, which the `onAuthStateChanged`
   subscription picks up. Do not call `signOut` from UI error handlers; let the subscription drive it.
+
+
+<!-- /coderabbit-ai-generated:v1 -->

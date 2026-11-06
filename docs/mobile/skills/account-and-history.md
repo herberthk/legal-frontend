@@ -1,3 +1,7 @@
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:5cb1571339028db22ee7b07936385d230ab4a93e81f6dcc220eeaba4f7302992 -->
+
 # Account & History — Mobile Agent Skill
 
 > The read/manage surface: the signed-in user's profile ("who am I" + balance),
@@ -29,7 +33,7 @@ GET /me
     "email": "jane@example.com",
     "avatar": "https://lh3.googleusercontent.com/a/...",
     "role": "USER",
-    "balance": 1500,              // US CENTS ($15.00) — convert to UGX for display (× 3800)
+    "balance": 1500,              // US CENTS ($15.00) — convert to UGX for display: (balance / 100) * 3800 = 57,000 UGX
     "totalSpent": 350,            // US CENTS ($3.50)
     "status": "active",           // "active" | "suspended" | "banned"
     "preferedVoice": {
@@ -53,6 +57,10 @@ spend (chat, review, voice) or top-up to refresh the wallet.
 
 ```ts
 type Role = "SUPER_ADMIN" | "ADMIN" | "USER";
+type VoiceId =
+  | "Puck" | "Charon" | "Kore" | "Fenrir" | "Aoede" | "Zephyr"
+  | "Terra" | "Lyra" | "Orion" | "Ursa" | "Nova" | "Pegasus"
+  | "Hydra" | "Leda" | "Orus" | "Achernar" | "Umbriel";
 
 interface PreferedVoice {
   preferedVoiceId: VoiceId;
@@ -445,3 +453,6 @@ Stop paging when `hasMore === false` (cursor lists) or a short page returns (voi
 - Renaming/deleting a chat you don't own returns 404 (IDOR guard), not 403.
 - Deleting a review/transcription removes only the Firestore record; its Storage
   file must be deleted separately using the returned `fileUrl`.
+
+
+<!-- /coderabbit-ai-generated:v1 -->
