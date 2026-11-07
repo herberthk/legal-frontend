@@ -345,10 +345,74 @@ export async function handleReviewRequest(
         pageCount,
       },
     });
-  } catch (error) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
     console.error("Review API error:", error);
+
+    const errorMessage = error?.message || "";
+
+    if (
+      errorMessage.includes("429") ||
+      errorMessage.includes("RESOURCE_EXHAUSTED") ||
+      errorMessage.includes("quota")
+    ) {
+      return Response.json(
+        {
+          error:
+            "The AI review engine is currently at capacity or quota limits. Please try again in a moment.",
+        },
+        { status: 429 },
+      );
+    }
+
+    if (
+      errorMessage.includes("503") ||
+      errorMessage.includes("UNAVAILABLE") ||
+      errorMessage.includes("overloaded")
+    ) {
+      return Response.json(
+        {
+          error:
+            "The AI review service is temporarily busy. Please try again shortly.",
+        },
+        { status: 503 },
+      );
+    }
+
+    if (
+      errorMessage.includes("safety") ||
+      errorMessage.includes("blocked") ||
+      errorMessage.includes("HARM_CATEGORY")
+    ) {
+      return Response.json(
+        {
+          error:
+            "The document content triggered AI safety filters and could not be reviewed.",
+        },
+        { status: 422 },
+      );
+    }
+
+    if (
+      errorMessage.includes("AbortError") ||
+      errorMessage.includes("deadline") ||
+      errorMessage.includes("timed out") ||
+      errorMessage.includes("TIMEOUT")
+    ) {
+      return Response.json(
+        {
+          error:
+            "The review analysis timed out while processing this document. Please try a shorter document.",
+        },
+        { status: 504 },
+      );
+    }
+
     return Response.json(
-      { error: "An unexpected error occurred. Please try again." },
+      {
+        error:
+          "An unexpected server error occurred while analyzing the document. Please try again.",
+      },
       { status: 500 },
     );
   }

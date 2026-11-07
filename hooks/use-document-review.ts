@@ -138,6 +138,10 @@ export function useDocumentReview() {
     // Begin staged animation
     advanceStage(0);
 
+    const controller = new AbortController();
+    // 120-second timeout matching maxDuration on the route
+    const timeoutId = setTimeout(() => controller.abort(), 120_000);
+
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -149,14 +153,88 @@ export function useDocumentReview() {
           ...(appCheckToken ? { "x-firebase-appcheck": appCheckToken } : {}),
         },
         body: formData,
+        signal: controller.signal,
       });
 
-      const data = await response.json();
+      // Safely parse JSON without throwing if the server or proxy returned an HTML/text error page (e.g. 504/502/413)
+      let data: {
+        success?: boolean;
+        review?: Omit<DocumentReview, "id" | "userId" | "fileUrl" | "updatedAt">;
+        error?: string;
+      } | null = null;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
 
-      if (!response.ok || !data.success) {
+      if (!response.ok || !data?.success) {
         clearStageTimer();
         setStage("error");
-        setError(data.error || "Review failed. Please try again.");
+
+        if (response.status === 504) {
+          setError(
+            "The review timed out because the document is long or complex. Please try again with a shorter document or fewer pages."
+          );
+          return;
+        }
+
+        if (response.status === 413) {
+          setError(
+            "The document file size is too large for processing. Please compress the file and try again."
+          );
+          return;
+        }
+
+        if (response.status === 429) {
+          setError(
+            "The AI review service is currently experiencing high demand. Please wait a moment and try again."
+          );
+          return;
+        }
+
+        if (response.status === 402) {
+          setError(
+            data?.error ||
+              "Insufficient funds or tokens to review this document. Please check your credit balance."
+          );
+          return;
+        }
+
+        if (response.status === 401) {
+          setError(
+            data?.error ||
+              "Your session or App Check verification expired. Please refresh the page and sign in again."
+          );
+          return;
+        }
+
+        if (response.status === 422) {
+          setError(
+            data?.error ||
+              "The document content could not be processed or is unreadable. Please check the file."
+          );
+          return;
+        }
+
+        if (data?.error) {
+          setError(data.error);
+          return;
+        }
+
+        setError(
+          `Review request failed (${response.status} ${response.statusText || "Server Error"}). Please try again.`
+        );
+        return;
+      }
+
+      if (!data?.review) {
+        clearStageTimer();
+        setStage("error");
+        setError(
+          data?.error || "Review completed, but no review details were returned. Please try again."
+        );
         return;
       }
 
@@ -169,10 +247,31 @@ export function useDocumentReview() {
       setStage("complete");
       setProgress(100);
       setReview(data.review);
-    } catch {
+    } catch (err: unknown) {
       clearStageTimer();
       setStage("error");
-      setError("Network error. Please check your connection and try again.");
+
+      if (err instanceof Error && err.name === "AbortError") {
+        setError(
+          "Document review timed out after 2 minutes. The document may be too large or complex. Please try with a smaller file."
+        );
+        return;
+      }
+
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        setError(
+          "You appear to be offline. Please check your internet connection and try again."
+        );
+        return;
+      }
+
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[useDocumentReview] Review error:", err);
+      setError(
+        `Review process interrupted (${message || "Connection terminated by server"}). Please try again.`
+      );
+    } finally {
+      clearTimeout(timeoutId);
     }
   }, [file, advanceStage]);
 

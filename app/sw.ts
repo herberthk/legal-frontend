@@ -108,7 +108,13 @@ function shouldBypassServiceWorker(url: URL): boolean {
     return true;
   }
 
-  // 2. Google / Firebase APIs & domains
+  // 2. Next.js API routes — dynamic backend endpoints (e.g. /api/review, /api/chat, /api/transcribe)
+  // must bypass the service worker to prevent fetch watchdog timeouts and multipart stream buffering.
+  if (pathname.startsWith("/api/")) {
+    return true;
+  }
+
+  // 3. Google / Firebase APIs & domains
   if (
     hostname === "apis.google.com" ||
     hostname === "www.gstatic.com" ||
