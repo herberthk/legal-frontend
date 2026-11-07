@@ -144,21 +144,21 @@ Sample JSON response:
 {
   "data": {
     "success": true,
-    "totalPeriodCost": 8.40, // US dollars ($8.40)
+    "totalPeriodCost": 840, // 840 US CENTS ($8.40)
     "chartData": [
       {
         "name": "Mon",
-        "text": 900, // tokens
-        "voice": 60, // minutes
-        "document": 2, // tokens
-        "cost": 1.20, // US dollars ($1.20)
+        "text": 900, // text chat tokens
+        "voice": 60, // voice seconds
+        "document": 2, // document transcription tokens
+        "cost": 120, // US CENTS ($1.2)
       },
       {
         "name": "Tue",
-        "text": 1450, // Tokens
-        "voice": 120, // Minutes
-        "document": 0, // Tokens
-        "cost": 2.10, // US dollars ($2.10)
+        "text": 1450, // text chat tokens
+        "voice": 120, // voice seconds
+        "document": 0, // document transcription tokens
+        "cost": 210, // US CENTS ($2.10)
       },
     ],
   },
@@ -168,10 +168,10 @@ Sample JSON response:
 ```ts
 interface ChartDataPoint {
   name: string; // Day label ("Mon") or hour label ("14:00")
-  text: number; // token count
-  voice: number; // voice minutes
-  document: number; // document token count
-  cost: number; // in US dollars
+  text: number; // chat token count
+  voice: number; // voice seconds
+  document: number; // document transcription tokens
+  cost: number; // in US CENTS
 }
 ```
 
@@ -179,9 +179,9 @@ interface ChartDataPoint {
   bucket by day.
 - **`timezoneOffset`** is `new Date().getTimezoneOffset()` (minutes) so buckets
   align to the device's local day. Pass it or charts will be off by the UTC offset.
-- `getUsageChartData` returns `voice` in **minutes** and `document` as a **token count**.
-- `cost` per bucket and `totalPeriodCost` are **US dollars** (stored cents divided
-  by 100). For UGX display, multiply these dollar amounts directly by USD_UGX_RATE (do not divide by 100 again).
+  `getUsageChartData` returns `voice` in **seconds** and `document` as a **transcription tokens**.
+- `cost` per bucket and `totalPeriodCost` are **US cents** (stored cents divided
+  by 100). For UGX display, multiply these chart values by USD_UGX_RATE provided directly.
 
 ```ts
 const q = new URLSearchParams({
@@ -341,8 +341,8 @@ Keep this single conversion helper; never scatter the `3800`/`100` literals.
   call — the pre-flight can go stale.
 - **Refetch `/me` after any spend or top-up** to refresh the balance (there's no
   server push over HTTP). See `account-and-history.md`.
-- **Use cents for wallet money math**; chart costs arrive in dollars. Convert
-  to UGX only at render using the appropriate source unit.
+- **Use cents for wallet money math**; chart costs arrive in cents. Convert
+  to UGX only at render using the appropriate source unit and to USD by dividing by 100.
 - **Show the three buckets** (welcome / daily free / paid) from the `User` doc so
   users understand why a call was free.
 
