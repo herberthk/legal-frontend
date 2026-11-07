@@ -1,4 +1,11 @@
-import { generateText, Output, ModelMessage } from "ai";
+import {
+  APICallError,
+  generateText,
+  NoObjectGeneratedError,
+  Output,
+  ModelMessage,
+  RetryError,
+} from "ai";
 import { z } from "zod";
 import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
 import {
@@ -345,10 +352,82 @@ export async function handleReviewRequest(
         pageCount,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Review API error:", error);
+
+    // Retries wrap the provider failure; classify the final attempt.
+    const failure = RetryError.isInstance(error) ? error.lastError : error;
+    const isApiError = APICallError.isInstance(failure);
+    const isObjectError = NoObjectGeneratedError.isInstance(failure);
+    const errorName =
+      typeof failure === "object" && failure !== null && "name" in failure
+        ? failure.name
+        : undefined;
+    // Only exact legacy codes on otherwise unstructured errors are a fallback.
+    // Provider messages and generated document text must not override metadata.
+    const legacyCode =
+      !isApiError &&
+      !isObjectError &&
+      failure instanceof Error &&
+      errorName === "Error"
+        ? failure.message.trim()
+        : "";
+
+    if (
+      (isApiError && failure.statusCode === 429) ||
+      legacyCode === "RESOURCE_EXHAUSTED"
+    ) {
+      return Response.json(
+        {
+          error:
+            "The AI review engine is currently at capacity or quota limits. Please try again in a moment.",
+        },
+        { status: 429 },
+      );
+    }
+
+    if (
+      (isApiError && failure.statusCode === 503) ||
+      legacyCode === "UNAVAILABLE"
+    ) {
+      return Response.json(
+        {
+          error:
+            "The AI review service is temporarily busy. Please try again shortly.",
+        },
+        { status: 503 },
+      );
+    }
+
+    if (isObjectError && failure.finishReason === "content-filter") {
+      return Response.json(
+        {
+          error:
+            "The document content triggered AI safety filters and could not be reviewed.",
+        },
+        { status: 422 },
+      );
+    }
+
+    if (
+      errorName === "AbortError" ||
+      errorName === "TimeoutError" ||
+      legacyCode === "DEADLINE_EXCEEDED"
+    ) {
+      return Response.json(
+        {
+          error:
+            "The review analysis timed out while processing this document. Please try a shorter document.",
+        },
+        { status: 504 },
+      );
+    }
+
     return Response.json(
-      { error: "An unexpected error occurred. Please try again." },
+      {
+        error:
+          "An unexpected server error occurred while analyzing the document. Please try again.",
+      },
       { status: 500 },
     );
   }
