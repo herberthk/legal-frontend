@@ -1,4 +1,11 @@
-import { generateText, Output, ModelMessage } from "ai";
+import {
+  APICallError,
+  generateText,
+  NoObjectGeneratedError,
+  Output,
+  ModelMessage,
+  RetryError,
+} from "ai";
 import { z } from "zod";
 import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
 import {
@@ -345,16 +352,30 @@ export async function handleReviewRequest(
         pageCount,
       },
     });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Review API error:", error);
 
-    const errorMessage = error?.message || "";
+    // Retries wrap the provider failure; classify the final attempt.
+    const failure = RetryError.isInstance(error) ? error.lastError : error;
+    const isApiError = APICallError.isInstance(failure);
+    const isObjectError = NoObjectGeneratedError.isInstance(failure);
+    const errorName =
+      typeof failure === "object" && failure !== null && "name" in failure
+        ? failure.name
+        : undefined;
+    // Only exact legacy codes on otherwise unstructured errors are a fallback.
+    // Provider messages and generated document text must not override metadata.
+    const legacyCode =
+      !isApiError &&
+      !isObjectError &&
+      failure instanceof Error &&
+      errorName === "Error"
+        ? failure.message.trim()
+        : "";
 
     if (
-      errorMessage.includes("429") ||
-      errorMessage.includes("RESOURCE_EXHAUSTED") ||
-      errorMessage.includes("quota")
+      (isApiError && failure.statusCode === 429) ||
+      legacyCode === "RESOURCE_EXHAUSTED"
     ) {
       return Response.json(
         {
@@ -366,9 +387,8 @@ export async function handleReviewRequest(
     }
 
     if (
-      errorMessage.includes("503") ||
-      errorMessage.includes("UNAVAILABLE") ||
-      errorMessage.includes("overloaded")
+      (isApiError && failure.statusCode === 503) ||
+      legacyCode === "UNAVAILABLE"
     ) {
       return Response.json(
         {
@@ -379,11 +399,7 @@ export async function handleReviewRequest(
       );
     }
 
-    if (
-      errorMessage.includes("safety") ||
-      errorMessage.includes("blocked") ||
-      errorMessage.includes("HARM_CATEGORY")
-    ) {
+    if (isObjectError && failure.finishReason === "content-filter") {
       return Response.json(
         {
           error:
@@ -394,10 +410,9 @@ export async function handleReviewRequest(
     }
 
     if (
-      errorMessage.includes("AbortError") ||
-      errorMessage.includes("deadline") ||
-      errorMessage.includes("timed out") ||
-      errorMessage.includes("TIMEOUT")
+      errorName === "AbortError" ||
+      errorName === "TimeoutError" ||
+      legacyCode === "DEADLINE_EXCEEDED"
     ) {
       return Response.json(
         {
