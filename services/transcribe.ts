@@ -129,9 +129,9 @@ export async function transcribeDocument(
           .toBuffer();
         payloadMimeType = "image/jpeg";
 
-        // Asynchronously update the temp storage file with the normalized, properly rotated
+        // Update the temp storage file with the normalized, properly rotated
         // image so permanent archiving and previews benefit from the clean sRGB representation.
-        file.save(payloadBuffer, { contentType: "image/jpeg" }).catch((err) => {
+        await file.save(payloadBuffer, { contentType: "image/jpeg" }).catch((err) => {
           console.warn("[transcribe] Non-blocking temp storage update failed:", err);
         });
       } catch (sharpError) {

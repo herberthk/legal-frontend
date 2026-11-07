@@ -1,4 +1,5 @@
 import "server-only";
+import { COLLECTIONS } from "@/constants";
 import { db } from "@/firebase/admin";
 
 /**
@@ -28,4 +29,30 @@ export async function verifyDocOwnership(
   const data = snap.data();
   if (!data || data.userId !== userId) return null;
   return data;
+}
+
+/**
+ * Verifies that a chat session belongs to the given user.
+ * Used as a server-side ownership guard before writing messages or deducting usage,
+ * preventing a spoofed x-chat-id header from writing to another user's session.
+ * @param sessionId - The chat session ID to verify
+ * @param userId - The authenticated user's ID
+ * @returns true if the session exists and belongs to the user
+ */
+export async function verifyChatSessionOwner(
+  sessionId: string,
+  userId: string,
+): Promise<boolean> {
+  try {
+    const sessionDoc = await db
+      .collection(COLLECTIONS.CHAT_SESSIONS)
+      .doc(sessionId)
+      .get();
+
+    if (!sessionDoc.exists) return false;
+    return sessionDoc.data()?.userId === userId;
+  } catch (error) {
+    console.error("Error verifying chat session owner:", error);
+    throw error;
+  }
 }

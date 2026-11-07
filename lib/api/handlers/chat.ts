@@ -9,7 +9,8 @@ import {
 } from "ai";
 
 import { recordUsageAndDeduct, checkUserCanSend } from "@/lib/actions/usage";
-import { saveChatMessage, verifyChatSessionOwner } from "@/lib/actions/chat";
+import { saveChatMessage } from "@/lib/actions/chat";
+import { verifyChatSessionOwner } from "@/lib/api/v1/ownership";
 import {
   LEGAL_ADVISER_SYSTEM_INSTRUCTION,
   CHARS_PER_TOKEN,
@@ -353,13 +354,15 @@ export async function handleChatRequest(
                   }),
                 });
 
-                await saveChatMessage(sessionId, {
-                  role: "assistant",
-                  // Sanitize assistant text with DOMPurify before saving to Firestore to prevent Stored XSS
-                  text: sanitizeChatContent(text || ""),
-                  tokenCount: usage?.outputTokens ?? 0,
-                  isFirstMessage: false,
-                });
+                if (text) {
+                  await saveChatMessage(sessionId, {
+                    role: "assistant",
+                    // Sanitize assistant text with DOMPurify before saving to Firestore to prevent Stored XSS
+                    text: sanitizeChatContent(text),
+                    tokenCount: usage?.outputTokens ?? 0,
+                    isFirstMessage: false,
+                  });
+                }
               })(),
             );
           }
