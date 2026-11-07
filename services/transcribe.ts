@@ -1,18 +1,22 @@
 import { checkUserCanSend, recordUsageAndDeduct } from "@/lib/actions/usage";
-import { db } from "@/firebase/admin";
+import { db, storageAdmin } from "@/firebase/admin";
 import {
   COLLECTIONS,
   COST_PER_THOUSAND_TOKENS_IN_CENTS,
 } from "@/constants";
+import { STORAGE_PATHS } from "@/constants/buckets";
 import { DOCUMENT_TRANSCRIBE_SYSTEM_INSTRUCTION } from "@/constants/prompt";
 import { FieldValue } from "firebase-admin/firestore";
 import { generateText } from "ai";
 import { vertex } from "@/lib/actions/vertex";
 import { extractDocumentText } from "@/lib/document-extractor";
 import { sanitizeFilename } from "@/lib/security/sanitizer";
+import crypto from "crypto";
+
+class UserFacingTranscriptionError extends Error {}
 
 export interface TranscribeDocumentParams {
-  base64Data: string;
+  storagePath: string;
   mimeType: string;
   formatMode: "professional" | "original";
   fileName: string;
@@ -22,7 +26,7 @@ export async function transcribeDocument(
   params: TranscribeDocumentParams,
   userId: string,
 ) {
-  const { base64Data, mimeType, formatMode, fileName } = params;
+  const { storagePath, mimeType, formatMode, fileName } = params;
 
   // Security: Sanitize the caller-supplied filename before it is embedded
   // into the AI prompt message. A crafted filename like:
@@ -34,10 +38,37 @@ export async function transcribeDocument(
   try {
     // 1. Authenticate user
     if (!userId) {
-      throw new Error("Unauthorized: Please sign in to transcribe documents.");
+      throw new UserFacingTranscriptionError("Unauthorized: Please sign in to transcribe documents.");
     }
 
-    // 2. Credit Check
+    // 2. Resolve document buffer from Firebase Storage
+    // Security: Prevent path traversal and enforce temp directory prefix
+    if (storagePath.includes("..") || !storagePath.startsWith(STORAGE_PATHS.TRANSCRIPTIONS_TEMP)) {
+      throw new UserFacingTranscriptionError("Invalid or unauthorized storage path.");
+    }
+    // IDOR defense: strictly ensure path belongs to the authenticated user and references a file
+    const expectedPrefix = `${STORAGE_PATHS.TRANSCRIPTIONS_TEMP}/${userId}/`;
+    if (
+      !storagePath.startsWith(expectedPrefix) ||
+      storagePath === expectedPrefix ||
+      storagePath.endsWith("/")
+    ) {
+      throw new UserFacingTranscriptionError("Unauthorized storage path access.");
+    }
+
+    const bucketName =
+      process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+      process.env.FIREBASE_STORAGE_BUCKET;
+    const bucket = storageAdmin.bucket(bucketName);
+    const file = bucket.file(storagePath);
+    const [exists] = await file.exists();
+    if (!exists) {
+      throw new UserFacingTranscriptionError("Uploaded document not found in storage. Please re-upload.");
+    }
+    const [downloaded] = await file.download();
+    const fileBuffer: Buffer = downloaded;
+
+    // 3. Credit Check
     const { canSend, reason, user } = await checkUserCanSend(userId);
     if (!canSend) {
       return {
@@ -49,14 +80,13 @@ export async function transcribeDocument(
 
     let estimatedInputTokens = 258; // default for images
     if (mimeType === "application/pdf") {
-      const buffer = Buffer.from(base64Data, "base64");
       try {
-        const extracted = await extractDocumentText(buffer, "pdf");
+        const extracted = await extractDocumentText(fileBuffer, "pdf");
         estimatedInputTokens = extracted.estimatedTokens;
       } catch (e) {
         console.error("PDF parse error:", e);
         // Fallback estimation
-        estimatedInputTokens = Math.ceil(buffer.length / 3);
+        estimatedInputTokens = Math.ceil(fileBuffer.length / 3);
       }
     }
 
@@ -95,7 +125,7 @@ export async function transcribeDocument(
             },
             {
               type: "file",
-              data: Buffer.from(base64Data, "base64"),
+              data: fileBuffer.toString("base64"),
               mediaType: mimeType,
             },
           ],
@@ -115,7 +145,7 @@ export async function transcribeDocument(
     });
 
     if (!text) {
-      throw new Error("Failed to generate transcription from Gemini.");
+      throw new UserFacingTranscriptionError("Failed to generate transcription from Gemini.");
     }
 
     return {
@@ -126,11 +156,29 @@ export async function transcribeDocument(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("--- Server Transcribe Error ---", error);
+
+    const rawMessage = error?.message || "";
+    let friendlyError =
+      error instanceof UserFacingTranscriptionError
+        ? error.message
+        : "An unexpected error occurred during transcription.";
+    let errorType: "INSUFFICIENT_CREDITS" | "CORRUPT_FILE" | "GENERAL" =
+      "GENERAL";
+
+    if (
+      rawMessage.includes("could not be decoded") ||
+      rawMessage.includes("malformed or corrupted") ||
+      rawMessage.includes("INVALID_ARGUMENT")
+    ) {
+      friendlyError =
+        "The uploaded file could not be decoded by the AI engine. Please ensure it is a valid, uncorrupted image (PNG, JPEG, WebP) or PDF.";
+      errorType = "CORRUPT_FILE";
+    }
+
     return {
       success: false,
-      error:
-        error.message || "An unexpected error occurred during transcription.",
-      errorType: "GENERAL" as const,
+      error: friendlyError,
+      errorType,
     };
   }
 }
@@ -139,19 +187,29 @@ export async function saveTranscriptionRecord(
   data: Omit<
     TranscriptionRecord,
     "id" | "createdAt" | "updatedAt" | "userId"
-  > & { id?: string },
+  > & { id?: string; tempStoragePath?: string },
   userId: string,
-): Promise<{ success: boolean; id?: string; notFound?: boolean; error?: string }> {
+): Promise<{
+  success: boolean;
+  id?: string;
+  notFound?: boolean;
+  error?: string;
+  fileUrl?: string;
+  filePromoted?: boolean;
+}> {
+  let restoreTempFile: (() => Promise<unknown>) | undefined;
+
   try {
     if (!userId) {
       throw new Error("Unauthorized");
     }
 
-    const { id, ...updateData } = data;
+    const { id, tempStoragePath, ...updateData } = data;
     const now = FieldValue.serverTimestamp();
-
+    let filePromoted = false;
+    const collection = db.collection(COLLECTIONS.TRANSCRIPTIONS);
+    const docRef = id ? collection.doc(id) : collection.doc();
     if (id) {
-      const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc(id);
       const doc = await docRef.get();
       if (!doc.exists || doc.data()?.userId !== userId) {
         return {
@@ -160,24 +218,92 @@ export async function saveTranscriptionRecord(
           error: "Transcription record not found or unauthorized",
         };
       }
+    }
+
+    // If a temporary storage path was provided, promote the file to permanent storage
+    if (tempStoragePath) {
+      try {
+        const expectedPrefix = `${STORAGE_PATHS.TRANSCRIPTIONS_TEMP}/${userId}/`;
+        // Prevent path traversal and strictly enforce temp path ownership
+        if (
+          !tempStoragePath.includes("..") &&
+          tempStoragePath.startsWith(expectedPrefix) &&
+          tempStoragePath !== expectedPrefix &&
+          !tempStoragePath.endsWith("/")
+        ) {
+          const bucketName =
+            process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+            process.env.FIREBASE_STORAGE_BUCKET;
+          const bucket = storageAdmin.bucket(bucketName);
+          const tempFile = bucket.file(tempStoragePath);
+          const [exists] = await tempFile.exists();
+
+          if (exists) {
+            const timestamp = Date.now();
+            const cleanName = (data.fileName || "document").replace(
+              /[^a-zA-Z0-9._-]/g,
+              "_",
+            );
+            const destinationPath = `${STORAGE_PATHS.TRANSCRIPTIONS_PERMANENT}/${userId}/${timestamp}_${cleanName}`;
+
+            // Move the file and retain its original path for rollback.
+            await tempFile.move(destinationPath);
+            const destinationFile = bucket.file(destinationPath);
+            restoreTempFile = () => destinationFile.move(tempStoragePath);
+
+            // Ensure a public/web download token exists on metadata
+            const [metadata] = await destinationFile.getMetadata();
+            let token = metadata.metadata?.firebaseStorageDownloadTokens;
+            if (!token) {
+              token = crypto.randomUUID();
+              await destinationFile.setMetadata({
+                metadata: {
+                  ...metadata.metadata,
+                  firebaseStorageDownloadTokens: token,
+                },
+              });
+            }
+
+            const permanentUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destinationPath)}?alt=media&token=${token}`;
+            updateData.fileUrl = permanentUrl;
+            filePromoted = true;
+          }
+        }
+      } catch (moveError) {
+        console.error("[Storage] Failed to promote temp file to permanent:", moveError);
+        if (restoreTempFile) {
+          await restoreTempFile();
+          restoreTempFile = undefined;
+        }
+        // Do not fail record creation if promotion encounters an issue
+      }
+    }
+
+    if (id) {
       await docRef.update({
         ...updateData,
         updatedAt: now,
       });
-      return { success: true, id };
+      return { success: true, id, fileUrl: updateData.fileUrl, filePromoted };
     } else {
-      const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc();
       await docRef.set({
         ...updateData,
         userId,
         createdAt: now,
         updatedAt: now,
       });
-      return { success: true, id: docRef.id };
+      return { success: true, id: docRef.id, fileUrl: updateData.fileUrl, filePromoted };
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error saving transcription:", error);
+    if (restoreTempFile) {
+      try {
+        await restoreTempFile();
+      } catch (restoreError) {
+        console.error("[Storage] Failed to restore temp file:", restoreError);
+      }
+    }
     return { success: false, error: "Failed to save transcription record." };
   }
 }

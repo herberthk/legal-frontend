@@ -2,44 +2,24 @@
 
 import { getAuthenticatedUserId } from "./auth";
 import * as transcribeService from "@/services/transcribe";
-import type { TranscribeDocumentParams } from "@/services/transcribe";
 
-export async function transcribeDocument(
-  params: TranscribeDocumentParams,
-) {
-  try {
-    const userId = await getAuthenticatedUserId();
-    if (!userId) {
-      return {
-        success: false,
-        error: "Unauthorized: Please sign in to transcribe documents.",
-        errorType: "GENERAL" as const,
-      };
-    }
-
-    return await transcribeService.transcribeDocument(params, userId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error("--- Server Action Transcribe Error ---", error);
-    return {
-      success: false,
-      error:
-        error.message || "An unexpected error occurred during transcription.",
-      errorType: "GENERAL" as const,
-    };
-  }
-}
+// NOTE: `transcribeDocument` is intentionally NOT a Server Action.
+// It is handled by the App Check-enforced API route at `POST /api/transcribe`
+// (web) and `POST /api/v1/transcriptions` (mobile), which parallel the pattern
+// used by chat and document-review. This keeps App Check enforcement consistent
+// across all AI-metered endpoints.
 
 export async function saveTranscriptionRecord(
   data: Omit<
     TranscriptionRecord,
     "id" | "createdAt" | "updatedAt" | "userId"
-  > & { id?: string },
+  > & { id?: string; tempStoragePath?: string },
 ): Promise<{
   success: boolean;
   id?: string;
   notFound?: boolean;
   error?: string;
+  fileUrl?: string;
 }> {
   try {
     const userId = await getAuthenticatedUserId();
