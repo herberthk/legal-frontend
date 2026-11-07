@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { transcribeDocument, getTranscriptions } from "@/services/transcribe";
+import { transcribePostSchema } from "@/lib/api/handlers/transcribe";
 import {
   ok,
   badRequest,
   paymentRequired,
   internalError,
 } from "@/lib/api/v1/response";
-import { MAX_REVIEW_FILE_SIZE } from "@/constants";
 
 /**
  * `POST /api/v1/transcriptions` — runs a metered Gemini transcription over a
@@ -20,21 +20,6 @@ import { MAX_REVIEW_FILE_SIZE } from "@/constants";
  */
 export const maxDuration = 120;
 
-// base64 inflates bytes by 4/3
-const MAX_BASE64_LENGTH = Math.ceil((MAX_REVIEW_FILE_SIZE * 4) / 3);
-
-const postSchema = z.object({
-  base64Data: z.string().min(1).max(MAX_BASE64_LENGTH),
-  mimeType: z.enum([
-    "application/pdf",
-    "image/png",
-    "image/jpeg",
-    "image/webp",
- ]),
-  formatMode: z.enum(["professional", "original"]),
-  fileName: z.string().min(1).max(300),
-});
-
 export async function POST(req: Request) {
   const gate = await requireMobileAuth(req);
   if (gate instanceof Response) return gate;
@@ -45,14 +30,20 @@ export async function POST(req: Request) {
   } catch {
     return badRequest("Invalid JSON body");
   }
-  const parsed = postSchema.safeParse(body);
-  if (!parsed.success) return badRequest("Invalid request body");
+  const parsed = transcribePostSchema.safeParse(body);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message || "Invalid request body";
+    return badRequest(message);
+  }
 
   const result = await transcribeDocument(parsed.data, gate.userId);
   if (!result.success) {
-    // Mirror the AI-route contract: out-of-credit is 402, everything else 500.
+    // Mirror the AI-route contract: out-of-credit is 402, client corrupt file is 400, everything else 500.
     if (result.errorType === "INSUFFICIENT_CREDITS") {
       return paymentRequired(result.error);
+    }
+    if (result.errorType === "CORRUPT_FILE") {
+      return badRequest(result.error);
     }
     return internalError(result.error || "Transcription failed.");
   }

@@ -28,21 +28,21 @@ exceeds available credit. On success it deducts in a fixed order:
 
 Rates (server constants — mirror them client-side only for display/estimates):
 
-| Constant | Value |
-|---|---|
-| Text | `$0.027` / 1,000 tokens |
-| Voice | `$0.08` / minute (`$0.00133`/s) |
-| Welcome free text | 4,000 tokens |
-| Welcome free voice | 120 s |
-| Daily free text | 1,000 tokens / 5 days |
-| Max voice session | 1,800 s (30 min) |
-| Mobile-money fee | 3% |
-| USD → UGX | `× 3800` |
-| Chars per token (estimate) | 4 |
+| Constant                   | Value                           |
+| -------------------------- | ------------------------------- |
+| Text                       | `$0.027` / 1,000 tokens         |
+| Voice                      | `$0.08` / minute (`$0.00133`/s) |
+| Welcome free text          | 4,000 tokens                    |
+| Welcome free voice         | 120 s                           |
+| Daily free text            | 1,000 tokens / 5 days           |
+| Max voice session          | 1,800 s (30 min)                |
+| Mobile-money fee           | 3%                              |
+| USD → UGX                  | `× 3800`                        |
+| Chars per token (estimate) | 4                               |
 
 ## Pre-flight — `GET /billing/can-send`
 
-Cheap gate to disable the composer / show a paywall *before* the user invests
+Cheap gate to disable the composer / show a paywall _before_ the user invests
 effort in a prompt or upload:
 
 ```
@@ -56,9 +56,10 @@ enforce credit authoritatively and can return 402 even after a `canSend: true`
 (balance can change between calls).
 
 ```ts
-const { canSend, reason } = await apiFetch<{ canSend: boolean; reason: string | null }>(
-  "/billing/can-send",
-);
+const { canSend, reason } = await apiFetch<{
+  canSend: boolean;
+  reason: string | null;
+}>("/billing/can-send");
 if (!canSend) showPaywall(reason);
 ```
 
@@ -83,7 +84,7 @@ Sample JSON response:
   "data": {
     "success": true,
     "totalTokens": 1420,
-    "totalCost": 38,            // 38 US CENTS ($0.38)
+    "totalCost": 38, // 38 US CENTS ($0.38)
     "totalSeconds": 90,
     "records": [
       {
@@ -91,14 +92,14 @@ Sample JSON response:
         "userId": "usr_abc",
         "type": "TEXT_RESPONSE",
         "tokens": 1420,
-        "cost": 38,             // US CENTS
+        "cost": 38, // US CENTS
         "seconds": 0,
-        "source": "paid",       // "free" | "paid" | "welcome"
+        "source": "paid", // "free" | "paid" | "welcome"
         "sessionId": "chat_session_123",
-        "createdAt": "2026-10-21T09:12:00.000Z"
-      }
-    ]
-  }
+        "createdAt": "2026-10-21T09:12:00.000Z",
+      },
+    ],
+  },
 }
 ```
 
@@ -112,11 +113,11 @@ interface UsageRecord {
   userId: string;
   type: UsageType;
   tokens: number;
-  cost: number;               // in US CENTS
+  cost: number; // in US CENTS
   seconds: number;
   source: UsageSource;
   sessionId: string;
-  createdAt: string;          // ISO string
+  createdAt: string; // ISO string
 }
 ```
 
@@ -132,7 +133,7 @@ GET /usage/chart?filter=last_week&start=<ISO>&end=<ISO>&timezoneOffset=-180
 → 200 { "data": {
     "success": true,
     "chartData": ChartDataPoint[],
-    "totalPeriodCost": 8.40     // US dollars ($8.40)
+    "totalPeriodCost": 840      // CENTS ($8.40)
 } }
 ```
 
@@ -143,34 +144,34 @@ Sample JSON response:
 {
   "data": {
     "success": true,
-    "totalPeriodCost": 8.40,    // US dollars ($8.40)
+    "totalPeriodCost": 840, // 840 US CENTS ($8.40)
     "chartData": [
       {
         "name": "Mon",
-        "text": 900,            // tokens
-        "voice": 1,             // minutes
-        "document": 2,          // token count
-        "cost": 1.20            // US dollars
+        "text": 900, // tokens
+        "voice": 60, // seconds
+        "document": 2, // page count
+        "cost": 120, // US CENTS
       },
       {
         "name": "Tue",
-        "text": 1450,
-        "voice": 2,             // minutes
-        "document": 0,
-        "cost": 2.10            // US dollars
-      }
-    ]
-  }
+        "text": 1450, // Tokens
+        "voice": 120, // Seconds
+        "document": 0, // Page Count
+        "cost": 210, // US CENTS ($2.10)
+      },
+    ],
+  },
 }
 ```
 
 ```ts
 interface ChartDataPoint {
-  name: string;               // Day label ("Mon") or hour label ("14:00")
-  text: number;               // token count
-  voice: number;              // voice minutes
-  document: number;           // token count
-  cost: number;               // in US dollars
+  name: string; // Day label ("Mon") or hour label ("14:00")
+  text: number; // token count
+  voice: number; // voice seconds
+  document: number; // document pages/count
+  cost: number; // in US CENTS
 }
 ```
 
@@ -178,12 +179,15 @@ interface ChartDataPoint {
   bucket by day.
 - **`timezoneOffset`** is `new Date().getTimezoneOffset()` (minutes) so buckets
   align to the device's local day. Pass it or charts will be off by the UTC offset.
-- `getUsageChartData` returns `voice` in **minutes** and `document` as a **token count**.
-- `cost` per bucket and `totalPeriodCost` are **US dollars** (stored cents divided
-  by 100). For UGX display, multiply these chart values by 3800 directly.
+- `getUsageChartData` returns `voice` in **seconds** and `document` as a **token count**.
+- `cost` per bucket and `totalPeriodCost` are **US cents** (stored cents divided
+  by 100). For UGX display, multiply these chart values by USD_UGX_RATE provided directly.
 
 ```ts
-const q = new URLSearchParams({ filter: "last_week", timezoneOffset: String(new Date().getTimezoneOffset()) });
+const q = new URLSearchParams({
+  filter: "last_week",
+  timezoneOffset: String(new Date().getTimezoneOffset()),
+});
 const { chartData, totalPeriodCost } = await apiFetch<{
   chartData: ChartDataPoint[];
   totalPeriodCost: number;
@@ -213,18 +217,18 @@ Sample JSON response:
         "id": "cred_002",
         "userId": "usr_abc",
         "amount": 1000,
-        "type": "RENEWAL",      // "RENEWAL" | "WELCOME"
-        "createdAt": "2026-10-21T00:00:00.000Z"
+        "type": "RENEWAL", // "RENEWAL" | "WELCOME"
+        "createdAt": "2026-10-21T00:00:00.000Z",
       },
       {
         "id": "cred_001",
         "userId": "usr_abc",
         "amount": 4000,
         "type": "WELCOME",
-        "createdAt": "2026-10-15T12:00:00.000Z"
-      }
-    ]
-  }
+        "createdAt": "2026-10-15T12:00:00.000Z",
+      },
+    ],
+  },
 }
 ```
 
@@ -232,9 +236,9 @@ Sample JSON response:
 interface FreeCreditHistory {
   id: string;
   userId: string;
-  amount: number;             // tokens awarded
+  amount: number; // tokens awarded
   type: "RENEWAL" | "WELCOME";
-  createdAt: string;          // ISO string
+  createdAt: string; // ISO string
 }
 ```
 
@@ -262,20 +266,20 @@ Sample JSON response:
       {
         "id": "tx_stripe_999",
         "userId": "usr_abc",
-        "type": "DEPOSIT",                      // "TEXT_CHAT" | "VOICE_SESSION" | "DEPOSIT"
+        "type": "DEPOSIT", // "TEXT_CHAT" | "VOICE_SESSION" | "DEPOSIT"
         "description": "Wallet Top-up ($10.00)",
-        "amount": 1000,                         // US CENTS ($10.00)
+        "amount": 1000, // US CENTS ($10.00)
         "details": "Card deposit approved",
-        "status": "COMPLETED",                  // "PENDING" | "COMPLETED" | "FAILED"
-        "method": "STRIPE",                     // "STRIPE" | "AIRTEL" | "MTN"
+        "status": "COMPLETED", // "PENDING" | "COMPLETED" | "FAILED"
+        "method": "STRIPE", // "STRIPE" | "AIRTEL" | "MTN"
         "reference": "TX-1729500000000",
         "providerTransactionId": "pi_3Qexample",
         "country": "UG",
-        "fee": 0,                               // in US CENTS
-        "createdAt": "2026-10-21T08:00:00.000Z"
-      }
-    ]
-  }
+        "fee": 0, // in US CENTS
+        "createdAt": "2026-10-21T08:00:00.000Z",
+      },
+    ],
+  },
 }
 ```
 
@@ -287,15 +291,15 @@ interface Transaction {
   userId: string;
   type: "TEXT_CHAT" | "VOICE_SESSION" | "DEPOSIT";
   description: string;
-  amount: number;             // in US CENTS
-  details: string;            // e.g. "1.5k tokens" or "4m 20s"
+  amount: number; // in US CENTS
+  details: string; // e.g. "1.5k tokens" or "4m 20s"
   status: "PENDING" | "COMPLETED" | "FAILED";
   method: TransactionMethod;
   reference: string;
   providerTransactionId?: string;
   country?: string;
-  fee?: number;               // in US CENTS
-  createdAt: string;          // ISO string
+  fee?: number; // in US CENTS
+  createdAt: string; // ISO string
 }
 ```
 
@@ -310,6 +314,7 @@ interface Transaction {
 
   Note there is **no `custom`** here (unlike `/usage`), so a date-range picker has
   no server support on this route — filter client-side if you need one.
+
 - `type` is forwarded to the query **verbatim and unvalidated**; an unrecognised
   value simply matches nothing and yields an empty page rather than a 400.
 - `/transactions/:id` is owner-guarded — a foreign/unknown id is **404** (not 403).
@@ -336,7 +341,7 @@ Keep this single conversion helper; never scatter the `3800`/`100` literals.
   call — the pre-flight can go stale.
 - **Refetch `/me` after any spend or top-up** to refresh the balance (there's no
   server push over HTTP). See `account-and-history.md`.
-- **Use cents for wallet money math**; chart costs arrive in dollars. Convert
+- **Use cents for wallet money math**; chart costs arrive in cents. Convert
   to UGX only at render using the appropriate source unit.
 - **Show the three buckets** (welcome / daily free / paid) from the `User` doc so
   users understand why a call was free.
@@ -349,20 +354,20 @@ Keep this single conversion helper; never scatter the `3800`/`100` literals.
 - `duration` (transactions) and `filter` (usage) are **different** query vocab and
   have **different defaults**:
 
-  | Route | Param | Values | Default |
-  |---|---|---|---|
-  | `/transactions` | `duration` | `all` `today` `yesterday` `last_week` `month` | `all` |
-  | `/usage` | `filter` | `today` `yesterday` `last_week` `month` `custom` | **`today`** |
-  | `/usage/chart` | `filter` | same as `/usage` | **`last_week`** |
+  | Route           | Param      | Values                                           | Default         |
+  | --------------- | ---------- | ------------------------------------------------ | --------------- |
+  | `/transactions` | `duration` | `all` `today` `yesterday` `last_week` `month`    | `all`           |
+  | `/usage`        | `filter`   | `today` `yesterday` `last_week` `month` `custom` | **`today`**     |
+  | `/usage/chart`  | `filter`   | same as `/usage`                                 | **`last_week`** |
 
   So `/usage` and `/usage/chart` share a vocabulary but **not** a default — calling
   both with no `filter` gives you today's totals beside a week-long chart. Always
   pass `filter` explicitly when the two are shown together.
+
 - Only `/usage` and `/usage/chart` accept `custom` + `start`/`end`, and only when
   **all three** are present (`filter === "custom" && start && end`); a `custom` with
   a missing bound silently falls back to the default window rather than erroring.
 - A `canSend: true` is not a guarantee — the authoritative check is on the AI route,
   which can still 402.
-
 
 <!-- /coderabbit-ai-generated:v1 -->

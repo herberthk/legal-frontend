@@ -16,6 +16,7 @@ const schema = z.object({
   title: z.string().min(1).max(300),
   fileName: z.string().min(1).max(300),
   fileUrl: z.url().max(2048).optional(),
+  tempStoragePath: z.string().min(1).max(1024).optional(),
   transcribedText: z.string().min(1).max(900_000),
   formatMode: z.enum(["professional", "original"]),
   tokensUsed: z.number().int().nonnegative().optional(),

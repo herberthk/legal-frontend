@@ -38,6 +38,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
     formatMode,
     error,
     errorType,
+    tempStoragePath,
     setStatus,
     setTranscription,
     setFormatMode,
@@ -86,27 +87,25 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
 
   const performSave = async (finalTitle: string) => {
     setIsSaving(true);
-    const toastId = toast.loading(
-      file ? "Uploading source document..." : "Saving to database...",
-    );
+    const toastId = toast.loading("Saving to database...", {
+      style: {
+        backgroundColor: "#1e293b",
+        color: "#ffffff",
+        border: "none",
+      },
+    });
     let fileUrl: string | undefined = undefined;
 
     try {
-      if (file) {
+      // If we don't have a tempStoragePath from processDocument and need to upload (e.g. manual edit)
+      if (file && !tempStoragePath && !initialRecord?.fileUrl) {
+        toast.loading("Uploading source document...", { id: toastId });
         const storageRef = ref(
           storage,
           `${BUCKETS.STORED_FILES}/transcriptions/${Date.now()}_${file.name}`,
         );
         const snapshot = await uploadBytes(storageRef, file);
         fileUrl = await getDownloadURL(snapshot.ref);
-        toast.loading("Saving to database...", {
-          id: toastId,
-          style: {
-            backgroundColor: "#1e293b",
-            color: "#ffffff",
-            border: "none",
-          },
-        });
       }
 
       const res = await saveTranscriptionRecord({
@@ -114,6 +113,7 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
         title: finalTitle,
         fileName: file?.name || initialRecord?.fileName || "untitled.pdf",
         fileUrl: fileUrl || initialRecord?.fileUrl,
+        tempStoragePath: tempStoragePath || undefined,
         transcribedText: transcription,
         formatMode,
         tokensUsed: tokensUsed || initialRecord?.tokensUsed,
