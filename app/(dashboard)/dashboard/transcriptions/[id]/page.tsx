@@ -1,69 +1,39 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { toast } from "sonner";
-import { useRouter } from "nextjs-toploader/app";
-import { getTranscriptionRecord } from "@/lib/actions/transcribe";
-import Transcribe from "../../transcribe/Transcribe";
-import { ViewRecordSkeleton } from "@/components/user/transcribe/TranscriptionSkeleton";
 import DirectionalTransition from "@/components/global/DirectionalTransition";
+import { getTranscriptionRecord } from "@/lib/actions/transcribe";
+import { notFound } from "next/navigation";
+import { TranscriptionViewClient } from "./TranscriptionViewClient";
+import type { Metadata } from "next";
 
-export default function TranscriptionViewPage() {
-  const { id } = useParams();
-  const router = useRouter();
-  const [record, setRecord] = useState<TranscriptionRecord | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export const maxDuration = 30;
 
-  useEffect(() => {
-    if (!id || typeof id !== "string") return;
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-    const fetchRecord = async () => {
-      try {
-        const res = await getTranscriptionRecord(id);
-        if (res.success && res.record) {
-          setRecord(res.record);
-        } else {
-          toast.error("Failed to load transcription", {
-            description: res.error,
-            style: {
-              backgroundColor: "#dc2626",
-              color: "white",
-            },
-          });
-          router.push("/dashboard/transcriptions");
-        }
-      } catch (error) {
-        toast.error("Error loading transcription", {
-          description: (error as Error).message,
-          style: {
-            backgroundColor: "#dc2626",
-            color: "white",
-          },
-        });
-        router.push("/dashboard/transcriptions");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const res = await getTranscriptionRecord(id);
+  const title =
+    res.success && res.record?.title ? res.record.title : "Transcription";
+  return {
+    title: `${title} | Legal Adviser Uganda`,
+    description: "View, edit, and export transcribed legal documents.",
+  };
+}
 
-    fetchRecord();
-  }, [id, router]);
+export default async function TranscriptionViewPage({ params }: PageProps) {
+  const { id } = await params;
+  const res = await getTranscriptionRecord(id);
 
-  if (isLoading) {
-    return <ViewRecordSkeleton />;
-  }
-
-  if (!record) {
-    return null; // Will redirect in useEffect
+  if (!res.success || !res.record) {
+    notFound();
   }
 
   return (
     <DirectionalTransition>
-      <Transcribe
-        initialRecord={record}
-        onClose={() => router.push("/dashboard/transcriptions")}
-      />
+      <TranscriptionViewClient initialRecord={res.record} />
     </DirectionalTransition>
   );
 }

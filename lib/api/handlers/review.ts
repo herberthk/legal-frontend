@@ -29,6 +29,7 @@ import {
   sanitizeUntrustedDocumentText,
   wrapDocumentForModel,
 } from "@/lib/security/sanitizer";
+import sharp from "sharp";
 
 // Static schema declaration to avoid recreating validation objects on every request
 const legalReviewSchema = z.object({
@@ -165,11 +166,27 @@ export async function handleReviewRequest(
     let pageCount = 1;
     let extractedText = "";
     let useMultimodalFile = false;
+    let modelPayloadBuffer = buffer;
+    let modelPayloadMimeType = isPdf ? "application/pdf" : file.type;
 
     if (isImage) {
       estimatedInputTokens = 1000;
       pageCount = 1;
       useMultimodalFile = true;
+      try {
+        modelPayloadBuffer = await sharp(buffer)
+          .rotate()
+          .flatten({ background: "#ffffff" })
+          .toColorspace("srgb")
+          .jpeg({ quality: 92 })
+          .toBuffer();
+        modelPayloadMimeType = "image/jpeg";
+      } catch (sharpError) {
+        console.warn(
+          "[review] Sharp image normalization failed, using raw buffer:",
+          sharpError,
+        );
+      }
     } else {
       try {
         const extracted = await extractDocumentText(buffer, isPdf ? "pdf" : "docx");
@@ -263,8 +280,8 @@ export async function handleReviewRequest(
           ? [
               {
                 type: "file",
-                data: buffer.toString("base64"),
-                mediaType: isPdf ? "application/pdf" : file.type,
+                data: modelPayloadBuffer.toString("base64"),
+                mediaType: modelPayloadMimeType,
               },
               {
                 type: "text",

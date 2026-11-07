@@ -67,6 +67,7 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.4",
     "simplex-noise": "^4.0.3",
     "sonner": "^2.0.7",
     "stripe": "^22.1.1",
