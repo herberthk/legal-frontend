@@ -1,6 +1,6 @@
 <!-- coderabbit-ai-generated:v1 -->
 
-<!-- coderabbit-ai-generated-section:v1:55119a58159e9606ba8a4bb374c93d4e332bd9cd3c2397a3b5b64ee5f9a9af1d -->
+<!-- coderabbit-ai-generated-section:v1:159fc70b41a8630b2e1f36a8613bacf69a368ebde869ee16ee1fa81d849dea3a -->
 
 # Billing & Usage — Mobile Agent Skill
 
@@ -133,7 +133,7 @@ GET /usage/chart?filter=last_week&start=<ISO>&end=<ISO>&timezoneOffset=-180
 → 200 { "data": {
     "success": true,
     "chartData": ChartDataPoint[],
-    "totalPeriodCost": 840      // CENTS ($8.40)
+    "totalPeriodCost": 8.40     // US dollars
 } }
 ```
 
@@ -144,21 +144,21 @@ Sample JSON response:
 {
   "data": {
     "success": true,
-    "totalPeriodCost": 840, // 840 US CENTS ($8.40)
+    "totalPeriodCost": 8.40, // US dollars ($8.40)
     "chartData": [
       {
         "name": "Mon",
         "text": 900, // tokens
-        "voice": 60, // seconds
-        "document": 2, // page count
-        "cost": 120, // US CENTS
+        "voice": 60, // minutes
+        "document": 2, // tokens
+        "cost": 1.20, // US dollars ($1.20)
       },
       {
         "name": "Tue",
         "text": 1450, // Tokens
-        "voice": 120, // Seconds
-        "document": 0, // Page Count
-        "cost": 210, // US CENTS ($2.10)
+        "voice": 120, // Minutes
+        "document": 0, // Tokens
+        "cost": 2.10, // US dollars ($2.10)
       },
     ],
   },
@@ -169,9 +169,9 @@ Sample JSON response:
 interface ChartDataPoint {
   name: string; // Day label ("Mon") or hour label ("14:00")
   text: number; // token count
-  voice: number; // voice seconds
-  document: number; // document pages/count
-  cost: number; // in US CENTS
+  voice: number; // voice minutes
+  document: number; // document token count
+  cost: number; // in US dollars
 }
 ```
 
@@ -179,9 +179,9 @@ interface ChartDataPoint {
   bucket by day.
 - **`timezoneOffset`** is `new Date().getTimezoneOffset()` (minutes) so buckets
   align to the device's local day. Pass it or charts will be off by the UTC offset.
-- `getUsageChartData` returns `voice` in **seconds** and `document` as a **token count**.
-- `cost` per bucket and `totalPeriodCost` are **US cents** (stored cents divided
-  by 100). For UGX display, multiply these chart values by USD_UGX_RATE provided directly.
+- `getUsageChartData` returns `voice` in **minutes** and `document` as a **token count**.
+- `cost` per bucket and `totalPeriodCost` are **US dollars** (stored cents divided
+  by 100). For UGX display, multiply these dollar amounts directly by USD_UGX_RATE (do not divide by 100 again).
 
 ```ts
 const q = new URLSearchParams({
@@ -341,7 +341,7 @@ Keep this single conversion helper; never scatter the `3800`/`100` literals.
   call — the pre-flight can go stale.
 - **Refetch `/me` after any spend or top-up** to refresh the balance (there's no
   server push over HTTP). See `account-and-history.md`.
-- **Use cents for wallet money math**; chart costs arrive in cents. Convert
+- **Use cents for wallet money math**; chart costs arrive in dollars. Convert
   to UGX only at render using the appropriate source unit.
 - **Show the three buckets** (welcome / daily free / paid) from the `User` doc so
   users understand why a call was free.

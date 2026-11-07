@@ -105,7 +105,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
   const [errorType, setErrorType] = useState<TranscribeErrorType | null>(null);
   const [tokensUsed, setTokensUsed] = useState<number>(0);
   const [tempStoragePath, setTempStoragePath] = useState<string | null>(null);
-  const user = useAuthStore((state) => state.user);
+  const userId = useAuthStore((state) => state.user)?.id;
 
   const [showPageNumbers, setShowPageNumbers] = useState<boolean>(true);
   const [pageNumberPosition, setPageNumberPosition] = useState<
@@ -164,7 +164,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
   }, []);
 
   const processDocument = useCallback(async () => {
-    if (!file || !user?.id) return;
+    if (!file || !userId) return;
 
     const mimeType = resolveTranscribeMimeType(file);
     if (!mimeType) {
@@ -198,7 +198,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
         /[^a-zA-Z0-9._-]/g,
         "_",
       );
-      const tempPath = `${STORAGE_PATHS.TRANSCRIPTIONS_TEMP}/${user.id}/${Date.now()}_${cleanFileName}`;
+      const tempPath = `${STORAGE_PATHS.TRANSCRIPTIONS_TEMP}/${userId}/${Date.now()}_${cleanFileName}`;
       const storageRef = ref(storage, tempPath);
       await uploadBytes(storageRef, file, { contentType: mimeType });
       setTempStoragePath(tempPath);
@@ -314,7 +314,7 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
     } finally {
       clearTimeout(timeoutId);
     }
-  }, [file, formatMode, user?.id]);
+  }, [file, formatMode, userId]);
 
   const downloadPdf = useCallback(async () => {
     try {
