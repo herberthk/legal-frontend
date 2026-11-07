@@ -23,7 +23,10 @@ const ChatPage = async (props: { params: Promise<{ chatId: string }> }) => {
   }
   return (
      <DirectionalTransition>
+        {/* key={chatId} forces a full remount when switching chats via the sidebar,
+            preventing stale chatSessionIdRef and useChat state from carrying over. */}
         <ChatInterfaceWrapper
+          key={chatId}
           chatId={chatId}
           serverChatId={chatId}
           serverMessages={initialMessages}

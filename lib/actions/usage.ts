@@ -31,9 +31,9 @@ export const checkUserCanSend = async (
     const user = { id: userDoc.id, ...userDoc.data() } as User;
 
     // Check if user has any available resources
-    const hasFreeTokens = user.freeTextTokens > 10;
-    const hasPaidBalance = user.balance > COST_PER_THOUSAND_TOKENS_IN_CENTS;
-    const hasWelcomeTokens = user.welcomeTextTokens > 10;
+    const hasFreeTokens = (user.freeTextTokens ?? 0) > 10;
+    const hasPaidBalance = (user.balance ?? 0) > COST_PER_THOUSAND_TOKENS_IN_CENTS;
+    const hasWelcomeTokens = (user.welcomeTextTokens ?? 0) > 10;
 
     if (hasFreeTokens || hasPaidBalance || hasWelcomeTokens) {
       const { createdAt, nextDailyReset, ...rest } = user;
@@ -111,16 +111,16 @@ export const recordUsageAndDeduct = async (params: {
       const user = userDoc.data() as Omit<User, "id">;
       let source: UsageSource = "free";
       let totalCost = 0;
-      let freeTokens = user.freeTextTokens;
-      let balance = user.balance;
-      let welcomeTextTokens = user.welcomeTextTokens;
+      let freeTokens = user.freeTextTokens ?? 0;
+      let balance = user.balance ?? 0;
+      let welcomeTextTokens = user.welcomeTextTokens ?? 0;
 
       if (welcomeTextTokens > 0) {
-        // Deduct exclusively from free token quota first
+        // Deduct exclusively from welcome token quota first
         welcomeTextTokens = Math.max(0, welcomeTextTokens - tokens);
         source = "welcome";
-      } else if (freeTokens > 0 && welcomeTextTokens === 0) {
-        // Deduct exclusively from free token quota first
+      } else if (freeTokens > 0) {
+        // Deduct exclusively from daily free token quota
         freeTokens = Math.max(0, freeTokens - tokens);
         source = "free";
       } else {
@@ -137,7 +137,7 @@ export const recordUsageAndDeduct = async (params: {
         freeTextTokens: freeTokens,
         balance,
         welcomeTextTokens,
-        totalSpent: (user.totalSpent || 0) + totalCost,
+        totalSpent: (user.totalSpent ?? 0) + totalCost,
       });
 
       // Create usage record

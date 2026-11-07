@@ -44,6 +44,32 @@ export const createChatSession = async (userId: string, title: string) => {
 };
 
 /**
+ * Verifies that a chat session belongs to the given user.
+ * Used as a server-side ownership guard before writing messages or deducting usage,
+ * preventing a spoofed x-chat-id header from writing to another user's session.
+ * @param sessionId - The chat session ID to verify
+ * @param userId - The authenticated user's ID
+ * @returns true if the session exists and belongs to the user
+ */
+export async function verifyChatSessionOwner(
+  sessionId: string,
+  userId: string,
+): Promise<boolean> {
+  try {
+    const sessionDoc = await db
+      .collection(COLLECTIONS.CHAT_SESSIONS)
+      .doc(sessionId)
+      .get();
+
+    if (!sessionDoc.exists) return false;
+    return sessionDoc.data()?.userId === userId;
+  } catch (error) {
+    console.error("Error verifying chat session owner:", error);
+    return false;
+  }
+}
+
+/**
  * Saves a chat message to a session's subcollection
  * @param sessionId - The chat session ID
  * @param message - The message data to save
@@ -75,8 +101,8 @@ export async function saveChatMessage(
         ...(message.attachment && { attachment: message.attachment }),
       });
 
-      // Update session metadata
-      transaction.update(
+      // Update session metadata (using set with merge: true so it creates or updates safely without NOT_FOUND errors)
+      transaction.set(
         db.collection(COLLECTIONS.CHAT_SESSIONS).doc(sessionId),
         {
           updatedAt: FieldValue.serverTimestamp(),
@@ -87,6 +113,7 @@ export async function saveChatMessage(
               title: message.text.slice(0, 100),
             }),
         },
+        { merge: true },
       );
 
       return { success: true, messageId: messageRef.id };

@@ -9,7 +9,7 @@ import {
 } from "ai";
 
 import { recordUsageAndDeduct, checkUserCanSend } from "@/lib/actions/usage";
-import { saveChatMessage } from "@/lib/actions/chat";
+import { saveChatMessage, verifyChatSessionOwner } from "@/lib/actions/chat";
 import {
   LEGAL_ADVISER_SYSTEM_INSTRUCTION,
   CHARS_PER_TOKEN,
@@ -115,6 +115,16 @@ export async function handleChatRequest(
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
+
+    // Verify the chat session belongs to this user before streaming or persisting
+    const isOwner = await verifyChatSessionOwner(sessionId, userId);
+    if (!isOwner) {
+      return new Response(
+        JSON.stringify({ error: "Chat session not found or access denied." }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     const isFirstMessage = req.headers.get("x-first-message");
 
     const { canSend, reason, user } = await checkUserCanSend(userId);
@@ -126,7 +136,6 @@ export async function handleChatRequest(
     }
 
     const lastUserMessage = messages[messages.length - 1];
-    console.log("is first message", isFirstMessage);
 
     // Preserve the original file metadata before we mutate parts for Gemini
     const originalFilePart = lastUserMessage.parts?.find(
@@ -141,7 +150,6 @@ export async function handleChatRequest(
 
     // Limit context window to the last N messages
     const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
-    console.log("messages", historyMessages.length);
 
     let estimatedInputTokens = 0;
     let hasDocument = false;
@@ -309,60 +317,62 @@ export async function handleChatRequest(
         const totalTokens =
           (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);
 
-        // Execute database updates in background asynchronously so response stream closes cleanly
-        (async () => {
-          try {
-            if (sessionId !== null) {
-              const dbPromises = [];
+        if (!sessionId) return;
 
-              if (totalTokens > 0) {
-                dbPromises.push(
-                  recordUsageAndDeduct({
-                    userId,
-                    type: "TEXT_RESPONSE",
-                    tokens: totalTokens,
-                    sessionId,
-                  }),
-                );
-              }
+        try {
+          const dbPromises = [];
 
-              if (text) {
-                dbPromises.push(
-                  (async () => {
-                    // We await these sequentially to guarantee the user message gets an older or equal timestamp
-                    // than the assistant message and they appear in the correct order in Firestore.
-                    await saveChatMessage(sessionId, {
-                      role: "user",
-                      // Sanitize user text with DOMPurify before saving to Firestore to prevent Stored XSS
-                      text: sanitizeChatContent(originalTextToSend),
-                      tokenCount: estimatedInputTokens,
-                      isFirstMessage: isFirstMessage === "true",
-                      ...(originalFilePart && {
-                        attachment: {
-                          name: sanitizeFilename(originalFilePart.filename || "document.pdf"),
-                          contentType: originalFilePart.mediaType,
-                          url: originalFilePart.url,
-                        },
-                      }),
-                    });
-
-                    await saveChatMessage(sessionId, {
-                      role: "assistant",
-                      // Sanitize assistant text with DOMPurify before saving to Firestore to prevent Stored XSS
-                      text: sanitizeChatContent(text),
-                      tokenCount: usage?.outputTokens ?? 0,
-                      isFirstMessage: false,
-                    });
-                  })(),
-                );
-              }
-
-              await Promise.all(dbPromises);
-            }
-          } catch (err) {
-            console.error("Error saving chat message:", err);
+          if (totalTokens > 0) {
+            dbPromises.push(
+              recordUsageAndDeduct({
+                userId,
+                type: "TEXT_RESPONSE",
+                tokens: totalTokens,
+                sessionId,
+              }),
+            );
           }
-        })();
+
+          if (text || originalTextToSend || originalFilePart) {
+            dbPromises.push(
+              (async () => {
+                // We await these sequentially to guarantee the user message gets an older or equal timestamp
+                // than the assistant message and they appear in the correct order in Firestore.
+                await saveChatMessage(sessionId, {
+                  role: "user",
+                  // Sanitize user text with DOMPurify before saving to Firestore to prevent Stored XSS
+                  text: sanitizeChatContent(originalTextToSend),
+                  tokenCount: estimatedInputTokens,
+                  isFirstMessage: isFirstMessage === "true",
+                  ...(originalFilePart && {
+                    attachment: {
+                      name: sanitizeFilename(originalFilePart.filename || "document.pdf"),
+                      contentType: originalFilePart.mediaType,
+                      url: originalFilePart.url,
+                    },
+                  }),
+                });
+
+                await saveChatMessage(sessionId, {
+                  role: "assistant",
+                  // Sanitize assistant text with DOMPurify before saving to Firestore to prevent Stored XSS
+                  text: sanitizeChatContent(text || ""),
+                  tokenCount: usage?.outputTokens ?? 0,
+                  isFirstMessage: false,
+                });
+              })(),
+            );
+          }
+
+          // Awaiting here ensures all database writes and deductions are committed
+          // BEFORE the stream closes, preventing serverless freeze/loss and client race conditions.
+          await Promise.all(dbPromises);
+        } catch (err) {
+          console.error(
+            `[onEnd] Failed to persist chat or record usage — userId=${userId} sessionId=${sessionId} totalTokens=${totalTokens}:`,
+            err,
+          );
+        }
       },
     });
 

@@ -43,7 +43,7 @@ data: [DONE]
 **Errors** are a flat string, not the envelope (the AI SDK expects this):
 
 ```jsonc
-// 400 missing x-chat-id, 402 out of credit, 401 auth/appcheck, 500 generation error
+// 400 missing x-chat-id, 403 session unauthorized, 402 out of credit, 401 auth/appcheck, 500 generation error
 {
   "error": "Insufficient tokens. This message requires ~1,200 tokens but you only have ~300…",
 }
@@ -55,9 +55,10 @@ The checks run in this exact order, so an earlier failure masks a later one:
 |---|---|---|---|
 | 1 | `messages` empty or absent | 400 | `No messages provided.` |
 | 2 | `x-chat-id` missing/empty | 400 | `Missing x-chat-id header.` |
-| 3 | account inactive / no credit | 402 | (reason from `checkUserCanSend`) |
-| 4 | estimate exceeds balance | 402 | `Insufficient tokens. …` |
-| 5 | generation failure | 500 | `An error occurred during chat generation.` |
+| 3 | session missing or belongs to another user | 403 | `Chat session not found or access denied.` |
+| 4 | account inactive / no credit | 402 | (reason from `checkUserCanSend`) |
+| 5 | estimate exceeds balance | 402 | `Insufficient tokens. …` |
+| 6 | generation failure | 500 | `An error occurred during chat generation.` |
 
 An empty `messages` array is therefore a `400 No messages provided.` **before**
 `x-chat-id` is even looked at — don't send a "warm-up" request with no messages
@@ -72,7 +73,8 @@ _before_ streaming and rejects up front, so a 402 arrives instead of a stream.
 
 ## Model & server behavior (for context)
 
-- Model `gemini-3.6-flash`, `temperature: 0`, thinking/reasoning enabled
+- Model `gemini-3.7-flash`, `temperature: 0`, thinking/reasoning enabled
+  (`sendReasoning: true` → you receive `reasoning-delta` parts).
   (`sendReasoning: true` → you receive `reasoning-delta` parts).
 - Server keeps only the **last 6 messages** (`MAX_HISTORY_MESSAGES`) — you may send
   full history, but sending the last ~6 saves bandwidth and matches server context.
@@ -92,8 +94,10 @@ server rejects the request immediately:
 ```
 
 The header is what the turn is billed against and persisted under, so there is no
-"anonymous stream" mode. It's checked **before** the credit pre-flight, so a missing
-header always surfaces as this 400 rather than a 402.
+"anonymous stream" mode. It is checked **before** the credit pre-flight, and the server
+strictly verifies that the session exists in Firestore and belongs to the authenticated `userId`.
+A missing header surfaces as `400 Missing x-chat-id header.`, while an invalid or unowned
+session ID surfaces as `403 Chat session not found or access denied.`
 
 **Therefore: create a chat session first, then stream into it.**
 
@@ -186,6 +190,9 @@ export function useLegalChat(chatId: string) {
       // Mark first turn completed ONLY when a message response finishes successfully.
       // Failed turns will retain x-first-message: "true" on retry so title generation works.
       isFirst.current = false;
+      // Note: The server guarantees that user + assistant messages and usage deductions
+      // are committed to Firestore BEFORE the stream closes, so you can safely refresh
+      // token balances or refetch history here without race conditions.
     },
     onError: (err) => {
       // Body is flat `{ error: string }`. Inspect status and error message:
@@ -199,6 +206,12 @@ export function useLegalChat(chatId: string) {
         message.toLowerCase().includes("token")
       ) {
         router.push("/billing/topup");
+        return;
+      }
+
+      // 403 Session access denied: session missing or belongs to another user
+      if (status === 403 || message.toLowerCase().includes("access denied")) {
+        showErrorToast("Chat session not found or access denied.");
         return;
       }
 
