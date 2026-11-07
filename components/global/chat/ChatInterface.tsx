@@ -75,6 +75,8 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
   // Holds the latest chatSessionId synchronously — never stale even within the
   // same render tick as setChatSessionId.
   const chatSessionIdRef = useRef<string | null>(chatId || null);
+  // Synchronous flag to track if the next outgoing message is the first message in this chat
+  const isFirstMessageRef = useRef<boolean>((serverMessages?.length ?? 0) === 0);
   // Tracks the ID of the chat that was auto-triggered to prevent loading its history
   const autoTriggeredChatIdRef = useRef<string | null>(null);
 
@@ -191,10 +193,12 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
       // chatSessionIdRef.current is always the newest value — never stale.
       prepareSendMessagesRequest: async ({ messages: msgs, id }) => {
         const appCheckToken = await getAppCheckToken();
+        const isFirst = isFirstMessageRef.current;
+        isFirstMessageRef.current = false;
         return {
           headers: {
             "x-chat-id": chatSessionIdRef.current ?? "",
-            "x-first-message": !chatSessionId ? "true" : "false",
+            "x-first-message": isFirst ? "true" : "false",
             ...(appCheckToken ? { "x-firebase-appcheck": appCheckToken } : {}),
           },
           body: { messages: msgs, id },
@@ -337,11 +341,14 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
     const loadChatHistory = async () => {
       // Reset to blank when there is no active chat
       if (!chatId) {
+        chatSessionIdRef.current = null;
         setChatSessionId(null);
         setMessages([]);
         setSessionStats({ textTokens: 0, voiceSeconds: 0 });
         return;
       }
+
+      chatSessionIdRef.current = chatId;
 
       // messages is already populated (from initialMessages or a previous load)
       if (chatId === chatSessionId && messages.length > 1) return;
@@ -380,8 +387,8 @@ const ChatInterface: FC<ChatInterfaceProps> = ({
 
       try {
         const result = await getChatMessages(chatId);
-        console.log("Messages",result.messages.length)
         if (result.success && result.messages && result.messages.length > 0) {
+          isFirstMessageRef.current = false;
           let totalTokens = 0;
           const historyMessages: UIMessage[] = result.messages.map((m) => {
             totalTokens += m.tokenCount || 0;

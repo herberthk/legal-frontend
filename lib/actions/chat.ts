@@ -75,7 +75,7 @@ export async function saveChatMessage(
         ...(message.attachment && { attachment: message.attachment }),
       });
 
-      // Update session metadata
+      // Require the session to exist when updating its metadata.
       transaction.update(
         db.collection(COLLECTIONS.CHAT_SESSIONS).doc(sessionId),
         {

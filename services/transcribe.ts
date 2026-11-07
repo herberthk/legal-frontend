@@ -12,6 +12,7 @@ import { vertex } from "@/lib/actions/vertex";
 import { extractDocumentText } from "@/lib/document-extractor";
 import { sanitizeFilename } from "@/lib/security/sanitizer";
 import crypto from "crypto";
+import sharp from "sharp";
 
 class UserFacingTranscriptionError extends Error {}
 
@@ -108,6 +109,39 @@ export async function transcribeDocument(
       };
     }
 
+    // 4. Preprocess / normalize image inputs
+    // Vertex AI multimodal ingestion strictly requires standard RGB/sRGB image data.
+    // Conflicting Adobe APP14 color-transform segments, 1-channel grayscale/B-W JPEGs,
+    // 4-channel CMYK images, or non-standard color spaces cause Vertex AI to fail with:
+    // "The provided file is malformed or corrupted and could not be decoded."
+    // Normalizing with sharp auto-orients via EXIF, converts to standard sRGB, flattens alpha onto white,
+    // and produces a clean, standard JPEG.
+    let payloadBuffer: Buffer = fileBuffer;
+    let payloadMimeType: string = mimeType;
+
+    if (mimeType !== "application/pdf") {
+      try {
+        payloadBuffer = await sharp(fileBuffer)
+          .rotate()
+          .flatten({ background: "#ffffff" })
+          .toColorspace("srgb")
+          .jpeg({ quality: 92 })
+          .toBuffer();
+        payloadMimeType = "image/jpeg";
+
+        // Update the temp storage file with the normalized, properly rotated
+        // image so permanent archiving and previews benefit from the clean sRGB representation.
+        await file.save(payloadBuffer, { contentType: "image/jpeg" }).catch((err) => {
+          console.warn("[transcribe] Non-blocking temp storage update failed:", err);
+        });
+      } catch (sharpError) {
+        console.warn(
+          "[transcribe] Sharp normalization failed, falling back to original file buffer:",
+          sharpError,
+        );
+      }
+    }
+
     const systemInstruction = DOCUMENT_TRANSCRIBE_SYSTEM_INSTRUCTION({ formatMode });
 
     const { text, usage } = await generateText({
@@ -125,8 +159,8 @@ export async function transcribeDocument(
             },
             {
               type: "file",
-              data: fileBuffer.toString("base64"),
-              mediaType: mimeType,
+              data: payloadBuffer.toString("base64"),
+              mediaType: payloadMimeType,
             },
           ],
         },

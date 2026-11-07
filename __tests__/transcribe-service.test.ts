@@ -1,8 +1,9 @@
+import sharp from "sharp";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { saveTranscriptionRecord, transcribeDocument } from "@/services/transcribe";
 
 const mocks = vi.hoisted(() => ({
-  get: vi.fn(), update: vi.fn(), set: vi.fn(),
+  save: vi.fn(), get: vi.fn(), update: vi.fn(), set: vi.fn(),
   exists: vi.fn(), download: vi.fn(), move: vi.fn(), restore: vi.fn(),
   metadata: vi.fn(), generate: vi.fn(), credits: vi.fn(), bucket: vi.fn(),
 }));
@@ -27,7 +28,7 @@ beforeEach(() => {
   mocks.download.mockResolvedValue([Buffer.from("image")]);
   mocks.metadata.mockResolvedValue([{ metadata: { firebaseStorageDownloadTokens: "token" } }]);
   mocks.bucket.mockReturnValue({ name: "bucket", file: (path: string) => path === tempStoragePath
-    ? { exists: mocks.exists, download: mocks.download, move: mocks.move }
+    ? { exists: mocks.exists, download: mocks.download, save: mocks.save, move: mocks.move }
     : { getMetadata: mocks.metadata, move: mocks.restore } });
   mocks.credits.mockResolvedValue({ canSend: true, user: { freeTextTokens: 100000 } });
 });
@@ -69,5 +70,29 @@ describe("transcription file promotion", () => {
     mocks.metadata.mockRejectedValue(new Error("metadata unavailable"));
     expect(await saveTranscriptionRecord(data, "user")).toMatchObject({ success: true, filePromoted: false });
     expect(mocks.restore).toHaveBeenCalledWith(tempStoragePath);
+  });
+});
+
+
+describe("normalized image storage", () => {
+  it("waits for the normalized save before finishing transcription", async () => {
+    mocks.download.mockResolvedValue([await sharp({ create: { width: 1, height: 1, channels: 3, background: "white" } }).png().toBuffer()]);
+    let finishSave!: () => void;
+    mocks.save.mockReturnValue(new Promise<void>((resolve) => { finishSave = resolve; }));
+    mocks.generate.mockResolvedValue({ text: "Transcribed", usage: {} });
+    const pending = transcribeDocument(params, "user");
+    await vi.waitFor(() => expect(mocks.save).toHaveBeenCalled());
+    expect(mocks.generate).not.toHaveBeenCalled();
+    finishSave();
+    expect(await pending).toMatchObject({ success: true });
+  });
+  it("warns and continues when saving the normalized image fails", async () => {
+    mocks.download.mockResolvedValue([await sharp({ create: { width: 1, height: 1, channels: 3, background: "white" } }).png().toBuffer()]);
+    const error = new Error("storage unavailable");
+    mocks.save.mockRejectedValue(error);
+    mocks.generate.mockResolvedValue({ text: "Transcribed", usage: {} });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await transcribeDocument(params, "user")).toMatchObject({ success: true });
+    expect(console.warn).toHaveBeenCalledWith("[transcribe] Non-blocking temp storage update failed:", error);
   });
 });
