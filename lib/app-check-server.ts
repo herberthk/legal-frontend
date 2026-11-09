@@ -46,7 +46,6 @@ export async function verifyAppCheckHeader(
   if (!token) {
     if (
       process.env.NODE_ENV !== "production" &&
-      !process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_KEY &&
       !process.env.NEXT_PUBLIC_FIREBASE_RECAPTCHA_SITE_KEY
     ) {
       return { valid: true };
@@ -65,7 +64,6 @@ export async function verifyAppCheckHeader(
 
     if (
       process.env.NODE_ENV !== "production" &&
-      !process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_KEY &&
       !process.env.NEXT_PUBLIC_FIREBASE_RECAPTCHA_SITE_KEY
     ) {
       return { valid: true };

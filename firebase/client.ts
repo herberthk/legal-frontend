@@ -60,9 +60,8 @@ if (typeof window !== "undefined") {
   }
 
   const appCheckKey =
-    process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_KEY ||
     process.env.NEXT_PUBLIC_FIREBASE_RECAPTCHA_SITE_KEY;
-
+  // console.log("APPCHECKKEY", appCheckKey);
   if (appCheckKey) {
     try {
       appCheck = initializeAppCheck(app, {

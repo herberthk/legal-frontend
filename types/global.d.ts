@@ -79,7 +79,6 @@ declare namespace NodeJS {
      * under "App Check" → "reCAPTCHA provider" → "Provider configuration".
      */
     NEXT_PUBLIC_FIREBASE_RECAPTCHA_SITE_KEY: string;
-    NEXT_PUBLIC_FIREBASE_APPCHECK_KEY: string;
     NEXT_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN: string;
     DISABLE_APP_CHECK?: string;
 

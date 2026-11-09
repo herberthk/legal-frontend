@@ -15,6 +15,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   // 0. Verify App Check token
   const appCheckResult = await verifyAppCheckHeader(req);
+  // console.log("APPCHECK RESULT", appCheckResult);
   if (!appCheckResult.valid) {
     return new Response(
       JSON.stringify({

@@ -16,6 +16,7 @@ export async function getAppCheckToken(
 
   try {
     const result = await getToken(appCheck, forceRefresh);
+    // console.log("[AppCheck] Token retrieved:", result?.token);
     return result?.token ?? null;
   } catch (error) {
     console.warn("[AppCheck] Unable to retrieve token:", error);
