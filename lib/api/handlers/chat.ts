@@ -1,6 +1,7 @@
 import { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import {
   convertToModelMessages,
+  createUIMessageStream,
   createUIMessageStreamResponse,
   smoothStream,
   streamText,
@@ -10,6 +11,12 @@ import {
 
 import { recordUsageAndDeduct, checkUserCanSend } from "@/lib/actions/usage";
 import { saveChatMessage } from "@/lib/actions/chat";
+import { beginChatTurn, completeChatTurn, updateChatTurnTokens, releaseChatTurnClaim } from "@/lib/actions/chat-turn";
+import {
+  checkAttachmentUrl,
+  isAllowedFileUrl,
+} from "@/lib/api/v1/attachment-url";
+import { isTurnId } from "@/lib/chat-turn";
 import { verifyChatSessionOwner } from "@/lib/api/v1/ownership";
 import {
   LEGAL_ADVISER_SYSTEM_INSTRUCTION,
@@ -28,8 +35,15 @@ import { vertex } from "@/lib/actions/vertex";
  * (token estimation, DOCX extraction, the `streamText` call, and the
  * `onEnd` deduction) lives here so it can never drift between the two surfaces.
  *
- * Behaviour is byte-for-byte the previous web handler; do not change it without
- * re-verifying the web chat flow.
+ * ── Two persistence paths ────────────────────────────────────────────────────
+ * A request **without** `x-turn-id` is the web client and keeps the original
+ * behaviour exactly: persist and bill once, in `onEnd`. A request **with** a
+ * `x-turn-id` is the mobile client and goes through the turn outbox: the user
+ * message is written before generation, the answer replaces `onEnd`, and a
+ * repeated request replays a stored answer instead of paying for it again.
+ *
+ * Streaming is cancellable end to end: `req.signal` reaches `streamText`, so a
+ * client Stop aborts the model rather than running the turn to completion.
  */
 
 import { extractDocumentText } from "@/lib/document-extractor";
@@ -42,14 +56,43 @@ import {
 
 const MAX_HISTORY_MESSAGES = 6;
 
-const ALLOWED_FILE_HOSTS = new Set([
-  "firebasestorage.googleapis.com",
-  "storage.googleapis.com",
-]);
+function jsonError(message: string, status: number): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function fail(message: string, status: number): never {
+  const error = new Error(message) as Error & { status: number };
+  error.status = status;
+  throw error;
+}
+
+function readTurnId(req: Request): string | null {
+  const raw = req.headers.get("x-turn-id");
+  if (raw !== null && !isTurnId(raw)) fail("Invalid x-turn-id header.", 400);
+  return raw;
+}
+
+function originalFileOf(message: UIMessage | undefined) {
+  return message?.parts?.find((part) => part.type === "file") as
+    | { type: "file"; mediaType: string; filename?: string; url: string }
+    | undefined;
+}
+
+function originalTextOf(message: UIMessage | undefined): string {
+  const part = message?.parts?.find((entry) => entry.type === "text") as
+    | { type: "text"; text: string }
+    | undefined;
+  return part?.text || "";
+}
 
 async function fetchAttachment(rawUrl: string): Promise<Buffer> {
   const url = new URL(rawUrl);
-  if (url.protocol !== "https:" || !ALLOWED_FILE_HOSTS.has(url.hostname)) {
+  // The caller of this function has already validated the host and path; keep
+  // the checks here so the helper stays safe if it is reused.
+  if (!isAllowedFileUrl(url)) {
     throw new Error("Attachment URL is not allowed.");
   }
   const response = await fetch(url, {
@@ -96,14 +139,12 @@ export async function handleChatRequest(
   req: Request,
   userId: string,
 ): Promise<Response> {
+  let unstartedClaim: { sessionId: string; turnId: string; claimId: string } | undefined;
   try {
     const { messages }: { messages: UIMessage[] } = await req.json();
 
     if (!Array.isArray(messages) || messages.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No messages provided." }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
+      return jsonError("No messages provided.", 400);
     }
     // Read session ID from the custom header set by prepareSendMessagesRequest
     const rawSessionId = req.headers.get("x-chat-id");
@@ -111,43 +152,97 @@ export async function handleChatRequest(
       rawSessionId && rawSessionId.length > 0 ? rawSessionId : null;
 
     if (sessionId === null) {
-      return new Response(
-        JSON.stringify({ error: "Missing x-chat-id header." }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
+      return jsonError("Missing x-chat-id header.", 400);
     }
 
     // Verify the chat session belongs to this user before streaming or persisting
     const isOwner = await verifyChatSessionOwner(sessionId, userId);
     if (!isOwner) {
-      return new Response(
-        JSON.stringify({ error: "Chat session not found or access denied." }),
-        { status: 403, headers: { "Content-Type": "application/json" } },
-      );
+      return jsonError("Chat session not found or access denied.", 403);
     }
 
     const isFirstMessage = req.headers.get("x-first-message");
-
-    const { canSend, reason, user } = await checkUserCanSend(userId);
-    if (!canSend) {
-      return new Response(JSON.stringify({ error: reason }), {
-        status: 402,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
+    const turnId = readTurnId(req);
     const lastUserMessage = messages[messages.length - 1];
 
     // Preserve the original file metadata before we mutate parts for Gemini
-    const originalFilePart = lastUserMessage.parts?.find(
-      (p) => p.type === "file",
-    ) as
-      | { type: "file"; mediaType: string; filename?: string; url: string }
-      | undefined;
-    const originalTextPart = lastUserMessage.parts?.find(
-      (p) => p.type === "text",
-    ) as { type: "text"; text: string } | undefined;
-    const originalTextToSend = originalTextPart?.text || "";
+    const originalFilePart = originalFileOf(lastUserMessage);
+    const originalTextToSend = originalTextOf(lastUserMessage);
+
+    /*
+     * Validate every attachment before the pending row is written. A rejected
+     * request must not leave an unreviewed URL in Firestore, and a history file
+     * is re-fetched from the same prefix on every turn.
+     */
+    for (const message of messages) {
+      for (const part of message.parts ?? []) {
+        if (part.type !== "file" || !part.url) continue;
+        const check = checkAttachmentUrl(part.url, userId);
+        if (!check.ok) return jsonError(check.message, check.status);
+      }
+    }
+
+    const { canSend, reason, user } = await checkUserCanSend(userId);
+
+    /*
+     * The outbox is resolved before the credit gate: a turn whose answer is
+     * already stored is a replay, and a replay must still work for an account
+     * that has since run out of credit. A new generation is always gated.
+     *
+     * The pending user document is written here, before any token estimation, so
+     * a first question survives an app kill even if the estimate fails.
+     */
+    const began = turnId
+      ? await beginChatTurn(
+          sessionId,
+          userId,
+          {
+            turnId,
+            text: originalTextToSend,
+            tokenCount: 0,
+            ...(originalFilePart && {
+              attachment: {
+                name: originalFilePart.filename || "document",
+                contentType: originalFilePart.mediaType,
+                url: originalFilePart.url,
+              },
+            }),
+            isFirstMessage: isFirstMessage === "true",
+          },
+          // A first turn was written together with its session, so a missing row
+          // is a discard. A follow-up has no earlier write and must create one.
+          { createIfMissing: isFirstMessage !== "true" },
+        )
+      : null;
+
+    if (turnId && began?.status === "started") {
+      unstartedClaim = { sessionId, turnId, claimId: began.claimId! };
+    }
+    if (began) {
+      if (began.status === "busy" || began.status === "conflict") {
+        return jsonError("This turn is active or has different content.", 409);
+      }
+      if (began.status === "denied") {
+        return jsonError("Chat session not found or access denied.", 403);
+      }
+      if (began.status === "cancelled") {
+        // The reader discarded this turn; drop it locally and charge nothing.
+        return jsonError("This message was discarded.", 410);
+      }
+      if (began.status === "replay" && turnId) {
+        return replayTurn(turnId, began.replay ?? [], {
+          userId,
+          sessionId,
+          tokens: began.replayTokens ?? 0,
+        });
+      }
+    }
+
+    if (!canSend) {
+      // A pending turn keeps its row: the first question survives the trip to
+      // the deposit screen and can be continued afterwards.
+      return jsonError(reason ?? "Insufficient credit.", 402);
+    }
 
     // Limit context window to the last N messages
     const historyMessages = messages.slice(-MAX_HISTORY_MESSAGES);
@@ -183,6 +278,12 @@ export async function handleChatRequest(
           }
         } else if (part.type === "file") {
           hasDocument = true;
+
+          // Every file part is validated, not only the last one: a history row
+          // could otherwise point the provider at another user's object.
+          const attachment = checkAttachmentUrl(part.url, userId);
+          if (!attachment.ok) fail(attachment.message, attachment.status);
+
           // Sanitize filename against XSS, HTML tags, path traversal, and injection delimiters
           const safeFilename = sanitizeFilename(part.filename || "document");
           part.filename = safeFilename;
@@ -225,7 +326,7 @@ export async function handleChatRequest(
                 try {
                   const buffer = await fetchAttachment(part.url);
                   const extracted = await extractDocumentText(buffer, "docx");
-                  
+
                   // Defend against prompt injection and XSS in extracted document text using DOMPurify and heuristic defenses
                   const { sanitizedText, hasInjectionAttempt, detectedThreats } =
                     sanitizeUntrustedDocumentText(extracted.text, safeFilename);
@@ -278,11 +379,11 @@ export async function handleChatRequest(
     const totalAvailableTokens = freeTokens + balanceDerivedTokens;
 
     if (estimatedTotalTokens > totalAvailableTokens) {
-      return new Response(
-        JSON.stringify({
-          error: `Insufficient tokens. This message requires ~${estimatedTotalTokens.toLocaleString()} tokens but you only have ~${totalAvailableTokens.toLocaleString()} available. Please add funds.`,
-        }),
-        { status: 402, headers: { "Content-Type": "application/json" } },
+      // A persisted-but-unanswered turn is deliberately left alone so the
+      // question can be continued after a top-up.
+      return jsonError(
+        `Insufficient tokens. This message requires ~${estimatedTotalTokens.toLocaleString()} tokens but you only have ~${totalAvailableTokens.toLocaleString()} available. Please add funds.`,
+        402,
       );
     }
 
@@ -293,6 +394,19 @@ export async function handleChatRequest(
     // handles them correctly — no manual base64 extraction required.
     const modelMessages = await convertToModelMessages(historyMessages);
 
+    if (turnId && began?.status === "started") {
+      // The estimate is final: store the input token count on the pending row so
+      // history shows the same cost whether the turn finished or is continued.
+      const updated = await updateChatTurnTokens(sessionId, userId, turnId, began.claimId!, estimatedInputTokens);
+      if (updated === "cancelled") return jsonError("This message was discarded.", 410);
+      if (updated !== "updated") return jsonError("This turn claim expired.", 409);
+    }
+
+    const generationSignal = began?.claimExpiresAt
+      ? AbortSignal.any([req.signal, AbortSignal.timeout(Math.max(1, began.claimExpiresAt - Date.now() - 10_000))])
+      : req.signal;
+
+    if (generationSignal.aborted) return jsonError("This turn claim expired.", 409);
     const result = streamText({
       // model: vertex("gemini-3-flash-preview"),
       model: vertex("gemini-3.7-flash"),
@@ -314,82 +428,216 @@ export async function handleChatRequest(
       // maxDuration=30s ceiling (see note above the export).
       experimental_transform: smoothStream({ chunking: "word", delayInMs: 20 }),
       messages: modelMessages,
-      onEnd: async ({ text, usage }) => {
-        const totalTokens =
-          (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);
+      // A client Stop aborts the request; ending generation is what makes the
+      // discard free instead of merely invisible.
+      abortSignal: generationSignal,
+      ...(turnId
+        ? {}
+        : {
+            onEnd: async ({ text, usage }: { text: string; usage?: { outputTokens?: number } }) => {
+              const totalTokens =
+                (estimatedInputTokens ?? 0) + (usage?.outputTokens ?? 0);
 
-        if (!sessionId) return;
+              if (!sessionId) return;
 
-        try {
-          const dbPromises = [];
+              try {
+                const dbPromises = [];
 
-          if (totalTokens > 0) {
-            dbPromises.push(
-              recordUsageAndDeduct({
-                userId,
-                type: "TEXT_RESPONSE",
-                tokens: totalTokens,
-                sessionId,
-              }),
-            );
-          }
-
-          if (text || originalTextToSend || originalFilePart) {
-            dbPromises.push(
-              (async () => {
-                // We await these sequentially to guarantee the user message gets an older or equal timestamp
-                // than the assistant message and they appear in the correct order in Firestore.
-                await saveChatMessage(sessionId, {
-                  role: "user",
-                  // Sanitize user text with DOMPurify before saving to Firestore to prevent Stored XSS
-                  text: sanitizeChatContent(originalTextToSend),
-                  tokenCount: estimatedInputTokens,
-                  isFirstMessage: isFirstMessage === "true",
-                  ...(originalFilePart && {
-                    attachment: {
-                      name: sanitizeFilename(originalFilePart.filename || "document.pdf"),
-                      contentType: originalFilePart.mediaType,
-                      url: originalFilePart.url,
-                    },
-                  }),
-                });
-
-                if (text) {
-                  await saveChatMessage(sessionId, {
-                    role: "assistant",
-                    // Sanitize assistant text with DOMPurify before saving to Firestore to prevent Stored XSS
-                    text: sanitizeChatContent(text),
-                    tokenCount: usage?.outputTokens ?? 0,
-                    isFirstMessage: false,
-                  });
+                if (totalTokens > 0) {
+                  dbPromises.push(
+                    recordUsageAndDeduct({
+                      userId,
+                      type: "TEXT_RESPONSE",
+                      tokens: totalTokens,
+                      sessionId,
+                    }),
+                  );
                 }
-              })(),
-            );
-          }
 
-          // Awaiting here ensures all database writes and deductions are committed
-          // BEFORE the stream closes, preventing serverless freeze/loss and client race conditions.
-          await Promise.all(dbPromises);
-        } catch (err) {
-          console.error(
-            `[onEnd] Failed to persist chat or record usage — userId=${userId} sessionId=${sessionId} totalTokens=${totalTokens}:`,
-            err,
-          );
-        }
+                if (text || originalTextToSend || originalFilePart) {
+                  dbPromises.push(
+                    (async () => {
+                      // We await these sequentially to guarantee the user message gets an older or equal timestamp
+                      // than the assistant message and they appear in the correct order in Firestore.
+                      await saveChatMessage(sessionId, {
+                        role: "user",
+                        // Sanitize user text with DOMPurify before saving to Firestore to prevent Stored XSS
+                        text: sanitizeChatContent(originalTextToSend),
+                        tokenCount: estimatedInputTokens,
+                        isFirstMessage: isFirstMessage === "true",
+                        ...(originalFilePart && {
+                          attachment: {
+                            name: sanitizeFilename(originalFilePart.filename || "document.pdf"),
+                            contentType: originalFilePart.mediaType,
+                            url: originalFilePart.url,
+                          },
+                        }),
+                      });
+
+                      if (text) {
+                        await saveChatMessage(sessionId, {
+                          role: "assistant",
+                          // Sanitize assistant text with DOMPurify before saving to Firestore to prevent Stored XSS
+                          text: sanitizeChatContent(text),
+                          tokenCount: usage?.outputTokens ?? 0,
+                          isFirstMessage: false,
+                        });
+                      }
+                    })(),
+                  );
+                }
+
+                // Awaiting here ensures all database writes and deductions are committed
+                // BEFORE the stream closes, preventing serverless freeze/loss and client race conditions.
+                await Promise.all(dbPromises);
+              } catch (err) {
+                console.error(
+                  `[onEnd] Failed to persist chat or record usage — userId=${userId} sessionId=${sessionId} totalTokens=${totalTokens}:`,
+                  err,
+                );
+              }
+            },
+          }),
+    });
+
+    if (!turnId) {
+      return createUIMessageStreamResponse({
+        stream: toUIMessageStream({ stream: result.stream, sendReasoning: true }),
+      });
+    }
+
+    /*
+     * The outbox path persists the answer inside the stream, after the last text
+     * delta and before the stream closes. The client is only told the turn is
+     * finished once the write has committed, so a lost response can be replayed
+     * instead of silently losing a paid answer.
+     */
+    unstartedClaim = undefined;
+    const stream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        const merged = toUIMessageStream({
+          stream: result.stream,
+          sendReasoning: true,
+          onFinish: async ({ responseMessage, isAborted }) => {
+            // onFinish is awaited before the transformed stream closes, which is
+            // what keeps a finished answer from being lost when the response
+            // never reaches the device. An aborted turn persists nothing.
+            if (isAborted || generationSignal.aborted) return;
+            const answer = (responseMessage?.parts ?? [])
+              .filter((part) => part.type === "text")
+              .map((part) => (part as { text: string }).text)
+              .join("");
+            try {
+              const usage = await result.usage;
+              const outputTokens = usage?.outputTokens ?? 0;
+              const totalTokens = estimatedInputTokens + outputTokens;
+
+              const completion = {
+                turnId,
+                claimId: began!.claimId!,
+                answer,
+                answerTokens: outputTokens,
+                userTokens: estimatedInputTokens,
+                ...(isFirstMessage === "true" && originalTextToSend
+                  ? { title: originalTextToSend.slice(0, 100) }
+                  : {}),
+              };
+              // Keep the generated answer in this closure while retrying storage;
+              // never invoke the model again to retry a failed write.
+              let completed = await completeChatTurn(sessionId, userId, completion);
+              for (let attempt = 0; !completed.success && completed.reason === "persistence" && attempt < 2; attempt++) {
+                completed = await completeChatTurn(sessionId, userId, completion);
+              }
+
+              if (!completed.success) {
+                if (completed.reason !== "cancelled") throw new Error("Unable to save the answer. Please retry.");
+                // The turn was discarded while it streamed; persist nothing.
+                console.warn(
+                  `[chat] turn ${turnId} was discarded before it could be saved`,
+                );
+                return;
+              }
+
+              if (totalTokens > 0) {
+                await recordUsageAndDeduct({
+                  userId,
+                  type: "TEXT_RESPONSE",
+                  tokens: totalTokens,
+                  sessionId,
+                  idempotencyKey: turnId,
+                });
+              }
+            } catch (error) {
+              // Do not report successful completion when persistence failed.
+              console.error(
+                `[chat] failed to persist turn ${turnId} after retries:`,
+                error,
+              );
+              throw error;
+            }
+          },
+        });
+
+        writer.merge(merged);
       },
     });
 
-    return createUIMessageStreamResponse({
-      stream: toUIMessageStream({ stream: result.stream, sendReasoning: true }),
-    });
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
+    const status = (error as { status?: number }).status;
+    if (status === 400 || status === 402 || status === 404) {
+      return jsonError((error as Error).message, status);
+    }
     console.error("Error in /api/chat:", error);
-    return new Response(
-      JSON.stringify({ error: "An error occurred during chat generation." }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    return jsonError("An error occurred during chat generation.", 500);
+  } finally {
+    if (unstartedClaim) {
+      await releaseChatTurnClaim(unstartedClaim.sessionId, userId, unstartedClaim.turnId, unstartedClaim.claimId);
+    }
   }
+}
+
+/**
+ * Replays a turn that already has a stored answer.
+ *
+ * The stored answer is streamed as an ordinary UI message stream, so the client
+ * renders it exactly like a fresh answer without the model being called. Billing
+ * is attempted again with the turn id as the idempotency key: a process that
+ * persisted the answer but died before recording usage leaves a completed but
+ * unbilled turn, and the next replay settles it exactly once.
+ */
+async function replayTurn(
+  turnId: string,
+  replay: { role: "user" | "assistant"; text: string }[],
+  billing: { userId: string; sessionId: string; tokens: number },
+): Promise<Response> {
+  if (billing.tokens > 0) {
+    const settled = await recordUsageAndDeduct({
+      userId: billing.userId,
+      type: "TEXT_RESPONSE",
+      tokens: billing.tokens,
+      sessionId: billing.sessionId,
+      idempotencyKey: turnId,
+    });
+    if (!settled.success) {
+      // The stored answer is still the right response; the next replay retries.
+      console.error(`[chat] could not settle replayed turn ${turnId}`);
+    }
+  }
+
+  const answer = replay.find((entry) => entry.role === "assistant");
+  const text = answer?.text ?? "";
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      writer.write({ type: "start", messageId: `${turnId}-a` });
+      if (text) {
+        writer.write({ type: "text-start", id: `${turnId}-text` });
+        writer.write({ type: "text-delta", id: `${turnId}-text`, delta: text });
+        writer.write({ type: "text-end", id: `${turnId}-text` });
+      }
+      writer.write({ type: "finish", messageMetadata: undefined });
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
 }

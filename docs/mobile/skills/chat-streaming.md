@@ -275,6 +275,10 @@ Render `message.parts`:
 The chat body carries **HTTPS URLs**, not raw bytes. Upload the file to Firebase
 Storage first, then attach a `file` part pointing at the download URL.
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:9bab6a1c9aa3144a11ce7a89a38b7f3dc034bea34e4396c3c8da16f874e1acf8 -->
+
 ```ts
 import storage from "@react-native-firebase/storage";
 import * as DocumentPicker from "expo-document-picker";
@@ -290,7 +294,7 @@ if (picked.canceled) return;
 const asset = picked.assets[0];
 
 const uid = auth().currentUser!.uid;
-const ref = storage().ref(`uploads/${uid}/${Date.now()}-${asset.name}`);
+const ref = storage().ref(`storedFiles/chat-attachments/${uid}/${Date.now()}-${asset.name.replace(/[\\/]/g, "_")}`);
 await ref.putFile(asset.uri);
 const url = await ref.getDownloadURL();
 
@@ -305,9 +309,16 @@ sendMessage({
 
 The server fetches the URL, and for DOCX rewrites the file part into extracted
 text before sending to Gemini. PDFs/images pass through natively. Use the same
-Firebase Storage bucket as web — `firestore.rules`/Storage rules already scope
-`uploads/{uid}/…` to the owner.
+Firebase Storage bucket as web. New uploads must use
+`storedFiles/chat-attachments/{uid}/{filename}`. Storage rules must restrict writes
+to the authenticated owner; Firestore rules do not govern Storage.
 
+Legacy one-segment attachment links remain available in history, but the server
+rejects them as model input because they carry no verifiable owner. Re-upload
+these files under the authenticated user’s path before including them in chat.
+
+
+<!-- /coderabbit-ai-generated:v1 -->
 ### Attachment URL rules (the server enforces all three)
 
 | Rule | Value | If violated |

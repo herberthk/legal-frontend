@@ -17,6 +17,7 @@ vi.mock("@/lib/document-extractor", () => ({ extractDocumentText: vi.fn() }));
 vi.mock("ai", () => ({
   streamText: mocks.stream, convertToModelMessages: vi.fn().mockResolvedValue([]),
   smoothStream: vi.fn(), toUIMessageStream: vi.fn(),
+  createUIMessageStream: vi.fn(),
   createUIMessageStreamResponse: () => new Response(),
 }));
 

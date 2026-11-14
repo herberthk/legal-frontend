@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { db } from "@/firebase/admin";
 import { COLLECTIONS, COST_PER_THOUSAND_TOKENS_IN_CENTS } from "@/constants";
 import { checkRootCollection } from "./utils";
@@ -77,6 +78,14 @@ export const checkUserInfo = async (
 };
 
 /**
+ * A collision-resistant usage identity scoped to the user and session.
+ * Legacy entries are consulted only when their stored session also matches.
+ */
+function usageDocumentId(userId: string, sessionId: string, idempotencyKey: string): string {
+  return createHash("sha256").update(JSON.stringify([userId, sessionId, idempotencyKey])).digest("hex");
+}
+
+/**
  * Records a usage entry and deducts from the correct billing tier.
  * Deduction order: Welcome Bonus → Daily Free → Paid Balance.
  * Uses a Firestore transaction for atomicity.
@@ -90,6 +99,12 @@ export const recordUsageAndDeduct = async (params: {
   tokens?: number;
   sessionId: string;
   seconds?: number;
+  /**
+   * Makes the write safe to retry. When the usage document with this id already
+   * exists the deduction is skipped and `alreadyCharged` is returned, so a turn
+   * that is replayed after a crash is still billed exactly once.
+   */
+  idempotencyKey?: string;
 }) => {
   const {
     userId,
@@ -97,6 +112,7 @@ export const recordUsageAndDeduct = async (params: {
     tokens = 0,
     sessionId,
     seconds = 0,
+    idempotencyKey,
   } = params;
 
   try {
@@ -106,6 +122,19 @@ export const recordUsageAndDeduct = async (params: {
 
       if (!userDoc.exists) {
         throw new Error("User not found");
+      }
+
+      if (idempotencyKey) {
+        const existing = await transaction.get(
+          db
+            .collection(COLLECTIONS.USAGE)
+            .doc(usageDocumentId(userId, sessionId, idempotencyKey)),
+        );
+        // Preserve deduplication for usage written before session-scoped IDs.
+        const legacy = await transaction.get(db.collection(COLLECTIONS.USAGE).doc(`${userId}_${idempotencyKey}`));
+        if (existing.exists || (legacy.exists && legacy.data()?.sessionId === sessionId)) {
+          return { cost: 0, alreadyCharged: true };
+        }
       }
 
       const user = userDoc.data() as Omit<User, "id">;
@@ -141,7 +170,11 @@ export const recordUsageAndDeduct = async (params: {
       });
 
       // Create usage record
-      const usageRef = db.collection(COLLECTIONS.USAGE).doc();
+      const usageRef = idempotencyKey
+        ? db
+            .collection(COLLECTIONS.USAGE)
+            .doc(usageDocumentId(userId, sessionId, idempotencyKey))
+        : db.collection(COLLECTIONS.USAGE).doc();
       transaction.set(usageRef, {
         userId,
         type,
@@ -153,7 +186,7 @@ export const recordUsageAndDeduct = async (params: {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      return { cost: totalCost };
+      return { cost: totalCost, alreadyCharged: false };
     });
 
     return { success: true, ...result };
