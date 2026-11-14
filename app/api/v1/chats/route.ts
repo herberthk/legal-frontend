@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
+import { checkAttachmentUrl } from "@/lib/api/v1/attachment-url";
 import { getChatSessions, createChatSession } from "@/lib/actions/chat";
-import { ok, badRequest, internalError } from "@/lib/api/v1/response";
+import { createChatSessionWithTurn } from "@/lib/actions/chat-turn";
+import { TURN_ID_PATTERN } from "@/lib/chat-turn";
+import {
+  ok,
+  badRequest,
+  internalError,
+  notFoundError,
+} from "@/lib/api/v1/response";
 
 /**
  * `GET /api/v1/chats` — the caller's chat sessions (most recent first).
@@ -22,8 +30,24 @@ export async function GET(req: Request) {
   return ok(result);
 }
 
-const createSchema = z.object({ title: z.string().min(1).max(200) });
+const createSchema = z.object({
+  title: z.string().min(1).max(200),
+  turnId: z.string().regex(TURN_ID_PATTERN).optional(),
+  text: z.string().max(20_000).optional(),
+  attachment: z
+    .object({
+      name: z.string().min(1).max(255),
+      contentType: z.string().min(1).max(128),
+      url: z.string().url().startsWith("https://"),
+    })
+    .optional(),
+});
 
+/**
+ * The first turn may be created together with the session so a question that is
+ * interrupted before the first stream still exists on the server. `turnId` alone
+ * keeps the old behaviour (an empty session) for a web-style caller.
+ */
 export async function POST(req: Request) {
   const gate = await requireMobileAuth(req);
   if (gate instanceof Response) return gate;
@@ -37,7 +61,27 @@ export async function POST(req: Request) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return badRequest(parsed.error.issues[0]?.message || "Invalid request body");
 
-  const result = await createChatSession(gate.userId, parsed.data.title);
+  const { turnId, text, attachment } = parsed.data;
+
+  if (attachment) {
+    const check = checkAttachmentUrl(attachment.url, gate.userId);
+    if (!check.ok) {
+      return check.status === 404
+        ? notFoundError(check.message)
+        : badRequest(check.message);
+    }
+  }
+
+  const result =
+    turnId && text
+      ? await createChatSessionWithTurn(gate.userId, parsed.data.title, {
+          turnId,
+          text,
+          tokenCount: 0,
+          isFirstMessage: true,
+          ...(attachment ? { attachment } : {}),
+        })
+      : await createChatSession(gate.userId, parsed.data.title);
   if (!result.success) return internalError("Failed to create chat session.");
   return ok(result);
 }

@@ -70,7 +70,7 @@ export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
   "Access-Control-Allow-Headers":
-    "Authorization, Content-Type, x-firebase-appcheck, x-chat-id, x-first-message",
+    "Authorization, Content-Type, x-firebase-appcheck, x-chat-id, x-first-message, x-turn-id",
 };
 
 /** Preflight response for the optional CORS path above. */

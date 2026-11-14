@@ -26,7 +26,15 @@ export async function POST(req: Request) {
       JSON.stringify({
         error: appCheckResult.error || "Unauthorized client application.",
       }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
+      {
+        status: 401,
+        headers: {
+          "Content-Type": "application/json",
+          // The streaming client refreshes once on these two codes; without them
+          // it cannot tell an expired token from a refusal.
+          "x-error-code": "APP_CHECK_FAILED",
+        },
+      },
     );
   }
 
@@ -35,7 +43,10 @@ export async function POST(req: Request) {
   if (!userId) {
     return new Response(JSON.stringify({ error: "Authentication required." }), {
       status: 401,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-error-code": "UNAUTHENTICATED",
+      },
     });
   }
 
