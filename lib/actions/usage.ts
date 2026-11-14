@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { db } from "@/firebase/admin";
 import { COLLECTIONS, COST_PER_THOUSAND_TOKENS_IN_CENTS } from "@/constants";
 import { checkRootCollection } from "./utils";
@@ -77,14 +78,11 @@ export const checkUserInfo = async (
 };
 
 /**
- * A usage document id built from the caller and the idempotency key.
- *
- * Scoping by user means a turn id can only ever settle the caller's own usage,
- * even though the id itself is client input. The raw turn id stays as the
- * suffix, so logs and Firestore documents remain recognisable.
+ * A collision-resistant usage identity scoped to the user and session.
+ * Legacy entries are consulted only when their stored session also matches.
  */
-function usageDocumentId(userId: string, idempotencyKey: string): string {
-  return `${userId}_${idempotencyKey}`;
+function usageDocumentId(userId: string, sessionId: string, idempotencyKey: string): string {
+  return createHash("sha256").update(JSON.stringify([userId, sessionId, idempotencyKey])).digest("hex");
 }
 
 /**
@@ -130,9 +128,11 @@ export const recordUsageAndDeduct = async (params: {
         const existing = await transaction.get(
           db
             .collection(COLLECTIONS.USAGE)
-            .doc(usageDocumentId(userId, idempotencyKey)),
+            .doc(usageDocumentId(userId, sessionId, idempotencyKey)),
         );
-        if (existing.exists) {
+        // Preserve deduplication for usage written before session-scoped IDs.
+        const legacy = await transaction.get(db.collection(COLLECTIONS.USAGE).doc(`${userId}_${idempotencyKey}`));
+        if (existing.exists || (legacy.exists && legacy.data()?.sessionId === sessionId)) {
           return { cost: 0, alreadyCharged: true };
         }
       }
@@ -173,7 +173,7 @@ export const recordUsageAndDeduct = async (params: {
       const usageRef = idempotencyKey
         ? db
             .collection(COLLECTIONS.USAGE)
-            .doc(usageDocumentId(userId, idempotencyKey))
+            .doc(usageDocumentId(userId, sessionId, idempotencyKey))
         : db.collection(COLLECTIONS.USAGE).doc();
       transaction.set(usageRef, {
         userId,

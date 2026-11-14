@@ -91,11 +91,12 @@ export function checkAttachmentUrl(
     return NOT_ALLOWED;
   }
 
-  // New uploads are `<uid>/<uuid>-<name>`; legacy uploads are one segment.
+  // Uploads are `<uid>/<uuid>-<name>`. Legacy one-segment objects have no
+  // verifiable owner: retain their history links, but require re-upload for AI input.
   // Anything deeper is not a shape this app writes.
   if (segments.length > 2) return NOT_ALLOWED;
 
-  if (segments.length === 2 && segments[0] !== userId) {
+  if (segments.length !== 2 || segments[0] !== userId) {
     // Someone else's object: report it as missing rather than confirming it.
     return NOT_FOUND;
   }

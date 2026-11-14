@@ -11,7 +11,7 @@ import {
 
 import { recordUsageAndDeduct, checkUserCanSend } from "@/lib/actions/usage";
 import { saveChatMessage } from "@/lib/actions/chat";
-import { beginChatTurn, completeChatTurn } from "@/lib/actions/chat-turn";
+import { beginChatTurn, completeChatTurn, updateChatTurnTokens, releaseChatTurnClaim } from "@/lib/actions/chat-turn";
 import {
   checkAttachmentUrl,
   isAllowedFileUrl,
@@ -71,7 +71,8 @@ function fail(message: string, status: number): never {
 
 function readTurnId(req: Request): string | null {
   const raw = req.headers.get("x-turn-id");
-  return raw && isTurnId(raw) ? raw : null;
+  if (raw !== null && !isTurnId(raw)) fail("Invalid x-turn-id header.", 400);
+  return raw;
 }
 
 function originalFileOf(message: UIMessage | undefined) {
@@ -138,6 +139,7 @@ export async function handleChatRequest(
   req: Request,
   userId: string,
 ): Promise<Response> {
+  let unstartedClaim: { sessionId: string; turnId: string; claimId: string } | undefined;
   try {
     const { messages }: { messages: UIMessage[] } = await req.json();
 
@@ -213,7 +215,13 @@ export async function handleChatRequest(
         )
       : null;
 
+    if (turnId && began?.status === "started") {
+      unstartedClaim = { sessionId, turnId, claimId: began.claimId! };
+    }
     if (began) {
+      if (began.status === "busy" || began.status === "conflict") {
+        return jsonError("This turn is active or has different content.", 409);
+      }
       if (began.status === "denied") {
         return jsonError("Chat session not found or access denied.", 403);
       }
@@ -389,39 +397,16 @@ export async function handleChatRequest(
     if (turnId && began?.status === "started") {
       // The estimate is final: store the input token count on the pending row so
       // history shows the same cost whether the turn finished or is continued.
-      const pending = await beginChatTurn(
-        sessionId,
-        userId,
-        {
-          turnId,
-          text: originalTextToSend,
-          tokenCount: estimatedInputTokens,
-          ...(originalFilePart && {
-            attachment: {
-              name: originalFilePart.filename || "document",
-              contentType: originalFilePart.mediaType,
-              url: originalFilePart.url,
-            },
-          }),
-          isFirstMessage: isFirstMessage === "true",
-        },
-        // Update-only: a discard that landed during estimation must win.
-        { createIfMissing: false },
-      );
-      if (pending.status !== "started") {
-        // Turned into a replay or a discard while the document was being read;
-        // either way the request that just did the estimation is stale.
-        if (pending.status === "replay") {
-          return replayTurn(turnId, pending.replay ?? [], {
-            userId,
-            sessionId,
-            tokens: pending.replayTokens ?? 0,
-          });
-        }
-        return jsonError("This message was discarded.", 410);
-      }
+      const updated = await updateChatTurnTokens(sessionId, userId, turnId, began.claimId!, estimatedInputTokens);
+      if (updated === "cancelled") return jsonError("This message was discarded.", 410);
+      if (updated !== "updated") return jsonError("This turn claim expired.", 409);
     }
 
+    const generationSignal = began?.claimExpiresAt
+      ? AbortSignal.any([req.signal, AbortSignal.timeout(Math.max(1, began.claimExpiresAt - Date.now() - 10_000))])
+      : req.signal;
+
+    if (generationSignal.aborted) return jsonError("This turn claim expired.", 409);
     const result = streamText({
       // model: vertex("gemini-3-flash-preview"),
       model: vertex("gemini-3.7-flash"),
@@ -445,7 +430,7 @@ export async function handleChatRequest(
       messages: modelMessages,
       // A client Stop aborts the request; ending generation is what makes the
       // discard free instead of merely invisible.
-      abortSignal: req.signal,
+      abortSignal: generationSignal,
       ...(turnId
         ? {}
         : {
@@ -527,6 +512,7 @@ export async function handleChatRequest(
      * finished once the write has committed, so a lost response can be replayed
      * instead of silently losing a paid answer.
      */
+    unstartedClaim = undefined;
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
         const merged = toUIMessageStream({
@@ -536,7 +522,7 @@ export async function handleChatRequest(
             // onFinish is awaited before the transformed stream closes, which is
             // what keeps a finished answer from being lost when the response
             // never reaches the device. An aborted turn persists nothing.
-            if (isAborted || req.signal.aborted) return;
+            if (isAborted || generationSignal.aborted) return;
             const answer = (responseMessage?.parts ?? [])
               .filter((part) => part.type === "text")
               .map((part) => (part as { text: string }).text)
@@ -546,17 +532,25 @@ export async function handleChatRequest(
               const outputTokens = usage?.outputTokens ?? 0;
               const totalTokens = estimatedInputTokens + outputTokens;
 
-              const completed = await completeChatTurn(sessionId, userId, {
+              const completion = {
                 turnId,
+                claimId: began!.claimId!,
                 answer,
                 answerTokens: outputTokens,
                 userTokens: estimatedInputTokens,
                 ...(isFirstMessage === "true" && originalTextToSend
                   ? { title: originalTextToSend.slice(0, 100) }
                   : {}),
-              });
+              };
+              // Keep the generated answer in this closure while retrying storage;
+              // never invoke the model again to retry a failed write.
+              let completed = await completeChatTurn(sessionId, userId, completion);
+              for (let attempt = 0; !completed.success && completed.reason === "persistence" && attempt < 2; attempt++) {
+                completed = await completeChatTurn(sessionId, userId, completion);
+              }
 
               if (!completed.success) {
+                if (completed.reason !== "cancelled") throw new Error("Unable to save the answer. Please retry.");
                 // The turn was discarded while it streamed; persist nothing.
                 console.warn(
                   `[chat] turn ${turnId} was discarded before it could be saved`,
@@ -574,12 +568,12 @@ export async function handleChatRequest(
                 });
               }
             } catch (error) {
-              // The stream still completes for the reader; the next replay
-              // finishes the write and bills the turn exactly once.
+              // Do not report successful completion when persistence failed.
               console.error(
-                `[chat] failed to persist turn ${turnId}; it will be retried on the next request:`,
+                `[chat] failed to persist turn ${turnId} after retries:`,
                 error,
               );
+              throw error;
             }
           },
         });
@@ -596,6 +590,10 @@ export async function handleChatRequest(
     }
     console.error("Error in /api/chat:", error);
     return jsonError("An error occurred during chat generation.", 500);
+  } finally {
+    if (unstartedClaim) {
+      await releaseChatTurnClaim(unstartedClaim.sessionId, userId, unstartedClaim.turnId, unstartedClaim.claimId);
+    }
   }
 }
 

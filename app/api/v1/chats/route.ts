@@ -73,10 +73,10 @@ export async function POST(req: Request) {
   }
 
   const result =
-    turnId && text
+    turnId && (text || attachment)
       ? await createChatSessionWithTurn(gate.userId, parsed.data.title, {
           turnId,
-          text,
+          text: text ?? "",
           tokenCount: 0,
           isFirstMessage: true,
           ...(attachment ? { attachment } : {}),

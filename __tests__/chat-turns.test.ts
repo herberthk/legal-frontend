@@ -11,10 +11,13 @@
  * documents by their id (`{turnId}` vs `{turnId}-a`) rather than by a field.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createUIMessageStream, toUIMessageStream } from "ai";
 
+import { POST as createPost } from "@/app/api/v1/chats/route";
 import { DELETE } from "@/app/api/v1/chats/[id]/turns/[turnId]/route";
 import { POST as chatPost } from "@/app/api/v1/chat/route";
 import {
+  beginChatTurn,
   cancelChatTurn,
   completeChatTurn,
   createChatSessionWithTurn,
@@ -104,9 +107,9 @@ vi.mock("@/firebase/admin", () => {
     set: (data: Record<string, unknown>, options?: unknown) => {
       if (options === undefined) mocks.set(id, data);
       else mocks.set(id, data, options);
-      mocks.docs.set(id, { exists: true, data });
+      mocks.docs.set(id, { exists: true, data: options ? { ...mocks.docs.get(id)?.data, ...data } : data });
     },
-    update: (data: Record<string, unknown>) => mocks.update(id, data),
+    update: (data: Record<string, unknown>) => { mocks.update(id, data); mocks.docs.set(id, { exists: true, data: { ...mocks.docs.get(id)?.data, ...data } }); },
     delete: () => {
       mocks.delete(id);
       mocks.docs.delete(id);
@@ -121,7 +124,7 @@ vi.mock("@/firebase/admin", () => {
       mocks.docs.set(SESSION_ID, { exists: true, data });
     },
     update: (data: Record<string, unknown>) => mocks.update(SESSION_ID, data),
-    collection: () => ({ doc: (id?: string) => messageRef(id ?? "auto") }),
+    collection: (name: string) => ({ doc: (id?: string) => messageRef(name === "turnCancellations" ? `cancel-${id}` : id ?? "auto") }),
   };
 
   return {
@@ -270,7 +273,7 @@ describe("turn outbox", () => {
       }),
     );
     // The question is one document; the answer adds the second half later.
-    expect(messageCountIncrement()).toBe(1);
+    expect(messageCountIncrement(0)).toBe(1);
     expect(mocks.stream).toHaveBeenCalled();
   });
 
@@ -287,12 +290,7 @@ describe("turn outbox", () => {
 
     await handleChatRequest(chatRequest(TURN), "user");
 
-    expect(mocks.set).toHaveBeenCalledTimes(2);
-    expect(mocks.set).toHaveBeenLastCalledWith(
-      TURN,
-      expect.objectContaining({ tokenCount: expect.any(Number) }),
-      { merge: true },
-    );
+    expect(mocks.update).toHaveBeenCalledWith(TURN, { tokenCount: 2 });
   });
 
   it("reports a discarded turn without generating", async () => {
@@ -398,10 +396,11 @@ describe("turn outbox", () => {
 
 describe("completing a turn", () => {
   it("writes the answer and counts one new document", async () => {
-    mocks.docs.set(TURN, pendingTurn());
+    mocks.docs.set(TURN, { exists: true, data: { ...pendingTurn().data, claimId: "owner", claimExpiresAt: Date.now() + 120000 } });
 
     const result = await completeChatTurn(SESSION_ID, "user", {
       turnId: TURN,
+      claimId: "owner",
       answer: "An answer.",
       answerTokens: 5,
       userTokens: 2,
@@ -416,11 +415,12 @@ describe("completing a turn", () => {
   });
 
   it("returns the stored answer when the answer was already committed", async () => {
-    mocks.docs.set(TURN, pendingTurn());
+    mocks.docs.set(TURN, { exists: true, data: { ...pendingTurn().data, claimId: "owner", claimExpiresAt: Date.now() + 120000 } });
     mocks.docs.set(`${TURN}-a`, storedAnswer("Stored answer."));
 
     const result = await completeChatTurn(SESSION_ID, "user", {
       turnId: TURN,
+      claimId: "owner",
       answer: "A second answer.",
       answerTokens: 5,
       userTokens: 2,
@@ -433,12 +433,13 @@ describe("completing a turn", () => {
   it("does nothing when the question was discarded mid-stream", async () => {
     const result = await completeChatTurn(SESSION_ID, "user", {
       turnId: TURN,
+      claimId: "owner",
       answer: "An answer.",
       answerTokens: 5,
       userTokens: 2,
     });
 
-    expect(result).toEqual({ success: false });
+    expect(result).toEqual({ success: false, reason: "cancelled" });
     expect(mocks.set).not.toHaveBeenCalled();
   });
 });
@@ -509,5 +510,78 @@ describe("DELETE /chats/:id/turns/:turnId", () => {
 
     expect(response.status).toBe(404);
     expect(mocks.delete).not.toHaveBeenCalled();
+  });
+});
+
+ describe("generation ownership", () => {
+  const message = { turnId: TURN, text: "Hello", tokenCount: 0, isFirstMessage: false };
+  it("blocks a second claim and conflicting content", async () => {
+    expect((await beginChatTurn(SESSION_ID, "user", message, { createIfMissing: true })).status).toBe("started");
+    expect((await beginChatTurn(SESSION_ID, "user", message)).status).toBe("busy");
+    expect((await beginChatTurn(SESSION_ID, "user", { ...message, text: "different" })).status).toBe("conflict");
+  });
+  it("allows expiry recovery but fences the old owner", async () => {
+    mocks.docs.set(TURN, { exists: true, data: { ...pendingTurn().data, claimId: "old", claimExpiresAt: 1 } });
+    const claim = await beginChatTurn(SESSION_ID, "user", message);
+    expect(claim.status).toBe("started");
+    expect(await completeChatTurn(SESSION_ID, "user", { turnId: TURN, claimId: "old", answer: "stale", answerTokens: 1, userTokens: 1 })).toMatchObject({ success: false, reason: "claim-lost" });
+  });
+  it("never recreates a cancelled follow-up, including cancel-before-create", async () => {
+    await cancelChatTurn(SESSION_ID, "user", TURN);
+    expect((await beginChatTurn(SESSION_ID, "user", message, { createIfMissing: true })).status).toBe("cancelled");
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
+  it("rejects supplied invalid headers before generation or billing", async () => {
+    const req = chatRequest();
+    req.headers.set("x-turn-id", "");
+    expect((await handleChatRequest(req, "user")).status).toBe(400);
+    expect(mocks.stream).not.toHaveBeenCalled();
+    expect(mocks.usage).not.toHaveBeenCalled();
+  });
+  it("distinguishes database errors from discard", async () => {
+    mocks.transaction.mockRejectedValueOnce(new Error("database unavailable"));
+    expect(await completeChatTurn(SESSION_ID, "user", { turnId: TURN, claimId: "owner", answer: "retained", answerTokens: 1, userTokens: 1 })).toMatchObject({ success: false, reason: "persistence" });
+  });
+ });
+
+it("persists an attachment-only initial turn", async () => {
+  const response = await createPost(new Request("http://localhost/api/v1/chats", {
+    method: "POST", body: JSON.stringify({ title: "Attachment", turnId: TURN, text: "", attachment: {
+      name: "scan.pdf", contentType: "application/pdf", url: "https://firebasestorage.googleapis.com/v0/b/PROJECT/o/storedFiles%2Fchat-attachments%2Fuser%2Fscan.pdf"
+    } })
+  }));
+  expect(response.status).toBe(200);
+  expect(mocks.set).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ role: "user", text: "", attachment: expect.objectContaining({ name: "scan.pdf" }) }));
+});
+
+describe("stream persistence", () => {
+  async function finishCallback() {
+    mocks.docs.set(TURN, pendingTurn());
+    await handleChatRequest(chatRequest(TURN), "user");
+    const execute = vi.mocked(createUIMessageStream).mock.calls[0][0].execute;
+    await execute({ writer: { merge: vi.fn(), write: vi.fn(), onError: undefined } } as Parameters<typeof execute>[0]);
+    const finish = vi.mocked(toUIMessageStream).mock.calls[0][0].onFinish!;
+    return () => finish({ responseMessage: { parts: [{ type: "text", text: "Generated answer" }] }, isAborted: false } as Parameters<typeof finish>[0]);
+  }
+  it("retries storage using the generated answer without another model call", async () => {
+    const finish = await finishCallback();
+    mocks.transaction.mockRejectedValueOnce(new Error("temporary database outage"));
+    await finish();
+    expect(mocks.docs.get(`${TURN}-a`)?.data.text).toBe("Generated answer");
+    expect(mocks.stream).toHaveBeenCalledTimes(1);
+    expect(mocks.usage).toHaveBeenCalledTimes(1);
+  });
+  it("surfaces exhausted persistence retries and does not bill", async () => {
+    const finish = await finishCallback();
+    mocks.transaction.mockRejectedValue(new Error("database outage"));
+    await expect(finish()).rejects.toThrow("Unable to save");
+    expect(mocks.usage).not.toHaveBeenCalled();
+  });
+  it("silently discards cancelled answers without billing", async () => {
+    const finish = await finishCallback();
+    await cancelChatTurn(SESSION_ID, "user", TURN);
+    await finish();
+    expect(mocks.docs.has(`${TURN}-a`)).toBe(false);
+    expect(mocks.usage).not.toHaveBeenCalled();
   });
 });

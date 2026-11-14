@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { COLLECTIONS } from "@/constants";
 import { db } from "@/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -87,9 +88,8 @@ export type BeginChatTurnOptions = {
    *
    * Follow-up turns arrive without a `POST /chats` write, so the first call must
    * create the row. A first turn was already written together with its session,
-   * so a missing row means the reader discarded it. The update pass after token
-   * estimation always runs with this off, which is what lets a discard that
-   * landed mid-estimation win.
+   * so a missing row means the reader discarded it. Token estimation uses a
+   * separate ownership-checked update and cannot create a row or acquire a claim.
    */
   createIfMissing?: boolean;
 };
@@ -100,7 +100,9 @@ export async function beginChatTurn(
   message: ChatTurnUserMessage,
   { createIfMissing = false }: BeginChatTurnOptions = {},
 ): Promise<{
-  status: "started" | "replay" | "cancelled" | "denied";
+  status: "started" | "replay" | "cancelled" | "denied" | "busy" | "conflict";
+  claimId?: string;
+  claimExpiresAt?: number;
   isFirstMessage?: boolean;
   replay?: TurnReplayEntry[];
   /** Tokens the stored pair represents, so a replay can settle an unpaid turn. */
@@ -113,10 +115,12 @@ export async function beginChatTurn(
     const userRef = messagesCollection(sessionId).doc(message.turnId);
     const answerRef = messagesCollection(sessionId).doc(`${message.turnId}-a`);
 
+    const claimId = randomUUID();
     return await db.runTransaction(async (transaction) => {
-      const [userDoc, answerDoc] = await Promise.all([
+      const [userDoc, answerDoc, cancelledDoc] = await Promise.all([
         transaction.get(userRef),
         transaction.get(answerRef),
+        transaction.get(sessionDocument(sessionId).collection("turnCancellations").doc(message.turnId)),
       ]);
 
       const read = (
@@ -130,6 +134,19 @@ export async function beginChatTurn(
         };
       };
 
+      if (cancelledDoc.exists) return { status: "cancelled" };
+      const attachment = message.attachment && {
+        name: sanitizeFilename(message.attachment.name || "document"),
+        contentType: message.attachment.contentType,
+        url: message.attachment.url,
+      };
+      const stored = userDoc.data();
+      if (userDoc.exists && (stored?.text !== sanitizeChatContent(message.text) ||
+          (stored?.attachment?.url ?? null) !== (attachment?.url ?? null) ||
+          (stored?.attachment?.name ?? null) !== (attachment?.name ?? null) ||
+          (stored?.attachment?.contentType ?? null) !== (attachment?.contentType ?? null))) {
+        return { status: "conflict" };
+      }
       if (answerDoc.exists) {
         return {
           status: "replay",
@@ -140,12 +157,9 @@ export async function beginChatTurn(
         };
       }
 
-      const attachment = message.attachment && {
-        name: sanitizeFilename(message.attachment.name || "document"),
-        contentType: message.attachment.contentType,
-        url: message.attachment.url,
-      };
-
+      if (stored?.claimExpiresAt > Date.now()) return { status: "busy" };
+      // Generation is aborted by the handler before this two-minute lease ends.
+      const claimExpiresAt = Date.now() + 120_000;
       if (!userDoc.exists) {
         if (!createIfMissing) {
           // The reader discarded this turn while the client still held it.
@@ -158,6 +172,8 @@ export async function beginChatTurn(
           text: sanitizeChatContent(message.text),
           createdAt: FieldValue.serverTimestamp(),
           tokenCount: message.tokenCount,
+          claimId,
+          claimExpiresAt,
           ...(attachment && { attachment }),
         });
         // The pending row is one document, so it counts as one message now. The
@@ -167,22 +183,19 @@ export async function beginChatTurn(
           messageCount: FieldValue.increment(1),
         });
 
-        return { status: "started", isFirstMessage: message.isFirstMessage };
+        return { status: "started", claimId, claimExpiresAt, isFirstMessage: message.isFirstMessage };
       }
 
       transaction.set(
         userRef,
         {
-          sessionId,
-          role: "user",
-          text: sanitizeChatContent(message.text),
-          tokenCount: message.tokenCount,
-          ...(attachment && { attachment }),
+          claimId,
+          claimExpiresAt,
         },
         { merge: true },
       );
 
-      return { status: "started", isFirstMessage: message.isFirstMessage };
+      return { status: "started", claimId, claimExpiresAt, isFirstMessage: message.isFirstMessage };
     });
   } catch (error) {
     console.error("Error beginning chat turn:", error);
@@ -203,15 +216,16 @@ export async function completeChatTurn(
   userId: string,
   params: {
     turnId: string;
+    claimId: string;
     answer: string;
     answerTokens: number;
     userTokens: number;
     title?: string;
   },
-): Promise<{ success: boolean; text?: string }> {
-  if (!isTurnId(params.turnId)) return { success: false };
+): Promise<{ success: boolean; text?: string; reason?: "cancelled" | "denied" | "claim-lost" | "persistence" }> {
+  if (!isTurnId(params.turnId)) return { success: false, reason: "denied" };
   try {
-    if (!(await ownsSession(sessionId, userId))) return { success: false };
+    if (!(await ownsSession(sessionId, userId))) return { success: false, reason: "denied" };
 
     const userRef = messagesCollection(sessionId).doc(params.turnId);
     const answerRef = messagesCollection(sessionId).doc(`${params.turnId}-a`);
@@ -222,7 +236,10 @@ export async function completeChatTurn(
         transaction.get(answerRef),
       ]);
 
-      if (!userDoc.exists) return { success: false as const };
+      if (!userDoc.exists) return { success: false as const, reason: "cancelled" as const };
+      if (userDoc.data()?.claimId !== params.claimId || !(userDoc.data()?.claimExpiresAt > Date.now())) {
+        return { success: false as const, reason: "claim-lost" as const };
+      }
       if (answerDoc.exists) {
         // The answer was already committed; a retry must not rewrite it.
         return {
@@ -254,7 +271,7 @@ export async function completeChatTurn(
     return result;
   } catch (error) {
     console.error("Error completing chat turn:", error);
-    return { success: false };
+    return { success: false, reason: "persistence" };
   }
 }
 
@@ -334,10 +351,16 @@ export async function cancelChatTurn(
         transaction.get(userRef),
         transaction.get(answerRef),
       ]);
-      if (!userDoc.exists || answerDoc.exists) {
+      if (answerDoc.exists) {
         return { cancelled: false };
       }
 
+      // No TTL: a discarded ID stays discarded for the session lifetime, even
+      // when cancellation arrives before the follow-up's first write.
+      transaction.set(sessionDocument(sessionId).collection("turnCancellations").doc(turnId), {
+        cancelledAt: FieldValue.serverTimestamp(),
+      });
+      if (!userDoc.exists) return { cancelled: false };
       transaction.delete(userRef);
       transaction.update(sessionDocument(sessionId), {
         messageCount: FieldValue.increment(-1),
@@ -349,5 +372,33 @@ export async function cancelChatTurn(
   } catch (error) {
     console.error("Error cancelling chat turn:", error);
     return { success: false, cancelled: false };
+  }
+}
+
+/** Token estimation never acquires or renews a generation claim. */
+export async function updateChatTurnTokens(sessionId: string, userId: string, turnId: string, claimId: string, tokenCount: number): Promise<"updated" | "cancelled" | "claim-lost"> {
+  if (!isTurnId(turnId) || !(await ownsSession(sessionId, userId))) return "claim-lost";
+  return db.runTransaction(async (tx) => {
+    const ref = messagesCollection(sessionId).doc(turnId);
+    const doc = await tx.get(ref);
+    if (!doc.exists) return "cancelled";
+    if (doc.data()?.claimId !== claimId || !(doc.data()?.claimExpiresAt > Date.now())) return "claim-lost";
+    tx.update(ref, { tokenCount });
+    return "updated";
+  });
+}
+
+/** Release a claim when validation or credit checks prevent generation. */
+export async function releaseChatTurnClaim(sessionId: string, userId: string, turnId: string, claimId: string): Promise<void> {
+  try {
+    if (!isTurnId(turnId) || !(await ownsSession(sessionId, userId))) return;
+    await db.runTransaction(async (tx) => {
+      const ref = messagesCollection(sessionId).doc(turnId);
+      const doc = await tx.get(ref);
+      if (doc.exists && doc.data()?.claimId === claimId) tx.update(ref, { claimExpiresAt: 0 });
+    });
+  } catch (error) {
+    // A failed release remains bounded by the original lease expiry.
+    console.error("Error releasing chat turn claim:", error);
   }
 }

@@ -18,7 +18,7 @@ import { ChatDeleteModal } from "./ChatDeleteModal";
 import { ChatAttachmentPreview } from "./ChatAttachmentPreview";
 import { useRouter } from "nextjs-toploader/app";
 import { AnimatePresence } from "framer-motion";
-import { logAnalyticsEvent, storage } from "@/firebase/client";
+import { auth, logAnalyticsEvent, storage } from "@/firebase/client";
 import {
   ref as firebaseRef,
   uploadBytesResumable,
@@ -160,16 +160,21 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         return;
       }
 
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        setUploadError("Sign in before uploading an attachment.");
+        return;
+      }
       setPendingAttachment(null);
       setUploadError(null);
       setIsUploading(true);
       setUploadProgress(0);
       setTempFileName(file.name);
 
-      // Build a unique storage path: chat-attachments/<timestamp>-<filename>
+      // Scope each upload to the authenticated user.
       const fileRef = firebaseRef(
         storage,
-        `${BUCKETS.STORED_FILES}/chat-attachments/${Date.now()}-${file.name}`,
+        `${BUCKETS.STORED_FILES}/chat-attachments/${userId}/${crypto.randomUUID()}-${file.name.replace(/[\\/]/g, "_")}`,
       );
 
       const uploadTask = uploadBytesResumable(fileRef, file, {

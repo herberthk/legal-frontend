@@ -23,9 +23,9 @@ describe("checkAttachmentUrl", () => {
     expect(checkAttachmentUrl(url, "user")).toMatchObject({ ok: true });
   });
 
-  it("accepts a legacy upload without a uid segment", () => {
+  it("rejects a legacy upload whose owner cannot be verified", () => {
     const url = storageUrl(`${ALLOWED_ATTACHMENT_PREFIX}1700000000000-lease.pdf`);
-    expect(checkAttachmentUrl(url, "user")).toMatchObject({ ok: true });
+    expect(checkAttachmentUrl(url, "user")).toMatchObject({ ok: false, status: 404 });
   });
 
   it("rejects another user's object as not found", () => {
