@@ -1,3 +1,8 @@
+import {
+  buildBufferPayload,
+  buildHeartbeatPayload,
+  sanitizeVoiceTranscripts,
+} from "@/lib/voice/transcript-safety";
 import { useCallback, useRef } from "react";
 import { db } from "@/firebase/client";
 import { COLLECTIONS } from "@/constants";
@@ -63,16 +68,18 @@ export function useFirebaseSync({
         const snapshot = await getDoc(bufferRef);
 
         if (!snapshot.exists()) {
-          await setDoc(bufferRef, {
-            sessionId,
-            userId,
-            userName,
-            preferedVoice,
-            duration: currentDuration,
-            transcripts: syncingTranscriptsRef.current,
-            updatedAt: serverTimestamp(),
-            status: "active",
-          });
+          await setDoc(
+            bufferRef,
+            buildBufferPayload({
+              sessionId,
+              userId,
+              userName,
+              preferedVoice,
+              duration: currentDuration,
+              transcripts: syncingTranscriptsRef.current,
+              updatedAt: serverTimestamp(),
+            }),
+          );
         } else {
           // Read existing transcripts and append new ones manually.
           // arrayUnion would silently deduplicate identical objects (e.g. user says
@@ -84,10 +91,10 @@ export function useFirebaseSync({
             ? (snapshot.data()!.transcripts as Transcript[])
             : [];
           await updateDoc(bufferRef, {
-            transcripts: [
+            transcripts: sanitizeVoiceTranscripts([
               ...existingTranscripts,
               ...syncingTranscriptsRef.current,
-            ],
+            ]),
             duration: currentDuration,
             updatedAt: serverTimestamp(),
           });
@@ -139,27 +146,24 @@ export function useFirebaseSync({
    *   • it uses merge, so it also creates the buffer for a call that has not
    *     produced a single transcript yet — those seconds are real and were
    *     previously lost entirely if the tab died before anyone spoke;
-   *   • it defers to an in-flight transcript sync, which already refreshes
-   *     `updatedAt` on its own.
+   *   • it runs even during transcript sync, so repeated failed appends cannot
+   *     suppress liveness updates on every tick.
    */
   const heartbeatBuffer = useCallback(
     async (currentDuration: number) => {
-      if (isSyncingRef.current) return;
-
       try {
         const sessionId = sessionIdRef.current;
         const bufferRef = doc(db, COLLECTIONS.VOICE_SESSION_BUFFERS, sessionId);
         await setDoc(
           bufferRef,
-          {
+          buildHeartbeatPayload({
             sessionId,
             userId,
             userName,
             preferedVoice,
             duration: currentDuration,
             updatedAt: serverTimestamp(),
-            status: "active",
-          },
+          }),
           { merge: true },
         );
       } catch (error) {

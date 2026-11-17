@@ -31,15 +31,13 @@ export function sanitizeVoiceTranscripts(
       0,
       Math.min(MAX_TRANSCRIPT_CONTENT_CHARS, remaining),
     );
-    // If sliced through a UTF-16 surrogate pair, drop the dangling surrogate.
-    // JS slice can leave either a lone high surrogate (0xD800–0xDBFF) when the
-    // cut falls before the low surrogate, or a lone low surrogate (0xDC00–0xDFFF)
-    // when the cut falls before the high surrogate was consumed. Both are invalid
-    // Unicode scalar values and must be removed.
+    // Preserve complete pairs; only remove a dangling trailing surrogate.
     const lastCode = content.charCodeAt(content.length - 1);
+    const previousCode = content.charCodeAt(content.length - 2);
     if (
       (lastCode >= 0xd800 && lastCode <= 0xdbff) ||
-      (lastCode >= 0xdc00 && lastCode <= 0xdfff)
+      (lastCode >= 0xdc00 && lastCode <= 0xdfff &&
+        !(previousCode >= 0xd800 && previousCode <= 0xdbff))
     ) {
       content = content.slice(0, -1);
     }

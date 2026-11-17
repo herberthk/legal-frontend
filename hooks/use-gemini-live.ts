@@ -77,6 +77,12 @@ export const useGeminiLive = ({
   // Controls the auto-reconnection loop for dropped or goAway connections
   const reconnectAttemptsRef = useRef(0);
   const MAX_RECONNECT_ATTEMPTS = 5;
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectionAttemptRef = useRef(0);
+  const cancelRetry = useCallback(() => {
+    if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = null;
+  }, []);
 
   // Transcript memory accumulation
   const userPartsRef = useRef<string[]>([]);
@@ -273,10 +279,39 @@ export const useGeminiLive = ({
    * Handles initialization, reconnect cycles, VAD streaming, and incoming transcripts.
    */
   const connectToGemini = useCallback(
-    async (isReconnect = false, forceTokenRefresh = false) => {
-      try {
-        if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open"))
+    async function connectAttempt(isReconnect = false, forceTokenRefresh = false) {
+      if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open"))
+        return;
+      if (isReconnect && isDisconnectingRef.current) return;
+      cancelRetry();
+      const attempt = ++connectionAttemptRef.current;
+      const isCurrent = () =>
+        attempt === connectionAttemptRef.current && !isDisconnectingRef.current;
+      let retryOwned = false;
+      let connectionErrored = false;
+      // Both close and rejection report failures, but each attempt owns one retry.
+      const scheduleRetry = (isError: boolean) => {
+        if (!isCurrent() || retryOwned || durationRef.current >= 1800) return;
+        retryOwned = true;
+        if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          setWsStatus("error");
+          setActiveTranscript({
+            speaker: "system",
+            text: "Connection lost. Please try again.",
+          });
           return;
+        }
+        const refreshToken = isError || reconnectAttemptsRef.current > 0;
+        if (isError) reconnectAttemptsRef.current += 1;
+        const delay = isError
+          ? Math.min(500 * reconnectAttemptsRef.current, 5000)
+          : 500;
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null;
+          if (isCurrent()) connectAttempt(true, refreshToken);
+        }, delay);
+      };
+      try {
         isDisconnectingRef.current = false;
 
         // Reset state only on fresh starts, avoid UI jumps during background reconnects
@@ -426,7 +461,7 @@ export const useGeminiLive = ({
 
         const shouldForceRefresh = !isReconnect || forceTokenRefresh;
         const token = await getEphemeralToken(shouldForceRefresh);
-        if (isDisconnectingRef.current) return;
+        if (!isCurrent()) return;
 
         aiClientRef.current = new GoogleGenAI({
           apiKey: token,
@@ -478,6 +513,8 @@ export const useGeminiLive = ({
           config,
           callbacks: {
             onopen: () => {
+              if (!isCurrent() || retryOwned) return;
+              cancelRetry();
               console.log("[gemini-live] open");
               setWsStatus("open");
               if (!isReconnect)
@@ -536,7 +573,7 @@ export const useGeminiLive = ({
               }
             },
             onmessage: (msg) => {
-              if (isDisconnectingRef.current) return;
+              if (!isCurrent() || retryOwned) return;
 
               if (msg.serverContent?.interrupted) {
                 console.log("[gemini-live] Interrupted!");
@@ -603,90 +640,33 @@ export const useGeminiLive = ({
               }
             },
             onerror: (err) => {
+              if (!isCurrent() || retryOwned) return;
               console.error("[gemini-live] Error:", err);
-              sessionRef.current = null;
-              setIsListening(false);
-
-              if (!isDisconnectingRef.current && durationRef.current < 1800) {
-                if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-                  console.error(
-                    `[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`,
-                  );
-                  setWsStatus("error");
-                  setActiveTranscript({
-                    speaker: "system",
-                    text: "Connection error. Please try again.",
-                  });
-                  reconnectAttemptsRef.current = 0;
-                  return;
-                }
-                reconnectAttemptsRef.current += 1;
-                const delay = Math.min(
-                  500 * reconnectAttemptsRef.current,
-                  5000,
-                );
-                console.log(
-                  `[gemini-live] Reconnecting after error (attempt ${reconnectAttemptsRef.current})...`,
-                );
-                // eslint-disable-next-line
-                setTimeout(() => connectToGemini(true, true), delay);
-                return;
-              }
-              setActiveTranscript({
-                speaker: "system",
-                text: "Connection error.",
-              });
-              setWsStatus("error");
+              // Close owns socket retries; rejection below covers failed handshakes.
+              connectionErrored = true;
             },
             onclose: (ev) => {
+              if (!isCurrent() || retryOwned) return;
               console.log("[gemini-live] Closed:", ev);
               sessionRef.current = null;
               setIsListening(false);
-
-              if (!isDisconnectingRef.current && durationRef.current < 1800) {
-                const isErrorClose = ev.code !== 1000 && ev.code !== 1005;
-                const forceTokenRefresh =
-                  isErrorClose || reconnectAttemptsRef.current > 0;
-
-                if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-                  console.error(
-                    `[gemini-live] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`,
-                  );
-                  setWsStatus("error");
-                  setActiveTranscript({
-                    speaker: "system",
-                    text: "Connection lost. Please try again.",
-                  });
-                  reconnectAttemptsRef.current = 0;
-                  return;
-                }
-
-                if (isErrorClose) {
-                  reconnectAttemptsRef.current += 1;
-                }
-                const delay = isErrorClose
-                  ? Math.min(500 * reconnectAttemptsRef.current, 5000)
-                  : 500;
-                console.log(
-                  `[gemini-live] Seamlessly reconnecting (attempt ${reconnectAttemptsRef.current})...`,
+              if (durationRef.current < 1800) {
+                scheduleRetry(
+                  connectionErrored || (ev.code !== 1000 && ev.code !== 1005),
                 );
-                // eslint-disable-next-line
-                setTimeout(
-                  () => connectToGemini(true, forceTokenRefresh),
-                  delay,
-                );
-                return;
+              } else {
+                setWsStatus("closed");
               }
-              setWsStatus("closed");
             },
           },
         });
 
-        if (isDisconnectingRef.current) {
+        if (!isCurrent() || retryOwned) {
           session.close();
           return;
         }
 
+        cancelRetry();
         sessionRef.current = session;
 
         // Automatically start the conversation
@@ -695,13 +675,9 @@ export const useGeminiLive = ({
         }
       } catch (error) {
         console.error("[gemini-live] Connection error:", error);
-        if (
-          isReconnect &&
-          !isDisconnectingRef.current &&
-          durationRef.current < 1800
-        ) {
-          // eslint-disable-next-line
-          setTimeout(() => connectToGemini(true, true), 2000);
+        if (!isCurrent() || retryOwned) return;
+        if (isReconnect && durationRef.current < 1800) {
+          scheduleRetry(true);
           return;
         }
         setWsStatus("error");
@@ -710,6 +686,7 @@ export const useGeminiLive = ({
     },
     [
       wsStatus,
+      cancelRetry,
       getEphemeralToken,
       preferedVoice.preferedVoiceId,
       preferedVoice.preferedVoiceName,
@@ -733,6 +710,8 @@ export const useGeminiLive = ({
 
     noSleep.current.disable();
     isDisconnectingRef.current = true;
+    connectionAttemptRef.current += 1;
+    cancelRetry();
 
     stopAudio();
 
@@ -793,7 +772,7 @@ export const useGeminiLive = ({
     aiAudioLevelRef.current = 0;
     setMicLevel(0);
     setAiAudioLevel(0);
-  }, [stopAudio, finalizeUserTurn, finalizeAITurn]);
+  }, [stopAudio, finalizeUserTurn, finalizeAITurn, cancelRetry]);
 
   const toggleMicMute = useCallback((muted: boolean) => {
     if (mediaStreamRef.current) {

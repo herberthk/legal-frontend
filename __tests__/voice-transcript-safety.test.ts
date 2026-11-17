@@ -44,41 +44,20 @@ describe("voice transcript buffer boundary", () => {
     expect(sanitized[0]?.content.endsWith("a")).toBe(true);
   });
 
-  it("drops trailing low surrogate if the slice lands on the second half of a pair", () => {
-    // Build a string whose 10_001st code unit is the LOW surrogate of 🎉 (U+1F389).
-    // 🎉 encodes as [0xD83C, 0xDF89]. Place 9_999 "a"s then the emoji:
-    //   index 9999 → 0xD83C (high), index 10000 → 0xDF89 (low)
-    // slice(0, 10_000) gives 9_999 "a"s + the high surrogate → that path is
-    // covered by the previous test.
-    //
-    // To hit the LOW surrogate path: slice must end exactly on the low surrogate.
-    // Put 9_998 "a"s + the full emoji (2 code units) + one more "a" = 10_001 chars.
-    // slice(0, 10_000) = 9_998 "a"s + 0xD83C (high) + 0xDF89 (low) — but that's
-    // only 10_000 chars; the last code unit is the LOW surrogate (0xDF89).
-    // Wait — slice(0, 10_000) on 9_998 "a"s + emoji:
-    //   positions: 0..9997 = "a", 9998 = 0xD83C, 9999 = 0xDF89 → length 10_000
-    // The slice boundary coincides exactly with the full emoji — no dangling.
-    // To force the low-surrogate case: insert the emoji so its HIGH surrogate is
-    // at position 9_999 and LOW at 10_000, then add a trailing char so the total
-    // exceeds 10_000 and the slice cuts at 10_000 (the low surrogate).
-    //   9_999 "a"s + 🎉 (2 units) + "z" = 10_002 chars
-    //   slice(0, 10_000) = 9_999 "a"s + 0xD83C (high at 9999) + 0xDF89 (low at 10000)
-    //   → the last code unit is 0xDF89, a LOW surrogate (0xDC00–0xDFFF)
-    const lowSurrogateAtBoundary =
-      "a".repeat(9_999) + "\uD83C\uDF89" + "z";
-    const sanitized = sanitizeVoiceTranscripts([
-      { role: "user", content: lowSurrogateAtBoundary },
-    ]);
-    expect(sanitized).toHaveLength(1);
-    // Both the high and low surrogate must be stripped (the whole emoji is gone)
-    expect(sanitized[0]?.content).toHaveLength(9_999);
-    expect(sanitized[0]?.content.endsWith("a")).toBe(true);
-    // No dangling surrogates
-    const lastCode = sanitized[0]!.content.charCodeAt(
-      sanitized[0]!.content.length - 1,
-    );
-    expect(lastCode < 0xd800 || lastCode > 0xdfff).toBe(true);
+  it.each([
+    "👍",
+    "a".repeat(9_998) + "🎉",
+    "a".repeat(9_998) + "🎉" + "z",
+  ])("preserves complete emoji pairs at the end of retained content", (content) => {
+    expect(sanitizeVoiceTranscripts([{ role: "user", content }])[0]?.content)
+      .toBe(content.slice(0, 10_000));
   });
+
+  it("removes an unpaired trailing low surrogate", () => {
+    expect(sanitizeVoiceTranscripts([{ role: "user", content: "hello\uDC4D" }]))
+      .toEqual([{ role: "user", content: "hello" }]);
+  });
+
 });
 
 describe("voice buffer payloads match the deployed rules", () => {
