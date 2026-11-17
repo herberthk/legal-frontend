@@ -23,6 +23,54 @@ service cloud.firestore {
              );
     }
 
+    function isValidVoicePreference(preference) {
+      return preference is map &&
+             preference.keys().hasOnly(['preferedVoiceId', 'preferedVoiceName']) &&
+             (!('preferedVoiceId' in preference) ||
+               (preference.preferedVoiceId is string && preference.preferedVoiceId.size() <= 64)) &&
+             (!('preferedVoiceName' in preference) ||
+               (preference.preferedVoiceName is string && preference.preferedVoiceName.size() <= 120));
+    }
+
+    function isValidVoiceBuffer(data, docId) {
+      return data.keys().hasOnly([
+               'sessionId', 'userId', 'userName', 'preferedVoice',
+               'duration', 'transcripts', 'updatedAt', 'status'
+             ]) &&
+             data.keys().hasAll([
+               'sessionId', 'userId', 'userName', 'preferedVoice',
+               'duration', 'updatedAt', 'status'
+             ]) &&
+             data.sessionId is string && data.sessionId == docId &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() <= 120 &&
+             isValidVoicePreference(data.preferedVoice) &&
+             data.duration is int && data.duration >= 0 && data.duration <= 1800 &&
+             (!('transcripts' in data) ||
+               (data.transcripts is list && data.transcripts.size() <= 1000)) &&
+             data.updatedAt is timestamp &&
+             data.status == 'active';
+    }
+
+    function isValidVoiceRecordingUpdate(docId) {
+      return request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['audioUrl', 'recordingStatus']) &&
+             request.resource.data.userId == resource.data.userId &&
+             (!('audioUrl' in request.resource.data) ||
+               (request.resource.data.audioUrl is string &&
+                request.resource.data.audioUrl.size() <= 4096 &&
+                (request.resource.data.audioUrl.matches(
+                   '^https://firebasestorage\\.googleapis\\.com/.*/o/storedFiles%2Fvoice-sessions%2F' +
+                   request.auth.uid + '_' + docId + '\\.(wav|webm).*$'
+                 ) ||
+                 request.resource.data.audioUrl.matches(
+                   '^https://storage\\.googleapis\\.com/.*/storedFiles/voice-sessions/' +
+                   request.auth.uid + '_' + docId + '\\.(wav|webm).*$'
+                 )))) &&
+             (!('recordingStatus' in request.resource.data) ||
+               request.resource.data.recordingStatus in ['PENDING', 'UPLOADING', 'READY', 'FAILED']);
+    }
+
     // ---------------------------------------------------------
     // 1. Users & Core Authentication Data
     // ---------------------------------------------------------
@@ -102,12 +150,21 @@ service cloud.firestore {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
     match /voiceSessions/{docId} {
-      allow create: if isOwner(request.resource.data.userId) || isAdmin();
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+                    (isOwner(resource.data.userId) && isValidVoiceRecordingUpdate(docId));
     }
     match /voiceSessionBuffers/{docId} {
-      allow create: if isOwner(request.resource.data.userId) || isAdmin();
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAdmin() ||
+                    (isOwner(request.resource.data.userId) &&
+                     isValidVoiceBuffer(request.resource.data, docId));
+      allow update: if isAdmin() ||
+                    (isOwner(resource.data.userId) &&
+                     request.resource.data.userId == resource.data.userId &&
+                     isValidVoiceBuffer(request.resource.data, docId));
+      allow delete: if isAdmin();
     }
     match /transcriptions/{docId} {
       allow create: if isOwner(request.resource.data.userId) || isAdmin();
