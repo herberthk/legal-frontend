@@ -127,7 +127,7 @@ export const ChatMessage = memo(
                     )}
                   </div>
                   <div className="flex flex-col overflow-hidden">
-                    <span className="font-medium truncate text-xs opacity-90 max-w-[200px]">
+                    <span className="font-medium truncate text-xs opacity-90 max-w-50">
                       {msgFile.name}
                     </span>
                     <span className="text-[10px] opacity-70">

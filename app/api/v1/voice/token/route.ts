@@ -4,6 +4,7 @@ import { ok, internalError, paymentRequired } from "@/lib/api/v1/response";
 import { db } from "@/firebase/admin";
 import { COLLECTIONS, COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
+import { GEMINI_LIVE_API_VERSION } from "@/lib/voice/live-config";
 
 /**
  * Mints a short-lived ephemeral Gemini Live token for the mobile client — the
@@ -71,7 +72,7 @@ export async function GET(req: Request) {
       config: {
         expireTime,
         newSessionExpireTime,
-        httpOptions: { apiVersion: "v1alpha" },
+        httpOptions: { apiVersion: GEMINI_LIVE_API_VERSION },
       },
     });
 

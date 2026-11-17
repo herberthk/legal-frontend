@@ -16,6 +16,7 @@ import {
 } from "./use-gemini-live/mic-stream";
 import { useFirebaseSync } from "./use-gemini-live/use-firebase-sync";
 import { useEphemeralToken } from "./use-gemini-live/use-ephemeral-token";
+import { GEMINI_LIVE_MODEL } from "@/lib/voice/live-config";
 
 export const useGeminiLive = ({
   userName,
@@ -473,7 +474,7 @@ export const useGeminiLive = ({
         }
 
         const session = await aiClientRef.current.live.connect({
-          model: "gemini-3.1-flash-live-preview",
+          model: GEMINI_LIVE_MODEL,
           config,
           callbacks: {
             onopen: () => {

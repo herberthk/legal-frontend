@@ -18,7 +18,7 @@
     "@ai-sdk/google": "^3.0.29",
     "@ai-sdk/google-vertex": "^5.0.16",
     "@ai-sdk/react": "^4.0.23",
-    "@google/genai": "2.23.0",
+    "@google/genai": "3.4.0",
     "@react-email/components": "^1.0.8",
     "@react-pdf/renderer": "^4.3.2",
     "@sentry/nextjs": "10",
