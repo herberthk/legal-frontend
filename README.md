@@ -18,7 +18,6 @@ An AI-powered legal guidance and consultation platform built with Next.js 16 (Ap
 - **Payments & Billing**: Stripe (`@stripe/stripe-js`), NylonPay (`@nile-squad/nylonpay-ts`), and custom PawaPay SDK (`sdk/pawapay`)
 - **Rich Text & Document Processing**: Tiptap Editor (`@tiptap/react`), `@react-pdf/renderer`, `pdf-parse`, `mammoth` (DOCX parsing)
 - **Audio & Media**: [Mediabunny](https://github.com/mediabunny) & browser audio recorder Web Worker
-- **Observability**: [Sentry](https://sentry.io/) (`@sentry/nextjs`)
 - **Testing**: Vitest, Jest (`ts-jest`), and Playwright (`@playwright/test`)
 
 ---
@@ -74,12 +73,10 @@ An AI-powered legal guidance and consultation platform built with Next.js 16 (Ap
 2. **Set up Environment Variables**:
 
    Create a `.env.local` file at the root of the project mirroring `.env.example` (or as required by your service setup), including:
-
    - **Firebase Config**: `NEXT_PUBLIC_FIREBASE_*` and Firebase Admin credentials
    - **Google AI**: `GEMINI_API_KEY` / Google Cloud Vertex credentials
    - **Stripe**: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
    - **Payment Gateways**: NylonPay & PawaPay API keys (if applicable)
-   - **Sentry**: `SENTRY_AUTH_TOKEN`, `NEXT_PUBLIC_SENTRY_DSN` (optional for error tracking)
 
 ---
 
@@ -90,7 +87,8 @@ An AI-powered legal guidance and consultation platform built with Next.js 16 (Ap
   ```bash
   bun run dev
   ```
-  *Note: `bun run dev` automatically compiles the recorder worker (`hooks/recorder.worker.ts` -> `public/js/recorder-worker.js`) via esbuild before launching `next dev`.*
+
+  _Note: `bun run dev` automatically compiles the recorder worker (`hooks/recorder.worker.ts` -> `public/js/recorder-worker.js`) via esbuild before launching `next dev`._
 
 - **Production Build**:
 

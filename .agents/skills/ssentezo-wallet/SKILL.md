@@ -212,7 +212,7 @@ if (result.success) {
 ### ✅ Route Handlers — use `handleSsentezoRouteError()`
 
 One-liner that returns a `NextResponse` with the right status code and body.
-Re-throws unknown errors so Next.js / Sentry can catch them.
+Re-throws unknown errors so Next.js can catch them.
 
 ```typescript
 import { NextResponse } from "next/server";
@@ -384,7 +384,7 @@ export async function POST(req: Request) {
 | Forgetting `encodeURIComponent` in status path         | `getStatus()` already does this — do not encode the ref before passing it       |
 | Callback endpoint requiring auth                       | Ssentezo cannot authenticate; the route must be open                            |
 | Throwing from a callback endpoint                      | Always return 200 even on DB errors; fix with a background reconciliation job   |
-| Checking `result.kind === "unknown"` and swallowing it | Re-throw unknown errors in route handlers so Next.js / Sentry receives them     |
+| Checking `result.kind === "unknown"` and swallowing it | Re-throw unknown errors in route handlers so Next.js                            |
 
 ---
 

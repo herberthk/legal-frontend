@@ -37,7 +37,7 @@ bunx playwright test     # E2E — see caveat below
 Firebase Auth runs client-side, but the app's source of truth is an HTTP-only `session` cookie minted by the Admin SDK (`setSessionCookie` in `lib/actions/auth.ts`, 1-week expiry).
 
 - **Server code** calls `getCurrentUser()` (full Firestore user doc) or `getAuthenticatedUserId()` (uid only) — both verify the cookie via `auth.verifySessionCookie`. Never trust a client-supplied uid in a route handler or action.
-- **`proxy.ts`** is the Next 16 middleware (renamed from `middleware.ts`). It only checks cookie *presence* to redirect unauthenticated users off `/dashboard`, `/admin`, `/notifications`, and injects `x-device-*` headers parsed from the UA. Real authorization happens in layouts and actions.
+- **`proxy.ts`** is the Next 16 middleware (renamed from `middleware.ts`). It only checks cookie _presence_ to redirect unauthenticated users off `/dashboard`, `/admin`, `/notifications`, and injects `x-device-*` headers parsed from the UA. Real authorization happens in layouts and actions.
 - **Role gating** lives in `app/(dashboard)/admin/layout.tsx`, which calls `notFound()` for non-`ADMIN`/`SUPER_ADMIN`. `app/(dashboard)/layout.tsx` redirects anonymous users to `/login`.
 - **`components/global/AuthProvider.tsx`** hydrates the Zustand auth store from the server session, then keeps it live with a Firestore `onSnapshot` on the user doc — so balance/token deductions made server-side appear in the UI without a refetch.
 
@@ -72,7 +72,7 @@ Serwist via `@serwist/turbopack`. `app/sw.ts` is the service-worker source; `app
 
 ### next.config.ts is load-bearing
 
-It carries a strict per-origin **CSP** — adding any third-party script, image host, or API origin requires editing it or requests will be blocked. It also sets a deliberately permissive CSP on the `/serwist/sw.js` response (a SW enforces its own response's CSP for internal `fetch`), `Cross-Origin-Opener-Policy: same-origin-allow-popups` for Firebase popup OAuth, a `/__/auth/:path*` rewrite proxying to the Firebase auth domain, `serverExternalPackages: ["pdf-parse"]`, and the React Compiler (`reactCompiler: true`). Sentry wraps the whole config with a `/monitoring` tunnel route.
+It carries a strict per-origin **CSP** — adding any third-party script, image host, or API origin requires editing it or requests will be blocked. It also sets a deliberately permissive CSP on the `/serwist/sw.js` response (a SW enforces its own response's CSP for internal `fetch`), `Cross-Origin-Opener-Policy: same-origin-allow-popups` for Firebase popup OAuth, a `/__/auth/:path*` rewrite proxying to the Firebase auth domain, `serverExternalPackages: ["pdf-parse"]`, and the React Compiler (`reactCompiler: true`).
 
 ## Conventions
 

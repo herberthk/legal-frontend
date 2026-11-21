@@ -2,15 +2,24 @@ import { GoogleGenAI } from "@google/genai";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { ok, internalError, paymentRequired } from "@/lib/api/v1/response";
 import { db } from "@/firebase/admin";
-import { COLLECTIONS, COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants";
+import { COLLECTIONS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
-import { GEMINI_LIVE_API_VERSION } from "@/lib/voice/live-config";
+import {
+  buildVoiceLiveConfig,
+  buildVoiceAuthTokenConfig,
+  GEMINI_LIVE_MODEL,
+  MOBILE_VOICE_RESERVATION,
+} from "@/lib/voice/live-config";
 
 /**
  * Mints a short-lived ephemeral Gemini Live token for the mobile client — the
  * Bearer/App-Check twin of `app/api/gemini-token/route.ts`. The real API key
- * never leaves the server; the client opens a `@google/genai` `live.connect`
- * WebSocket session with this token. See `docs/mobile/skills/voice-chat.md`.
+ * and the system instruction prompt never leave the server; the client opens
+ * a `@google/genai` `live.connect` WebSocket session with this token.
+ *
+ * The system instruction is embedded and locked in the token constraints server-side,
+ * ensuring third-party/mobile clients cannot tamper with or inspect the prompt.
+ * See `docs/mobile/skills/voice-chat.md`.
  */
 export async function GET(req: Request) {
   const gate = await requireMobileAuth(req);
@@ -28,15 +37,34 @@ export async function GET(req: Request) {
     return paymentRequired("User not found");
   }
   const userData = userDoc.data() as User;
-  const hasCredit =
-    (userData.freeVoiceSeconds ?? 0) > 0 ||
-    (userData.balance ?? 0) >= COST_PER_VOICE_SECOND_IN_CENTS;
 
-  if (!hasCredit) {
+  // 2. Compute configuration and credit allowances
+  const url = new URL(req.url);
+  const voiceId =
+    (url.searchParams.get("voiceId") ?? "").slice(0, 120) ||
+    userData.preferedVoice?.preferedVoiceId;
+  const voiceName =
+    (url.searchParams.get("voiceName") ?? "").slice(0, 120) ||
+    userData.preferedVoice?.preferedVoiceName;
+  const maxSecs = Number(url.searchParams.get("maxSecs"));
+
+  // Build the full LiveConnectConfig — including the system prompt — entirely
+  // on the server using the authenticated user's profile.
+  const { config, credits } = buildVoiceLiveConfig({
+    userName: userData.name || "User",
+    preferedVoice: { preferedVoiceId: voiceId, preferedVoiceName: voiceName },
+    freeVoiceSeconds: userData.freeVoiceSeconds,
+    balance: userData.balance,
+    maxSecs,
+  });
+
+  if (credits.allowedSeconds <= 0) {
     return paymentRequired("Insufficient credit for voice session");
   }
 
-  // 2. Pre-create server-authoritative voice session reservation
+  // 3. Pre-create server-authoritative voice session reservation
+  // Tagged with MOBILE_VOICE_RESERVATION so cloud scheduler's syncBufferSessions
+  // can recognize and settle it via settleMobileVoice if abandoned.
   const sessionId = crypto.randomUUID();
   const sessionRef = db.collection(COLLECTIONS.VOICE_SESSIONS).doc(sessionId);
 
@@ -45,6 +73,8 @@ export async function GET(req: Request) {
       id: sessionId,
       userId: gate.userId,
       status: "ACTIVE",
+      reservationType: MOBILE_VOICE_RESERVATION,
+      allowedSeconds: credits.allowedSeconds,
       createdAt: FieldValue.serverTimestamp(),
       startedAt: FieldValue.serverTimestamp(),
       duration: 0,
@@ -58,29 +88,25 @@ export async function GET(req: Request) {
     return internalError("Failed to initialize voice session");
   }
 
-  // 3. Mint ephemeral token with rollback on failure
+  // 4. Mint ephemeral token with server-embedded & locked system instruction
   try {
     const ai = new GoogleGenAI({ apiKey });
-
-    // Token expires in 60 minutes, allowing 5 minutes to establish a session.
-    const expireTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const newSessionExpireTime = new Date(
-      Date.now() + 5 * 60 * 1000,
-    ).toISOString();
+    const authTokenConfig = buildVoiceAuthTokenConfig(config);
 
     const token = await ai.authTokens.create({
-      config: {
-        expireTime,
-        newSessionExpireTime,
-        httpOptions: { apiVersion: GEMINI_LIVE_API_VERSION },
-      },
+      config: authTokenConfig,
     });
 
     if (!token || !token.name) {
       throw new Error("Failed to generate ephemeral token");
     }
 
-    return ok({ token: token.name, sessionId });
+    return ok({
+      token: token.name,
+      sessionId,
+      allowedSeconds: credits.allowedSeconds,
+      model: GEMINI_LIVE_MODEL,
+    });
   } catch (error) {
     console.error("Error creating ephemeral token:", error);
     // Roll back reservation so failed token creation does not leave an unusable session

@@ -8,7 +8,11 @@ vi.mock("@google/genai", () => ({
 }));
 vi.mock("@zakj/no-sleep", () => ({ default: class { enable() {} disable() {} } }));
 vi.mock("@/hooks/use-gemini-live/use-ephemeral-token", () => ({
-  useEphemeralToken: () => ({ getEphemeralToken: async () => "local-token" }),
+  useEphemeralToken: () => ({
+    getEphemeralToken: async () => "local-token",
+    prefetchToken: vi.fn(),
+    clearCachedToken: vi.fn(),
+  }),
 }));
 vi.mock("@/hooks/use-gemini-live/use-firebase-sync", () => ({
   useFirebaseSync: () => ({ syncSessionToBuffer: vi.fn(), heartbeatBuffer: vi.fn() }),
@@ -78,5 +82,86 @@ describe("Gemini reconnect ownership", () => {
     await act(() => result.current.disconnect());
     await act(() => vi.advanceTimersByTimeAsync(10000));
     expect(connect).toHaveBeenCalledTimes(3);
+  });
+  it("keeps the initial session connecting until SDK setup resolves", async () => {
+    let resolveSetup!: (value: ReturnType<typeof session>) => void;
+    const pendingSetup = new Promise<ReturnType<typeof session>>((resolve) => {
+      resolveSetup = resolve;
+    });
+    connect.mockImplementationOnce(({ callbacks: cb }) => {
+      cb.onopen();
+      return pendingSetup;
+    });
+    const { result } = setup();
+    let connecting!: Promise<void>;
+    await act(async () => { connecting = result.current.connect(); });
+    expect(result.current.wsStatus).toBe("connecting");
+    await act(async () => {
+      resolveSetup(session());
+      await connecting;
+    });
+    expect(result.current.wsStatus).toBe("open");
+    await act(() => result.current.disconnect());
+  });
+
+  it("does not retry when a reconnect opens the socket but fails setup", async () => {
+    connect.mockResolvedValueOnce(session());
+    const { result } = setup();
+    await act(() => result.current.connect());
+    await act(async () => callbacks().onclose({ code: 1006 }));
+    connect.mockImplementationOnce(async ({ callbacks: cb }) => {
+      cb.onopen();
+      cb.onclose({ code: 1008 });
+      throw new Error("Live setup rejected");
+    });
+    await act(() => vi.advanceTimersByTimeAsync(10000));
+    expect(connect).toHaveBeenCalledTimes(2);
+    expect(result.current.wsStatus).toBe("error");
+    await act(() => result.current.disconnect());
+  });
+
+  it("gracefully rotates and passes previous resumption handle on msg.goAway", async () => {
+    const s1 = session();
+    connect.mockResolvedValueOnce(s1);
+    const { result } = setup();
+    await act(() => result.current.connect());
+    expect(connect).toHaveBeenCalledTimes(1);
+
+    // Initial connect: sessionResumption is empty {}
+    const initialConfig = connect.mock.calls[0][0].config;
+    expect(initialConfig.sessionResumption).toEqual({});
+
+    // Server sends session resumption update with new handle
+    act(() => {
+      callbacks().onmessage({
+        sessionResumptionUpdate: { newHandle: "handle-12345" },
+      });
+    });
+
+    // Server sends goAway
+    connect.mockResolvedValueOnce(session());
+    await act(async () => {
+      callbacks().onmessage({ goAway: {} });
+    });
+
+    // s1.close() should have been called
+    expect(s1.close).toHaveBeenCalledTimes(1);
+
+    // Trigger onclose callback that would be fired when socket closes
+    await act(async () => {
+      callbacks().onclose({ code: 1000 });
+    });
+
+    // Advance timer for 500ms reconnect delay
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    // Reconnection was initiated
+    expect(connect).toHaveBeenCalledTimes(2);
+
+    // Resumed connect MUST include handle-12345!
+    const resumedConfig = connect.mock.calls[1][0].config;
+    expect(resumedConfig.sessionResumption).toEqual({ handle: "handle-12345" });
+
+    await act(() => result.current.disconnect());
   });
 });
