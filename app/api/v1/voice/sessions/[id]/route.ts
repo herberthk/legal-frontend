@@ -15,6 +15,11 @@ export async function GET(
   if (gate instanceof Response) return gate;
 
   const { id } = await params;
+  // Reject ids that cannot be valid Firestore doc names — same character set
+  // as the sessionId regex in the billing route to prevent path traversal.
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) {
+    return notFoundError("Voice session not found.");
+  }
   const session = await getVoiceSessionById(id);
   if (!session || session.userId !== gate.userId) {
     return notFoundError("Voice session not found.");

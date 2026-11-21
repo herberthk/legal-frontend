@@ -8,7 +8,7 @@ import {
   COST_PER_VOICE_SECOND_IN_CENTS,
   MAX_VOICE_SESSION_SECONDS,
 } from "@/constants";
-import { ok, unauthenticated, badRequest, apiError } from "@/lib/api/v1/response";
+import { ok, unauthenticated, notFoundError, badRequest, apiError } from "@/lib/api/v1/response";
 
 /**
  * Mobile voice-billing endpoint — the Bearer twin of
@@ -101,8 +101,10 @@ export async function POST(req: Request) {
     createdAt?: FirebaseFirestore.Timestamp;
   };
 
+  // Return 404 (not 401) on ownership mismatch — 401 would reveal that the
+  // session document exists, which leaks information to a different user.
   if (sessionData.userId !== userId) {
-    return unauthenticated();
+    return notFoundError("Voice session not found.");
   }
 
   // Derive duration from server timing / reservation rather than trusting client-supplied duration

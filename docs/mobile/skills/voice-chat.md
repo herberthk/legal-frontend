@@ -17,10 +17,10 @@
 ## Architecture
 
 ```
- GET /voice/token ──► { token (60 min), sessionId }   ← server mints BOTH and
-        │                                              reserves the session
-        ▼
- @google/genai  live.connect({ model:"gemini-3.1-flash-live-preview", config })
+ GET /voice/token ──► { token (60 min), sessionId, allowedSeconds, model }
+        │                                  ▲ server mints token with system prompt
+        ▼                                    embedded & locked server-side
+ @google/genai  live.connect({ model:"gemini-3.8-live", config })
    over the device WebSocket  ◄─────────────────────────────────────────┐
         │                                                                │
    mic ─► 16 kHz Int16 PCM ─► base64 ─► session.sendRealtimeInput(audio) │
@@ -39,17 +39,28 @@ transcript accumulation). Only the audio graph changes.
 ## Step 1 — mint the ephemeral token (and get your `sessionId`)
 
 ```
-GET /voice/token
+GET /voice/token?voiceId=Aoede&voiceName=Evelyn&maxSecs=1800
 Authorization: Bearer <id-token>
 X-Firebase-AppCheck: <app-check-token>
-→ 200 { "data": { "token": "auth_tokens/…", "sessionId": "3f9c…" } }
+→ 200 { "data": { "token": "auth_tokens/…", "sessionId": "3f9c…", "allowedSeconds": 1800, "model": "gemini-3.8-live" } }
 → 402 { "error": { "code": "PAYMENT_REQUIRED", "message": "Insufficient credit for voice session" } }
 → 500 { "error": { "code": "INTERNAL", "message": "Failed to create ephemeral token" } }
 ```
 
-The real API key never reaches the device. The token lasts 60 minutes and allows
-5 minutes to open a session. **Fetch it immediately before connecting**, not at app
-start.
+Query parameters (`voiceId`, `voiceName`, `maxSecs`) are optional — the server falls back
+to the user's stored preference and credit balance.
+
+The real API key never reaches the device. The token lasts **60 minutes** and
+keeps the new-session window open for **35 minutes** — long enough to cover a full
+30-minute call plus a 5-minute reconnect buffer. **Fetch it immediately before
+connecting**, not at app start. You may cache it client-side for up to 30 minutes
+(the web client does exactly this); just ensure you always have a valid token before
+calling `live.connect`.
+
+> **The system prompt is locked inside the token server-side.** You do NOT need to
+> send `systemInstruction` in `live.connect()`. The backend binds and locks the legal
+> advisor instruction directly inside the token's `liveConnectConstraints`. This protects
+> the prompt from inspection or client tampering.
 
 > **`sessionId` is server-minted — never generate your own.** This call also
 > pre-creates the server-authoritative voice-session **reservation** in Firestore
@@ -68,42 +79,46 @@ captured. Surface a top-up prompt on 402 rather than opening the socket.
 ```ts
 import { GoogleGenAI, Modality, type LiveConnectConfig } from "@google/genai";
 
-const { token, sessionId } = await apiFetch<{ token: string; sessionId: string }>(
-  "/voice/token",
-);
+const { token, sessionId, model } = await apiFetch<{
+  token: string;
+  sessionId: string;
+  allowedSeconds: number;
+  model: string;
+}>("/voice/token");
 // Keep `sessionId` for the whole call — it is what /voice/billing settles against.
 
 const ai = new GoogleGenAI({
   apiKey: token,                          // the ephemeral token, not the real key
-  httpOptions: { apiVersion: "v1alpha" }, // REQUIRED — must match the token's version
+  httpOptions: { apiVersion: "v1beta" },  // matches the token's server apiVersion
 });
 
+// NOTE: systemInstruction is omitted because it is embedded and locked inside
+// the server-minted token. The Gemini Live server enforces it automatically.
 const config: LiveConnectConfig = {
   responseModalities: [Modality.AUDIO],
   temperature: 0,
   speechConfig: {
     voiceConfig: {
-      prebuiltVoiceConfig: { voiceName: preferedVoiceId || "Zephyr" },
+      prebuiltVoiceConfig: { voiceName: preferedVoiceId || "Aoede" },
     },
   },
   tools: [{ googleSearch: {} }],
   inputAudioTranscription: {},   // → msg.serverContent.inputTranscription (what the user said)
   outputAudioTranscription: {},  // → msg.serverContent.outputTranscription (what the AI said)
   contextWindowCompression: { slidingWindow: {} },
-  systemInstruction: { parts: [{ text: SYSTEM_VOICE_INSTRUCTION }] },
   // On reconnect only:
   // sessionResumption: { handle: previousHandle },
 };
 
 const session = await ai.live.connect({
-  model: "gemini-3.1-flash-live-preview",
+  model: model || "gemini-3.8-live",
   config,
   callbacks: { onopen, onmessage, onerror, onclose },
 });
 ```
 
-Reuse the web's `LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION` text (ask the backend owner to
-expose it, or embed an equivalent). It bakes in the max-duration sentence.
+The system instruction is completely server-managed and enforced by the token's constraints.
+You do not need to fetch, store, or bundle any prompt instructions in the mobile app.
 
 ## Step 3 — mic → 16 kHz Int16 PCM → send
 
@@ -196,7 +211,7 @@ function enqueuePcm24k(base64: string) {
 
 On barge-in / interruption, cancel every scheduled source and reset `nextStart = 0`.
 
-## Step 5 — barge-in, resumption, duration cap
+## Step 5 — barge-in, resumption, duration cap & time notifications
 
 - **Barge-in:** when `msg.serverContent.interrupted` fires, stop and flush the
   playback queue immediately so the AI goes quiet the instant the user speaks.
@@ -204,8 +219,26 @@ On barge-in / interruption, cancel every scheduled source and reset `nextStart =
   or a non-1000/1005 socket close **while `duration < 1800`**, reconnect and set
   `config.sessionResumption = { handle: previousHandle }` — the conversation
   continues seamlessly. Back off (500 ms × attempt, capped 5 s), max ~5 attempts.
-- **Duration cap:** sessions are capped at **1800 s (30 min)**. Stop reconnecting
-  once `duration >= 1800`; end and settle the session.
+- **Time Remaining System Notifications:** The prompt explicitly forbids the AI from
+  guessing time and requires text notifications to alert the user. Send these realtime
+  text inputs as `duration` increments:
+  ```ts
+  const limit = allowedSeconds || 1800;
+  // At 5 minutes remaining (if session > 10m):
+  if (duration === limit - 300 && limit > 600) {
+    session.sendRealtimeInput({ text: "SYSTEM NOTIFICATION: 5 minutes remaining until the session limit. Please inform the user gracefully." });
+  }
+  // At 2 minutes remaining (if session > 5m):
+  if (duration === limit - 120 && limit > 300) {
+    session.sendRealtimeInput({ text: "SYSTEM NOTIFICATION: 2 minutes remaining. Please inform the user and continue your response uninterrupted." });
+  }
+  // At final 10 seconds:
+  if (duration === limit - 10) {
+    session.sendRealtimeInput({ text: "SYSTEM NOTIFICATION: The session limit has been reached. Please gracefully inform the user that time is over, thank them for their time, and warmly invite them to call back if they have any further legal concerns. Be creative and as polite as possible in your final 10 seconds." });
+  }
+  ```
+- **Duration cap:** sessions are capped at `allowedSeconds` (maximum **1800 s / 30 min**). Stop reconnecting
+  once `duration >= limit`; end and settle the session.
 
 ## Step 6 — settle billing (idempotent)
 
@@ -242,25 +275,28 @@ Content-Type: application/json
 → 200 { "data": { "voiceSessionId": "…" } }
 → 400 { "error": { "code": "BAD_REQUEST",     "message": "Voice session reservation not found" } }
 → 400 { "error": { "code": "BAD_REQUEST",     "message": "Invalid request body" } }
-→ 401 { "error": { "code": "UNAUTHENTICATED", "message": "Authentication required." } }
+→ 401 { "error": { "code": "UNAUTHENTICATED", "message": "Authentication required." } }   # no/invalid Bearer token
+→ 404 { "error": { "code": "NOT_FOUND",       "message": "Voice session not found." } }   # session belongs to a different uid
 → 503 { "error": { "code": "INTERNAL",        "message": "Failed to process billing" } }   # retryable
 → 500 { "error": { "code": "INTERNAL",        "message": "Failed to process billing" } }   # not retryable
 ```
 
 `sessionId` must match `^[A-Za-z0-9_-]{1,64}$` (the server-minted value always
-does). A **401** here means either no/invalid Bearer token *or* the session belongs
-to a different uid — the endpoint does not distinguish the two on purpose.
+does). A **401** means no or invalid Bearer token. A **404** means the session
+document exists but belongs to a different uid — the endpoint deliberately returns
+404 (not 403) to avoid leaking that the session exists.
 
 > **⚠️ Do not settle billing through `apiFetch`.** The reference wrapper in
 > `error-handling.md` calls `auth().signOut()` on any `401 UNAUTHENTICATED` that
-> survives one retry — correct for a dead token, but wrong here: a `sessionId` that
-> isn't yours returns that same 401, so a stale or mismatched id would **sign the
-> user out of the app** instead of just failing the settle. Post this route with a
-> dedicated helper (or pass a flag that suppresses the sign-out) and treat its 401
-> as "this session isn't mine — drop it", never as "the session is dead."
+> survives one retry. `POST /voice/billing` returns `401` only when the Bearer
+> token itself is missing or expired — that is correct sign-out territory. However,
+> it returns `404 NOT_FOUND` when the session belongs to a different uid, so the
+> sign-out trap no longer fires for mismatched sessions. Despite this, use a
+> dedicated helper (or a flag that suppresses the sign-out) so the billing path
+> stays explicitly clear of the global auth recovery flow.
 
 ```ts
-// Bearer-only, and NO sign-out on 401 — see the warning above.
+// Bearer-only. No sign-out on 401/404 — see the warning above.
 async function settleVoiceBilling(body: VoiceBillingBody) {
   const user = auth().currentUser;
   if (!user) return; // nothing to settle against
@@ -272,7 +308,8 @@ async function settleVoiceBilling(body: VoiceBillingBody) {
     },
     body: JSON.stringify(body),
   });
-  if (res.status === 401) return;               // foreign/stale session — discard, do NOT sign out
+  if (res.status === 401) return;               // expired token — discard, do NOT sign out
+  if (res.status === 404) return;               // session belongs to a different uid — drop silently
   if (res.status === 503) return scheduleRetry(body); // retryable
   if (!res.ok) reportError(await res.json().catch(() => null));
 }
@@ -342,9 +379,18 @@ directly. Prefer it unless you already depend on WebRTC.
 
 ## Gotchas
 
-- `httpOptions.apiVersion` **must be `"v1alpha"`** on the client `GoogleGenAI`, or
-  the ephemeral token is rejected.
-- The token is short-lived — mint it right before connecting; don't cache it.
+- `httpOptions.apiVersion` **must match the token's version** (`"v1beta"`), and the
+  model string should be `"gemini-3.8-live"` (as returned in the `/voice/token` payload).
+- **Never pass `systemInstruction` in `LiveConnectConfig`.** The legal advisor prompt
+  is securely embedded and locked inside the ephemeral token on the server using
+  `lockAdditionalFields: ["systemInstruction"]`. Client-supplied system instructions
+  are ignored by the Live API constraints.
+- The token's new-session window is **35 minutes** — you may cache a minted token
+  for up to **30 minutes** (the web client does exactly this). Mint it once right
+  before the first `live.connect`; on reconnect within the same call, reuse the
+  cached token rather than fetching a new one. The 30-minute cache budget aligns
+  with the 30-minute call cap, so a fresh-minted token at the start of a call
+  is always valid for the full duration.
 - **Never generate the `sessionId` client-side.** It comes from `GET /voice/token`,
   which reserves it server-side; any other value fails billing with
   `400 Voice session reservation not found`, leaving the call unbilled and unsaved.

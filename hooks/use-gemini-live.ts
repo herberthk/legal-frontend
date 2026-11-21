@@ -5,7 +5,7 @@ import {
   Modality,
   Session,
 } from "@google/genai";
-import { LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION } from "@/constants/prompt";
+import { GEMINI_LIVE_API_VERSION, GEMINI_LIVE_MODEL } from "@/lib/voice/live-config";
 import NoSleep from "@zakj/no-sleep";
 
 import { createGeminiAudioChain } from "./use-gemini-live/audio-setup";
@@ -16,7 +16,6 @@ import {
 } from "./use-gemini-live/mic-stream";
 import { useFirebaseSync } from "./use-gemini-live/use-firebase-sync";
 import { useEphemeralToken } from "./use-gemini-live/use-ephemeral-token";
-import { GEMINI_LIVE_MODEL } from "@/lib/voice/live-config";
 
 export const useGeminiLive = ({
   userName,
@@ -27,6 +26,7 @@ export const useGeminiLive = ({
   onDurationLimitReached,
   onSessionStart,
   onMicReady,
+  onError,
   totalAllowedSeconds,
 }: UseGeminiLiveOptions) => {
   // Session UI states
@@ -62,6 +62,19 @@ export const useGeminiLive = ({
   const sessionRef = useRef<Session | null>(null);
   const previousHandleRef = useRef<string | null>(null);
   const isDisconnectingRef = useRef(false);
+  const isSessionReadyRef = useRef(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectionAttemptRef = useRef(0);
+  const cancelRetry = useCallback(() => {
+    if (reconnectTimerRef.current !== null) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+  const connectToGeminiRef = useRef<
+    | ((isReconnect?: boolean, forceTokenRefresh?: boolean) => Promise<void>)
+    | null
+  >(null);
 
   const [duration, setDuration] = useState(0);
 
@@ -77,12 +90,6 @@ export const useGeminiLive = ({
   // Controls the auto-reconnection loop for dropped or goAway connections
   const reconnectAttemptsRef = useRef(0);
   const MAX_RECONNECT_ATTEMPTS = 5;
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const connectionAttemptRef = useRef(0);
-  const cancelRetry = useCallback(() => {
-    if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
-    retryTimerRef.current = null;
-  }, []);
 
   // Transcript memory accumulation
   const userPartsRef = useRef<string[]>([]);
@@ -98,7 +105,11 @@ export const useGeminiLive = ({
     allTranscriptsRef,
   });
 
-  const { getEphemeralToken } = useEphemeralToken();
+  const {
+    getEphemeralToken,
+    prefetchToken: prefetchEphemeralToken,
+    clearCachedToken,
+  } = useEphemeralToken();
 
   // --- Audio Processing Contexts ---
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -120,6 +131,7 @@ export const useGeminiLive = ({
   const onAIAudioChunkRef = useRef(onAIAudioChunk);
   const onSessionStartRef = useRef(onSessionStart);
   const onMicReadyRef = useRef(onMicReady);
+  const onErrorRef = useRef(onError);
 
   useEffect(() => {
     onUserAudioChunkRef.current = onUserAudioChunk;
@@ -136,6 +148,10 @@ export const useGeminiLive = ({
   useEffect(() => {
     onMicReadyRef.current = onMicReady;
   }, [onMicReady]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   const sessionStartRef = useRef<number>(0);
 
@@ -279,7 +295,7 @@ export const useGeminiLive = ({
    * Handles initialization, reconnect cycles, VAD streaming, and incoming transcripts.
    */
   const connectToGemini = useCallback(
-    async function connectAttempt(isReconnect = false, forceTokenRefresh = false) {
+    async (isReconnect = false, forceTokenRefresh = false) => {
       if (!isReconnect && (wsStatus === "connecting" || wsStatus === "open"))
         return;
       if (isReconnect && isDisconnectingRef.current) return;
@@ -289,33 +305,50 @@ export const useGeminiLive = ({
         attempt === connectionAttemptRef.current && !isDisconnectingRef.current;
       let retryOwned = false;
       let connectionErrored = false;
+
       // Both close and rejection report failures, but each attempt owns one retry.
       const scheduleRetry = (isError: boolean) => {
         if (!isCurrent() || retryOwned || durationRef.current >= 1800) return;
         retryOwned = true;
         if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+          isSessionReadyRef.current = false;
           setWsStatus("error");
           setActiveTranscript({
             speaker: "system",
             text: "Connection lost. Please try again.",
           });
+          onErrorRef.current?.(
+            new Error(
+              `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached.`,
+            ),
+          );
+          reconnectAttemptsRef.current = 0;
           return;
         }
-        const refreshToken = isError || reconnectAttemptsRef.current > 0;
+        // In Gemini Live WebSockets, ephemeral tokens are strictly single-use.
+        // Each reconnect MUST mint a fresh token, otherwise the server rejects with 1011 ("Token has been used too many times").
         if (isError) reconnectAttemptsRef.current += 1;
         const delay = isError
           ? Math.min(500 * reconnectAttemptsRef.current, 5000)
           : 500;
-        retryTimerRef.current = setTimeout(() => {
-          retryTimerRef.current = null;
-          if (isCurrent()) connectAttempt(true, refreshToken);
+        console.log(
+          `[gemini-live] Seamlessly reconnecting (attempt ${reconnectAttemptsRef.current})...`,
+        );
+        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = setTimeout(() => {
+          reconnectTimerRef.current = null;
+          if (isCurrent()) {
+            connectToGeminiRef.current?.(true, true);
+          }
         }, delay);
       };
+
       try {
         isDisconnectingRef.current = false;
 
         // Reset state only on fresh starts, avoid UI jumps during background reconnects
         if (!isReconnect) {
+          isSessionReadyRef.current = false;
           setWsStatus("connecting");
           noSleep.current.enable();
           setDuration(0);
@@ -337,19 +370,38 @@ export const useGeminiLive = ({
           reconnectAttemptsRef.current = 0;
         }
 
+        // Fire token fetch immediately!
+        // Running this concurrently with mic acquisition, worklet downloading & compilation,
+        // and AppCheck prevents the multi-second delay before the token request hits the network.
+        // Ephemeral tokens are single-use; any reconnect must always fetch a fresh token.
+        const shouldForceRefresh = isReconnect || forceTokenRefresh;
+        const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
+        const tokenPromise = getEphemeralToken(
+          shouldForceRefresh,
+          effectiveLimit,
+          preferedVoice.preferedVoiceId,
+          preferedVoice.preferedVoiceName,
+        );
+
         let ctx = audioCtxRef.current;
         let processor = processorRef.current;
         let source: MediaStreamAudioSourceNode | undefined;
 
         // Initialize mic and worklet layers
-        if (!isReconnect) {
+        const needsAudioSetup =
+          !isReconnect ||
+          !audioCtxRef.current ||
+          audioCtxRef.current.state === "closed" ||
+          !processorRef.current;
+
+        if (needsAudioSetup) {
           ctx = getOrCreateAudioCtx(24000);
           // Reuses the stream MicrophoneSoftPrompt already obtained when one is
           // live, so Firefox isn't asked to prompt a second time.
           const stream = await claimMicStream();
 
           // Every await between here and the worklet nodes is a window where
-          // this attempt can be superseded — the 15s connect timeout, an End
+          // this attempt can be superseded — the connect timeout, an End
           // tap, or a second connect all run disconnectFromGemini, which
           // closes the context. Building on a closed context does not fail
           // quietly: addModule rejects with AbortError ("Unable to load a
@@ -451,31 +503,22 @@ export const useGeminiLive = ({
             }
           };
         } else {
-          if (!ctx || !processor) {
-            console.error(
-              "[gemini-live] Missing audio context during reconnect.",
-            );
-            return;
+          if (ctx && ctx.state === "suspended") {
+            ctx.resume().catch(() => {});
           }
         }
 
-        const shouldForceRefresh = !isReconnect || forceTokenRefresh;
-        const token = await getEphemeralToken(shouldForceRefresh);
+        const token = await tokenPromise;
         if (!isCurrent()) return;
 
         aiClientRef.current = new GoogleGenAI({
           apiKey: token,
-          apiVersion: "v1alpha",
+          httpOptions: { apiVersion: GEMINI_LIVE_API_VERSION },
         });
 
-        const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
-        const limitMinutes = Math.floor(effectiveLimit / 60);
-        const limitSeconds = Math.round(effectiveLimit % 60);
-        let durationText = `${limitMinutes} minute${limitMinutes !== 1 ? "s" : ""}`;
-        if (limitSeconds > 0)
-          durationText += ` and ${limitSeconds} second${limitSeconds !== 1 ? "s" : ""}`;
-
-        // Initialize Gemini model config
+        // Initialize Gemini model config.
+        // NOTE: systemInstruction is securely embedded and locked inside the ephemeral
+        // token on the server (/api/gemini-token). It never reaches client bundles or network logs.
         const config: LiveConnectConfig = {
           responseModalities: [Modality.AUDIO],
           temperature: 0,
@@ -490,23 +533,11 @@ export const useGeminiLive = ({
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           contextWindowCompression: { slidingWindow: {} },
-          systemInstruction: {
-            parts: [
-              {
-                text: LEGAL_SYSTEM_VOICE_CHAT_INSTRUCTION({
-                  user: userName,
-                  instructor: preferedVoice.preferedVoiceName,
-                  maxDurationText: durationText,
-                }),
-              },
-            ],
-          },      
+          // Enable session resumption so Gemini issues resumption handles, and resume if a handle exists
+          sessionResumption: previousHandleRef.current
+            ? { handle: previousHandleRef.current }
+            : {},
         };
-
-        // Resume an existing session via generated handles
-        if (previousHandleRef.current) {
-          config.sessionResumption = { handle: previousHandleRef.current };
-        }
 
         const session = await aiClientRef.current.live.connect({
           model: GEMINI_LIVE_MODEL,
@@ -520,9 +551,10 @@ export const useGeminiLive = ({
               if (!isReconnect)
                 setActiveTranscript({ speaker: "system", text: "Ready." });
               reconnectAttemptsRef.current = 0; // Reset reconnection retry counter
+              isSessionReadyRef.current = true;
 
               if (!isReconnect) sessionStartRef.current = Date.now();
-              if (processor && source && !isReconnect)
+              if (processor && source && needsAudioSetup)
                 source.connect(processor);
 
               // Setup microphone audio transmission
@@ -538,8 +570,12 @@ export const useGeminiLive = ({
                   if (sessionRef.current) {
                     const uint8Array = new Uint8Array(pcm);
                     let binaryStr = "";
-                    for (let i = 0; i < uint8Array.length; i++) {
-                      binaryStr += String.fromCharCode(uint8Array[i]);
+                    const CHUNK_SIZE = 0x8000;
+                    for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+                      binaryStr += String.fromCharCode.apply(
+                        null,
+                        uint8Array.subarray(i, i + CHUNK_SIZE) as unknown as number[],
+                      );
                     }
                     const base64Audio = btoa(binaryStr);
 
@@ -642,20 +678,50 @@ export const useGeminiLive = ({
             onerror: (err) => {
               if (!isCurrent() || retryOwned) return;
               console.error("[gemini-live] Error:", err);
-              // Close owns socket retries; rejection below covers failed handshakes.
+              sessionRef.current = null;
+              setIsListening(false);
               connectionErrored = true;
+
+              const normalizedError =
+                err instanceof Error
+                  ? err
+                  : new Error(
+                      "WebSocket connection error. Please verify network access to Google Live services.",
+                    );
+
+              if (!isSessionReadyRef.current && !isReconnect) {
+                onErrorRef.current?.(normalizedError);
+              }
             },
             onclose: (ev) => {
               if (!isCurrent() || retryOwned) return;
               console.log("[gemini-live] Closed:", ev);
               sessionRef.current = null;
               setIsListening(false);
-              if (durationRef.current < 1800) {
-                scheduleRetry(
-                  connectionErrored || (ev.code !== 1000 && ev.code !== 1005),
-                );
+
+              const isErrorClose =
+                connectionErrored || (ev.code !== 1000 && ev.code !== 1005);
+
+              if (
+                (isSessionReadyRef.current || isReconnect) &&
+                durationRef.current < 1800
+              ) {
+                scheduleRetry(isErrorClose);
               } else {
-                setWsStatus("closed");
+                isSessionReadyRef.current = false;
+                if (
+                  !isDisconnectingRef.current &&
+                  isErrorClose
+                ) {
+                  setWsStatus("error");
+                  onErrorRef.current?.(
+                    new Error(
+                      `Connection closed unexpectedly (code ${ev.code}): ${ev.reason || "Abnormal closure"}`,
+                    ),
+                  );
+                } else {
+                  setWsStatus("closed");
+                }
               }
             },
           },
@@ -668,20 +734,42 @@ export const useGeminiLive = ({
 
         cancelRetry();
         sessionRef.current = session;
+        isSessionReadyRef.current = true;
 
         // Automatically start the conversation
         if (!isReconnect) {
           sessionRef.current.sendRealtimeInput({ text: "Hello" });
         }
       } catch (error) {
+        isSessionReadyRef.current = false;
         console.error("[gemini-live] Connection error:", error);
         if (!isCurrent() || retryOwned) return;
-        if (isReconnect && durationRef.current < 1800) {
+        if (
+          isReconnect &&
+          durationRef.current < 1800
+        ) {
           scheduleRetry(true);
           return;
         }
+
+        // Clean up audio hardware if initial connection failed
+        if (!isReconnect) {
+          if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+            mediaStreamRef.current = null;
+          }
+          if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+            audioCtxRef.current.close().catch(() => {});
+            audioCtxRef.current = null;
+          }
+        }
+
         setWsStatus("error");
         setActiveTranscript({ speaker: "system", text: "Failed to connect." });
+        onErrorRef.current?.(error);
+        if (!isReconnect) {
+          throw error;
+        }
       }
     },
     [
@@ -690,7 +778,6 @@ export const useGeminiLive = ({
       getEphemeralToken,
       preferedVoice.preferedVoiceId,
       preferedVoice.preferedVoiceName,
-      userName,
       getOrCreateAudioCtx,
       totalAllowedSeconds,
       scheduleLevelUpdate,
@@ -700,6 +787,10 @@ export const useGeminiLive = ({
       schedulePCMChunk,
     ],
   );
+
+  useEffect(() => {
+    connectToGeminiRef.current = connectToGemini;
+  }, [connectToGemini]);
 
   /**
    * Safely terminates all session loops, recording modules, and audio environments.
@@ -711,6 +802,7 @@ export const useGeminiLive = ({
     noSleep.current.disable();
     isDisconnectingRef.current = true;
     connectionAttemptRef.current += 1;
+    isSessionReadyRef.current = false;
     cancelRetry();
 
     stopAudio();
@@ -764,15 +856,20 @@ export const useGeminiLive = ({
       audioCtxRef.current = null;
     }
 
+    // Clear any cached token and resumption handle from the ended session so future sessions start fresh
+    clearCachedToken();
+    previousHandleRef.current = null;
+
     setWsStatus("idle");
     setAudioStatus("idle");
     setIsListening(false);
     setActiveTranscript(null);
+    sessionStartRef.current = 0;
     micLevelRef.current = 0;
     aiAudioLevelRef.current = 0;
     setMicLevel(0);
     setAiAudioLevel(0);
-  }, [stopAudio, finalizeUserTurn, finalizeAITurn, cancelRetry]);
+  }, [stopAudio, finalizeUserTurn, finalizeAITurn, cancelRetry, clearCachedToken]);
 
   const toggleMicMute = useCallback((muted: boolean) => {
     if (mediaStreamRef.current) {
@@ -876,6 +973,16 @@ export const useGeminiLive = ({
 
   const effectiveLimit = Math.min(totalAllowedSeconds, 1800);
 
+  const prefetchToken = useCallback(() => {
+    if (wsStatus === "connecting" || wsStatus === "open") return;
+    const limit = Math.min(totalAllowedSeconds, 1800);
+    prefetchEphemeralToken(
+      limit,
+      preferedVoice?.preferedVoiceId,
+      preferedVoice?.preferedVoiceName,
+    );
+  }, [wsStatus, totalAllowedSeconds, preferedVoice, prefetchEphemeralToken]);
+
   return {
     wsStatus,
     audioStatus,
@@ -889,6 +996,8 @@ export const useGeminiLive = ({
     toggleMicMute,
     toggleAudioMute,
     getTranscripts,
+    prefetchToken,
+    clearCachedToken,
     /** RMS mic level 0–1, updated ~30fps */
     micLevel,
     /** RMS AI audio level 0–1, updated ~30fps */

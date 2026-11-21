@@ -13,6 +13,9 @@ import {
 export const GEMINI_LIVE_MODEL = "gemini-3.8-live";
 export const GEMINI_LIVE_API_VERSION = "v1beta";
 
+/** Reservation type constant used by mobile voice and recognized by the cloud scheduler */
+export const MOBILE_VOICE_RESERVATION = "mobile-v2" as const;
+
 export type VoiceLiveProfile = {
   userName: string;
   preferedVoice?: {
@@ -75,7 +78,9 @@ export function buildVoiceLiveConfig({
   const credits = voiceLiveCredits(freeVoiceSeconds, balance);
   const voiceId = preferedVoice?.preferedVoiceId?.trim() || "Aoede";
   const voiceName = preferedVoice?.preferedVoiceName?.trim() || "Evelyn";
-  const firstName = userName.trim().split(/\s+/)[0] || "User";
+  // Strip common honorifics/titles before taking the first name for natural greetings
+  const cleanedName = userName.replace(/^(dr|mr|mrs|ms|prof|hon)\.?\s+/i, "");
+  const firstName = cleanedName.trim().split(/\s+/)[0] || "User";
 
   return {
     credits,
@@ -112,14 +117,21 @@ export function buildVoiceAuthTokenConfig(
   now = Date.now(),
 ): CreateAuthTokenConfig {
   return {
+    // Ephemeral tokens are strictly single-use in Gemini Live. Each WebSocket connection
+    // must be initiated with a fresh token. Attempting to connect more than once with the
+    // same token causes the server to close with code 1011 ("Token has been used too many times").
     uses: 1,
     expireTime: new Date(now + 60 * 60 * 1000).toISOString(),
-    newSessionExpireTime: new Date(now + 5 * 60 * 1000).toISOString(),
+    // 35 minutes: covers a full 30-minute call plus a 5-minute reconnect buffer.
+    newSessionExpireTime: new Date(now + 35 * 60 * 1000).toISOString(),
     httpOptions: { apiVersion: GEMINI_LIVE_API_VERSION },
     liveConnectConstraints: {
       model: GEMINI_LIVE_MODEL,
       config,
     },
+    // Lock the system instruction server-side — the client cannot read or
+    // override it even if it passes its own systemInstruction in live.connect().
+    lockAdditionalFields: ["systemInstruction"],
   };
 }
 

@@ -62,8 +62,6 @@ graphify-out/manifest.json
 graphify-out/cost.json
 
 sdk/pawapay/node_modules/
-# Sentry Config File
-.env.sentry-build-plugin
 
 # Generated worker bundle (rebuilt by build:worker script)
 public/js/recorder-worker.js

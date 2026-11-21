@@ -33,7 +33,46 @@ const DEFAULT_VOICE_PREFERENCE: PreferedVoice = {
 // has to be generous enough for the dialog, which leaves it too slack to catch
 // a hang. So: a loose ceiling until the mic is live, then a strict one.
 const MIC_GRANT_TIMEOUT_MS = 60_000;
-const CONNECT_TIMEOUT_MS = 15_000;
+const CONNECT_TIMEOUT_MS = 60_000;
+
+// ── Connection error classifier ──────────────────────────────────────────
+// Maps a raw error (or undefined for timeout/offline) to a ConnectionErrorKind.
+function classifyConnectionError(
+  err?: unknown,
+): { kind: ConnectionErrorKind; rawMessage?: string } {
+  // Check offline first — most reliable signal
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return { kind: "offline" };
+  }
+
+  let message = err instanceof Error ? err.message : String(err ?? "");
+  if (message === "[object Event]" || !message) {
+    message = "WebSocket connection error. Network connection dropped or refused.";
+  }
+  const name = err instanceof Error ? err.name : "";
+
+  if (
+    name === "NotAllowedError" ||
+    name === "PermissionDeniedError" ||
+    /not allowed|permission denied|microphone.*blocked/i.test(message)
+  ) {
+    return { kind: "mic_denied", rawMessage: message };
+  }
+
+  if (
+    name === "NotFoundError" ||
+    name === "DevicesNotFoundError" ||
+    /not found|no.*microphone|device.*not found/i.test(message)
+  ) {
+    return { kind: "mic_unavailable", rawMessage: message };
+  }
+
+  if (/token|auth|401|403|forbidden|unauthorized/i.test(message)) {
+    return { kind: "token_failed", rawMessage: message };
+  }
+
+  return { kind: "generic", rawMessage: message || undefined };
+}
 
 const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   freeVoiceSeconds,
@@ -80,6 +119,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     toggleMicMute,
     toggleAudioMute,
     getTranscripts,
+    prefetchToken,
     micLevel,
     aiAudioLevel,
   } = useGeminiLive({
@@ -102,6 +142,13 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // the network work that is left.
     onMicReady: useCallback(() => {
       armConnectTimeoutRef.current?.(CONNECT_TIMEOUT_MS);
+    }, []),
+    onError: useCallback((err: unknown) => {
+      setConnectionError(classifyConnectionError(err));
+      if (connectTimeoutRef.current) {
+        clearTimeout(connectTimeoutRef.current);
+        connectTimeoutRef.current = null;
+      }
     }, []),
     totalAllowedSeconds,
   });
@@ -220,6 +267,13 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     toggleAudioMute(isAudioMuted);
   }, [isAudioMuted, toggleAudioMute]);
 
+  // Prefetch ephemeral token on mount so that when the user taps start, the token is already in memory
+  useEffect(() => {
+    if (userId && !isCreditExhausted && wsStatus === "idle") {
+      prefetchToken();
+    }
+  }, [userId, isCreditExhausted, wsStatus, prefetchToken]);
+
   // Duration Timer
   useEffect(() => {
     if (wsStatus === "open" && duration > 0 && duration % 5 === 0 && userId) {
@@ -315,43 +369,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     };
   }, []);
 
-  // ── Connection error classifier ──────────────────────────────────────────
-  // Maps a raw error (or undefined for timeout/offline) to a ConnectionErrorKind.
-  const classifyConnectionError = useCallback(
-    (err?: unknown): { kind: ConnectionErrorKind; rawMessage?: string } => {
-      // Check offline first — most reliable signal
-      if (!navigator.onLine) {
-        return { kind: "offline" };
-      }
-
-      const message = err instanceof Error ? err.message : String(err ?? "");
-      const name = err instanceof Error ? err.name : "";
-
-      if (
-        name === "NotAllowedError" ||
-        name === "PermissionDeniedError" ||
-        /not allowed|permission denied|microphone.*blocked/i.test(message)
-      ) {
-        return { kind: "mic_denied", rawMessage: message };
-      }
-
-      if (
-        name === "NotFoundError" ||
-        name === "DevicesNotFoundError" ||
-        /not found|no.*microphone|device.*not found/i.test(message)
-      ) {
-        return { kind: "mic_unavailable", rawMessage: message };
-      }
-
-      if (/token|auth|401|403|forbidden|unauthorized/i.test(message)) {
-        return { kind: "token_failed", rawMessage: message };
-      }
-
-      return { kind: "generic", rawMessage: message || undefined };
-    },
-    [],
-  );
-
   // ── Connection timeout ─────────────────────────────────────────────────────
   // If wsStatus never transitions away from "connecting" within the current
   // budget, we abort and surface a timeout error. The hook's catch block will
@@ -438,14 +455,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         clearTimeout(connectTimeoutRef.current);
         connectTimeoutRef.current = null;
       }
+      disconnect().catch(() => {});
     }
-  }, [
-    connect,
-    armConnectTimeout,
-    wsStatus,
-    isCreditExhausted,
-    classifyConnectionError,
-  ]);
+  }, [connect, armConnectTimeout, wsStatus, isCreditExhausted, disconnect]);
 
   // Ref mirror of wsStatus so the timeout callback can read it without
   // becoming a stale closure (avoids having wsStatus in its dep array).

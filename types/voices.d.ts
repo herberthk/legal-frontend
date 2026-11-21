@@ -178,6 +178,11 @@ declare global {
       onMicReady?: () => void;
       
       /**
+       * Called when an unrecoverable connection or runtime error occurs.
+       */
+      onError?: (error: unknown) => void;
+
+      /**
        * The total number of seconds allowed for this session based on balance + free time.
        * Hard capped at 1800 (30 minutes) internally.
        */

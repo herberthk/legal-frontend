@@ -72,8 +72,8 @@ const ERROR_CONFIG: Record<ConnectionErrorKind, ErrorConfig> = {
     icon: <Clock className="w-10 h-10" />,
     title: "Connection Timed Out",
     description:
-      "The voice service took too long to respond. Your connection may be slow or the service is busy.",
-    hint: "Check your network speed and try again. Peak hours may cause delays.",
+      "The voice service took too long to establish a real-time connection. Your network may be blocking WebSockets, or the server is busy.",
+    hint: "If your internet is strong, your network provider or firewall might block WebSocket streaming. Try disabling VPNs/proxies or switching networks.",
     color: "text-blue-400",
     bgGradient: "from-blue-950/80 via-slate-950/90 to-slate-950/95",
     borderColor: "border-blue-500/30",
