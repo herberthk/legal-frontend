@@ -29,18 +29,24 @@ Present the breakdown in your question (e.g. *"Found 42 references across 3 dire
 
 The core changes when migrating from `generateContent` to the Interactions API:
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:4e8f3ebcca8923b7ded1907127b14d0b347409173f925b4831192cf126965ec9 -->
+
 | What | `generateContent` | Interactions API |
 |------|----------------|-----------------|
 | **SDK method** | `client.models.generate_content()` | `client.interactions.create()` |
-| **Response text** | `response.text` | `interaction.steps[-1].content[0].text` |
-| **Multi-turn** | Manual history array or `client.chats.create()` | `previous_interaction_id=interaction.id` |
+| **Response text** | `response.text` | `interaction.output_text` for typical responses; for complete output, join text parts across the relevant `model_output` steps in order. |
+| **Multi-turn** | Manual history array or `client.chats.create()` | Use `previous_interaction_id=interaction.id` when server-side storage is allowed; otherwise pass client-managed history as `input` with `store=False`. |
 | **Streaming** | `generate_content_stream()` / `:streamGenerateContent` | `stream=True` + `step.delta` events |
-| **Structured output** | `config.response_format` inside `GenerateContentConfig` | Top-level `response_format` array |
+| **Structured output** | `response_mime_type` and `response_schema` in `GenerateContentConfig` | Top-level `response_format={"type": "text", "mime_type": "application/json", "schema": schema}`. Copy the MIME type to `mime_type` and convert the existing schema to JSON Schema for `schema`, preserving its properties and constraints. |
 | **Function calling** | `candidates[0].content.parts[0].function_call` | `function_call` step in `interaction.steps` |
 | **Search grounding** | `groundingMetadata` on candidates | `google_search_call`/`google_search_result` steps + inline `annotations` |
 | **Config/types** | `types.GenerateContentConfig(...)`, `types.Tool(...)`, `types.Content(...)`, `types.Part.*` | Not used. Interactions API uses plain Python dicts and direct params. Check the feature docs for exact format. |
 | **REST endpoint** | `POST /v1beta/models/{model}:generateContent` | `POST /v1/interactions` (or `/v1beta/interactions` for beta features) |
 | **SDK package** | `google-genai` >= 1.x or legacy `google-generativeai` | `google-genai` >= 3.2.0 (Python) / `@google/genai` >= 3.2.0 (JS) |
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 For full before/after code examples, fetch the [Migration Guide](https://aistudio.google.com/docs/migrate-to-interactions.md) or read the Interactions API documentation pages for each feature.
 
@@ -85,14 +91,18 @@ Every item is tagged: **`[BLOCKS]`** items cause errors or broken behavior if mi
 
 ### API Migration (generateContent → Interactions)
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:7def2f13bda428f47bd60f8ef33c2d1f3f045424984c2ce728bb1e81566b5240 -->
+
 - [ ] Updated SDK: `google-genai` >= 3.2.0 (Python) / `@google/genai` >= 3.2.0 (JS)
 - [ ] Checked `v1` vs `v1beta` routing (`[BLOCKS]` on SDK >= 3.0.0): SDKs >= 3.0.0 default to `v1` (`Interactions API` is GA on `v1`). Opt in to `v1beta` (`http_options={"api_version": "v1beta"}` in Python, `{ apiVersion: "v1beta" }` in JS/TS, per-call `api_version="v1beta"`, or `GOOGLE_GENAI_API_VERSION=beta`) when calling `v1beta`-only surfaces such as Managed Agents (`agent=...` / `client.agents`) or the [Decisions API](https://aistudio.google.com/docs/decisions-api.md) (`client.decisions.create` / `ai.decisions.create`, added in 3.2.0)
 - [ ] Replaced `client.models.generate_content()` → `client.interactions.create()`
 - [ ] Replaced `response.text` → `interaction.output_text`
 - [ ] Replaced `response.candidates[0].content.parts` → iterate `interaction.steps`
-- [ ] Replaced `client.chats.create()` / manual history → `previous_interaction_id`
+- [ ] Replaced `client.chats.create()`: use `previous_interaction_id` only if server-side storage is permitted. Otherwise keep the history locally, append returned `interaction.steps` and each new `user_input` step, and send that history as `input` with `store=False` (`store: false` in JS).
 - [ ] Removed all `types.*` wrappers (`GenerateContentConfig`, `Tool`, `Content`, `Part`) — Interactions API uses plain dicts. Check feature docs for exact format.
-- [ ] Moved `response_format` from `GenerateContentConfig` to top-level parameter
+- [ ] Converted `response_mime_type` and `response_schema` into the top-level `response_format` object as shown above
 - [ ] Replaced `generate_content_stream()` → `stream=True` + step-based event handling
 - [ ] Updated function calling: candidates-based → step-based tool lifecycle
 - [ ] REST: Changed endpoint to `/v1/interactions` (or `/v1beta/interactions` for beta features)
@@ -100,6 +110,8 @@ Every item is tagged: **`[BLOCKS]`** items cause errors or broken behavior if mi
 - [ ] Replaced `google-generativeai` (Python) → `google-genai` >= 3.2.0
 - [ ] Replaced `@google/generative-ai` (JS) → `@google/genai` >= 3.2.0
 - [ ] Updated all import statements to match new package names
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 ### Model String Updates
 
@@ -218,9 +230,15 @@ For full video generation, editing, extension, and reference parameters, fetch t
 
 After updating, run a spot-check to confirm the Interactions API is working:
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:8ee55eec76d9fc58b67ae5fe75a2f78592b577f4412824cf62f9fb8d11baa20e -->
+
 1. Make a single `client.interactions.create()` call with a simple input
 2. Assert `interaction.steps` is not empty
 3. Assert at least one step has `type == "model_output"` with non-empty text
-4. For multi-turn, verify `previous_interaction_id` preserves context across turns
+4. For multi-turn, verify context is preserved across turns with the chosen history strategy
 
 For verification code snippets, fetch the [Migration Guide](https://aistudio.google.com/docs/migrate-to-interactions.md).
+
+<!-- /coderabbit-ai-generated:v1 -->

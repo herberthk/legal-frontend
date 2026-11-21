@@ -43,6 +43,9 @@ describe("Gemini Live voice contract", () => {
       httpOptions: { apiVersion: "v1beta" },
       liveConnectConstraints: { model: "gemini-3.8-live" },
     });
+    expect(auth.liveConnectConstraints?.config).not.toHaveProperty("sessionResumption");
+    expect(auth.liveConnectConstraints?.config?.systemInstruction).toEqual(config.systemInstruction);
+    expect(auth.lockAdditionalFields).toEqual(["systemInstruction"]);
     expect(JSON.stringify(response)).not.toContain("GOOGLE_GENERATIVE_AI_API_KEY");
   });
 
@@ -53,5 +56,19 @@ describe("Gemini Live voice contract", () => {
       balance: 10_000,
     });
     expect(credits.allowedSeconds).toBe(1_800);
+  });
+  it.each([
+    [0, 0, 300, 0],
+    [10, 1, 300, 17],
+    [10, 1, 12.9, 12],
+    [10, 1, NaN, 17],
+  ])("caps credits (%s free seconds, %s cents) at %s", (freeVoiceSeconds, balance, maxSecs, allowedSeconds) => {
+    const { credits } = buildVoiceLiveConfig({
+      userName: "Ada",
+      freeVoiceSeconds,
+      balance,
+      maxSecs,
+    });
+    expect(credits).toEqual({ freeVoiceSeconds, balance, allowedSeconds });
   });
 });

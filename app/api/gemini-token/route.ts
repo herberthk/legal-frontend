@@ -18,9 +18,8 @@ import {
  * the client, so the prompt cannot be read from the network tab or JS bundle.
  *
  * Optional query param:
- *   ?maxSecs=<number>  — the caller's computed allowed session length (clamped
- *                        server-side to 1800). Omit to default to the user's
- *                        full credit allowance from their Firestore profile.
+ *   ?maxSecs=<number>  — an optional lower cap on the user's profile allowance.
+ *                        The server caps all sessions at 1800 seconds.
  */
 export async function GET(req: Request) {
   try {
@@ -57,21 +56,16 @@ export async function GET(req: Request) {
     const voiceName =
       (url.searchParams.get("voiceName") ?? "").slice(0, 120) ||
       user.preferedVoice?.preferedVoiceName;
-    const maxSecsParam = Number(url.searchParams.get("maxSecs"));
-    const maxSecsOverride = Number.isFinite(maxSecsParam) && maxSecsParam > 0
-      ? Math.min(1800, maxSecsParam)
-      : undefined;
+    const maxSecs = Number(url.searchParams.get("maxSecs"));
 
     // Build the full LiveConnectConfig — including the system prompt — entirely
     // on the server using the authenticated user's profile and voice overrides.
     const { config } = buildVoiceLiveConfig({
       userName: user.name,
       preferedVoice: { preferedVoiceId: voiceId, preferedVoiceName: voiceName },
-      // If the hook forwarded maxSecs, use it as the free allowance so the
-      // duration text in the prompt is accurate. Otherwise use the user's real
-      // credit values and let buildVoiceLiveConfig compute the allowance.
-      freeVoiceSeconds: maxSecsOverride ?? user.freeVoiceSeconds,
-      balance: maxSecsOverride != null ? 0 : user.balance,
+      freeVoiceSeconds: user.freeVoiceSeconds,
+      balance: user.balance,
+      maxSecs,
     });
 
     // Wrap the LiveConnectConfig in an auth token with the system prompt locked

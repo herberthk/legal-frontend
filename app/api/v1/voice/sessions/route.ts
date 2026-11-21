@@ -33,8 +33,5 @@ export async function GET(req: Request) {
     searchQuery,
   });
   if (!result.success) return internalError("Failed to retrieve voice sessions.");
-  // Strip the internal `success` flag — the v1 envelope already signals success
-  // via HTTP 200; forwarding it would double-wrap under `{ data: { success, … } }`.
-  const { success: _success, ...payload } = result;
-  return ok(payload);
+  return ok(result);
 }

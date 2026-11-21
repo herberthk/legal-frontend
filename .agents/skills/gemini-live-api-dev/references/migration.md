@@ -44,9 +44,13 @@ Use `gemini-3.8-live` as the default option for low-latency conversational voice
 
 When integrating `gemini-3.8-live-extended-thinking`, update your client state management to handle asynchronous reasoning signals:
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:d1842dda338b02bca2e012936ab3409ca125f65e08e1986f3fd10af74d423fd1 -->
+
 - [ ] **Model string**: Set `model="gemini-3.8-live-extended-thinking"`.
 - [ ] **Asynchronous reasoning protocol**: When interacting with models that use asynchronous reasoning, `turnComplete: true` no longer indicates that the model is idle. The server may continue processing background reasoning or tool calls. Your client must continue listening for subsequent server messages (such as tool calls or audio frames) after `turnComplete: true` arrives.
-- [ ] **Monitoring `interaction_status`**: Use the `interaction_status` (Python) / `interactionStatus` (JS) field on incoming server messages to determine current server state:
+- [ ] **Monitoring `interaction_status`**: Use the `interaction_status` (Python) / `interactionStatus` (JS) field on `message.server_content` (Python) / `message.serverContent` (JS) to determine current server state:
   - `IN_PROGRESS`: The server is actively processing user input, running background reasoning, or awaiting responses for asynchronous tool calls. Additional model output or tool calls may follow.
   - `IDLE`: The server has finished all processing, reasoning, and tool calls. The session is idle and waiting for user input.
 - [ ] **Asynchronous function calling**: Only asynchronous non-blocking execution (`behavior: NON_BLOCKING`) is supported. Synchronous blocking mode is not supported and returns a hard error. Function scheduling configurations are not supported.
@@ -54,11 +58,17 @@ When integrating `gemini-3.8-live-extended-thinking`, update your client state m
 - [ ] **Client content updates**: `send_client_content` is supported throughout the entire session lifecycle with explicit roles (`user` or `model`). Setting `turn_complete=true` immediately interrupts active generation.
 - [ ] **Proactive audio**: Permanently enabled. Setting `proactive_audio: false` returns an error.
 
+<!-- /coderabbit-ai-generated:v1 -->
+
 ---
 
 ## 3. SDK Implementation Examples (`gemini-3.8-live-extended-thinking`)
 
 ### Python
+
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:7205a42dbd395a95f168908fe0d663c226e1049ba220c385821d05acbb0d0914 -->
 
 ```python
 import asyncio
@@ -87,35 +97,47 @@ config = types.LiveConnectConfig(
 
 async def main():
     async with client.aio.live.connect(model=model, config=config) as session:
-        async for message in session.receive():
-            status = getattr(message, "interaction_status", None)
+        # Requires google-genai >= 2.23.0. Repeat receive() if an iterator
+        # ends before IDLE, for example on turn_complete without a status.
+        await session.send_realtime_input(text="Find me a flight to Seattle.")
+        while True:
+            async for message in session.receive():
+                content = message.server_content
+                status = content.interaction_status if content else None
 
-            # 1. Play spoken conversational fillers or final audio response
-            if message.server_content and message.server_content.model_turn:
-                for part in message.server_content.model_turn.parts:
-                    if part.inline_data:
-                        # Process 24kHz PCM audio chunk
-                        pass
+                # 1. Play spoken conversational fillers or final audio response
+                if content and content.model_turn:
+                    for part in content.model_turn.parts:
+                        if part.inline_data:
+                            # Process 24kHz PCM audio chunk
+                            pass
 
-            # 2. Execute asynchronous non-blocking tool call
-            if message.tool_call:
-                for call in message.tool_call.function_calls:
-                    response = types.FunctionResponse(
-                        id=call.id,
-                        name=call.name,
-                        response={"result": "Flight DL 145 ($145)"},
-                    )
-                    await session.send_tool_response(function_responses=[response])
+                # 2. Execute asynchronous non-blocking tool call
+                if message.tool_call:
+                    for call in message.tool_call.function_calls:
+                        response = types.FunctionResponse(
+                            id=call.id,
+                            name=call.name,
+                            response={"result": "Flight DL 145 ($145)"},
+                        )
+                        await session.send_tool_response(function_responses=[response])
 
-            # 3. Session is idle only when status == "IDLE"
-            if status == "IDLE":
-                print("Session is idle and ready for user input.")
+                # 3. Session is idle only when status == "IDLE"
+                if status == "IDLE":
+                    print("Interaction finished.")
+                    return
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+<!-- /coderabbit-ai-generated:v1 -->
+
 ### JavaScript / TypeScript
+
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:e381a5a8a8174d070adf2e1e7834b11ba2113805e71475ba387b41f65ecb2d8d -->
 
 ```javascript
 import { GoogleGenAI } from "@google/genai";
@@ -168,10 +190,12 @@ const session = await ai.live.connect({
       }
 
       // 3. Session is idle only when interactionStatus === 'IDLE'
-      if (message.interactionStatus === "IDLE") {
+      if (message.serverContent?.interactionStatus === "IDLE") {
         console.log("Session is idle and waiting for input.");
       }
     },
   },
 });
 ```
+
+<!-- /coderabbit-ai-generated:v1 -->

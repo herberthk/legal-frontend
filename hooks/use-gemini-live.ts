@@ -305,6 +305,8 @@ export const useGeminiLive = ({
         attempt === connectionAttemptRef.current && !isDisconnectingRef.current;
       let retryOwned = false;
       let connectionErrored = false;
+      let transportOpened = false;
+      let setupCompleted = false;
 
       // Both close and rejection report failures, but each attempt owns one retry.
       const scheduleRetry = (isError: boolean) => {
@@ -545,15 +547,9 @@ export const useGeminiLive = ({
           callbacks: {
             onopen: () => {
               if (!isCurrent() || retryOwned) return;
-              cancelRetry();
-              console.log("[gemini-live] open");
-              setWsStatus("open");
-              if (!isReconnect)
-                setActiveTranscript({ speaker: "system", text: "Ready." });
-              reconnectAttemptsRef.current = 0; // Reset reconnection retry counter
-              isSessionReadyRef.current = true;
+              transportOpened = true;
+              console.log("[gemini-live] transport open");
 
-              if (!isReconnect) sessionStartRef.current = Date.now();
               if (processor && source && needsAudioSetup)
                 source.connect(processor);
 
@@ -689,7 +685,7 @@ export const useGeminiLive = ({
                       "WebSocket connection error. Please verify network access to Google Live services.",
                     );
 
-              if (!isSessionReadyRef.current && !isReconnect) {
+              if (!transportOpened && !isSessionReadyRef.current && !isReconnect) {
                 onErrorRef.current?.(normalizedError);
               }
             },
@@ -698,6 +694,9 @@ export const useGeminiLive = ({
               console.log("[gemini-live] Closed:", ev);
               sessionRef.current = null;
               setIsListening(false);
+
+              // The SDK rejects the pending connect promise if setup fails.
+              if (transportOpened && !setupCompleted) return;
 
               const isErrorClose =
                 connectionErrored || (ev.code !== 1000 && ev.code !== 1005);
@@ -734,18 +733,26 @@ export const useGeminiLive = ({
 
         cancelRetry();
         sessionRef.current = session;
+        setupCompleted = true;
         isSessionReadyRef.current = true;
+        reconnectAttemptsRef.current = 0;
+        setWsStatus("open");
+        if (!isReconnect) {
+          sessionStartRef.current = Date.now();
+          setActiveTranscript({ speaker: "system", text: "Ready." });
+        }
 
         // Automatically start the conversation
         if (!isReconnect) {
           sessionRef.current.sendRealtimeInput({ text: "Hello" });
         }
       } catch (error) {
+        if (!isCurrent() || retryOwned) return;
         isSessionReadyRef.current = false;
         console.error("[gemini-live] Connection error:", error);
-        if (!isCurrent() || retryOwned) return;
         if (
           isReconnect &&
+          (!transportOpened || setupCompleted) &&
           durationRef.current < 1800
         ) {
           scheduleRetry(true);

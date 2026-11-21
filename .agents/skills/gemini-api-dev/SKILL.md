@@ -30,11 +30,17 @@ description: Use this skill when writing code that calls the Gemini API for text
 - `gemini-embedding-2`: Multimodal embedding model (text, images, video, audio, documents), uses `client.models.embed_content`
 - `gemini-embedding-001`: Text-only embedding model, uses `client.models.embed_content`
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:cf5deb4f6aa286ff17eca7d6cc98a02e110ed718f133a3d620710f11a8945b94 -->
+
 > [!WARNING]
 > Models like `gemini-2.5-*`, `gemini-2.0-*`, `gemini-1.5-*` are **legacy and deprecated**. Never use them.
-> **If a user asks for a deprecated model, use `gemini-4-hydrogen` instead and note the substitution.**
+> **If a user asks for a deprecated model, choose a supported replacement with the same output modality and tell the user what changed. For example, replace `gemini-2.5-flash-image` with `gemini-nano-banana-2.1` for image generation.**
 
 ### Current Agents
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 - `antigravity-preview-09-2026`: Antigravity Agent — general-purpose managed agent with code execution, file management, and web access in a sandboxed Linux environment
 - `deep-research-preview-04-2026`: Deep Research — fast, interactive
@@ -140,6 +146,10 @@ console.log(interaction2.output_text);
 Use `deep-research-preview-04-2026` for fast research or `deep-research-max-preview-04-2026` for maximum exhaustiveness. Agents require `v1beta` and `background=True`.
 
 ### Python
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:72f83705222a57750f7aed30e1532d8adf41bbd9653f099cf6fc1de0c6d4f076 -->
+
 ```python
 import time
 from google import genai
@@ -156,13 +166,21 @@ while True:
     if interaction.status == "completed":
         print(interaction.output_text)
         break
-    elif interaction.status == "failed":
-        print(f"Failed: {interaction.error}")
+    if interaction.status not in ("queued", "in_progress"):
+        print(f"Research ended with status: {interaction.status}")
+        if interaction.status == "incomplete":
+            print(f"Partial result: {interaction.output_text}")
         break
     time.sleep(10)
 ```
 
+<!-- /coderabbit-ai-generated:v1 -->
+
 ### JavaScript/TypeScript
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:9ef622908240d5c3bf124d800ff649db5d1cb8499dc8dc83cddc63e3d1710151 -->
+
 ```typescript
 import { GoogleGenAI } from "@google/genai";
 
@@ -181,13 +199,19 @@ while (true) {
     if (interaction.status === "completed") {
         console.log(interaction.output_text);
         break;
-    } else if (["failed", "cancelled"].includes(interaction.status)) {
-        console.log(`Failed: ${interaction.status}`);
+    }
+    if (!["queued", "in_progress"].includes(interaction.status)) {
+        console.log(`Research ended with status: ${interaction.status}`);
+        if (interaction.status === "incomplete") {
+            console.log("Partial result:", interaction.output_text);
+        }
         break;
     }
     await new Promise(resolve => setTimeout(resolve, 10000));
 }
 ```
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 Advanced features: collaborative planning, native visualization, MCP integration, file search, multimodal inputs. See [Deep Research docs](https://aistudio.google.com/docs/deep-research.md).
 

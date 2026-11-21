@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { ok, internalError, paymentRequired } from "@/lib/api/v1/response";
 import { db } from "@/firebase/admin";
-import { COLLECTIONS, COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants";
+import { COLLECTIONS } from "@/constants";
 import { FieldValue } from "firebase-admin/firestore";
 import {
   buildVoiceLiveConfig,
@@ -37,13 +37,6 @@ export async function GET(req: Request) {
     return paymentRequired("User not found");
   }
   const userData = userDoc.data() as User;
-  const hasCredit =
-    (userData.freeVoiceSeconds ?? 0) > 0 ||
-    (userData.balance ?? 0) >= COST_PER_VOICE_SECOND_IN_CENTS;
-
-  if (!hasCredit) {
-    return paymentRequired("Insufficient credit for voice session");
-  }
 
   // 2. Compute configuration and credit allowances
   const url = new URL(req.url);
@@ -53,20 +46,21 @@ export async function GET(req: Request) {
   const voiceName =
     (url.searchParams.get("voiceName") ?? "").slice(0, 120) ||
     userData.preferedVoice?.preferedVoiceName;
-  const maxSecsParam = Number(url.searchParams.get("maxSecs"));
-  const maxSecsOverride =
-    Number.isFinite(maxSecsParam) && maxSecsParam > 0
-      ? Math.min(1800, maxSecsParam)
-      : undefined;
+  const maxSecs = Number(url.searchParams.get("maxSecs"));
 
   // Build the full LiveConnectConfig — including the system prompt — entirely
   // on the server using the authenticated user's profile.
   const { config, credits } = buildVoiceLiveConfig({
     userName: userData.name || "User",
     preferedVoice: { preferedVoiceId: voiceId, preferedVoiceName: voiceName },
-    freeVoiceSeconds: maxSecsOverride ?? userData.freeVoiceSeconds,
-    balance: maxSecsOverride != null ? 0 : userData.balance,
+    freeVoiceSeconds: userData.freeVoiceSeconds,
+    balance: userData.balance,
+    maxSecs,
   });
+
+  if (credits.allowedSeconds <= 0) {
+    return paymentRequired("Insufficient credit for voice session");
+  }
 
   // 3. Pre-create server-authoritative voice session reservation
   // Tagged with MOBILE_VOICE_RESERVATION so cloud scheduler's syncBufferSessions

@@ -38,6 +38,10 @@ transcript accumulation). Only the audio graph changes.
 
 ## Step 1 — mint the ephemeral token (and get your `sessionId`)
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:eca6bb8ba1dcbf55e2736b052028480ec625448004badb6fd8d6a1c2787a8a57 -->
+
 ```
 GET /voice/token?voiceId=Aoede&voiceName=Evelyn&maxSecs=1800
 Authorization: Bearer <id-token>
@@ -47,20 +51,23 @@ X-Firebase-AppCheck: <app-check-token>
 → 500 { "error": { "code": "INTERNAL", "message": "Failed to create ephemeral token" } }
 ```
 
-Query parameters (`voiceId`, `voiceName`, `maxSecs`) are optional — the server falls back
-to the user's stored preference and credit balance.
+Query parameters (`voiceId`, `voiceName`, `maxSecs`) are optional. The server uses
+stored preferences by default, and `maxSecs` can only lower the allowance from
+the user's free voice seconds and balance.
 
 The real API key never reaches the device. The token lasts **60 minutes** and
 keeps the new-session window open for **35 minutes** — long enough to cover a full
 30-minute call plus a 5-minute reconnect buffer. **Fetch it immediately before
-connecting**, not at app start. You may cache it client-side for up to 30 minutes
-(the web client does exactly this); just ensure you always have a valid token before
-calling `live.connect`.
+connecting**: minting the token also starts the server's billing clock. Only cache
+a reservation before a call if the server records the actual call start separately
+and uses that time for settlement. The current endpoint uses the reservation time.
 
 > **The system prompt is locked inside the token server-side.** You do NOT need to
 > send `systemInstruction` in `live.connect()`. The backend binds and locks the legal
 > advisor instruction directly inside the token's `liveConnectConstraints`. This protects
 > the prompt from inspection or client tampering.
+
+<!-- /coderabbit-ai-generated:v1 -->
 
 > **`sessionId` is server-minted — never generate your own.** This call also
 > pre-creates the server-authoritative voice-session **reservation** in Firestore
@@ -379,18 +386,19 @@ directly. Prefer it unless you already depend on WebRTC.
 
 ## Gotchas
 
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:bf0787d890c84ec1f19aaec63e99e4f9f93eab0cf6e93d3f2b57f37d3b12ce75 -->
+
 - `httpOptions.apiVersion` **must match the token's version** (`"v1beta"`), and the
   model string should be `"gemini-3.8-live"` (as returned in the `/voice/token` payload).
 - **Never pass `systemInstruction` in `LiveConnectConfig`.** The legal advisor prompt
   is securely embedded and locked inside the ephemeral token on the server using
   `lockAdditionalFields: ["systemInstruction"]`. Client-supplied system instructions
   are ignored by the Live API constraints.
-- The token's new-session window is **35 minutes** — you may cache a minted token
-  for up to **30 minutes** (the web client does exactly this). Mint it once right
-  before the first `live.connect`; on reconnect within the same call, reuse the
-  cached token rather than fetching a new one. The 30-minute cache budget aligns
-  with the 30-minute call cap, so a fresh-minted token at the start of a call
-  is always valid for the full duration.
+- Fetch the token and reservation immediately before the first `live.connect`.
+  Keep them for that call's session resumption (Step 5). The **35 minute**
+  new-session window does not delay the billing clock.
 - **Never generate the `sessionId` client-side.** It comes from `GET /voice/token`,
   which reserves it server-side; any other value fails billing with
   `400 Voice session reservation not found`, leaving the call unbilled and unsaved.
@@ -408,3 +416,5 @@ directly. Prefer it unless you already depend on WebRTC.
   (IndexedDB + `mediabunny`). Mobile has no equivalent requirement — skip local call
   recording unless a product need exists (see the package map for storage options).
 - Sessions hard-cap at 30 minutes; surface the remaining time and end gracefully.
+
+<!-- /coderabbit-ai-generated:v1 -->

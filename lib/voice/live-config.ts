@@ -24,6 +24,7 @@ export type VoiceLiveProfile = {
   };
   freeVoiceSeconds: number;
   balance: number;
+  maxSecs?: number;
 };
 
 export type VoiceLiveCredits = {
@@ -71,11 +72,15 @@ export function buildVoiceLiveConfig({
   preferedVoice,
   freeVoiceSeconds,
   balance,
+  maxSecs,
 }: VoiceLiveProfile): {
   config: LiveConnectConfig;
   credits: VoiceLiveCredits;
 } {
   const credits = voiceLiveCredits(freeVoiceSeconds, balance);
+  if (maxSecs !== undefined && Number.isFinite(maxSecs) && maxSecs > 0) {
+    credits.allowedSeconds = Math.min(credits.allowedSeconds, Math.floor(maxSecs));
+  }
   const voiceId = preferedVoice?.preferedVoiceId?.trim() || "Aoede";
   const voiceName = preferedVoice?.preferedVoiceName?.trim() || "Evelyn";
   // Strip common honorifics/titles before taking the first name for natural greetings
@@ -116,6 +121,9 @@ export function buildVoiceAuthTokenConfig(
   config: LiveConnectConfig,
   now = Date.now(),
 ): CreateAuthTokenConfig {
+  // Resumption belongs to each connection, which may supply a saved handle.
+  const tokenConfig = { ...config };
+  delete tokenConfig.sessionResumption;
   return {
     // Ephemeral tokens are strictly single-use in Gemini Live. Each WebSocket connection
     // must be initiated with a fresh token. Attempting to connect more than once with the
@@ -127,7 +135,7 @@ export function buildVoiceAuthTokenConfig(
     httpOptions: { apiVersion: GEMINI_LIVE_API_VERSION },
     liveConnectConstraints: {
       model: GEMINI_LIVE_MODEL,
-      config,
+      config: tokenConfig,
     },
     // Lock the system instruction server-side — the client cannot read or
     // override it even if it passes its own systemInstruction in live.connect().
