@@ -8,6 +8,7 @@ import { useRouter } from "nextjs-toploader/app";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { getDeviceStats } from "@/utils/device";
+import posthog from "posthog-js";
 
 interface GoogleAuthButtonProps {
   mode: "login" | "signup";
@@ -88,6 +89,14 @@ const GoogleAuthButton: React.FC<GoogleAuthButtonProps> = ({
             const defaultPath =
             currentUser?.role === "ADMIN" || currentUser?.role === "SUPER_ADMIN" ? "/admin" : "/dashboard";
 
+        if (mode === "signup") {
+          posthog.capture("account_created", { signup_method: "google" });
+        } else {
+          posthog.capture("user_signed_in", {
+            auth_method: "google",
+            user_role: currentUser?.role ?? "unknown",
+          });
+        }
         const redirectPath = returnTo || defaultPath;
         router.push(redirectPath);
       } else {

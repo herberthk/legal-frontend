@@ -22,6 +22,7 @@ import { useRouter } from "nextjs-toploader/app";
 import { toast } from "sonner";
 import { BUCKETS } from "@/constants";
 import { exportTranscriptionToDoc } from "@/lib/document-export";
+import posthog from "posthog-js";
 
 interface TranscribeProps {
   onClose?: () => void;
@@ -120,6 +121,10 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
       });
 
       if (res.success) {
+        posthog.capture("document_transcription_saved", {
+          format_mode: formatMode,
+          record_action: initialRecord ? "updated" : "created",
+        });
         toast.loading("Finalizing...", { id: toastId });
         setShowSaveModal(false);
         setTimeout(() => {
@@ -197,6 +202,9 @@ const Transcribe = ({ onClose, initialRecord }: TranscribeProps) => {
       "Transcription";
     try {
       exportTranscriptionToDoc(transcription, title);
+      posthog.capture("document_transcription_exported", {
+        format_mode: formatMode,
+      });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("--- Doc Export Error ---", err);

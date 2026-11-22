@@ -22,6 +22,7 @@ import { useAuthStore } from "@/store";
 import { toast } from "sonner";
 import { CustomButton } from "@/components/ui/custom-button";
 import { CustomLink } from "@/components/global/transitions";
+import posthog from "posthog-js";
 
 export const VerifyOtpForm = () => {
   const [loading, setLoading] = useState(false);
@@ -166,6 +167,7 @@ export const VerifyOtpForm = () => {
           const sessionResult = await setSession({ idToken });
 
           if (sessionResult.success) {
+            posthog.capture("account_created", { signup_method: "email" });
             toast.success("Account verified! Welcome aboard.", {
               style: {
                 background: "#10b981",

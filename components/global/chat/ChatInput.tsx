@@ -27,6 +27,7 @@ import {
   UploadTask,
 } from "firebase/storage";
 import { BUCKETS } from "@/constants";
+import posthog from "posthog-js";
 
 export interface ChatInputRef {
   triggerFileUpload: (promptText: string) => void;
@@ -103,6 +104,16 @@ const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       }
 
       onSend(input, pendingAttachment || undefined);
+      posthog.capture("chat_message_sent", {
+        has_attachment: Boolean(pendingAttachment),
+        attachment_type: pendingAttachment
+          ? pendingAttachment.contentType === "application/pdf"
+            ? "pdf"
+            : pendingAttachment.contentType.startsWith("image/")
+              ? "image"
+              : "docx"
+          : "none",
+      });
       logAnalyticsEvent("send_message", {
         has_attachment: !!pendingAttachment,
         attachment_type: pendingAttachment?.contentType || "none",

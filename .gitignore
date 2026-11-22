@@ -83,3 +83,4 @@ outputs
 text.txt
 .serena
 am-track.txt
+.env

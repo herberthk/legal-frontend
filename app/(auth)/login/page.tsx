@@ -14,6 +14,7 @@ import { CustomButton } from "@/components/ui/custom-button";
 import { LogoText } from "@/components/global/Logo";
 import { CustomLink } from "@/components/global/transitions";
 import DirectionalTransition from "@/components/global/DirectionalTransition";
+import posthog from "posthog-js";
 // 012Mv@123
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -66,6 +67,10 @@ const LoginPage = () => {
           }
 
           setUser(user);
+          posthog.capture("user_signed_in", {
+            auth_method: "email",
+            user_role: user.role,
+          });
           const defaultPath =
             user.role === "ADMIN" || user.role === "SUPER_ADMIN" ? "/admin" : "/dashboard";
           router.push(returnTo || defaultPath);
