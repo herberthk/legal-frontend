@@ -11,6 +11,7 @@ For detailed before/after code examples across all feature areas (text generatio
 Even imperative requests like "migrate my code", "upgrade to gemini 3", "migrate my app to gemini", or "switch to the Interactions API" leave the scope ambiguous. Ask:
 
 > Before I start editing, can you confirm the scope?
+>
 > 1. Entire project
 > 2. Specific subdirectory (e.g. `src/`, `api/`)
 > 3. Specific file or list of files
@@ -21,7 +22,7 @@ Even imperative requests like "migrate my code", "upgrade to gemini 3", "migrate
 rg -l "generate_content|generateContent|gemini-1\.5|gemini-2\.0|gemini-2\.5|gemini-3\.1-pro|gemini-3\.1-flash-lite|gemini-3\.1-flash-tts|gemini-3\.5|gemini-3\.6|gemini-3\.7|gemini-3\.8-flash([\"'\s]|$)|gemini-3-flash|gemini-omni-1\.1|gemini-omni-flash-preview|thinking_budget|temperature" --type-not md | cut -d/ -f1 | sort | uniq -c | sort -rn
 ```
 
-Present the breakdown in your question (e.g. *"Found 42 references across 3 directories: src/ (28), tests/ (10), scripts/ (4). Which to migrate?"*).
+Present the breakdown in your question (e.g. _"Found 42 references across 3 directories: src/ (28), tests/ (10), scripts/ (4). Which to migrate?"_).
 
 **Proceed without asking** only when the scope is already unambiguous, the user named an exact file ("migrate `app.py`"), pointed at a directory ("migrate everything under `src/`"), or already confirmed scope in an earlier turn.
 
@@ -29,24 +30,18 @@ Present the breakdown in your question (e.g. *"Found 42 references across 3 dire
 
 The core changes when migrating from `generateContent` to the Interactions API:
 
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:4e8f3ebcca8923b7ded1907127b14d0b347409173f925b4831192cf126965ec9 -->
-
-| What | `generateContent` | Interactions API |
-|------|----------------|-----------------|
-| **SDK method** | `client.models.generate_content()` | `client.interactions.create()` |
-| **Response text** | `response.text` | `interaction.output_text` for typical responses; for complete output, join text parts across the relevant `model_output` steps in order. |
-| **Multi-turn** | Manual history array or `client.chats.create()` | Use `previous_interaction_id=interaction.id` when server-side storage is allowed; otherwise pass client-managed history as `input` with `store=False`. |
-| **Streaming** | `generate_content_stream()` / `:streamGenerateContent` | `stream=True` + `step.delta` events |
-| **Structured output** | `response_mime_type` and `response_schema` in `GenerateContentConfig` | Top-level `response_format={"type": "text", "mime_type": "application/json", "schema": schema}`. Copy the MIME type to `mime_type` and convert the existing schema to JSON Schema for `schema`, preserving its properties and constraints. |
-| **Function calling** | `candidates[0].content.parts[0].function_call` | `function_call` step in `interaction.steps` |
-| **Search grounding** | `groundingMetadata` on candidates | `google_search_call`/`google_search_result` steps + inline `annotations` |
-| **Config/types** | `types.GenerateContentConfig(...)`, `types.Tool(...)`, `types.Content(...)`, `types.Part.*` | Not used. Interactions API uses plain Python dicts and direct params. Check the feature docs for exact format. |
-| **REST endpoint** | `POST /v1beta/models/{model}:generateContent` | `POST /v1/interactions` (or `/v1beta/interactions` for beta features) |
-| **SDK package** | `google-genai` >= 1.x or legacy `google-generativeai` | `google-genai` >= 3.2.0 (Python) / `@google/genai` >= 3.2.0 (JS) |
-
-<!-- /coderabbit-ai-generated:v1 -->
+| What                  | `generateContent`                                                                           | Interactions API                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **SDK method**        | `client.models.generate_content()`                                                          | `client.interactions.create()`                                                                                 |
+| **Response text**     | `response.text`                                                                             | `interaction.steps[-1].content[0].text`                                                                        |
+| **Multi-turn**        | Manual history array or `client.chats.create()`                                             | `previous_interaction_id=interaction.id`                                                                       |
+| **Streaming**         | `generate_content_stream()` / `:streamGenerateContent`                                      | `stream=True` + `step.delta` events                                                                            |
+| **Structured output** | `config.response_format` inside `GenerateContentConfig`                                     | Top-level `response_format` array                                                                              |
+| **Function calling**  | `candidates[0].content.parts[0].function_call`                                              | `function_call` step in `interaction.steps`                                                                    |
+| **Search grounding**  | `groundingMetadata` on candidates                                                           | `google_search_call`/`google_search_result` steps + inline `annotations`                                       |
+| **Config/types**      | `types.GenerateContentConfig(...)`, `types.Tool(...)`, `types.Content(...)`, `types.Part.*` | Not used. Interactions API uses plain Python dicts and direct params. Check the feature docs for exact format. |
+| **REST endpoint**     | `POST /v1beta/models/{model}:generateContent`                                               | `POST /v1/interactions` (or `/v1beta/interactions` for beta features)                                          |
+| **SDK package**       | `google-genai` >= 1.x or legacy `google-generativeai`                                       | `google-genai` >= 3.2.0 (Python) / `@google/genai` >= 3.2.0 (JS)                                               |
 
 For full before/after code examples, fetch the [Migration Guide](https://aistudio.google.com/docs/migrate-to-interactions.md) or read the Interactions API documentation pages for each feature.
 
@@ -54,34 +49,34 @@ For full before/after code examples, fetch the [Migration Guide](https://aistudi
 
 ### Deprecated Models
 
-| Model | Status | Drop-in Replacement |
-|-------|--------|-------------------|
-| `gemini-2.0-flash` | Deprecated | `gemini-4-hydrogen` |
-| `gemini-2.0-flash-lite` | Deprecated | `gemini-3.5-flash-lite` |
-| `gemini-1.5-pro` | Deprecated | `gemini-4-hydrogen` |
-| `gemini-1.5-flash` | Deprecated | `gemini-4-hydrogen` |
+| Model                    | Status                                 | Drop-in Replacement      |
+| ------------------------ | -------------------------------------- | ------------------------ |
+| `gemini-2.0-flash`       | Deprecated                             | `gemini-4-hydrogen`      |
+| `gemini-2.0-flash-lite`  | Deprecated                             | `gemini-3.5-flash-lite`  |
+| `gemini-1.5-pro`         | Deprecated                             | `gemini-4-hydrogen`      |
+| `gemini-1.5-flash`       | Deprecated                             | `gemini-4-hydrogen`      |
 | `gemini-3.1-flash-image` | Deprecated (shutdown October 29, 2026) | `gemini-nano-banana-2.1` |
 
 ### Active Legacy Models (migration recommended)
 
-| Current Model | Recommended Target | Why |
-|--------------|-------------------|-----|
-| `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, or `gemini-3-flash-preview` | `gemini-4-hydrogen` | Latest Gemini 4 daily driver: 1M unified context, `xhigh` thinking, long decode, and stronger agentic execution |
-| `gemini-2.5-flash` | `gemini-4-hydrogen` or `gemini-3.5-flash-lite` | Latest daily driver with Interactions API support, or latest Flash-Lite for cheaper/simpler tasks. |
-| `gemini-2.5-flash-lite` or `gemini-3.1-flash-lite` | `gemini-3.5-flash-lite` | Latest Flash-lite with Interactions API support |
-| `gemini-3.1-pro-preview` or `gemini-2.5-pro` | `gemini-4-neon` | Frontier-level intelligence with fast end-to-end task completion, 1M unified context, `xhigh` thinking, and long decode |
-| `gemini-3.1-flash-tts-preview` or `gemini-2.5-*-tts` | `gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts` | Latest TTS models with Voice Design, Voice Replication, structured `speech_metadata`, and default WAV (`audio/wav`) output |
-| `gemini-3.1-flash-image` or older image generation models | `gemini-nano-banana-2.1` | Latest Nano Banana image generation model: 131k context, multi-image fusion (up to 14 reference images), enhanced visual quality, and text rendering |
-| `gemini-omni-1.1-flash` or `gemini-omni-flash-preview` | `gemini-omni-1.2-flash` | Latest Omni Flash video model: `3s`–`15s` generation and extension (`10s` default; `3s`–`10s` two-frame keyframe interpolation), improved motion/character consistency, and natural-language media binding |
-| Legacy audio understanding / ASR | `gemini-3.5-transcribe` | Dedicated speech-to-text with auto language detection, diarization, word timestamps, and smart formatting |
-| Legacy Live API (`gemini-3.1-flash-live-preview`, `gemini-2.5-flash-native-audio-*`, `gemini-2.0-flash-live-001`) | `gemini-3.8-live` or `gemini-3.8-live-extended-thinking` | Install `google-gemini/gemini-live-api-dev` skill and see its `references/migration.md` for Live API protocol changes |
+| Current Model                                                                                                     | Recommended Target                                       | Why                                                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, or `gemini-3-flash-preview`       | `gemini-4-hydrogen`                                      | Latest Gemini 4 daily driver: 1M unified context, `xhigh` thinking, long decode, and stronger agentic execution                                                                                            |
+| `gemini-2.5-flash`                                                                                                | `gemini-4-hydrogen` or `gemini-3.5-flash-lite`           | Latest daily driver with Interactions API support, or latest Flash-Lite for cheaper/simpler tasks.                                                                                                         |
+| `gemini-2.5-flash-lite` or `gemini-3.1-flash-lite`                                                                | `gemini-3.5-flash-lite`                                  | Latest Flash-lite with Interactions API support                                                                                                                                                            |
+| `gemini-3.1-pro-preview` or `gemini-2.5-pro`                                                                      | `gemini-4-neon`                                          | Frontier-level intelligence with fast end-to-end task completion, 1M unified context, `xhigh` thinking, and long decode                                                                                    |
+| `gemini-3.1-flash-tts-preview` or `gemini-2.5-*-tts`                                                              | `gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts`    | Latest TTS models with Voice Design, Voice Replication, structured `speech_metadata`, and default WAV (`audio/wav`) output                                                                                 |
+| `gemini-3.1-flash-image` or older image generation models                                                         | `gemini-nano-banana-2.1`                                 | Latest Nano Banana image generation model: 131k context, multi-image fusion (up to 14 reference images), enhanced visual quality, and text rendering                                                       |
+| `gemini-omni-1.1-flash` or `gemini-omni-flash-preview`                                                            | `gemini-omni-1.2-flash`                                  | Latest Omni Flash video model: `3s`–`15s` generation and extension (`10s` default; `3s`–`10s` two-frame keyframe interpolation), improved motion/character consistency, and natural-language media binding |
+| Legacy audio understanding / ASR                                                                                  | `gemini-3.5-transcribe`                                  | Dedicated speech-to-text with auto language detection, diarization, word timestamps, and smart formatting                                                                                                  |
+| Legacy Live API (`gemini-3.1-flash-live-preview`, `gemini-2.5-flash-native-audio-*`, `gemini-2.0-flash-live-001`) | `gemini-3.8-live` or `gemini-3.8-live-extended-thinking` | Install `google-gemini/gemini-live-api-dev` skill and see its `references/migration.md` for Live API protocol changes                                                                                      |
 
 ### Managed Agents
 
-| Agent | Status | Drop-in Replacement | Notes |
-|-------|--------|---------------------|-------|
-| `antigravity-preview-05-2026` | Deprecated (October 5, 2026) | `antigravity-preview-09-2026` | Requests redirect to `antigravity-preview-09-2026` after October 5, 2026. |
-| `deep-research-pro-preview-12-2025` | Deprecated (shutdown October 23, 2026) | `deep-research-preview-04-2026` or `deep-research-max-preview-04-2026` | Update `agent` parameter in `interactions.create`. |
+| Agent                               | Status                                 | Drop-in Replacement                                                    | Notes                                                                     |
+| ----------------------------------- | -------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `antigravity-preview-05-2026`       | Deprecated (October 5, 2026)           | `antigravity-preview-09-2026`                                          | Requests redirect to `antigravity-preview-09-2026` after October 5, 2026. |
+| `deep-research-pro-preview-12-2025` | Deprecated (shutdown October 23, 2026) | `deep-research-preview-04-2026` or `deep-research-max-preview-04-2026` | Update `agent` parameter in `interactions.create`.                        |
 
 > **Note:** Within the Interactions API, model upgrades are generally drop-in — change the model string and verify. The breaking changes are at the **API level** (generateContent → Interactions) and parameter deprecations (`temperature`, `top_p`, `top_k`).
 
@@ -91,18 +86,14 @@ Every item is tagged: **`[BLOCKS]`** items cause errors or broken behavior if mi
 
 ### API Migration (generateContent → Interactions)
 
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:7def2f13bda428f47bd60f8ef33c2d1f3f045424984c2ce728bb1e81566b5240 -->
-
 - [ ] Updated SDK: `google-genai` >= 3.2.0 (Python) / `@google/genai` >= 3.2.0 (JS)
 - [ ] Checked `v1` vs `v1beta` routing (`[BLOCKS]` on SDK >= 3.0.0): SDKs >= 3.0.0 default to `v1` (`Interactions API` is GA on `v1`). Opt in to `v1beta` (`http_options={"api_version": "v1beta"}` in Python, `{ apiVersion: "v1beta" }` in JS/TS, per-call `api_version="v1beta"`, or `GOOGLE_GENAI_API_VERSION=beta`) when calling `v1beta`-only surfaces such as Managed Agents (`agent=...` / `client.agents`) or the [Decisions API](https://aistudio.google.com/docs/decisions-api.md) (`client.decisions.create` / `ai.decisions.create`, added in 3.2.0)
 - [ ] Replaced `client.models.generate_content()` → `client.interactions.create()`
 - [ ] Replaced `response.text` → `interaction.output_text`
 - [ ] Replaced `response.candidates[0].content.parts` → iterate `interaction.steps`
-- [ ] Replaced `client.chats.create()`: use `previous_interaction_id` only if server-side storage is permitted. Otherwise keep the history locally, append returned `interaction.steps` and each new `user_input` step, and send that history as `input` with `store=False` (`store: false` in JS).
+- [ ] Replaced `client.chats.create()` / manual history → `previous_interaction_id`
 - [ ] Removed all `types.*` wrappers (`GenerateContentConfig`, `Tool`, `Content`, `Part`) — Interactions API uses plain dicts. Check feature docs for exact format.
-- [ ] Converted `response_mime_type` and `response_schema` into the top-level `response_format` object as shown above
+- [ ] Moved `response_format` from `GenerateContentConfig` to top-level parameter
 - [ ] Replaced `generate_content_stream()` → `stream=True` + step-based event handling
 - [ ] Updated function calling: candidates-based → step-based tool lifecycle
 - [ ] REST: Changed endpoint to `/v1/interactions` (or `/v1beta/interactions` for beta features)
@@ -110,8 +101,6 @@ Every item is tagged: **`[BLOCKS]`** items cause errors or broken behavior if mi
 - [ ] Replaced `google-generativeai` (Python) → `google-genai` >= 3.2.0
 - [ ] Replaced `@google/generative-ai` (JS) → `@google/genai` >= 3.2.0
 - [ ] Updated all import statements to match new package names
-
-<!-- /coderabbit-ai-generated:v1 -->
 
 ### Model String Updates
 
@@ -230,15 +219,9 @@ For full video generation, editing, extension, and reference parameters, fetch t
 
 After updating, run a spot-check to confirm the Interactions API is working:
 
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:8ee55eec76d9fc58b67ae5fe75a2f78592b577f4412824cf62f9fb8d11baa20e -->
-
 1. Make a single `client.interactions.create()` call with a simple input
 2. Assert `interaction.steps` is not empty
 3. Assert at least one step has `type == "model_output"` with non-empty text
-4. For multi-turn, verify context is preserved across turns with the chosen history strategy
+4. For multi-turn, verify `previous_interaction_id` preserves context across turns
 
 For verification code snippets, fetch the [Migration Guide](https://aistudio.google.com/docs/migrate-to-interactions.md).
-
-<!-- /coderabbit-ai-generated:v1 -->

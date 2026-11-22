@@ -38,19 +38,13 @@ Key capabilities:
 > [!WARNING]
 > **Legacy Models (`gemini-3.1-flash-live-preview`, `gemini-2.5-flash-native-audio-*`, `gemini-live-2.5-flash-preview`, `gemini-2.0-flash-live-001`)**: Read [`references/migration.md`](references/migration.md) for breaking protocol changes (`behavior: "NON_BLOCKING"`, `thinking_level`, `interaction_status`, `send_client_content`).
 
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:856a5517510fbe6f1452d31085169b476cd583665023e1a77a4272867cc340eb -->
-
 ## SDKs
 
-- **Python**: `google-genai` >= `2.23.0` — `pip install -U "google-genai>=2.23.0"`
-- **JavaScript/TypeScript**: `@google/genai` >= `2.19.0` — `npm install "@google/genai@>=2.19.0"`
+- **Python**: `google-genai` >= `2.3.0` — `pip install -U google-genai`
+- **JavaScript/TypeScript**: `@google/genai` >= `2.3.0` — `npm install @google/genai`
 
 > [!WARNING]
 > Legacy SDKs `google-generativeai` (Python) and `@google/generative-ai` (JS) are **deprecated**. Never use them.
-
-<!-- /coderabbit-ai-generated:v1 -->
 
 ## Partner Integrations
 
@@ -238,17 +232,11 @@ Use `gemini-3.8-live-extended-thinking` when your voice agent must evaluate comp
 
 Key requirements:
 
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:2aff45082217e81d90cf61c4033df8000628fc603634b4eeb0325df2a8372e98 -->
-
 - **Thinking config**: Set `thinking_config=types.ThinkingConfig(thinking_level="low")` (`"minimal"` | `"low"` | `"medium"` | `"high"`).
 - **Non-blocking tools**: All function declarations **must** set `behavior="NON_BLOCKING"`. Synchronous blocking mode is not supported and returns an error.
-- **Lifecycle tracking (`interaction_status`)**: Do **not** rely on `turn_complete=True` alone to detect turn completion. Monitor `message.server_content.interaction_status` (Python) / `message.serverContent?.interactionStatus` (JS):
+- **Lifecycle tracking (`interaction_status`)**: Do **not** rely on `turn_complete=True` alone to detect turn completion. Monitor `message.interaction_status` (Python) / `message.interactionStatus` (JS):
   - `"IN_PROGRESS"`: Server is reasoning, speaking conversational fillers, or waiting for async tool responses.
   - `"IDLE"`: Server has completed all background reasoning and tool calls; session is ready for user input.
-
-<!-- /coderabbit-ai-generated:v1 -->
 
 See [`references/migration.md`](references/migration.md) and the [Thinking in Live API Guide](https://aistudio.google.com/docs/live-api/thinking.md) for complete Python and JavaScript implementation examples.
 
@@ -304,29 +292,17 @@ The Live API supports real-time streaming speech-to-text over WebSockets with lo
 
 - `gemini-3.5-transcribe-live`
 
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:55e0e991c757c6548435c07a1a2a422dcaf802d1d19073cc38a573cf5e339f96 -->
-
 ### Modes
 
-- `SMART`: cleans up filler words, resolves inline self-corrections, and structures formatting. Each final transcript contains the full transcript so far; replace the previous text with it.
-- `VERBATIM` (default): exact word-for-word transcript. Append each finalized segment.
+- `smart`: cleans up filler words, resolves inline self-corrections, and structures formatting.
+- `verbatim` (default): exact word-for-word transcript.
 
 ### Python
-
-<!-- /coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:f17496571b36d99adf8bfeb4b53b75e49d9bb1856c7c9da6080b2cb55c332478 -->
 
 ```python
 config = types.LiveConnectConfig(
     response_modalities=["TEXT"],
-    input_audio_transcription=types.AudioTranscriptionConfig(
-        mode=types.AudioTranscriptionConfigMode.SMART,
-    ),
+    input_audio_transcription=types.AudioTranscriptionConfig(),
 )
 
 async with client.aio.live.connect(model="gemini-3.5-transcribe-live", config=config) as session:
@@ -334,33 +310,16 @@ async with client.aio.live.connect(model="gemini-3.5-transcribe-live", config=co
     await session.send_realtime_input(audio=types.Blob(data=chunk, mime_type="audio/pcm;rate=16000"))
     # Hybrid VAD: notify turn end on client-detected silence for zero latency
     await session.send_realtime_input(audio_stream_end=True)
-
-    # A single utterance: keep receiving until its final transcript arrives.
-    final_text = None
-    while final_text is None:
-        async for message in session.receive():
-            content = message.server_content
-            if not content:
-                continue
-            if content.interim_input_transcription:
-                print("Interim:", content.interim_input_transcription.text)
-            if content.input_transcription and content.input_transcription.text is not None:
-                final_text = content.input_transcription.text
-                print("Final:", final_text)
-                break
 ```
 
 ### JavaScript
 
 ```javascript
-import { AudioTranscriptionConfigMode, Modality } from "@google/genai";
-
-let finalTranscript = "";
 const session = await ai.live.connect({
   model: "gemini-3.5-transcribe-live",
   config: {
-    responseModalities: [Modality.TEXT],
-    inputAudioTranscription: { mode: AudioTranscriptionConfigMode.SMART },
+    responseModalities: ["text"],
+    inputAudioTranscription: { mode: "smart" },
   },
   callbacks: {
     onmessage: (msg) => {
@@ -370,9 +329,8 @@ const session = await ai.live.connect({
           msg.serverContent.interimInputTranscription.text,
         );
       }
-      if (msg.serverContent?.inputTranscription?.text != null) {
-        finalTranscript = msg.serverContent.inputTranscription.text;
-        console.log("Final:", finalTranscript);
+      if (msg.serverContent?.inputTranscription) {
+        console.log("Final:", msg.serverContent.inputTranscription.text);
       }
     },
   },
@@ -384,13 +342,7 @@ session.sendRealtimeInput({
 session.sendRealtimeInput({ audioStreamEnd: true }); // Hybrid VAD
 ```
 
-<!-- /coderabbit-ai-generated:v1 -->
-
 ### Raw WebSockets
-
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:8cb648a7d6fc601469c9f7dcb904643bfb8c39451056e577d97d5e7bfbfbcefa -->
 
 ```json
 {
@@ -403,13 +355,11 @@ session.sendRealtimeInput({ audioStreamEnd: true }); // Hybrid VAD
       }
     },
     "inputAudioTranscription": {
-      "mode": "SMART"
+      "mode": "smart"
     }
   }
 }
 ```
-
-<!-- /coderabbit-ai-generated:v1 -->
 
 ---
 
