@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/firebase/client";
 import { saveDocumentReview } from "@/lib/actions/review";
 import { getAppCheckToken } from "@/lib/firebaseAppCheck";
+import posthog from "posthog-js";
 import {
   BUCKETS,
   MAX_REVIEW_FILE_SIZE,
@@ -247,6 +248,9 @@ export function useDocumentReview() {
       setStage("complete");
       setProgress(100);
       setReview(data.review);
+      posthog.capture("document_review_completed", {
+        document_type: file.type === "application/pdf" ? "pdf" : file.type.startsWith("image/") ? "image" : "docx",
+      });
     } catch (err: unknown) {
       clearStageTimer();
       setStage("error");
@@ -300,6 +304,7 @@ export function useDocumentReview() {
       });
 
       if (result.success && result.id) {
+        posthog.capture("document_review_saved");
         toast.success("Review saved successfully!", { id: toastId });
         // Build the full saved review object for display
         setSavedReview({

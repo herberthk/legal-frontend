@@ -8,6 +8,11 @@ import { EventEmitter } from 'events';
 // Increase the global maximum listeners limit from 10 to 20
 EventEmitter.defaultMaxListeners = 20;
 
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const posthogCspSources = posthogHost
+  ? [posthogHost, posthogHost.replace(".i.", "-assets.i.")]
+  : [];
+
 const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ["pdf-parse", "jsdom"],
@@ -67,12 +72,12 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self' https://apis.google.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app;",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://recaptchaenterprise.googleapis.com https://*.google-analytics.com https://www.googletagmanager.com https://js.stripe.com;",
+              `script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://recaptchaenterprise.googleapis.com https://*.google-analytics.com https://www.googletagmanager.com https://js.stripe.com ${posthogCspSources.join(" ")};`,
               "worker-src 'self' blob:;",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
               "font-src 'self' https://fonts.gstatic.com;",
               "img-src 'self' data: blob: https://ui-avatars.com https://i.pravatar.cc https://lh3.googleusercontent.com https://www.transparenttextures.com https://*.google-analytics.com https://www.googletagmanager.com https://firebasestorage.googleapis.com https://*.stripe.com https://*.google.com;",
-              "connect-src 'self' data: https://apis.google.com https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://recaptchaenterprise.googleapis.com https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.google.com/recaptcha/ https://*.google-analytics.com https://www.googletagmanager.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://fcm.googleapis.com https://fcmregistrations.googleapis.com https://api.stripe.com;",
+              `connect-src 'self' data: https://apis.google.com https://*.googleapis.com wss://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://recaptchaenterprise.googleapis.com https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.google.com/recaptcha/ https://*.google-analytics.com https://www.googletagmanager.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://fcm.googleapis.com https://fcmregistrations.googleapis.com https://api.stripe.com ${posthogCspSources.join(" ")};`,
               "frame-src 'self' https://*.firebaseapp.com https://*.web.app https://www.google.com/recaptcha/ https://recaptcha.net/ https://js.stripe.com https://hooks.stripe.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://accounts.google.com;",
               "object-src 'none';",
               "base-uri 'self';",

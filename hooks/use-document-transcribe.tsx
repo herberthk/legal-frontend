@@ -14,6 +14,7 @@ import { MAX_REVIEW_FILE_SIZE, MAX_REVIEW_FILE_SIZE_MB } from "@/constants";
 import { ref, uploadBytes, deleteObject } from "firebase/storage";
 import { storage } from "@/firebase/client";
 import { STORAGE_PATHS } from "@/constants/buckets";
+import posthog from "posthog-js";
 
 interface TranscribeApiResponse {
   success?: boolean;
@@ -285,6 +286,10 @@ export const useDocumentTranscribe = (): UseDocumentTranscribeReturn => {
       }
 
       setStatus("editing");
+      posthog.capture("document_transcription_completed", {
+        document_type: mimeType === "application/pdf" ? "pdf" : "image",
+        format_mode: formatMode,
+      });
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
         setError("Transcription timed out. Please try again with a smaller document.");

@@ -9,6 +9,7 @@ import {
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatUgx, formatUSD } from "@/utils";
+import posthog from "posthog-js";
 
 interface StripePaymentFormProps {
   amount: number;
@@ -56,6 +57,10 @@ export const StripePaymentForm = ({
       }
       setIsLoading(false);
     } else if (paymentIntent && paymentIntent.status === "succeeded") {
+      posthog.capture("payment_completed", {
+        payment_method: "card",
+        amount_ugx: Math.round(amount),
+      });
       // Payment finalized!
       onSuccess(transactionReference);
     } else {
