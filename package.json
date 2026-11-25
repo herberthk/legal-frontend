@@ -15,9 +15,9 @@
     "install-apk": "adb install -r outputs/apk/LegalAdviser.apk && echo \"App installed successfully\""
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.29",
-    "@ai-sdk/google-vertex": "^5.0.16",
-    "@ai-sdk/react": "^4.0.23",
+    "@ai-sdk/google": "^4.0.126",
+    "@ai-sdk/google-vertex": "5.0.146",
+    "@ai-sdk/react": "^4.0.186",
     "@google/genai": "3.4.0",
     "@react-email/components": "^1.0.8",
     "@react-pdf/renderer": "^4.3.2",
@@ -32,7 +32,7 @@
     "@tiptap/starter-kit": "^3.22.0",
     "@uidotdev/usehooks": "^2.4.1",
     "@zakj/no-sleep": "^0.13.6",
-    "ai": "^7.0.22",
+    "ai": "^7.0.181",
     "baseline-browser-mapping": "^2.10.40",
     "caniuse-lite": "^1.0.30001800",
     "class-variance-authority": "^0.7.1",

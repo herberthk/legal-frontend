@@ -33,8 +33,9 @@ export function apiError(
   status: number,
   code: ApiErrorCode,
   message: string,
+  init?: ResponseInit,
 ): Response {
-  return NextResponse.json({ error: { code, message } }, { status });
+  return NextResponse.json({ error: { code, message } }, { ...init, status });
 }
 
 export const unauthenticated = (message = "Authentication required.") =>
@@ -54,6 +55,19 @@ export const notFoundError = (message = "Not found.") =>
 
 export const forbidden = (message = "Forbidden.") =>
   apiError(403, "FORBIDDEN", message);
+
+export const rateLimited = (
+  message = "Too many requests.",
+  retryAfterSeconds?: number,
+) =>
+  apiError(
+    429,
+    "RATE_LIMITED",
+    message,
+    retryAfterSeconds
+      ? { headers: { "Retry-After": String(retryAfterSeconds) } }
+      : undefined,
+  );
 
 export const internalError = (message = "Something went wrong.") =>
   apiError(500, "INTERNAL", message);

@@ -1,3 +1,5 @@
+export const DEFAULT_OUTPUT_GAIN = 1.05;
+
 /**
  * Creates a broadcast-quality audio processing chain for Gemini voice output.
  * It applies a high-pass filter, presence EQ, and a hard limiter to ensure
@@ -12,16 +14,17 @@ export function createGeminiAudioChain(ctx: AudioContext) {
   highPass.frequency.value = 80;
   highPass.Q.value = 0.7071; // Butterworth (maximally flat passband)
 
-  // 2. Presence EQ — lifts the 3kHz consonant band for speech clarity
+  // 2. Presence EQ — gentle 3kHz consonant lift for speech clarity without
+  // over-driving speaker echo back into the microphone
   const presenceEQ = ctx.createBiquadFilter();
   presenceEQ.type = "peaking";
   presenceEQ.frequency.value = 3000;
   presenceEQ.Q.value = 1.2; // moderate width (~1 octave)
-  presenceEQ.gain.value = 4; // +4dB lift in the presence band
+  presenceEQ.gain.value = 2; // +2dB lift in the presence band
 
-  // 3. Master gain — the node that toggleAudioMute ramps between 0 and 1.4
+  // 3. Master gain — the node that toggleAudioMute ramps between 0 and DEFAULT_OUTPUT_GAIN
   const gainNode = ctx.createGain();
-  gainNode.gain.value = 1.4;
+  gainNode.gain.value = DEFAULT_OUTPUT_GAIN;
 
   // 4. Limiter — brick-wall ceiling at -4dB so the gain boost never clips
   const limiter = ctx.createDynamicsCompressor();

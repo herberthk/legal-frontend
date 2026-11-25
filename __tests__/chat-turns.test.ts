@@ -559,7 +559,7 @@ describe("stream persistence", () => {
     mocks.docs.set(TURN, pendingTurn());
     await handleChatRequest(chatRequest(TURN), "user");
     const execute = vi.mocked(createUIMessageStream).mock.calls[0][0].execute;
-    await execute({ writer: { merge: vi.fn(), write: vi.fn(), onError: undefined } } as Parameters<typeof execute>[0]);
+    await execute({ writer: { merge: vi.fn(), write: vi.fn(), setOutcome: vi.fn(), onError: undefined } } as Parameters<typeof execute>[0]);
     const finish = vi.mocked(toUIMessageStream).mock.calls[0][0].onFinish!;
     return () => finish({ responseMessage: { parts: [{ type: "text", text: "Generated answer" }] }, isAborted: false } as Parameters<typeof finish>[0]);
   }

@@ -110,6 +110,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     wsStatus,
     audioStatus,
     isListening,
+    isProcessing,
     activeTranscript,
     duration,
     remainingSeconds,
@@ -156,7 +157,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const isCreditExhausted = duration >= totalAllowedSeconds;
 
-  const isResponding = audioStatus === "playing" || wsStatus === "connecting";
+  const isResponding =
+    isProcessing || audioStatus === "playing" || wsStatus === "connecting";
 
   // Post-call UI State
   const [postCallStage, setPostCallStage] = useState<PostCallStage | null>(
@@ -181,6 +183,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   // a ref (not state) because the unload handler must see the current value
   // without the effect re-subscribing on every change.
   const billingSettledRef = useRef(false);
+  const lastBeaconRef = useRef<{ sessionId: string; duration: number } | null>(
+    null,
+  );
 
   // ── Audio Feedback ────────────────────────────────────────────────────────────
   const connectingAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -188,11 +193,11 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
   const disconnectedAudioRef = useRef<HTMLAudioElement | null>(null);
   const sfxCtxRef = useRef<AudioContext | null>(null);
 
-  // Preload audio files and route through Web Audio API for volume boost.
-  // HTMLAudioElement.volume caps at 1.0 — to go louder we pipe each element
-  // through a GainNode at 2.0× (~+6dB).
+  // Preload audio files and route through Web Audio API for subtle cue boost.
+  // Keeping gain moderate (1.05x) avoids blasting the connected chime into the
+  // open microphone right as the session starts.
   useEffect(() => {
-    const BOOST = 2.0; // +6dB over system level
+    const BOOST = 1.05;
 
     const SfxAudioCtx =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -301,8 +306,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     sessionId,
     duration,
     getTranscripts,
-    preferedVoice,
-    userName,
     userId,
   });
 
@@ -320,11 +323,9 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       sessionId,
       duration,
       getTranscripts,
-      preferedVoice,
-      userName,
       userId,
     };
-  }, [sessionId, duration, getTranscripts, preferedVoice, userName, userId]);
+  }, [sessionId, duration, getTranscripts, userId]);
 
   // Fires when the page goes away while seconds are still unbilled.
   //
@@ -342,6 +343,12 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       const current = beaconPayloadRef.current;
       if (billingSettledRef.current || current.duration <= 0 || !current.userId)
         return;
+      if (
+        lastBeaconRef.current?.sessionId === current.sessionId &&
+        lastBeaconRef.current?.duration === current.duration
+      ) {
+        return;
+      }
 
       // Snapshot with .slice() for the same reason as handleEndCall:
       // prevents a concurrent buffer-sync from mutating the array after we
@@ -350,13 +357,19 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         sessionId: current.sessionId,
         duration: current.duration,
         transcripts: current.getTranscripts().slice(),
-        preferedVoice: current.preferedVoice,
-        userName: current.userName,
       };
       const blob = new Blob([JSON.stringify(payload)], {
         type: "application/json",
       });
-      navigator.sendBeacon("/api/voice-billing", blob);
+      if (
+        typeof navigator.sendBeacon === "function" &&
+        navigator.sendBeacon("/api/voice-billing", blob)
+      ) {
+        lastBeaconRef.current = {
+          sessionId: current.sessionId,
+          duration: current.duration,
+        };
+      }
     };
 
     // pagehide is the one that actually fires on mobile when the user switches
@@ -366,6 +379,8 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     return () => {
       window.removeEventListener("pagehide", sendFallbackBeacon);
       window.removeEventListener("beforeunload", sendFallbackBeacon);
+      // Also flush unbilled seconds on SPA route navigation unmount.
+      sendFallbackBeacon();
     };
   }, []);
 
@@ -426,8 +441,14 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     // Reset duration for new call
     sessionStorage.removeItem("voice_sessionState");
 
-    // New call, new unbilled seconds — re-arm the unload beacon.
+    // New call, new unbilled seconds — re-arm the unload beacon and reset mute
+    // toggles synchronously so connect() claims hardware unmuted.
     billingSettledRef.current = false;
+    lastBeaconRef.current = null;
+    setIsMuted(false);
+    setIsAudioMuted(false);
+    toggleMicMute(false);
+    toggleAudioMute(false);
 
     // The recorder is started from the hook's onSessionStart, which fires with
     // the id of the call being opened. Starting it here instead would hand it
@@ -457,7 +478,15 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       }
       disconnect().catch(() => {});
     }
-  }, [connect, armConnectTimeout, wsStatus, isCreditExhausted, disconnect]);
+  }, [
+    connect,
+    armConnectTimeout,
+    wsStatus,
+    isCreditExhausted,
+    disconnect,
+    toggleMicMute,
+    toggleAudioMute,
+  ]);
 
   // Ref mirror of wsStatus so the timeout callback can read it without
   // becoming a stale closure (avoids having wsStatus in its dep array).
@@ -520,8 +549,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
             sessionId,
             duration,
             transcripts: capturedTranscripts,
-            preferedVoice,
-            userName,
           }),
         });
 
@@ -625,8 +652,6 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     duration,
     userId,
     getTranscripts,
-    preferedVoice,
-    userName,
     wsStatus,
     sessionId,
     finalizeRecording,

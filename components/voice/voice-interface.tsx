@@ -198,7 +198,6 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       {/* ── Live Transcript Panel ────────────────────────────────────────── */}
       <TranscriptPanel
         wsStatus={wsStatus}
-        status={status}
         getDisplayText={getDisplayText}
         userName={userName}
         voiceName={voiceName}

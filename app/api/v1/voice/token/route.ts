@@ -1,14 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
-import { ok, internalError, paymentRequired } from "@/lib/api/v1/response";
+import {
+  ok,
+  internalError,
+  paymentRequired,
+  rateLimited,
+} from "@/lib/api/v1/response";
 import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
-import { FieldValue } from "firebase-admin/firestore";
+import { checkRateLimit } from "@/lib/rate-limiter";
 import {
   buildVoiceLiveConfig,
   buildVoiceAuthTokenConfig,
   GEMINI_LIVE_MODEL,
-  MOBILE_VOICE_RESERVATION,
 } from "@/lib/voice/live-config";
 
 /**
@@ -17,13 +21,27 @@ import {
  * and the system instruction prompt never leave the server; the client opens
  * a `@google/genai` `live.connect` WebSocket session with this token.
  *
- * The system instruction is embedded and locked in the token constraints server-side,
- * ensuring third-party/mobile clients cannot tamper with or inspect the prompt.
+ * Stateless in Firestore (like `/api/gemini-token`): mints a unique `sessionId`
+ * for the call, while the client creates/updates `voiceSessionBuffers/{sessionId}`
+ * once connected and settles into `voiceSessions/{sessionId}` via `POST /voice/billing`.
  * See `docs/mobile/skills/voice-chat.md`.
  */
 export async function GET(req: Request) {
   const gate = await requireMobileAuth(req);
   if (gate instanceof Response) return gate;
+
+  const rateLimit = await checkRateLimit({
+    action: "voice_token_uid",
+    key: gate.userId,
+    maxAttempts: 20,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.success) {
+    return rateLimited(
+      rateLimit.message || "Too many token requests. Please wait.",
+      rateLimit.retryAfterSeconds,
+    );
+  }
 
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
@@ -31,7 +49,7 @@ export async function GET(req: Request) {
     return internalError("Server configuration error");
   }
 
-  // 1. Credit Check & Reservation: verify user has available voice credit
+  // 1. Credit Check: verify user has available voice credit
   const userDoc = await db.collection(COLLECTIONS.USERS).doc(gate.userId).get();
   if (!userDoc.exists) {
     return paymentRequired("User not found");
@@ -39,20 +57,18 @@ export async function GET(req: Request) {
   const userData = userDoc.data() as User;
 
   // 2. Compute configuration and credit allowances
+  // Persona name is derived server-side solely from the allowlisted voiceId.
   const url = new URL(req.url);
   const voiceId =
     (url.searchParams.get("voiceId") ?? "").slice(0, 120) ||
     userData.preferedVoice?.preferedVoiceId;
-  const voiceName =
-    (url.searchParams.get("voiceName") ?? "").slice(0, 120) ||
-    userData.preferedVoice?.preferedVoiceName;
   const maxSecs = Number(url.searchParams.get("maxSecs"));
 
   // Build the full LiveConnectConfig — including the system prompt — entirely
   // on the server using the authenticated user's profile.
   const { config, credits } = buildVoiceLiveConfig({
     userName: userData.name || "User",
-    preferedVoice: { preferedVoiceId: voiceId, preferedVoiceName: voiceName },
+    preferedVoice: { preferedVoiceId: voiceId },
     freeVoiceSeconds: userData.freeVoiceSeconds,
     balance: userData.balance,
     maxSecs,
@@ -62,33 +78,9 @@ export async function GET(req: Request) {
     return paymentRequired("Insufficient credit for voice session");
   }
 
-  // 3. Pre-create server-authoritative voice session reservation
-  // Tagged with MOBILE_VOICE_RESERVATION so cloud scheduler's syncBufferSessions
-  // can recognize and settle it via settleMobileVoice if abandoned.
+  // 3. Mint ephemeral token with server-embedded & locked system instruction,
+  // paired with a unique sessionId used for client buffer sync and billing.
   const sessionId = crypto.randomUUID();
-  const sessionRef = db.collection(COLLECTIONS.VOICE_SESSIONS).doc(sessionId);
-
-  try {
-    await sessionRef.set({
-      id: sessionId,
-      userId: gate.userId,
-      status: "ACTIVE",
-      reservationType: MOBILE_VOICE_RESERVATION,
-      allowedSeconds: credits.allowedSeconds,
-      createdAt: FieldValue.serverTimestamp(),
-      startedAt: FieldValue.serverTimestamp(),
-      duration: 0,
-      cost: 0,
-      transcripts: [],
-      title: "New Consultation",
-      summary: "",
-    });
-  } catch (dbErr) {
-    console.error("Failed to create voice session reservation:", dbErr);
-    return internalError("Failed to initialize voice session");
-  }
-
-  // 4. Mint ephemeral token with server-embedded & locked system instruction
   try {
     const ai = new GoogleGenAI({ apiKey });
     const authTokenConfig = buildVoiceAuthTokenConfig(config);
@@ -109,10 +101,6 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     console.error("Error creating ephemeral token:", error);
-    // Roll back reservation so failed token creation does not leave an unusable session
-    await sessionRef.delete().catch((delErr) => {
-      console.error("Failed to clean up voice session after token error:", delErr);
-    });
     return internalError("Failed to create ephemeral token");
   }
 }

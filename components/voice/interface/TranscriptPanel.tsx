@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface TranscriptPanelProps {
   wsStatus: VoiceSessionStatus;
-  status: CallStatus;
   getDisplayText: () => string;
   userName?: string;
   voiceName?: string;
@@ -13,7 +12,6 @@ interface TranscriptPanelProps {
 
 const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
   wsStatus,
-  status,
   getDisplayText,
   userName,
   voiceName,
@@ -49,10 +47,10 @@ const TranscriptPanel: React.FC<TranscriptPanelProps> = ({
                 <span
                   className={`text-xs sm:text-[11px] font-bold uppercase tracking-[0.2em] mb-3 ${palette.text}`}
                 >
-                  {status === "listening"
-                    ? userName || "You"
-                    : activeTranscript?.speaker === "ai"
-                      ? voiceName || "Legal Adviser"
+                  {activeTranscript?.speaker === "ai"
+                    ? voiceName || "Legal Adviser"
+                    : activeTranscript?.speaker === "system"
+                      ? "System"
                       : userName || "You"}
                 </span>
                 <p className="text-xs italic font-light text-slate-800 dark:text-slate-100 leading-relaxed">

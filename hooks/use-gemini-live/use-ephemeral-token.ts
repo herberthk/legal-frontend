@@ -18,12 +18,14 @@ export function useEphemeralToken() {
   const prefetchedTokenRef = useRef<{
     token: string;
     expiresAt: number;
+    maxSecs?: number;
     voiceId?: string;
     voiceName?: string;
   } | null>(null);
 
   const inFlightPromiseRef = useRef<{
     promise: Promise<string>;
+    maxSecs?: number;
     voiceId?: string;
     voiceName?: string;
   } | null>(null);
@@ -34,17 +36,12 @@ export function useEphemeralToken() {
   }, []);
 
   const fetchNewToken = useCallback(
-    async (
-      maxSecs?: number,
-      voiceId?: string,
-      voiceName?: string,
-    ): Promise<string> => {
+    async (maxSecs?: number, voiceId?: string): Promise<string> => {
       const appCheckToken = await getAppCheckToken();
 
       const params = new URLSearchParams();
       if (maxSecs != null) params.set("maxSecs", String(Math.round(maxSecs)));
       if (voiceId) params.set("voiceId", voiceId);
-      if (voiceName) params.set("voiceName", voiceName);
       const qs = params.toString();
       const url = qs ? `/api/gemini-token?${qs}` : "/api/gemini-token";
 
@@ -79,19 +76,23 @@ export function useEphemeralToken() {
 
   const prefetchToken = useCallback(
     (maxSecs?: number, voiceId?: string, voiceName?: string) => {
-      // If we already have a valid prefetched token for this voice, keep it
+      const normalizedMaxSecs =
+        maxSecs != null ? Math.round(maxSecs) : undefined;
+      // If we already have a valid prefetched token for this voice & cap, keep it
       if (
         prefetchedTokenRef.current &&
         Date.now() < prefetchedTokenRef.current.expiresAt - 5000 &&
+        prefetchedTokenRef.current.maxSecs === normalizedMaxSecs &&
         prefetchedTokenRef.current.voiceId === voiceId &&
         prefetchedTokenRef.current.voiceName === voiceName
       ) {
         return;
       }
 
-      // If an in-flight fetch for the same voice is already running, wait for it
+      // If an in-flight fetch for the same voice & cap is already running, wait for it
       if (
         inFlightPromiseRef.current &&
+        inFlightPromiseRef.current.maxSecs === normalizedMaxSecs &&
         inFlightPromiseRef.current.voiceId === voiceId &&
         inFlightPromiseRef.current.voiceName === voiceName
       ) {
@@ -100,20 +101,23 @@ export function useEphemeralToken() {
 
       const record: {
         promise: Promise<string>;
+        maxSecs?: number;
         voiceId?: string;
         voiceName?: string;
       } = {
         promise: Promise.resolve(""),
+        maxSecs: normalizedMaxSecs,
         voiceId,
         voiceName,
       };
 
       record.promise = (async () => {
         try {
-          const token = await fetchNewToken(maxSecs, voiceId, voiceName);
+          const token = await fetchNewToken(normalizedMaxSecs, voiceId);
           prefetchedTokenRef.current = {
             token,
             expiresAt: Date.now() + 30 * 60 * 1000,
+            maxSecs: normalizedMaxSecs,
             voiceId,
             voiceName,
           };
@@ -143,11 +147,14 @@ export function useEphemeralToken() {
       voiceId?: string,
       voiceName?: string,
     ): Promise<string> => {
+      const normalizedMaxSecs =
+        maxSecs != null ? Math.round(maxSecs) : undefined;
       // 1. If not forcing a refresh, check if we have a valid UNCONSUMED prefetched token
       if (
         !forceRefresh &&
         prefetchedTokenRef.current &&
         Date.now() < prefetchedTokenRef.current.expiresAt - 5000 &&
+        prefetchedTokenRef.current.maxSecs === normalizedMaxSecs &&
         prefetchedTokenRef.current.voiceId === voiceId &&
         prefetchedTokenRef.current.voiceName === voiceName
       ) {
@@ -158,10 +165,11 @@ export function useEphemeralToken() {
         return token;
       }
 
-      // 2. If an in-flight prefetch is currently running for the SAME voice, consume its result
+      // 2. If an in-flight prefetch is currently running for the SAME voice & cap, consume its result
       if (
         !forceRefresh &&
         inFlightPromiseRef.current &&
+        inFlightPromiseRef.current.maxSecs === normalizedMaxSecs &&
         inFlightPromiseRef.current.voiceId === voiceId &&
         inFlightPromiseRef.current.voiceName === voiceName
       ) {
@@ -175,7 +183,7 @@ export function useEphemeralToken() {
 
       // 3. Clear any stale prefetched token and fetch a fresh one directly
       prefetchedTokenRef.current = null;
-      return fetchNewToken(maxSecs, voiceId, voiceName);
+      return fetchNewToken(normalizedMaxSecs, voiceId);
     },
     [fetchNewToken],
   );

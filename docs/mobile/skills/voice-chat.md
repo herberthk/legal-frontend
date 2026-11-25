@@ -38,44 +38,37 @@ transcript accumulation). Only the audio graph changes.
 
 ## Step 1 — mint the ephemeral token (and get your `sessionId`)
 
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:eca6bb8ba1dcbf55e2736b052028480ec625448004badb6fd8d6a1c2787a8a57 -->
-
 ```
-GET /voice/token?voiceId=Aoede&voiceName=Evelyn&maxSecs=1800
+GET /voice/token?voiceId=Aoede&maxSecs=1800
 Authorization: Bearer <id-token>
 X-Firebase-AppCheck: <app-check-token>
 → 200 { "data": { "token": "auth_tokens/…", "sessionId": "3f9c…", "allowedSeconds": 1800, "model": "gemini-3.8-live" } }
 → 402 { "error": { "code": "PAYMENT_REQUIRED", "message": "Insufficient credit for voice session" } }
+→ 429 { "error": { "code": "RATE_LIMITED", "message": "Too many token requests. Please wait." } }  (includes Retry-After header)
 → 500 { "error": { "code": "INTERNAL", "message": "Failed to create ephemeral token" } }
 ```
 
-Query parameters (`voiceId`, `voiceName`, `maxSecs`) are optional. The server uses
-stored preferences by default, and `maxSecs` can only lower the allowance from
+Query parameters (`voiceId`, `maxSecs`) are optional. The server allowlists `voiceId`
+against the supported voice personas (deriving the persona name strictly server-side),
+uses stored preferences by default, and `maxSecs` can only lower the allowance from
 the user's free voice seconds and balance.
 
 The real API key never reaches the device. The token lasts **60 minutes** and
 keeps the new-session window open for **35 minutes** — long enough to cover a full
-30-minute call plus a 5-minute reconnect buffer. **Fetch it immediately before
-connecting**: minting the token also starts the server's billing clock. Only cache
-a reservation before a call if the server records the actual call start separately
-and uses that time for settlement. The current endpoint uses the reservation time.
+30-minute call plus a 5-minute reconnect buffer.
 
 > **The system prompt is locked inside the token server-side.** You do NOT need to
 > send `systemInstruction` in `live.connect()`. The backend binds and locks the legal
 > advisor instruction directly inside the token's `liveConnectConstraints`. This protects
 > the prompt from inspection or client tampering.
 
-<!-- /coderabbit-ai-generated:v1 -->
-
-> **`sessionId` is server-minted — never generate your own.** This call also
-> pre-creates the server-authoritative voice-session **reservation** in Firestore
-> (`voiceSessions/{sessionId}`, `status: "ACTIVE"`, with the server start time that
-> billing is computed from). `POST /voice/billing` looks that reservation up and
-> returns **400 `Voice session reservation not found`** for any id it did not mint —
-> so a client-generated UUID means the call is never billed and never saved. Keep the
-> returned `sessionId` for the lifetime of the call and send it back at settle time.
+> **`sessionId` is server-minted — never generate your own.** `/voice/token` is
+> stateless in Firestore (no premature `voiceSessions` or `voiceSessionBuffers`
+> entry on button tap). Once `live.connect()` opens, sync every 10 seconds to
+> `voiceSessionBuffers/{sessionId}` (`status: "active"`, `updatedAt`, `duration`,
+> incremental `transcripts`) matching `use-firebase-sync.ts`. `POST /voice/billing`
+> settles into `voiceSessions/{sessionId}` via shared `recordVoiceSession` and
+> deletes the buffer.
 
 This endpoint also performs the **pre-flight credit check**: a user with no free
 voice seconds and insufficient balance gets **402** here, before any audio is
@@ -95,24 +88,27 @@ const { token, sessionId, model } = await apiFetch<{
 // Keep `sessionId` for the whole call — it is what /voice/billing settles against.
 
 const ai = new GoogleGenAI({
-  apiKey: token,                          // the ephemeral token, not the real key
-  httpOptions: { apiVersion: "v1beta" },  // matches the token's server apiVersion
+  apiKey: token, // the ephemeral token, not the real key
+  httpOptions: { apiVersion: "v1beta" }, // matches the token's server apiVersion
 });
 
-// NOTE: systemInstruction is omitted because it is embedded and locked inside
-// the server-minted token. The Gemini Live server enforces it automatically.
+// NOTE: systemInstruction and realtimeInputConfig (VAD tuning) are embedded
+// and locked inside the server-minted token via lockAdditionalFields: [].
+// The Gemini Live server enforces them automatically.
 const config: LiveConnectConfig = {
   responseModalities: [Modality.AUDIO],
-  temperature: 0,
   speechConfig: {
     voiceConfig: {
       prebuiltVoiceConfig: { voiceName: preferedVoiceId || "Aoede" },
     },
   },
   tools: [{ googleSearch: {} }],
-  inputAudioTranscription: {},   // → msg.serverContent.inputTranscription (what the user said)
-  outputAudioTranscription: {},  // → msg.serverContent.outputTranscription (what the AI said)
-  contextWindowCompression: { slidingWindow: {} },
+  inputAudioTranscription: {}, // → msg.serverContent.inputTranscription (what the user said)
+  outputAudioTranscription: {}, // → msg.serverContent.outputTranscription (what the AI said)
+  contextWindowCompression: {
+    triggerTokens: "48000",
+    slidingWindow: { targetTokens: "24000" },
+  },
   // On reconnect only:
   // sessionResumption: { handle: previousHandle },
 };
@@ -135,7 +131,8 @@ The model wants **mono 16 kHz signed-16-bit little-endian PCM**, base64-encoded:
 // pcm: Int16Array (or its ArrayBuffer) at 16 kHz, mono
 function sendMicChunk(session, pcmBytes: Uint8Array) {
   let binary = "";
-  for (let i = 0; i < pcmBytes.length; i++) binary += String.fromCharCode(pcmBytes[i]);
+  for (let i = 0; i < pcmBytes.length; i++)
+    binary += String.fromCharCode(pcmBytes[i]);
   const base64 = btoa(binary);
   session.sendRealtimeInput({
     audio: { data: base64, mimeType: "audio/pcm;rate=16000" },
@@ -159,22 +156,31 @@ AI audio arrives as base64 Int16 PCM at **24 kHz** inside model-turn parts:
 ```ts
 function onmessage(msg) {
   // Barge-in: user interrupted the AI — stop playback immediately (see Step 5).
-  if (msg.serverContent?.interrupted) { stopPlayback(); finalizeTurns(); }
+  if (msg.serverContent?.interrupted) {
+    stopPlayback();
+    finalizeTurns();
+  }
 
-  // Session rotation handle — persist for reconnect.
-  if (msg.sessionResumptionUpdate?.newHandle) {
+  // Session rotation handle — persist only when resumable.
+  if (
+    msg.sessionResumptionUpdate?.newHandle &&
+    msg.sessionResumptionUpdate.resumable !== false
+  ) {
     previousHandle = msg.sessionResumptionUpdate.newHandle;
   }
   // Server asks to rotate the socket.
   // If we've hit the 30-minute cap, close permanently and settle billing once.
-  // Otherwise, reconnect with the saved handle.
+  // Otherwise, defer rotation until the active model turn finishes (within timeLeft)
+  // so the AI isn't cut off mid-sentence, then reconnect with previousHandle.
   if (msg.goAway) {
     if (duration >= 1800) {
       session.close();
-      reconnectAllowed = false;  // prevent further reconnect attempts
-      settleBilling();            // call exactly once at cap
+      reconnectAllowed = false; // prevent further reconnect attempts
+      settleBilling(); // call exactly once at cap
+    } else if (!isModelTurnActive) {
+      session.close(); // will reconnect with previousHandle (see connect logic)
     } else {
-      session.close();           // will reconnect with previousHandle (see connect logic)
+      pendingGoAwayRotation = true; // close on turnComplete or before timeLeft expires
     }
   }
 
@@ -186,7 +192,7 @@ function onmessage(msg) {
   }
 
   // Live transcripts.
-  const inT = msg.serverContent?.inputTranscription?.text;   // user speech → text
+  const inT = msg.serverContent?.inputTranscription?.text; // user speech → text
   const outT = msg.serverContent?.outputTranscription?.text; // AI speech → text
   if (inT) accumulateUser(inT);
   if (outT) accumulateAI(outT);
@@ -222,26 +228,41 @@ On barge-in / interruption, cancel every scheduled source and reset `nextStart =
 
 - **Barge-in:** when `msg.serverContent.interrupted` fires, stop and flush the
   playback queue immediately so the AI goes quiet the instant the user speaks.
-- **Session resumption:** persist `sessionResumptionUpdate.newHandle`. On `goAway`
-  or a non-1000/1005 socket close **while `duration < 1800`**, reconnect and set
-  `config.sessionResumption = { handle: previousHandle }` — the conversation
-  continues seamlessly. Back off (500 ms × attempt, capped 5 s), max ~5 attempts.
+- **Session resumption & 30-minute continuity:** persist `sessionResumptionUpdate.newHandle`
+  whenever `resumable !== false`. Because Google Live connections rotate every ~10 minutes,
+  proactively pre-warm a fresh single-use token every **8.5 minutes (510 s)** and immediately
+  on `goAway`. On clean `goAway` rotation (while `duration < 1800`), hand off at **0 ms**
+  using the pre-warmed token and `config.sessionResumption = { handle: previousHandle }`,
+  buffering up to ~2 s of active user speech across the handoff so words are never lost.
+  On error closes, force a fresh token with exponential backoff (500 ms × attempt, capped 5 s,
+  max ~5 attempts). Keep the requested `maxSecs` consistent across reconnects so the server-locked
+  `systemInstruction` never drifts mid-call.
 - **Time Remaining System Notifications:** The prompt explicitly forbids the AI from
-  guessing time and requires text notifications to alert the user. Send these realtime
-  text inputs as `duration` increments:
+  guessing time and requires text notifications to alert the user. Send these via
+  `sendClientContent` as `duration` increments (`turnComplete: false` for 5m/2m when
+  the AI is speaking so it doesn't interrupt mid-sentence, `turnComplete: true` for 10s):
   ```ts
   const limit = allowedSeconds || 1800;
   // At 5 minutes remaining (if session > 10m):
   if (duration === limit - 300 && limit > 600) {
-    session.sendRealtimeInput({ text: "SYSTEM NOTIFICATION: 5 minutes remaining until the session limit. Please inform the user gracefully." });
+    session.sendClientContent({
+      turns: [{ role: "user", parts: [{ text: "SYSTEM NOTIFICATION: 5 minutes remaining until the session limit. Please inform the user gracefully." }] }],
+      turnComplete: !isModelTurnActive,
+    });
   }
   // At 2 minutes remaining (if session > 5m):
   if (duration === limit - 120 && limit > 300) {
-    session.sendRealtimeInput({ text: "SYSTEM NOTIFICATION: 2 minutes remaining. Please inform the user and continue your response uninterrupted." });
+    session.sendClientContent({
+      turns: [{ role: "user", parts: [{ text: "SYSTEM NOTIFICATION: 2 minutes remaining. Please inform the user and continue your response uninterrupted." }] }],
+      turnComplete: !isModelTurnActive,
+    });
   }
   // At final 10 seconds:
   if (duration === limit - 10) {
-    session.sendRealtimeInput({ text: "SYSTEM NOTIFICATION: The session limit has been reached. Please gracefully inform the user that time is over, thank them for their time, and warmly invite them to call back if they have any further legal concerns. Be creative and as polite as possible in your final 10 seconds." });
+    session.sendClientContent({
+      turns: [{ role: "user", parts: [{ text: "SYSTEM NOTIFICATION: The session limit has been reached. Please gracefully inform the user that time is over, thank them for their time, and warmly invite them to call back if they have any further legal concerns. Be creative and as polite as possible in your final 10 seconds." }] }],
+      turnComplete: true,
+    });
   }
   ```
 - **Duration cap:** sessions are capped at `allowedSeconds` (maximum **1800 s / 30 min**). Stop reconnecting
@@ -249,18 +270,20 @@ On barge-in / interruption, cancel every scheduled source and reset `nextStart =
 
 ## Step 6 — settle billing (idempotent)
 
-Use the **`sessionId` you received from `GET /voice/token`** (Step 1). Do **not**
-generate one: the server already created the reservation under its own id, and
-billing rejects any other value with `400 Voice session reservation not found`.
+Use the **`sessionId` you received from `GET /voice/token`** (Step 1) and keep
+syncing `voiceSessionBuffers/{sessionId}` while connected (`status: "active"`,
+`updatedAt`, `duration`, and incremental `transcripts` matching web's
+`useFirebaseSync`).
 
 ```ts
 // From Step 2 — one sessionId per call, minted server-side.
-const { token, sessionId } = await apiFetch<{ token: string; sessionId: string }>(
-  "/voice/token",
-);
+const { token, sessionId } = await apiFetch<{
+  token: string;
+  sessionId: string;
+}>("/voice/token");
 ```
 
-When the call ends — user hangs up, or the app backgrounds — post the settle:
+When the call ends with `duration > 0` — user hangs up, or the app backgrounds — post the settle:
 
 ```
 POST /voice/billing            # App Check NOT required (see below)
@@ -268,19 +291,14 @@ Authorization: Bearer <id-token>
 Content-Type: application/json
 {
   "sessionId": "<the sessionId from /voice/token>",
-  "duration": 137.4,                          # OPTIONAL, telemetry only — see note
-  "transcripts": [                            # role is "user" | "AI" (capitalized)
+  "duration": 137.4,                          # billable call duration (> 0 seconds)
+  "transcripts": [                            # remaining unsynced turns ("user" | "AI")
     { "role": "user", "content": "…" },
     { "role": "AI",   "content": "…" }
-  ],
-  "preferedVoice": {                          # optional
-    "preferedVoiceId": "Zephyr",
-    "preferedVoiceName": "Zephyr"
-  },
-  "userName": "Ada"                           # optional
+  ]
 }
 → 200 { "data": { "voiceSessionId": "…" } }
-→ 400 { "error": { "code": "BAD_REQUEST",     "message": "Voice session reservation not found" } }
+→ 400 { "error": { "code": "BAD_REQUEST",     "message": "Nothing to bill or summarize." } }
 → 400 { "error": { "code": "BAD_REQUEST",     "message": "Invalid request body" } }
 → 401 { "error": { "code": "UNAUTHENTICATED", "message": "Authentication required." } }   # no/invalid Bearer token
 → 404 { "error": { "code": "NOT_FOUND",       "message": "Voice session not found." } }   # session belongs to a different uid
@@ -315,17 +333,18 @@ async function settleVoiceBilling(body: VoiceBillingBody) {
     },
     body: JSON.stringify(body),
   });
-  if (res.status === 401) return;               // expired token — discard, do NOT sign out
-  if (res.status === 404) return;               // session belongs to a different uid — drop silently
+  if (res.status === 401) return; // expired token — discard, do NOT sign out
+  if (res.status === 404) return; // session belongs to a different uid — drop silently
   if (res.status === 503) return scheduleRetry(body); // retryable
   if (!res.ok) reportError(await res.json().catch(() => null));
 }
 ```
 
-> **`duration` is optional and advisory.** The server ignores it for money: it
-> computes the billable duration from the reservation's own `startedAt` timestamp,
-> clamped to `MAX_VOICE_SESSION_SECONDS` (1800). Send it for telemetry if you like;
-> omitting it changes nothing about what the user is charged.
+> **`duration` and `transcripts` merge cleanly with `voiceSessionBuffers`.**
+> `recordVoiceSession` takes `Math.max(Math.floor(duration), bufferDuration)`,
+> merges `[...bufferTranscripts, ...clientTranscripts]`, writes `voiceSessions/{sessionId}`
+> using the exact web schema (`audioUrl: ""` initially, updated after upload with `{ audioUrl }` only),
+> deducts credits idempotently, and deletes `voiceSessionBuffers/{sessionId}`.
 
 Fire it from an `AppState` `background`/`inactive` transition (RN has no
 `sendBeacon`). **`/voice/billing` deliberately does not require App Check** — a
@@ -343,7 +362,7 @@ AppState.addEventListener("change", (state) => {
 ```
 
 **Idempotency & retry:** `recordVoiceSession` is idempotent on `sessionId`, so a
-duplicate settle (e.g. background *and* hang-up both fire) charges once. A `503`
+duplicate settle (e.g. background _and_ hang-up both fire) charges once. A `503`
 means retryable — retry with backoff; a `200` means settled, so **disarm any retry
 fallback**. There is also a server-side finalizer, so a fully missed call is
 eventually recovered — but always attempt the settle.
@@ -353,12 +372,12 @@ chars total. Trim before sending.
 
 ## Recommended RN audio stack
 
-| Need | First choice | Alternatives |
-|---|---|---|
+| Need                 | First choice                                                                                                                                      | Alternatives                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Mic + playback graph | **`react-native-audio-api`** — Web-Audio-compatible (`AudioContext`, `AudioBufferSourceNode`), so the scheduling code above ports almost verbatim | `react-native-webrtc` (`getUserMedia`) + a native PCM player |
-| Raw mic PCM only | `react-native-live-audio-stream` / `@dr.pogodin/react-native-audio` | native `AudioRecord` |
-| Downsample 48k→16k | do it in JS (linear/decimate) on the capture callback | native resampler in a fork |
-| Keep screen awake | `expo-keep-awake` (`useKeepAwake()`) | `react-native-keep-awake` |
+| Raw mic PCM only     | `react-native-live-audio-stream` / `@dr.pogodin/react-native-audio`                                                                               | native `AudioRecord`                                         |
+| Downsample 48k→16k   | do it in JS (linear/decimate) on the capture callback                                                                                             | native resampler in a fork                                   |
+| Keep screen awake    | `expo-keep-awake` (`useKeepAwake()`)                                                                                                              | `react-native-keep-awake`                                    |
 
 `react-native-audio-api` is the closest analogue to the web implementation — it
 gives you a real `AudioContext` so the mic-worklet-equivalent (an
@@ -386,35 +405,23 @@ directly. Prefer it unless you already depend on WebRTC.
 
 ## Gotchas
 
-<!-- coderabbit-ai-generated:v1 -->
-
-<!-- coderabbit-ai-generated-section:v1:bf0787d890c84ec1f19aaec63e99e4f9f93eab0cf6e93d3f2b57f37d3b12ce75 -->
-
 - `httpOptions.apiVersion` **must match the token's version** (`"v1beta"`), and the
   model string should be `"gemini-3.8-live"` (as returned in the `/voice/token` payload).
 - **Never pass `systemInstruction` in `LiveConnectConfig`.** The legal advisor prompt
   is securely embedded and locked inside the ephemeral token on the server using
-  `lockAdditionalFields: ["systemInstruction"]`. Client-supplied system instructions
+  `lockAdditionalFields: []` (which locks every field in `liveConnectConstraints.config`,
+  including `systemInstruction`). Client-supplied system instructions
   are ignored by the Live API constraints.
-- Fetch the token and reservation immediately before the first `live.connect`.
-  Keep them for that call's session resumption (Step 5). The **35 minute**
-  new-session window does not delay the billing clock.
-- **Never generate the `sessionId` client-side.** It comes from `GET /voice/token`,
-  which reserves it server-side; any other value fails billing with
-  `400 Voice session reservation not found`, leaving the call unbilled and unsaved.
-  No `uuid` / `react-native-get-random-values` dependency is needed for this.
-- One `/voice/token` call = one billable session. Don't reuse a `sessionId` across
-  separate calls, and don't fetch a fresh token mid-call just to reconnect — use
-  `sessionResumption` with the saved handle instead (Step 5), which keeps the same
-  `sessionId`.
+- Fetch the token immediately before the first `live.connect`, keeping `sessionId`
+  for buffer sync (`voiceSessionBuffers/{sessionId}` once connected), `sessionResumption`
+  reconnects, `POST /voice/billing`, and uploading/linking `audioUrl` on `voiceSessions/{voiceSessionId}`.
 - Transcript `role` is **`"AI"` (capitalized)**, not `"assistant"` or `"ai"`.
-- `duration` is **optional telemetry** — the server bills from its own reservation
-  timestamp. If you do send it, use **seconds** (a float is fine), never milliseconds.
-- Don't attach the App Check header logic to `/voice/billing` in a way that *blocks*
+- Send `duration` in **seconds** (floored server-side, capped at `1800`). Wait until
+  settled before uploading/linking `{ audioUrl }` — never write custom fields such as
+  `recordingStatus`, `reservationType`, `allowedSeconds`, or `startedAt` to `voiceSessions`.
+- Don't attach the App Check header logic to `/voice/billing` in a way that _blocks_
   the request if the token is missing — send Bearer-only and let it through.
 - The web mixes recording at 48 kHz for local capture; that's a web-only convenience
   (IndexedDB + `mediabunny`). Mobile has no equivalent requirement — skip local call
   recording unless a product need exists (see the package map for storage options).
 - Sessions hard-cap at 30 minutes; surface the remaining time and end gracefully.
-
-<!-- /coderabbit-ai-generated:v1 -->

@@ -52,25 +52,6 @@ service cloud.firestore {
              data.status == 'active';
     }
 
-    function isValidVoiceRecordingUpdate(docId) {
-      return request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['audioUrl', 'recordingStatus']) &&
-             request.resource.data.userId == resource.data.userId &&
-             (!('audioUrl' in request.resource.data) ||
-               (request.resource.data.audioUrl is string &&
-                request.resource.data.audioUrl.size() <= 4096 &&
-                (request.resource.data.audioUrl.matches(
-                   '^https://firebasestorage\\.googleapis\\.com/.*/o/storedFiles%2Fvoice-sessions%2F' +
-                   request.auth.uid + '_' + docId + '\\.(wav|webm).*$'
-                 ) ||
-                 request.resource.data.audioUrl.matches(
-                   '^https://storage\\.googleapis\\.com/.*/storedFiles/voice-sessions/' +
-                   request.auth.uid + '_' + docId + '\\.(wav|webm).*$'
-                 )))) &&
-             (!('recordingStatus' in request.resource.data) ||
-               request.resource.data.recordingStatus in ['PENDING', 'UPLOADING', 'READY', 'FAILED']);
-    }
-
     // ---------------------------------------------------------
     // 1. Users & Core Authentication Data
     // ---------------------------------------------------------
@@ -153,7 +134,7 @@ service cloud.firestore {
       allow read: if isOwner(resource.data.userId) || isAdmin();
       allow create, delete: if isAdmin();
       allow update: if isAdmin() ||
-                    (isOwner(resource.data.userId) && isValidVoiceRecordingUpdate(docId));
+                    (isOwner(resource.data.userId));
     }
     match /voiceSessionBuffers/{docId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
