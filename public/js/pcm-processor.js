@@ -119,6 +119,7 @@ class PCMProcessor extends AudioWorkletProcessor {
           this.bargeInSilenceCount++;
           if (this.bargeInSilenceCount >= this.bargeInReleaseFrames) {
             this.bargedIn = false;
+            this.bargeInAttackCount = 0;
             this.bargeInSilenceCount = 0;
           }
         }

@@ -235,4 +235,56 @@ describe("useEphemeralToken", () => {
     expect(token).toBe("token-600");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("prevents an older out-of-order prefetch from overwriting a newer cached token", async () => {
+    let resolveFirst!: (val: unknown) => void;
+    let resolveSecond!: (val: unknown) => void;
+    const firstFetch = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondFetch = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstFetch)
+      .mockReturnValueOnce(secondFetch);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useEphemeralToken());
+
+    // Start 1800s prefetch, then supersede with 600s prefetch
+    act(() => {
+      result.current.prefetchToken(1800, "Aoede", "Evelyn");
+      result.current.prefetchToken(600, "Aoede", "Evelyn");
+    });
+
+    // Newer 600s request finishes first and populates cache
+    await act(async () => {
+      resolveSecond({
+        ok: true,
+        json: async () => ({ token: "token-600" }),
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Older 1800s request resolves later -> must NOT overwrite token-600
+    await act(async () => {
+      resolveFirst({
+        ok: true,
+        json: async () => ({ token: "token-1800-stale" }),
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    let token = "";
+    await act(async () => {
+      token = await result.current.getEphemeralToken(false, 600, "Aoede", "Evelyn");
+    });
+    expect(token).toBe("token-600");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
