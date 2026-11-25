@@ -34,9 +34,10 @@ const RECONNECT_TOKEN_PREWARM_INTERVAL_S = 510;
 // discard chunks older than 3s so multi-second outages never replay stale audio.
 const MAX_RECONNECT_AUDIO_CHUNKS = 50;
 const MAX_RECONNECT_AUDIO_AGE_MS = 3_000;
+const MAX_RECONNECT_HISTORY_TURNS = 8;
 // Cache-busting token for /public/js AudioWorklets so updated DSP code bypasses
 // browser HTTP caches and previously active service worker caches.
-const WORKLET_VERSION = "2026-11-25-v4";
+const WORKLET_VERSION = "2026-11-25-v5";
 const PCM_PROCESSOR_URL = `/js/pcm-processor.js?v=${WORKLET_VERSION}`;
 const PCM_PLAYER_PROCESSOR_URL = `/js/pcm-player-processor.js?v=${WORKLET_VERSION}`;
 
@@ -205,6 +206,9 @@ export const useGeminiLive = ({
   const userPartsRef = useRef<string[]>([]);
   const aiPartsRef = useRef<string[]>([]);
   const allTranscriptsRef = useRef<Transcript[]>([]);
+  // Bounded per-call history retained independently of allTranscriptsRef
+  // (which useFirebaseSync drains after Firestore writes) for handle-less reseeding.
+  const reconnectHistoryRef = useRef<Transcript[]>([]);
 
   // Sub-hooks for modularity
   const { syncSessionToBuffer, heartbeatBuffer } = useFirebaseSync({
@@ -265,27 +269,39 @@ export const useGeminiLive = ({
 
   const sessionStartRef = useRef<number>(0);
 
+  const appendReconnectHistory = useCallback((entry: Transcript) => {
+    const history = reconnectHistoryRef.current;
+    history.push(entry);
+    if (history.length > MAX_RECONNECT_HISTORY_TURNS) {
+      history.splice(0, history.length - MAX_RECONNECT_HISTORY_TURNS);
+    }
+  }, []);
+
   // Finalizes the current user statement and appends it to transcripts history
   const finalizeUserTurn = useCallback(() => {
     if (userPartsRef.current.length > 0) {
       const fullText = userPartsRef.current.join("").trim();
       if (fullText) {
-        allTranscriptsRef.current.push({ role: "user", content: fullText });
+        const entry: Transcript = { role: "user", content: fullText };
+        allTranscriptsRef.current.push(entry);
+        appendReconnectHistory(entry);
       }
       userPartsRef.current = [];
     }
-  }, []);
+  }, [appendReconnectHistory]);
 
   // Finalizes the current AI statement and appends it to transcripts history
   const finalizeAITurn = useCallback(() => {
     if (aiPartsRef.current.length > 0) {
       const fullText = aiPartsRef.current.join("").trim();
       if (fullText) {
-        allTranscriptsRef.current.push({ role: "AI", content: fullText });
+        const entry: Transcript = { role: "AI", content: fullText };
+        allTranscriptsRef.current.push(entry);
+        appendReconnectHistory(entry);
       }
       aiPartsRef.current = [];
     }
-  }, []);
+  }, [appendReconnectHistory]);
 
   /**
    * Initializes or returns the cached AudioContext along with the
@@ -395,7 +411,9 @@ export const useGeminiLive = ({
       clearTurnStallTimer();
       isModelTurnActiveRef.current = true;
       setWorkletAISpeaking(true);
-      setOutputDucking(false);
+      if (!wasBargedInRef.current) {
+        setOutputDucking(false);
+      }
       clearProcessing();
 
       // Convert Base64 payload to UInt8 buffer
@@ -554,6 +572,7 @@ export const useGeminiLive = ({
           setDuration(0);
           durationRef.current = 0;
           allTranscriptsRef.current = [];
+          reconnectHistoryRef.current = [];
           userPartsRef.current = [];
           aiPartsRef.current = [];
           setActiveTranscript(null);
@@ -765,7 +784,10 @@ export const useGeminiLive = ({
                   // are flushed immediately once the new socket opens.
                   if (isReconnectingRef.current) {
                     const { pcm, volume, isSpeaking } = e.data;
-                    const activeSpeech = !isMicMutedRef.current && !!isSpeaking;
+                    const activeSpeech =
+                      !isMicMutedRef.current &&
+                      Date.now() >= micHoldUntilRef.current &&
+                      !!isSpeaking;
                     if (activeSpeech !== wasUserSpeakingRef.current) {
                       setIsListening(activeSpeech);
                       wasUserSpeakingRef.current = activeSpeech;
@@ -1106,7 +1128,6 @@ export const useGeminiLive = ({
         setupCompleted = true;
         isSessionReadyRef.current = true;
         isReconnectingRef.current = false;
-        reconnectAttemptsRef.current = 0;
         wsStatusRef.current = "open";
         setWsStatus("open");
         if (!isReconnect) {
@@ -1132,10 +1153,10 @@ export const useGeminiLive = ({
           }
           if (
             !previousHandleRef.current &&
-            allTranscriptsRef.current.length > 0 &&
+            reconnectHistoryRef.current.length > 0 &&
             typeof sessionRef.current.sendClientContent === "function"
           ) {
-            const recentTurns = allTranscriptsRef.current.slice(-8).map((t) => ({
+            const recentTurns = reconnectHistoryRef.current.map((t) => ({
               role: t.role === "AI" ? "model" : "user",
               parts: [{ text: t.content }],
             }));
@@ -1169,7 +1190,8 @@ export const useGeminiLive = ({
               (chunk) => now - chunk.capturedAt <= MAX_RECONNECT_AUDIO_AGE_MS,
             );
             pendingReconnectAudioRef.current = [];
-            for (const chunk of buffered) {
+            for (let i = 0; i < buffered.length; i++) {
+              const chunk = buffered[i];
               try {
                 sessionRef.current.sendRealtimeInput({
                   audio: {
@@ -1178,11 +1200,37 @@ export const useGeminiLive = ({
                   },
                 });
                 sentAudioSinceEndRef.current = true;
-              } catch {
-                break;
+              } catch (err) {
+                console.error(
+                  "[gemini-live] Reconnect audio replay failed:",
+                  err,
+                );
+                const retryNow = Date.now();
+                // A fresh session has none of the audio sent before the failure.
+                const retryChunks = previousHandleRef.current
+                  ? buffered.slice(i)
+                  : buffered;
+                pendingReconnectAudioRef.current = retryChunks
+                  .filter(
+                    (c) => retryNow - c.capturedAt <= MAX_RECONNECT_AUDIO_AGE_MS,
+                  )
+                  .slice(-MAX_RECONNECT_AUDIO_CHUNKS);
+                const failingSession = sessionRef.current;
+                sessionRef.current = null;
+                isSessionReadyRef.current = false;
+                clearProcessing();
+                isModelTurnActiveRef.current = false;
+                scheduleRetry(true);
+                try {
+                  failingSession?.close();
+                } catch {
+                  // Transport may already be closed
+                }
+                return;
               }
             }
           }
+          reconnectAttemptsRef.current = 0;
         }
       } catch (error) {
         if (!isCurrent() || retryOwned) return;
@@ -1333,6 +1381,7 @@ export const useGeminiLive = ({
     // Clear any cached token and resumption handle from the ended session so future sessions start fresh
     clearCachedToken();
     previousHandleRef.current = null;
+    reconnectHistoryRef.current = [];
 
     wsStatusRef.current = "idle";
     audioStatusRef.current = "idle";
@@ -1388,7 +1437,11 @@ export const useGeminiLive = ({
     isAudioMutedRef.current = muted;
     if (masterGainRef.current && audioCtxRef.current) {
       masterGainRef.current.gain.setTargetAtTime(
-        muted ? 0 : OUTPUT_GAIN,
+        muted
+          ? 0
+          : wasBargedInRef.current
+            ? BARGE_IN_OUTPUT_GAIN
+            : OUTPUT_GAIN,
         audioCtxRef.current.currentTime,
         0.01,
       );
@@ -1416,6 +1469,7 @@ export const useGeminiLive = ({
         }
 
         const limit = effectiveLimitRef.current;
+        const endTick = Math.ceil(limit);
 
         // Proactively pre-warm the next single-use ephemeral token every 8.5m
         // (before Google's ~10m connection rotation) so GoAway hands off with
@@ -1432,7 +1486,7 @@ export const useGeminiLive = ({
           );
         }
 
-        if (next === limit - 300 && limit > 600 && limit <= 1800) {
+        if (next === endTick - 300 && limit > 600 && limit <= 1800) {
           try {
             const canSpeakNow =
               !isModelTurnActiveRef.current &&
@@ -1447,7 +1501,7 @@ export const useGeminiLive = ({
           }
         }
 
-        if (next === limit - 120 && limit > 300 && limit <= 1800) {
+        if (next === endTick - 120 && limit > 300 && limit <= 1800) {
           try {
             const canSpeakNow =
               !isModelTurnActiveRef.current &&
@@ -1462,7 +1516,7 @@ export const useGeminiLive = ({
           }
         }
 
-        if (next === limit - 10 && limit > 10) {
+        if (next === endTick - 10 && limit > 10) {
           try {
             sendSessionTextTurn(
               sessionRef.current,

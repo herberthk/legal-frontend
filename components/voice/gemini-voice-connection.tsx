@@ -372,13 +372,28 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
       }
     };
 
+    const resetBeaconDedup = () => {
+      lastBeaconRef.current = null;
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        lastBeaconRef.current = null;
+      }
+    };
+
     // pagehide is the one that actually fires on mobile when the user switches
     // apps or the tab is discarded; beforeunload is unreliable there.
     window.addEventListener("pagehide", sendFallbackBeacon);
     window.addEventListener("beforeunload", sendFallbackBeacon);
+    // Re-arm dedup when the user returns to the page so an unconfirmed beacon
+    // from an earlier exit cannot suppress a later exit before the next tick.
+    window.addEventListener("pageshow", resetBeaconDedup);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       window.removeEventListener("pagehide", sendFallbackBeacon);
       window.removeEventListener("beforeunload", sendFallbackBeacon);
+      window.removeEventListener("pageshow", resetBeaconDedup);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       // Also flush unbilled seconds on SPA route navigation unmount.
       sendFallbackBeacon();
     };

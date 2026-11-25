@@ -114,13 +114,15 @@ export function useEphemeralToken() {
       record.promise = (async () => {
         try {
           const token = await fetchNewToken(normalizedMaxSecs, voiceId);
-          prefetchedTokenRef.current = {
-            token,
-            expiresAt: Date.now() + 30 * 60 * 1000,
-            maxSecs: normalizedMaxSecs,
-            voiceId,
-            voiceName,
-          };
+          if (inFlightPromiseRef.current === record) {
+            prefetchedTokenRef.current = {
+              token,
+              expiresAt: Date.now() + 30 * 60 * 1000,
+              maxSecs: normalizedMaxSecs,
+              voiceId,
+              voiceName,
+            };
+          }
           return token;
         } finally {
           if (inFlightPromiseRef.current === record) {

@@ -198,4 +198,35 @@ describe("GeminiVoiceConnection", () => {
     );
     expect(thirdPayload).toMatchObject({ sessionId: "sess-1", duration: 45 });
   });
+
+  it("re-arms fallback beacon deduplication when the page returns so a later exit at the same duration retries", async () => {
+    const sendBeacon = vi.fn().mockReturnValue(true);
+    Object.defineProperty(navigator, "sendBeacon", {
+      configurable: true,
+      value: sendBeacon,
+    });
+
+    hookReturnState.wsStatus = "open";
+    hookReturnState.duration = 12;
+
+    const { unmount } = render(
+      <GeminiVoiceConnection freeVoiceSeconds={600} balance={0} />,
+    );
+
+    // First exit queues duration 12; duplicate event in same exit is suppressed
+    fireEvent(window, new Event("pagehide"));
+    fireEvent(window, new Event("beforeunload"));
+    expect(sendBeacon).toHaveBeenCalledTimes(1);
+
+    // Page returns before next timer tick -> dedup re-arms
+    fireEvent(window, new Event("pageshow"));
+
+    // Immediate SPA exit at the same duration 12 retries the beacon
+    unmount();
+    expect(sendBeacon).toHaveBeenCalledTimes(2);
+    const retryPayload = JSON.parse(
+      await (sendBeacon.mock.calls[1]?.[1] as Blob).text(),
+    );
+    expect(retryPayload).toMatchObject({ sessionId: "sess-1", duration: 12 });
+  });
 });

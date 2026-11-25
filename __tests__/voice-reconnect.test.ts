@@ -26,7 +26,17 @@ vi.mock("@/hooks/use-gemini-live/use-ephemeral-token", () => ({
   }),
 }));
 vi.mock("@/hooks/use-gemini-live/use-firebase-sync", () => ({
-  useFirebaseSync: () => ({ syncSessionToBuffer: vi.fn(), heartbeatBuffer: vi.fn() }),
+  useFirebaseSync: ({
+    allTranscriptsRef,
+  }: {
+    allTranscriptsRef: { current: Transcript[] };
+  }) => ({
+    syncSessionToBuffer: vi.fn(() => {
+      // Mirror real useFirebaseSync behavior: persisted turns are drained from allTranscriptsRef
+      allTranscriptsRef.current = [];
+    }),
+    heartbeatBuffer: vi.fn(),
+  }),
 }));
 vi.mock("@/hooks/use-gemini-live/audio-setup", () => ({
   DEFAULT_OUTPUT_GAIN: 1.05,
@@ -894,6 +904,331 @@ describe("Gemini reconnect ownership", () => {
       resolveReconnect2(s3);
     });
     expect(s3.sendRealtimeInput).not.toHaveBeenCalled();
+
+    await act(() => result.current.disconnect());
+  });
+
+  it("preserves barge-in ducking across incoming AI PCM chunks and audio unmute until barge-in ends", async () => {
+    const s1 = session();
+    connect.mockImplementationOnce(async ({ callbacks: cb }) => {
+      cb.onopen();
+      return s1;
+    });
+    const { result } = setup();
+    await act(() => result.current.connect());
+    await act(() => vi.advanceTimersByTimeAsync(2_350));
+
+    const processor = workletNodes["pcm-processor"];
+    setTargetAtTimeMock.mockClear();
+
+    // Barge-in begins -> gain ducks to 0.15
+    act(() => {
+      processor.port.onmessage?.({
+        data: {
+          pcm: new Int16Array(4).buffer,
+          volume: 0.2,
+          isSpeaking: true,
+          bargedIn: true,
+        },
+      });
+    });
+    expect(setTargetAtTimeMock).toHaveBeenLastCalledWith(0.15, 0, 0.02);
+
+    // Another AI PCM chunk arrives before Gemini processes the interruption -> must NOT restore 1.05
+    setTargetAtTimeMock.mockClear();
+    act(() => {
+      callbacks().onmessage({
+        serverContent: {
+          modelTurn: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "audio/pcm;rate=24000",
+                  data: btoa("\x00\x00\x00\x00"),
+                },
+              },
+            ],
+          },
+        },
+      });
+    });
+    expect(setTargetAtTimeMock).not.toHaveBeenCalled();
+
+    // User mutes and unmutes speaker while barge-in is still active -> unmute restores 0.15 (not 1.05)
+    act(() => {
+      result.current.toggleAudioMute(true);
+    });
+    expect(setTargetAtTimeMock).toHaveBeenLastCalledWith(0, 0, 0.01);
+    act(() => {
+      result.current.toggleAudioMute(false);
+    });
+    expect(setTargetAtTimeMock).toHaveBeenLastCalledWith(0.15, 0, 0.01);
+
+    // Barge-in ends -> normal output gain 1.05 is restored
+    act(() => {
+      processor.port.onmessage?.({
+        data: {
+          pcm: new Int16Array(4).buffer,
+          volume: 0.01,
+          isSpeaking: false,
+          bargedIn: false,
+        },
+      });
+    });
+    expect(setTargetAtTimeMock).toHaveBeenLastCalledWith(1.05, 0, 0.02);
+
+    await act(() => result.current.disconnect());
+  });
+
+  it.each([
+    { handle: null, retainedFrames: [0, 1, 2] },
+    { handle: "resume-handle", retainedFrames: [1, 2] },
+  ])("ignores chime-hold speech and retries failed replay with handle $handle", async ({ handle, retainedFrames }) => {
+    const onUserAudioChunk = vi.fn();
+    const s1 = session();
+    connect.mockImplementationOnce(async ({ callbacks: cb }) => {
+      cb.onopen();
+      return s1;
+    });
+    const { result } = renderHook(() =>
+      useGeminiLive({
+        userId: "user",
+        userName: "Name",
+        preferedVoice: {} as PreferedVoice,
+        totalAllowedSeconds: 1800,
+        onUserAudioChunk,
+      }),
+    );
+    await act(() => result.current.connect());
+    if (handle) {
+      await act(async () => {
+        callbacks().onmessage({
+          sessionResumptionUpdate: { newHandle: handle, resumable: true },
+        });
+      });
+    }
+
+    // Socket drops immediately during the 2.3s connected chime hold
+    let resolveReconnect1!: (value: ReturnType<typeof session>) => void;
+    connect.mockImplementationOnce(
+      () =>
+        new Promise<ReturnType<typeof session>>((resolve) => {
+          resolveReconnect1 = resolve;
+        }),
+    );
+    await act(async () => {
+      callbacks().onclose({ code: 1006 });
+    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    const processor = workletNodes["pcm-processor"];
+    // Frame during chime hold (500ms < 2300ms) must NOT be buffered or sent to recorder
+    act(() => {
+      processor.port.onmessage?.({
+        data: { pcm: new Int16Array([9, 9]).buffer, volume: 0.3, isSpeaking: true },
+      });
+    });
+    expect(onUserAudioChunk).not.toHaveBeenCalled();
+
+    // Advance past chime hold (total 2350ms) and capture 3 frames A, B, C
+    await act(() => vi.advanceTimersByTimeAsync(1_850));
+    const frameA = new Int16Array([1, 2]).buffer;
+    const frameB = new Int16Array([3, 4]).buffer;
+    const frameC = new Int16Array([5, 6]).buffer;
+    act(() => {
+      processor.port.onmessage?.({ data: { pcm: frameA, volume: 0.2, isSpeaking: true } });
+      processor.port.onmessage?.({ data: { pcm: frameB, volume: 0.2, isSpeaking: true } });
+      processor.port.onmessage?.({ data: { pcm: frameC, volume: 0.2, isSpeaking: true } });
+    });
+    expect(onUserAudioChunk).toHaveBeenCalledTimes(3);
+
+    // The replacement socket accepts A, throws on B, and is closed.
+    const s2 = session();
+    s2.sendRealtimeInput
+      .mockImplementationOnce(() => {})
+      .mockImplementationOnce(() => {
+        throw new Error("Socket dropped mid-replay");
+      });
+    const s3 = session();
+    connect.mockResolvedValueOnce(s3);
+
+    await act(async () => {
+      resolveReconnect1(s2);
+    });
+    expect(s2.sendRealtimeInput).toHaveBeenCalledTimes(2);
+    expect(s2.close).toHaveBeenCalledTimes(1);
+
+    // A new session needs A, B, and C; a resumed session only needs B and C.
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(connect).toHaveBeenCalledTimes(3);
+    const frames = [frameA, frameB, frameC];
+    expect(s3.sendRealtimeInput.mock.calls.map(([input]) => input.audio.data)).toEqual(
+      retainedFrames.map((index) =>
+        btoa(String.fromCharCode(...new Uint8Array(frames[index]))),
+      ),
+    );
+
+    await act(() => result.current.disconnect());
+  });
+
+  it("stops reconnecting at the retry limit when replay keeps failing", async () => {
+    connect.mockImplementationOnce(async ({ callbacks: cb }) => {
+      cb.onopen();
+      return session();
+    });
+    const { result } = setup();
+    await act(() => result.current.connect());
+    await act(() => vi.advanceTimersByTimeAsync(2300));
+    await act(async () => callbacks().onclose({ code: 1006 }));
+
+    for (const delay of [500, 1000, 1500, 2000, 2500]) {
+      const failingSession = session();
+      failingSession.sendRealtimeInput.mockImplementation(() => {
+        throw new Error("Replay failed");
+      });
+      connect.mockResolvedValueOnce(failingSession);
+      // Keep speech in the buffer even as older chunks expire during backoff.
+      act(() => {
+        workletNodes["pcm-processor"].port.onmessage?.({
+          data: { pcm: new Int16Array([1, 2]).buffer, volume: 0.2, isSpeaking: true },
+        });
+      });
+      await act(() => vi.advanceTimersByTimeAsync(delay));
+      expect(failingSession.close).toHaveBeenCalledTimes(1);
+    }
+
+    expect(result.current.wsStatus).toBe("error");
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(connect).toHaveBeenCalledTimes(6);
+    await act(() => result.current.disconnect());
+  });
+
+  it("reseeds handle-less reconnect from bounded per-call history even after Firestore sync drains allTranscriptsRef, and clears history on a new call", async () => {
+    const s1 = session();
+    connect.mockImplementationOnce(async ({ callbacks: cb }) => {
+      cb.onopen();
+      return s1;
+    });
+    const { result } = setup();
+    await act(() => result.current.connect());
+
+    act(() => {
+      callbacks().onmessage({
+        serverContent: {
+          inputTranscription: { text: "My landlord gave 7 days notice." },
+        },
+      });
+      callbacks().onmessage({
+        serverContent: {
+          outputTranscription: { text: "Under the Act, notice periods depend on the tenancy." },
+          turnComplete: true,
+        },
+      });
+    });
+
+    // Advance 10s so syncSessionToBuffer drains allTranscriptsRef to []
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
+    expect(result.current.getTranscripts()).toEqual([]);
+
+    // Handle-less reconnect still reseeds the persisted conversation turns + continuity notice
+    const s2 = session();
+    connect.mockResolvedValueOnce(s2);
+    await act(async () => {
+      callbacks().onclose({ code: 1006 });
+    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(s2.sendClientContent).toHaveBeenCalledWith({
+      turns: [
+        { role: "user", parts: [{ text: "My landlord gave 7 days notice." }] },
+        {
+          role: "model",
+          parts: [{ text: "Under the Act, notice periods depend on the tenancy." }],
+        },
+        {
+          role: "user",
+          parts: [{ text: expect.stringContaining("Connection resumed mid-call") }],
+        },
+      ],
+      turnComplete: false,
+    });
+
+    // End call and start a fresh call -> prior call's history must NOT leak into a handle-less reconnect
+    await act(() => result.current.disconnect());
+    const s3 = session();
+    connect.mockResolvedValueOnce(s3);
+    await act(() => result.current.connect());
+
+    const s4 = session();
+    connect.mockResolvedValueOnce(s4);
+    await act(async () => {
+      callbacks().onclose({ code: 1006 });
+    });
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(s4.sendClientContent).not.toHaveBeenCalled();
+
+    await act(() => result.current.disconnect());
+  });
+
+  it("fires 5m, 2m, and 10s duration notices for fractional credit allowances", async () => {
+    const s1 = session();
+    const onDurationLimitReached = vi.fn();
+    connect.mockResolvedValueOnce(s1);
+    const { result } = renderHook(() =>
+      useGeminiLive({
+        userId: "user",
+        userName: "Name",
+        preferedVoice: {} as PreferedVoice,
+        totalAllowedSeconds: 900.5,
+        onDurationLimitReached,
+      }),
+    );
+    await act(() => result.current.connect());
+
+    // Clear initial "Hello" turn
+    s1.sendClientContent.mockClear();
+
+    // endTick = ceil(900.5) = 901 -> 5m at 601s, 2m at 781s, 10s at 891s, end at 901s
+    await act(() => vi.advanceTimersByTimeAsync(601_000));
+    expect(s1.sendClientContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turns: [
+          {
+            role: "user",
+            parts: [{ text: expect.stringContaining("5 minutes remaining") }],
+          },
+        ],
+      }),
+    );
+
+    await act(() => vi.advanceTimersByTimeAsync(180_000));
+    expect(s1.sendClientContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turns: [
+          {
+            role: "user",
+            parts: [{ text: expect.stringContaining("2 minutes remaining") }],
+          },
+        ],
+      }),
+    );
+
+    await act(() => vi.advanceTimersByTimeAsync(110_000));
+    expect(s1.sendClientContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        turns: [
+          {
+            role: "user",
+            parts: [{ text: expect.stringContaining("session limit has been reached") }],
+          },
+        ],
+        turnComplete: true,
+      }),
+    );
+
+    expect(onDurationLimitReached).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
+    expect(onDurationLimitReached).toHaveBeenCalledTimes(1);
 
     await act(() => result.current.disconnect());
   });

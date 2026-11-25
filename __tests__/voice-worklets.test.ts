@@ -168,6 +168,32 @@ describe("PCMProcessor AudioWorklet", () => {
     expect(new Int16Array(unlatchedMsg.pcm).every((v) => v === 0)).toBe(true);
     expect(unlatchedMsg.isSpeaking).toBe(false);
     expect(unlatchedMsg.bargedIn).toBe(false);
+
+    // 6. After release, a 30-block spike (~80ms < 110ms attack) must NOT re-latch.
+    // It would re-latch if the previous attack count had not been reset.
+    for (let i = 0; i < 30; i++) {
+      mic.process([[blockOf(0.35)]], [], {});
+    }
+    for (let i = 0; i < 20; i++) {
+      mic.process([[blockOf(0.02)]], [], {});
+    }
+    const postReleaseSpikeMsg = mic.port.postMessage.mock.calls.at(-1)?.[0] as {
+      pcm: ArrayBuffer;
+      bargedIn: boolean;
+    };
+    expect(postReleaseSpikeMsg.bargedIn).toBe(false);
+    expect(new Int16Array(postReleaseSpikeMsg.pcm).every((v) => v === 0)).toBe(true);
+
+    // 7. A sustained second interruption (>= 110ms + 1 full output chunk) still re-latches cleanly
+    for (let i = 0; i < 60; i++) {
+      mic.process([[blockOf(0.3)]], [], {});
+    }
+    const secondBargeMsg = mic.port.postMessage.mock.calls.at(-1)?.[0] as {
+      pcm: ArrayBuffer;
+      bargedIn: boolean;
+    };
+    expect(secondBargeMsg.bargedIn).toBe(true);
+    expect(new Int16Array(secondBargeMsg.pcm).some((v) => v > 1000)).toBe(true);
   });
 
   it("clears a latched barge-in when a new AI speaking turn starts during hangover", () => {
