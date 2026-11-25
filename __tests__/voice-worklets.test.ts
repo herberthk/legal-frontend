@@ -169,8 +169,9 @@ describe("PCMProcessor AudioWorklet", () => {
     expect(unlatchedMsg.isSpeaking).toBe(false);
     expect(unlatchedMsg.bargedIn).toBe(false);
 
-    // 6. After release clears bargedIn, a brief loud spike (10 blocks < 110ms) must NOT re-latch
-    for (let i = 0; i < 10; i++) {
+    // 6. After release, a 30-block spike (~80ms < 110ms attack) must NOT re-latch.
+    // It would re-latch if the previous attack count had not been reset.
+    for (let i = 0; i < 30; i++) {
       mic.process([[blockOf(0.35)]], [], {});
     }
     for (let i = 0; i < 20; i++) {

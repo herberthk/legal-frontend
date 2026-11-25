@@ -1128,7 +1128,6 @@ export const useGeminiLive = ({
         setupCompleted = true;
         isSessionReadyRef.current = true;
         isReconnectingRef.current = false;
-        reconnectAttemptsRef.current = 0;
         wsStatusRef.current = "open";
         setWsStatus("open");
         if (!isReconnect) {
@@ -1207,8 +1206,11 @@ export const useGeminiLive = ({
                   err,
                 );
                 const retryNow = Date.now();
-                pendingReconnectAudioRef.current = buffered
-                  .slice(i)
+                // A fresh session has none of the audio sent before the failure.
+                const retryChunks = previousHandleRef.current
+                  ? buffered.slice(i)
+                  : buffered;
+                pendingReconnectAudioRef.current = retryChunks
                   .filter(
                     (c) => retryNow - c.capturedAt <= MAX_RECONNECT_AUDIO_AGE_MS,
                   )
@@ -1224,10 +1226,11 @@ export const useGeminiLive = ({
                 } catch {
                   // Transport may already be closed
                 }
-                break;
+                return;
               }
             }
           }
+          reconnectAttemptsRef.current = 0;
         }
       } catch (error) {
         if (!isCurrent() || retryOwned) return;

@@ -980,7 +980,10 @@ describe("Gemini reconnect ownership", () => {
     await act(() => result.current.disconnect());
   });
 
-  it("ignores chime-hold speech during early reconnect and recovers unsent replay frames on send failure", async () => {
+  it.each([
+    { handle: null, retainedFrames: [0, 1, 2] },
+    { handle: "resume-handle", retainedFrames: [1, 2] },
+  ])("ignores chime-hold speech and retries failed replay with handle $handle", async ({ handle, retainedFrames }) => {
     const onUserAudioChunk = vi.fn();
     const s1 = session();
     connect.mockImplementationOnce(async ({ callbacks: cb }) => {
@@ -997,6 +1000,13 @@ describe("Gemini reconnect ownership", () => {
       }),
     );
     await act(() => result.current.connect());
+    if (handle) {
+      await act(async () => {
+        callbacks().onmessage({
+          sessionResumptionUpdate: { newHandle: handle, resumable: true },
+        });
+      });
+    }
 
     // Socket drops immediately during the 2.3s connected chime hold
     let resolveReconnect1!: (value: ReturnType<typeof session>) => void;
@@ -1032,7 +1042,7 @@ describe("Gemini reconnect ownership", () => {
     });
     expect(onUserAudioChunk).toHaveBeenCalledTimes(3);
 
-    // Replacement socket s2 accepts A, throws on B -> must keep B & C (not A), close s2, and schedule retry
+    // The replacement socket accepts A, throws on B, and is closed.
     const s2 = session();
     s2.sendRealtimeInput
       .mockImplementationOnce(() => {})
@@ -1048,14 +1058,48 @@ describe("Gemini reconnect ownership", () => {
     expect(s2.sendRealtimeInput).toHaveBeenCalledTimes(2);
     expect(s2.close).toHaveBeenCalledTimes(1);
 
-    // Retry connects s3 and replays only unsent B & C (2 frames, not A)
-    await act(() => vi.advanceTimersByTimeAsync(500));
+    // A new session needs A, B, and C; a resumed session only needs B and C.
+    await act(() => vi.advanceTimersByTimeAsync(1000));
     expect(connect).toHaveBeenCalledTimes(3);
-    expect(s3.sendRealtimeInput).toHaveBeenCalledTimes(2);
-    expect(s3.sendRealtimeInput.mock.calls[0][0].audio.data).toBe(
-      s2.sendRealtimeInput.mock.calls[1][0].audio.data,
+    const frames = [frameA, frameB, frameC];
+    expect(s3.sendRealtimeInput.mock.calls.map(([input]) => input.audio.data)).toEqual(
+      retainedFrames.map((index) =>
+        btoa(String.fromCharCode(...new Uint8Array(frames[index]))),
+      ),
     );
 
+    await act(() => result.current.disconnect());
+  });
+
+  it("stops reconnecting at the retry limit when replay keeps failing", async () => {
+    connect.mockImplementationOnce(async ({ callbacks: cb }) => {
+      cb.onopen();
+      return session();
+    });
+    const { result } = setup();
+    await act(() => result.current.connect());
+    await act(() => vi.advanceTimersByTimeAsync(2300));
+    await act(async () => callbacks().onclose({ code: 1006 }));
+
+    for (const delay of [500, 1000, 1500, 2000, 2500]) {
+      const failingSession = session();
+      failingSession.sendRealtimeInput.mockImplementation(() => {
+        throw new Error("Replay failed");
+      });
+      connect.mockResolvedValueOnce(failingSession);
+      // Keep speech in the buffer even as older chunks expire during backoff.
+      act(() => {
+        workletNodes["pcm-processor"].port.onmessage?.({
+          data: { pcm: new Int16Array([1, 2]).buffer, volume: 0.2, isSpeaking: true },
+        });
+      });
+      await act(() => vi.advanceTimersByTimeAsync(delay));
+      expect(failingSession.close).toHaveBeenCalledTimes(1);
+    }
+
+    expect(result.current.wsStatus).toBe("error");
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(connect).toHaveBeenCalledTimes(6);
     await act(() => result.current.disconnect());
   });
 
