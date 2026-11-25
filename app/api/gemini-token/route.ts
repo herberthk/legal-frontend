@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/actions/auth";
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { verifyAppCheckHeader } from "@/lib/app-check-server";
+import { checkRateLimit } from "@/lib/rate-limiter";
 import {
   buildVoiceLiveConfig,
   buildVoiceAuthTokenConfig,
@@ -39,6 +40,24 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const rateLimit = await checkRateLimit({
+      action: "voice_token_uid",
+      key: user.id,
+      maxAttempts: 20,
+      windowSeconds: 60,
+    });
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: rateLimit.message || "Too many token requests. Please wait." },
+        {
+          status: 429,
+          headers: rateLimit.retryAfterSeconds
+            ? { "Retry-After": String(rateLimit.retryAfterSeconds) }
+            : undefined,
+        },
+      );
+    }
+
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     if (!apiKey) {
       console.error("Missing GOOGLE_GENERATIVE_AI_API_KEY environment variable");
@@ -48,30 +67,35 @@ export async function GET(req: Request) {
       );
     }
 
-    // Optional overrides: hook forwards UI-selected voice and computed maxSecs
+    // Optional overrides: hook forwards UI-selected voiceId and computed maxSecs.
+    // Persona name is derived server-side solely from the allowlisted voiceId.
     const url = new URL(req.url);
     const voiceId =
       (url.searchParams.get("voiceId") ?? "").slice(0, 120) ||
       user.preferedVoice?.preferedVoiceId;
-    const voiceName =
-      (url.searchParams.get("voiceName") ?? "").slice(0, 120) ||
-      user.preferedVoice?.preferedVoiceName;
     const maxSecs = Number(url.searchParams.get("maxSecs"));
 
     // Build the full LiveConnectConfig — including the system prompt — entirely
     // on the server using the authenticated user's profile and voice overrides.
-    const { config } = buildVoiceLiveConfig({
-      userName: user.name,
-      preferedVoice: { preferedVoiceId: voiceId, preferedVoiceName: voiceName },
+    const { config, credits } = buildVoiceLiveConfig({
+      userName: user.name || "User",
+      preferedVoice: { preferedVoiceId: voiceId },
       freeVoiceSeconds: user.freeVoiceSeconds,
       balance: user.balance,
       maxSecs,
     });
 
-    // Wrap the LiveConnectConfig in an auth token with the system prompt locked
-    // server-side. The client calls live.connect() with the remaining fields
-    // (voice, modalities, transcription…); systemInstruction is ignored if
-    // the client supplies it because lockAdditionalFields prevents override.
+    if (credits.allowedSeconds <= 0) {
+      return NextResponse.json(
+        { error: "Insufficient credit for voice session" },
+        { status: 402 },
+      );
+    }
+
+    // Wrap the LiveConnectConfig in an auth token with all configured constraints
+    // locked server-side (lockAdditionalFields: [] locks every field in
+    // liveConnectConstraints.config, including systemInstruction and VAD, while
+    // leaving sessionResumption unlocked for per-connection reconnect handles).
     const authTokenConfig = buildVoiceAuthTokenConfig(config);
 
     const ai = new GoogleGenAI({ apiKey });

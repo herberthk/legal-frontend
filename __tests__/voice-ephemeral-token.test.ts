@@ -204,4 +204,35 @@ describe("useEphemeralToken", () => {
     expect(token).toBe("token-forced");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("does not reuse prefetched token when maxSecs changes", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ token: "token-1800" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ token: "token-600" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useEphemeralToken());
+
+    act(() => {
+      result.current.prefetchToken(1800, "Aoede", "Evelyn");
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    let token = "";
+    await act(async () => {
+      token = await result.current.getEphemeralToken(false, 600, "Aoede", "Evelyn");
+    });
+    expect(token).toBe("token-600");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

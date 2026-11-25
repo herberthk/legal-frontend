@@ -89,6 +89,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: "/js/pcm-:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
         source: "/serwist/sw.js",
         headers: [
           {

@@ -114,6 +114,13 @@ function shouldBypassServiceWorker(url: URL): boolean {
     return true;
   }
 
+  // 2b. AudioWorklet & voice worker scripts in /public/js — bypass Serwist's
+  // StaleWhileRevalidate defaultCache so updated DSP/echo-ducking worklets take
+  // effect immediately without serving stale cached scripts.
+  if (pathname.startsWith("/js/pcm-")) {
+    return true;
+  }
+
   // 3. Google / Firebase APIs & domains
   if (
     hostname === "apis.google.com" ||

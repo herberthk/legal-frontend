@@ -1,13 +1,8 @@
-import { z } from "zod";
 import { FieldValue } from "firebase-admin/firestore";
-import { db } from "@/firebase/admin";
 import { recordVoiceSession } from "@/lib/actions/voice-actions";
 import { getUserIdFromRequest } from "@/lib/api/v1/auth";
-import {
-  COLLECTIONS,
-  COST_PER_VOICE_SECOND_IN_CENTS,
-  MAX_VOICE_SESSION_SECONDS,
-} from "@/constants";
+import { COST_PER_VOICE_SECOND_IN_CENTS } from "@/constants";
+import { buildVoiceBillingBodySchema } from "@/lib/voice/billing-schema";
 import { ok, unauthenticated, notFoundError, badRequest, apiError } from "@/lib/api/v1/response";
 
 /**
@@ -21,53 +16,10 @@ import { ok, unauthenticated, notFoundError, badRequest, apiError } from "@/lib/
  * finalizer, so we authenticate by Bearer ID token only and let a missed call
  * be recovered. See `docs/mobile/skills/voice-chat.md`.
  *
- * The transcript bounds below mirror the web route exactly — they exist because
- * the body is attacker-controlled and lands in a Gemini summarization call and a
- * Firestore document (1 MiB hard limit). `duration: 0` is legitimate, so a
- * transcript cap is required independently of the duration cap.
+ * Requests whose combined (client + buffer) duration is `0` return `400` before
+ * summarization.
  */
-const MAX_TRANSCRIPT_ENTRIES = 1_000;
-const MAX_TRANSCRIPT_CONTENT_CHARS = 10_000;
-const MAX_TRANSCRIPT_TOTAL_CHARS = 300_000;
-
-const transcriptSchema = z.object({
-  role: z.enum(["user", "AI"]),
-  content: z.string().max(MAX_TRANSCRIPT_CONTENT_CHARS),
-});
-
-const bodySchema = z.object({
-  // sessionId is a Firestore document id — closed character set so a value with
-  // "/" can't create a nested doc outside the depth-1 firestore.rules match.
-  sessionId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, "invalid sessionId"),
-
-  // Client duration is optional/telemetry only; server calculates authoritative duration.
-  duration: z
-    .number()
-    .refine((n) => Number.isFinite(n), "duration must be finite")
-    .min(0)
-    .max(MAX_VOICE_SESSION_SECONDS)
-    .optional(),
-
-  transcripts: z
-    .array(transcriptSchema)
-    .max(MAX_TRANSCRIPT_ENTRIES)
-    .refine(
-      (list) =>
-        list.reduce((total, t) => total + t.content.length, 0) <=
-        MAX_TRANSCRIPT_TOTAL_CHARS,
-      `transcripts exceed ${MAX_TRANSCRIPT_TOTAL_CHARS} characters in total`,
-    )
-    .default([]),
-
-  preferedVoice: z
-    .object({
-      preferedVoiceId: z.string().max(64).optional(),
-      preferedVoiceName: z.string().max(120).optional(),
-    })
-    .optional(),
-
-  userName: z.string().max(120).optional(),
-});
+const bodySchema = buildVoiceBillingBodySchema({ defaultDurationToZero: true });
 
 export async function POST(req: Request) {
   // Identity comes from the Bearer token, never from the body — this endpoint
@@ -87,50 +39,33 @@ export async function POST(req: Request) {
     return badRequest("Invalid request body");
   }
 
-  const { sessionId, transcripts } = parsed.data;
-
-  // Retrieve the server-authoritative voice session reservation
-  const sessionRef = db.collection(COLLECTIONS.VOICE_SESSIONS).doc(sessionId);
-  const sessionSnap = await sessionRef.get();
-  if (!sessionSnap.exists) {
-    return badRequest("Voice session reservation not found");
-  }
-
-  const sessionData = sessionSnap.data() as VoiceSessionUsage & {
-    startedAt?: FirebaseFirestore.Timestamp;
-    createdAt?: FirebaseFirestore.Timestamp;
-  };
-
-  // Return 404 (not 401) on ownership mismatch — 401 would reveal that the
-  // session document exists, which leaks information to a different user.
-  if (sessionData.userId !== userId) {
-    return notFoundError("Voice session not found.");
-  }
-
-  // Derive duration from server timing / reservation rather than trusting client-supplied duration
-  const startTimestamp = sessionData.startedAt || sessionData.createdAt;
-  const startMs = startTimestamp?.toDate ? startTimestamp.toDate().getTime() : Date.now();
-  const serverElapsedSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
-  const billableDuration = Math.min(serverElapsedSeconds, MAX_VOICE_SESSION_SECONDS);
-
-  const usage: FirestoreWrite<VoiceSessionUsage, "createdAt"> = {
-    userId,
-    summary: "",
-    transcripts,
-    sessionId,
-    cost: billableDuration * COST_PER_VOICE_SECOND_IN_CENTS,
-    duration: billableDuration,
-    title: "",
-    audioUrl: "",
-    createdAt: FieldValue.serverTimestamp(),
-  };
+  const { sessionId, duration, transcripts } = parsed.data;
+  const billableDuration = Math.floor(duration);
 
   try {
+    const usage: FirestoreWrite<VoiceSessionUsage, "createdAt"> = {
+      userId,
+      summary: "",
+      transcripts,
+      sessionId,
+      cost: billableDuration * COST_PER_VOICE_SECOND_IN_CENTS,
+      duration: billableDuration,
+      title: "",
+      audioUrl: "",
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
     const result = await recordVoiceSession({ usage });
 
     // Never report success for a session that was not billed — the client
     // disarms its retry fallback on success.
     if (!result.success) {
+      if (result.code === "NOT_FOUND") {
+        return notFoundError("Voice session not found.");
+      }
+      if (result.code === "ZERO_DURATION") {
+        return badRequest(result.error);
+      }
       console.error("Voice billing failed:", result.error);
       return apiError(
         result.retryable ? 503 : 500,
