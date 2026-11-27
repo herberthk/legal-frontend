@@ -4,6 +4,8 @@ import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
 import { checkRootCollection } from "./utils";
 
+const SEARCH_BATCH_SIZE = 250;
+
 /**
  * Gets paginated and filtered voice sessions for a user.
  * @param params - Search and filter parameters
@@ -15,6 +17,8 @@ export const getVoiceSessions = async (params: {
   limit?: number;
   filter?: UsageFilter;
   searchQuery?: string;
+  tzOffsetMinutes?: number;
+  customRange?: { start?: string; end?: string };
 }): Promise<{
   success: boolean;
   sessions: VoiceSession[];
@@ -27,6 +31,8 @@ export const getVoiceSessions = async (params: {
     limit = 10,
     filter = "last_week",
     searchQuery = "",
+    tzOffsetMinutes = 0,
+    customRange,
   } = params;
 
   try {
@@ -34,7 +40,7 @@ export const getVoiceSessions = async (params: {
       return { success: false, sessions: [], totalCount: 0, totalPages: 0 };
     }
 
-    const { start, end } = getDateRange(filter);
+    const { start, end } = getDateRange(filter, tzOffsetMinutes, customRange);
 
     // Check if collection exists
     const collectionExists = await checkRootCollection(
@@ -55,32 +61,43 @@ export const getVoiceSessions = async (params: {
       .where("createdAt", "<=", endTimestamp)
       .orderBy("createdAt", "desc");
 
-    // If no search query, we can use Firestore pagination efficiently
-    // But since we are doing in-memory search filtering, we need to fetch all matching dates
-    // ONLY if searchQuery is present. Otherwise, we limit here.
-
     let allSessions: VoiceSession[] = [];
     let totalCount = 0;
+    const trimmedQuery = searchQuery.trim();
 
-    if (searchQuery) {
-      const snapshot = await query.get();
-      allSessions = snapshot.docs.map((doc) => ({
-        ...doc.data(),
-        id: doc.id,
-        createdAt:
-          doc.data().createdAt?.toDate().toISOString() ||
-          new Date().toISOString(),
-      })) as VoiceSession[];
+    if (trimmedQuery) {
+      const terms = normalizeSearchText(trimmedQuery)
+        .split(/\s+/)
+        .filter(Boolean);
+      const firstMatch = (page - 1) * limit;
+      const endMatch = page * limit;
+      const batch = query.limit(SEARCH_BATCH_SIZE);
+      let batchQuery = batch;
 
-      const queryLower = searchQuery.toLowerCase();
-      allSessions = allSessions.filter(
-        (s) =>
-          (s.title || "").toLowerCase().includes(queryLower) ||
-          (s.summary || "").toLowerCase().includes(queryLower),
-      );
+      // Scan the full date range for the count, keeping only the requested page.
+      while (true) {
+        const { docs } = await batchQuery.get();
+        for (const doc of docs) {
+          const data = doc.data();
+          const session = { ...data, id: doc.id } as Omit<
+            VoiceSession,
+            "createdAt"
+          >;
+          if (!matchesSearchTerms(session, terms)) continue;
 
-      totalCount = allSessions.length;
-      allSessions = allSessions.slice((page - 1) * limit, page * limit);
+          if (totalCount >= firstMatch && totalCount < endMatch) {
+            allSessions.push({
+              ...session,
+              createdAt:
+                data.createdAt?.toDate().toISOString() ||
+                new Date().toISOString(),
+            });
+          }
+          totalCount++;
+        }
+        if (docs.length < SEARCH_BATCH_SIZE) break;
+        batchQuery = batch.startAfter(docs[docs.length - 1]);
+      }
     } else {
       // Get total count for pagination
       const countSnapshot = await query.count().get();
@@ -140,55 +157,139 @@ export const getVoiceSessionById = async (
   }
 };
 
-/**
- * Helper to get date range similar to usage.ts
- */
-function getDateRange(filter: UsageFilter): { start: string; end: string } {
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
+function matchesSearchTerms(
+  session: Omit<VoiceSession, "createdAt">,
+  terms: string[],
+): boolean {
+  if (terms.length === 0) return true;
+  const transcriptText = Array.isArray(session.transcripts)
+    ? session.transcripts.map((entry) => entry?.content || "").join(" ")
+    : "";
+  const haystack = normalizeSearchText(
+    [
+      session.title || "",
+      session.summary || "",
+      session.id || "",
+      session.sessionId || "",
+      transcriptText,
+    ].join(" "),
+  );
+  return terms.every((term) => haystack.includes(term));
+}
+
+function parseCalendarDateUtcMs(ymd: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  if (year < 1970 || year > 2100) return null;
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const ms = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
+  const probe = new Date(ms);
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return ms;
+}
+
+/**
+ * Helper to get date range in the caller's timezone offset (`Date.getTimezoneOffset` minutes).
+ */
+function getDateRange(
+  filter: UsageFilter,
+  tzOffsetMinutes = 0,
+  customRange?: { start?: string; end?: string },
+): { start: string; end: string } {
+  const clampedOffset = Number.isFinite(tzOffsetMinutes)
+    ? Math.max(-840, Math.min(840, Math.trunc(tzOffsetMinutes)))
+    : 0;
+  const offsetMs = clampedOffset * 60_000;
+  const nowMs = Date.now();
+  const shifted = new Date(nowMs - offsetMs);
+  const year = shifted.getUTCFullYear();
+  const month = shifted.getUTCMonth();
+  const day = shifted.getUTCDate();
+
+  const todayStartMs = Date.UTC(year, month, day, 0, 0, 0, 0) + offsetMs;
+  const todayEndMs = Date.UTC(year, month, day, 23, 59, 59, 999) + offsetMs;
 
   switch (filter) {
     case "today":
-      return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
-
-    case "yesterday": {
-      const yesterdayStart = new Date(todayStart);
-      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-      const yesterdayEnd = new Date(todayStart);
-      yesterdayEnd.setMilliseconds(-1);
       return {
-        start: yesterdayStart.toISOString(),
-        end: yesterdayEnd.toISOString(),
+        start: new Date(todayStartMs).toISOString(),
+        end: new Date(todayEndMs).toISOString(),
+      };
+
+    case "yesterday":
+      return {
+        start: new Date(todayStartMs - 86_400_000).toISOString(),
+        end: new Date(todayStartMs - 1).toISOString(),
+      };
+
+    case "last_week":
+      return {
+        start: new Date(todayStartMs - 7 * 86_400_000).toISOString(),
+        end: new Date(todayEndMs).toISOString(),
+      };
+
+    case "month":
+      return {
+        start: new Date(Date.UTC(year, month, 1, 0, 0, 0, 0) + offsetMs).toISOString(),
+        end: new Date(todayEndMs).toISOString(),
+      };
+
+    case "custom": {
+      const startBase = customRange?.start
+        ? parseCalendarDateUtcMs(customRange.start)
+        : null;
+      const endBase = customRange?.end
+        ? parseCalendarDateUtcMs(customRange.end)
+        : null;
+
+      if (startBase !== null && endBase !== null) {
+        const loBase = Math.min(startBase, endBase);
+        const hiBase = Math.max(startBase, endBase);
+        return {
+          start: new Date(loBase + offsetMs).toISOString(),
+          end: new Date(hiBase + offsetMs + 86_400_000 - 1).toISOString(),
+        };
+      }
+      if (startBase !== null) {
+        const startMs = startBase + offsetMs;
+        return {
+          start: new Date(startMs).toISOString(),
+          end: new Date(
+            Math.max(todayEndMs, startMs + 86_400_000 - 1, nowMs + 60_000),
+          ).toISOString(),
+        };
+      }
+      if (endBase !== null) {
+        return {
+          start: "1970-01-01T00:00:00.000Z",
+          end: new Date(endBase + offsetMs + 86_400_000 - 1).toISOString(),
+        };
+      }
+      return {
+        start: "1970-01-01T00:00:00.000Z",
+        end: new Date(Math.max(todayEndMs, nowMs + 60_000)).toISOString(),
       };
     }
 
-    case "last_week": {
-      const weekStart = new Date(todayStart);
-      weekStart.setDate(weekStart.getDate() - 7);
-      return { start: weekStart.toISOString(), end: todayEnd.toISOString() };
-    }
-
-    case "month": {
-      const monthStart = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        1,
-        0,
-        0,
-        0,
-        0,
-      );
-      return { start: monthStart.toISOString(), end: todayEnd.toISOString() };
-    }
-
-    case "custom": // Show all for "custom" in this context
-      return { start: "1970-01-01T00:00:00.000Z", end: todayEnd.toISOString() };
-
     default:
-      return { start: todayStart.toISOString(), end: todayEnd.toISOString() };
+      return {
+        start: new Date(todayStartMs).toISOString(),
+        end: new Date(todayEndMs).toISOString(),
+      };
   }
 }
