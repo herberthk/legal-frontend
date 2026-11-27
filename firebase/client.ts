@@ -79,6 +79,8 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 // Initialize Functions (Set default region, e.g., europe-west3)
 export const functions = getFunctions(app, "europe-west3");
+// Push notification Cloud Functions run in africa-south1
+export const pushFunctions = getFunctions(app, "africa-south1");
 
 // Safe Analytics initialization — only runs when a valid Measurement ID is
 // configured. Without one, getAnalytics loads gtag.js with id=undefined which
@@ -120,13 +122,13 @@ const waitForSwRegistration = async (
   const start = Date.now();
 
   // First, ensure the SW container is ready (any SW controls the page)
-  await navigator.serviceWorker.ready;
+  const readyReg = await navigator.serviceWorker.ready;
+  if (readyReg?.active) return readyReg;
 
   // Then verify we can retrieve the specific registration by its scope
   while (Date.now() - start < maxWaitMs) {
     const reg = await navigator.serviceWorker.getRegistration("/");
     if (reg?.active) return reg;
-    // SW not yet active — wait a bit and retry
     await new Promise((r) => setTimeout(r, 250));
   }
 

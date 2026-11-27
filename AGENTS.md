@@ -49,3 +49,19 @@ The Legal Adviser application provides AI-powered legal guidance utilizing Googl
 - **Forbidden Patterns:** Do not bypass Firestore Security Rules; the `.rules` file strictly enforces `isOwner(userId)` or `isAdmin()` checks. Do not use legacy Firebase namespaced APIs (e.g., `firebase.auth()`); use modern v9+ modular imports.
 - **Environment & Secrets:** Never commit `.env` files or Firebase Admin SDK JSON keys (e.g., `legal-51aee...json`). Ensure all sensitive server-side operations are handled via Server Actions or `/api` routes, and never exposed to the client bundle.
 - **Quality Expectations:** All new logic must use TypeScript. Explicitly handle loading, empty, and error states for all AI interactions, third-party API fetches, and Firestore transactions.
+
+# Push Notifications (FCM)
+
+Push notifications across Web PWA, Android, and iOS are powered by the Firebase Cloud Functions backend (`africa-south1`).
+
+- **Web SW & Client Lifecycle:**
+  - `app/serwist/[path]/route.ts` injects `NEXT_PUBLIC_FIREBASE_*` into `app/sw.ts` via `esbuildOptions.define`. `app/sw.ts` handles data-only background messages and `notificationclick` same-origin navigation.
+  - `FCMProvider` mounts `useFCMPushNotifications({ mountListener: true })` once at the root (`app/layout.tsx`) for foreground Sonner toasts; `PermissionsSettings` reads state with `mountListener` off so listeners are never duplicated.
+  - `lib/fcm-client-sync.ts` caches `{ userId, token }` in `localStorage`, skipping `saveFCMToken` when unchanged, rotating on change, and calling `unregisterWebPushToken()` on sign-out (`ProfilePopUp`, `Sidebar`).
+- **Reusable Trigger Utilities:**
+  - **Server-only (`lib/push-notifications.ts`):** `triggerSinglePushNotification(payload)` and `triggerMultiplePushNotifications(payload)` call Cloud Functions using `PUSH_API_SECRET` (`x-push-secret` header). Use these from API routes, webhooks, and cron workers.
+  - **Server Actions (`lib/actions/pushNotification.ts`):** `sendSingleNotification(payload)` (session-authenticated; non-admins may only target their own `user.id`) and `sendMultipleNotifications(payload)` (`ADMIN` / `SUPER_ADMIN` only).
+- **Other Clients (Mobile, Cloud Functions, External Services):**
+  - Call `POST https://africa-south1-legal-adviser-9cd92.cloudfunctions.net/singlePushNotification` or `/multiplePushNotification` with either `Authorization: Bearer <firebase-id-token>` (self-only for `USER`, any/multi for `ADMIN`) or `x-push-secret: <PUSH_API_SECRET>` (trusted servers), or use Firebase Callable SDK (`pushFunctions` on `africa-south1`: `sendSingleNotification` / `sendMultipleNotification`).
+  - Pass `dedupeKey` (e.g. `voice-ready:<sessionId>`) for idempotent delivery across client finalizers and background schedulers.
+  - Non-admin callers are rate-limited to `20 requests/min` on both web Server Actions/API routes and Cloud Functions; `link` must be a relative `/` path or an `APP_BASE_URL` origin URL.

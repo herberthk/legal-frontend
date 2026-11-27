@@ -1,14 +1,6 @@
-/**
- * lib/fcm-admin.ts
- *
- * Server-side FCM utility.
- * Reads all stored FCM tokens for a user and delivers a push via
- * firebase-admin Messaging. Stale tokens are cleaned up automatically.
- */
+import "server-only";
 
-import { COLLECTIONS } from "@/constants";
-import { db, messaging } from "@/firebase/admin";
-import { getFCMTokenDocId } from "@/lib/fcm-utils";
+import { triggerSinglePushNotification } from "@/lib/push-notifications";
 
 interface SendPushOptions {
   userId: string;
@@ -19,8 +11,8 @@ interface SendPushOptions {
 }
 
 /**
- * Send a push notification to all registered devices of a user.
- * Silently resolves (sends 0) when the user has no stored FCM tokens.
+ * @deprecated Use `triggerSinglePushNotification` from `@/lib/push-notifications` directly.
+ * Delegates to the Cloud Functions push backend so there is one delivery source of truth.
  */
 export async function sendPushToUser({
   userId,
@@ -29,68 +21,17 @@ export async function sendPushToUser({
   url = "/dashboard/voice",
   data,
 }: SendPushOptions): Promise<{ sent: number; failed: number }> {
-  // Fetch stored FCM tokens for this user
-  const tokensSnap = await db
-    .collection(COLLECTIONS.FCM_TOKENS)
-    .where("userId", "==", userId)
-    .get();
-
-  if (tokensSnap.empty) {
-    return { sent: 0, failed: 0 };
-  }
-
-  const tokens = tokensSnap.docs.map((d) => d.data().token as string);
-
-  const response = await messaging.sendEachForMulticast({
-    tokens,
-    notification: { title, body },
-    data: { url, ...data },
-    webpush: {
-      fcmOptions: { link: url },
-      notification: {
-        title,
-        body,
-        icon: "/icons/manifest-icon-192.maskable.png",
-        badge: "/icons/mstile-icon-128.png",
-        requireInteraction: false,
-      },
-    },
+  const res = await triggerSinglePushNotification({
+    to: userId,
+    title,
+    message: body,
+    link: url,
+    data,
+    saveToInbox: false,
   });
-
-  // Remove tokens that FCM rejected (device unregistered / token invalid)
-  const staleCleanup: Promise<unknown>[] = [];
-  response.responses.forEach((res, idx) => {
-    if (!res.success) {
-      const errCode = res.error?.code ?? "";
-      if (
-        errCode === "messaging/registration-token-not-registered" ||
-        errCode === "messaging/invalid-registration-token"
-      ) {
-        const rawToken = tokens[idx];
-        const docId = getFCMTokenDocId(rawToken);
-        staleCleanup.push(
-          db
-            .collection(COLLECTIONS.FCM_TOKENS)
-            .doc(docId)
-            .delete()
-            .catch(() => {}),
-          db
-            .collection(COLLECTIONS.FCM_TOKENS)
-            .where("token", "==", rawToken)
-            .get()
-            .then((snap) => Promise.all(snap.docs.map((d) => d.ref.delete())))
-            .catch(() => {}),
-        );
-      } else {
-        console.error(`[FCM] Delivery failed for token[${idx}]:`, res.error);
-      }
-    }
-  });
-
-  await Promise.allSettled(staleCleanup);
 
   return {
-    sent: response.successCount,
-    failed: response.failureCount,
+    sent: res.sent ?? 0,
+    failed: res.failed ?? 0,
   };
 }

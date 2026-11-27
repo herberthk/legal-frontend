@@ -29,9 +29,18 @@ export const APP_DESCRIPTION =
 // Default region
 export const DEFAULT_REGION = "africa-south1";
 
-// Firebase function url for single push notification
+// Firebase Cloud Functions URLs for push notifications (africa-south1)
+export const PUSH_FUNCTIONS_BASE_URL =
+  process.env.PUSH_FUNCTIONS_BASE_URL ||
+  "https://africa-south1-legal-adviser-9cd92.cloudfunctions.net";
+
 export const SINGLE_PUSH_NOTIFICATION_URL =
-  "https://africa-south1-legal-adviser-9cd92.cloudfunctions.net/singlePushNotification";
+  process.env.SINGLE_PUSH_NOTIFICATION_URL ||
+  `${PUSH_FUNCTIONS_BASE_URL}/singlePushNotification`;
+
+export const MULTIPLE_PUSH_NOTIFICATION_URL =
+  process.env.MULTIPLE_PUSH_NOTIFICATION_URL ||
+  `${PUSH_FUNCTIONS_BASE_URL}/multiplePushNotification`;
 
 // Document Review constants
 export const MAX_REVIEW_FILE_SIZE_MB = 10;

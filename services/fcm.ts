@@ -21,19 +21,32 @@ import { getFCMTokenDocId } from "@/lib/fcm-utils";
  * victim's uid and receive that victim's push notifications.
  */
 
-/** Upserts a device's FCM registration token for `userId`. */
-export async function saveFCMTokenFor(userId: string, token: string) {
+export type FcmPlatform = "web" | "android" | "ios";
+
+/** Upserts a device's FCM registration token for `userId`, preserving `createdAt`. */
+export async function saveFCMTokenFor(
+  userId: string,
+  token: string,
+  platform?: FcmPlatform,
+) {
   try {
     if (!userId) return { success: false, error: "Unauthorized" };
     if (!token) return { success: false, error: "Missing token" };
 
     const docId = getFCMTokenDocId(token);
-    await db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).set({
-      userId,
-      token,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    const docRef = db.collection(COLLECTIONS.FCM_TOKENS).doc(docId);
+    const existing = await docRef.get();
+
+    await docRef.set(
+      {
+        userId,
+        token,
+        ...(platform ? { platform } : {}),
+        ...(existing.exists ? {} : { createdAt: FieldValue.serverTimestamp() }),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
     return { success: true };
   } catch (error) {
     console.error("[FCM] Error saving token:", error);

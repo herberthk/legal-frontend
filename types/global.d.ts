@@ -84,6 +84,7 @@ declare namespace NodeJS {
 
     NEXT_PUBLIC_BUILD_ENVIRONMENT: string;
     CRON_SECRET: string
+    PUSH_API_SECRET: string
   }
 }
 

@@ -2,6 +2,7 @@
 import { useAuthStore } from "@/store";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/actions/auth";
+import { unregisterWebPushToken } from "@/lib/fcm-client-sync";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/firebase/client";
 
@@ -338,6 +339,7 @@ const GlobalSidebar = ({ user }: Props) => {
 
   const onLogout = async () => {
     try {
+      await unregisterWebPushToken();
       await firebaseSignOut(auth);
       await signOut();
       clearUser();

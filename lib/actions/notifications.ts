@@ -227,7 +227,7 @@ export async function saveFCMToken(userId?: string, token?: string) {
   const authUserId = await getAuthenticatedUserId();
   if (!authUserId) return { success: false, error: "Unauthorized" };
 
-  return saveFCMTokenFor(authUserId, token);
+  return saveFCMTokenFor(authUserId, token, "web");
 }
 
 /**

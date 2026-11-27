@@ -1,119 +1,74 @@
 import { NextResponse } from "next/server";
-import { db, messaging } from "@/firebase/admin";
-import { COLLECTIONS } from "@/constants";
+import { z } from "zod";
 import { getCurrentUser } from "@/lib/actions/auth";
-import { MulticastMessage } from "firebase-admin/messaging";
-import { getFCMTokenDocId } from "@/lib/fcm-utils";
+import {
+  checkWebPushUserRateLimit,
+  triggerSinglePushNotification,
+} from "@/lib/push-notifications";
 
-type SendPushBody = {
-  userId: string;
-  title: string;
-  message: string;
-  link?: string;
-  data?: Record<string, string>;
-};
+const BodySchema = z.object({
+  userId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  message: z.string().min(1).max(1000),
+  link: z.string().min(1).default("/notifications"),
+  imageUrl: z.string().url().optional(),
+  type: z.enum(["INFO", "SUCCESS", "WARNING", "ERROR"]).optional(),
+  data: z.record(z.string(), z.string()).optional(),
+  saveToInbox: z.boolean().optional(),
+  dedupeKey: z.string().min(1).max(256).optional(),
+});
 
 /**
- * POST /api/notifications/send-push
+ * POST /api/notifications/single-push
  *
- * Sends a Firebase Cloud Messaging push notification to one
- * registered device of the specified user.
- *
- * - Reads FCM token from the top-level `fcmTokens` collection
- * - Automatically removes stale / expired tokens from Firestore
+ * Authenticated wrapper delegating single-recipient push delivery to the
+ * Firebase Cloud Functions backend. Non-admins may only notify themselves.
  */
 export async function POST(req: Request) {
   try {
-    // ── Auth guard ────────────────────────────────────────────────────────
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = (await req.json()) as SendPushBody;
-    const { userId, title, message, link } = body;
-
-    if (!userId || !title || !message || !link) {
+    const rawBody = await req.json().catch(() => null);
+    const parsed = BodySchema.safeParse(rawBody);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields: userId, title, body, link" },
+        { error: "Invalid request body" },
         { status: 400 },
       );
     }
 
-    // Fetch all FCM tokens for this user
-    const tokensSnap = await db
-      .collection(COLLECTIONS.FCM_TOKENS)
-      .where("userId", "==", userId)
-      .get();
-
-    if (tokensSnap.empty) {
-      // No tokens — user hasn't enabled notifications yet; silently succeed
-      return NextResponse.json({
-        success: false,
-        message: "User hasn't enabled notication",
-        devices: 0,
-      });
+    const { userId, ...rest } = parsed.data;
+    const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+    if (user.id !== userId && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const tokens = tokensSnap.docs.map((d) => d.data().token as string);
-    // console.log("[FCM] Sending push notification to user:", tokens);
+    if (!isAdmin && !checkWebPushUserRateLimit(user.id)) {
+      return NextResponse.json(
+        { error: "Too many push requests. Please wait a moment." },
+        { status: 429 },
+      );
+    }
 
-    const payload: MulticastMessage = {
-      tokens,
-      notification: {
-        title: title,
-        body: message,
-      },
-      webpush: link
-        ? {
-            fcmOptions: {
-              link,
-            },
-          }
-        : undefined,
-    };
-
-    // await messaging.send(payload);
-    const response = await messaging.sendEachForMulticast(payload);
-
-    // Clean up tokens that FCM rejected (device unregistered / token invalid)
-    const staleTokenDeletions: Promise<unknown>[] = [];
-    response.responses.forEach((res, idx) => {
-      if (!res.success) {
-        const errCode = res.error?.code ?? "";
-        if (
-          errCode === "messaging/registration-token-not-registered" ||
-          errCode === "messaging/invalid-registration-token"
-        ) {
-          const rawToken = tokens[idx];
-          const docId = getFCMTokenDocId(rawToken);
-          staleTokenDeletions.push(
-            db.collection(COLLECTIONS.FCM_TOKENS).doc(docId).delete().catch(() => {}),
-            db
-              .collection(COLLECTIONS.FCM_TOKENS)
-              .where("token", "==", rawToken)
-              .get()
-              .then((snap) => Promise.all(snap.docs.map((d) => d.ref.delete())))
-              .catch(() => {}),
-          );
-        } else {
-          console.error(
-            `[FCM] Failed to send to token ${tokens[idx]}:`,
-            res.error,
-          );
-        }
-      }
+    const result = await triggerSinglePushNotification({
+      to: userId,
+      ...rest,
     });
-
-    await Promise.allSettled(staleTokenDeletions);
 
     return NextResponse.json({
-      success: true,
-      message: "Notification sent!",
-      devices: response.successCount,
+      success: result.success,
+      message: result.message,
+      devices: result.sent ?? 0,
+      deduplicated: result.deduplicated ?? false,
     });
   } catch (error) {
-    console.error("[FCM] Error sending push notification:", error);
-    return NextResponse.json({ error }, { status: 500 });
+    console.error("[FCM] Error in /api/notifications/single-push:", error);
+    return NextResponse.json(
+      { error: "Failed to send push notification" },
+      { status: 500 },
+    );
   }
 }
