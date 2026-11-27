@@ -44,9 +44,13 @@ export const useNotifications = () => {
     };
     initFetch();
 
-    // In a real app, you might set up a websocket or polling here.
-    // const interval = setInterval(fetchNotifications, 30000); // Poll every 30s
-    // return () => clearInterval(interval);
+    const onPushReceived = () => {
+      void fetchNotifications();
+    };
+    window.addEventListener("fcm:notification-received", onPushReceived);
+    return () => {
+      window.removeEventListener("fcm:notification-received", onPushReceived);
+    };
   }, [fetchNotifications]);
 
   const handleMarkAsRead = async (id: string) => {

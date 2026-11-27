@@ -1,17 +1,28 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { getFCMToken } from "@/firebase/client";
-import { onMessage, Unsubscribe } from "firebase/messaging";
-import { saveFCMToken } from "@/lib/actions/notifications";
-import { useAuthStore } from "@/store";
 import { messaging } from "@/firebase/client";
+import { onMessage, Unsubscribe } from "firebase/messaging";
+import {
+  cleanupRevokedWebPushToken,
+  getFcmClientState,
+  resolveForegroundLink,
+  setFcmClientState,
+  subscribeFcmClientState,
+  syncCurrentWebPushToken,
+  type FcmPermissionState,
+} from "@/lib/fcm-client-sync";
+import { useAuthStore } from "@/store";
 
-type PermissionState = "default" | "granted" | "denied" | "unsupported";
+interface UseFCMOptions {
+  /** Only the root `FCMProvider` mounts the foreground `onMessage` listener. */
+  mountListener?: boolean;
+}
 
 interface UseFCMReturn {
-  permission: PermissionState;
+  permission: FcmPermissionState;
   isSupported: boolean;
   token: string | null;
   error: string | null;
@@ -23,26 +34,24 @@ interface UseFCMReturn {
 /**
  * Initialises Firebase Cloud Messaging for the current authenticated user.
  *
- * - Requests notification permission on mount (after a short delay so it
- *   doesn't block the initial render).
- * - Fetches and persists the FCM registration token to Firestore so the
- *   server can fan-out push messages to the user's devices.
- * - Sets up an `onMessage` listener to surface foreground push payloads
- *   as Sonner toasts (background payloads are handled by the SW).
- * - Re-fetches the token whenever the user signs in/out.
+ * - Shares `{ permission, isSupported, token, error }` across all hook consumers
+ *   so granting permission in Settings immediately activates `FCMProvider`'s listener.
+ * - Syncs the FCM registration token only when it changes for the current user.
+ * - Surfaces a soft prompt after 2 minutes when permission is `"default"`.
  */
-export function useFCMPushNotifications(): UseFCMReturn {
+export function useFCMPushNotifications(
+  options: UseFCMOptions = {},
+): UseFCMReturn {
+  const { mountListener = false } = options;
+  const router = useRouter();
   const userId = useAuthStore((s) => s.user?.id);
 
-  const [permission, setPermission] = useState<PermissionState>("default");
-  const [isSupported, setIsSupported] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
-
-  // Track the last token we saved so we don't double-write on re-renders
-  const savedTokenRef = useRef<string | null>(null);
-
+  const { permission, isSupported, token, error } = useSyncExternalStore(
+    subscribeFcmClientState,
+    getFcmClientState,
+    getFcmClientState,
+  );
   const [showSoftPrompt, setShowSoftPrompt] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // ── Detect support ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -52,33 +61,19 @@ export function useFCMPushNotifications(): UseFCMReturn {
       "serviceWorker" in navigator &&
       "PushManager" in window;
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsSupported(supported);
-    if (supported) {
-      setPermission(Notification.permission as PermissionState);
-    } else {
-      setPermission("unsupported");
-    }
+    setFcmClientState({
+      isSupported: supported,
+      permission: supported
+        ? (Notification.permission as FcmPermissionState)
+        : "unsupported",
+    });
   }, []);
 
   // ── Request permission + fetch token ──────────────────────────────────────
   const requestPermission = useCallback(async () => {
     if (!isSupported || !userId) return;
-
     setShowSoftPrompt(false);
-
-    const fcmToken = await getFCMToken();
-    const newPermission = Notification.permission as PermissionState;
-    setPermission(newPermission);
-
-    if (fcmToken && fcmToken !== savedTokenRef.current) {
-      setToken(fcmToken);
-      savedTokenRef.current = fcmToken;
-      // Persist token server-side (fire-and-forget; non-critical)
-      saveFCMToken(userId, fcmToken).catch((err) =>
-        console.error("[FCM] Failed to save token:", err),
-      );
-    }
+    await syncCurrentWebPushToken(userId);
   }, [isSupported, userId]);
 
   const dismissSoftPrompt = useCallback(() => {
@@ -92,71 +87,74 @@ export function useFCMPushNotifications(): UseFCMReturn {
   }, []);
 
   // ── Soft Prompt Logic (2 minutes) ─────────────────────────────────────────
-  // Instead of automatically requesting native permission on mount, we show
-  // a soft prompt after 2 minutes of active session if they are still "default".
   useEffect(() => {
-    if (!isSupported || !userId || permission !== "default") return;
+    if (!mountListener || !isSupported || !userId || permission !== "default") {
+      return;
+    }
 
-    // Check if previously dismissed recently (e.g. within last 24h)
     const dismissedAt = localStorage.getItem("fcm_soft_prompt_dismissed_at");
     if (dismissedAt) {
       const dismissedTime = parseInt(dismissedAt, 10);
       const oneDay = 24 * 60 * 60 * 1000;
       if (Date.now() - dismissedTime < oneDay) {
-        return; // Don't show again today
+        return;
       }
     }
 
     const timer = setTimeout(() => {
-      // Check permission again just in case it changed
       if (Notification.permission === "default") {
         setShowSoftPrompt(true);
       }
-    }, 120000); // 2 minutes
+    }, 120000);
 
     return () => clearTimeout(timer);
-  }, [isSupported, userId, permission]);
+  }, [mountListener, isSupported, userId, permission]);
 
-  // ── Silent Token Renewal ──────────────────────────────────────────────────
-  // If permission is already "granted", silently fetch and save the token
-  // on mount. This ensures tokens are synced to the database (and refreshed if
-  // necessary) without showing the soft prompt.
+  // ── Silent Token Sync on Mount / Auth Change ──────────────────────────────
   useEffect(() => {
-    if (isSupported && userId && Notification.permission === "granted") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      requestPermission();
+    if (!mountListener || !isSupported || !userId) return;
+    if (Notification.permission === "granted") {
+      void syncCurrentWebPushToken(userId);
+    } else if (Notification.permission === "denied") {
+      void cleanupRevokedWebPushToken(userId);
     }
-  }, [isSupported, userId, requestPermission]);
+  }, [mountListener, isSupported, userId]);
 
+  // ── Single Foreground Message Listener ────────────────────────────────────
   useEffect(() => {
+    if (!mountListener || !token) return;
+
     let isMounted = true;
     let unsubscribe: Unsubscribe | null = null;
 
     const setupListener = async () => {
-      if (!token) return; // Exit if no token is available.
-
       try {
-        setError(null);
+        setFcmClientState({ error: null });
         const m = await messaging();
         if (!m) return;
 
-        // Step 9: Register a listener for incoming FCM messages.
         const unsub = onMessage(m, (payload) => {
-          console.log("Foreground push notification received:", payload);
           if (Notification.permission !== "granted") return;
 
-          const link = payload.fcmOptions?.link || payload.data?.link;
+          const title =
+            payload.notification?.title ??
+            payload.data?.title ??
+            "Legal Adviser";
+          const body =
+            payload.notification?.body ??
+            payload.data?.body ??
+            payload.data?.message;
+          const link = resolveForegroundLink(payload);
 
           if (link) {
-            toast.info(payload.notification?.title, {
-              description: payload.notification?.body,
+            toast.info(title, {
+              description: body,
               duration: 10000,
               style: {
                 background: "#09172b",
                 border: "0.5px dashed white",
                 borderRadius: "12px",
               },
-
               action: {
                 label: "View",
                 actionButtonStyle: {
@@ -166,16 +164,13 @@ export function useFCMPushNotifications(): UseFCMReturn {
                   cursor: "pointer",
                 },
                 onClick: () => {
-                  const link = payload.fcmOptions?.link || payload.data?.link;
-                  if (link) {
-                    window.open(link, "_self");
-                  }
+                  router.push(link);
                 },
               },
             });
           } else {
-            toast.info(payload.notification?.title, {
-              description: payload.notification?.body,
+            toast.info(title, {
+              description: body,
               duration: 6000,
               style: {
                 background: "#09172b",
@@ -185,34 +180,11 @@ export function useFCMPushNotifications(): UseFCMReturn {
             });
           }
 
-          // --------------------------------------------
-          // Disable this if you only want toast notifications.
-          // Vibrate the device manually in the foreground if supported
           if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-            navigator.vibrate([200, 100, 200]);
+            navigator.vibrate?.([200, 100, 200]);
           }
 
-          const n = new Notification(
-            payload.notification?.title || "Legal Adviser",
-            {
-              body: payload.notification?.body || "New update received",
-              icon: "/icons/apple-icon-180.png",
-              badge: "/icons/mstile-icon-128.png",
-              data: link ? { url: link } : undefined,
-              tag: "legal-adviser-push",
-            },
-          );
-
-          // Step 10: Handle notification click event to navigate to a link if present.
-          n.onclick = (event) => {
-            event.preventDefault();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const link = (event.target as any)?.data?.url;
-            if (link) {
-              window.open(link, "_self");
-            }
-          };
-          // --------------------------------------------
+          window.dispatchEvent(new CustomEvent("fcm:notification-received"));
         });
 
         if (isMounted) {
@@ -223,19 +195,23 @@ export function useFCMPushNotifications(): UseFCMReturn {
       } catch (err) {
         console.error("[FCM] Failed to setup foreground listener:", err);
         if (isMounted) {
-          setError(err instanceof Error ? err.message : "Failed to setup push notification listener");
+          setFcmClientState({
+            error:
+              err instanceof Error
+                ? err.message
+                : "Failed to setup push notification listener",
+          });
         }
       }
     };
 
-    setupListener();
+    void setupListener();
 
-    // Step 11: Cleanup the listener when the component unmounts.
     return () => {
       isMounted = false;
       unsubscribe?.();
     };
-  }, [token]);
+  }, [mountListener, router, token]);
 
   return {
     permission,

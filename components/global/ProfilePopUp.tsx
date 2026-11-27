@@ -3,6 +3,7 @@ import { useAuthStore, usePopStore } from "@/store";
 import { LogOut, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signOut } from "@/lib/actions/auth";
+import { unregisterWebPushToken } from "@/lib/fcm-client-sync";
 import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,6 +25,7 @@ const ProfilePopUp = ({ user, ref }: Props) => {
   const toggleSidebar = usePopStore((state) => state.toggleSidebar);
   const onLogout = async () => {
     try {
+      await unregisterWebPushToken();
       await firebaseSignOut(auth);
       await signOut(); // Server action to delete cookie
       toggleSidebar();

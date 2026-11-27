@@ -14,7 +14,10 @@ import { ok, badRequest, internalError } from "@/lib/api/v1/response";
  * server action: that action resolves identity from the web `session` cookie,
  * which a Bearer client never sends, so it would always fail here.
  */
-const schema = z.object({ token: z.string().min(1).max(4096) });
+const schema = z.object({
+  token: z.string().min(1).max(4096),
+  platform: z.enum(["android", "ios", "web"]).optional(),
+});
 
 export async function POST(req: Request) {
   const gate = await requireMobileAuth(req);
@@ -29,7 +32,11 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid request body");
 
-  const result = await saveFCMTokenFor(gate.userId, parsed.data.token);
+  const result = await saveFCMTokenFor(
+    gate.userId,
+    parsed.data.token,
+    parsed.data.platform,
+  );
   if (!result.success) return internalError("Failed to register device token.");
   return ok({ success: true });
 }

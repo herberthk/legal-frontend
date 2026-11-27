@@ -19,7 +19,7 @@ import { NotificationSoftPrompt } from "./NotificationSoftPrompt";
 
 export default function FCMProvider() {
   const { showSoftPrompt, requestPermission, dismissSoftPrompt } =
-    useFCMPushNotifications();
+    useFCMPushNotifications({ mountListener: true });
 
   return (
     <>

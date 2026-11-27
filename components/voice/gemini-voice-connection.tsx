@@ -545,6 +545,27 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
     logAnalyticsEvent("voice_call_end", { engine: "gemini_live", duration });
 
     if (duration > 0 && userId) {
+      let settledVoiceSessionId: string | null = null;
+      const notifyVoiceReady = (targetSessionId: string) => {
+        const durationMin = Math.floor(duration / 60);
+        const durationSec = duration % 60;
+        const durationLabel =
+          durationMin > 0
+            ? `${durationMin}m ${durationSec}s`
+            : `${durationSec}s`;
+
+        sendSingleNotification({
+          to: userId,
+          title: "Your AI voice session is available",
+          message: `Your AI legal consultation session that lasted for (${durationLabel}) is now available.`,
+          link: `/dashboard/transcripts/${targetSessionId}`,
+          type: "SUCCESS",
+          dedupeKey: `voice-ready:${targetSessionId}`,
+        }).catch((err) =>
+          console.error("[FCM] Post-call push notification failed:", err),
+        );
+      };
+
       try {
         setPostCallError(undefined);
 
@@ -576,6 +597,7 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         billingSettledRef.current = true;
         sessionStorage.removeItem("voice_sessionState");
         const voiceSessionId = data.voiceSessionId;
+        settledVoiceSessionId = voiceSessionId;
 
         // Step 2: Encode WebM
         setPostCallStage("encoding");
@@ -629,26 +651,15 @@ const GeminiVoiceConnection: React.FC<GeminiVoiceConnectionProps> = ({
         setPostCallStage("done");
         setTimeout(() => setPostCallStage(null), 3000);
 
-        // ── Push notification — fire-and-forget ─────────────────────────────────
-        const durationMin = Math.floor(duration / 60);
-        const durationSec = duration % 60;
-        const durationLabel =
-          durationMin > 0
-            ? `${durationMin}m ${durationSec}s`
-            : `${durationSec}s`;
-
-        sendSingleNotification({
-          to: userId,
-          title: "Your AI voice Session is Available",
-          message: `Your AI legal consultation session that lasted for (${durationLabel}) is now available.`,
-          link: `/dashboard/transcripts/${voiceSessionId}`,
-        }).catch((err) =>
-          console.error("[FCM] Post-call push notification failed:", err),
-        );
+        // ── Push notification — fire-and-forget (deduplicated per session) ────
+        notifyVoiceReady(voiceSessionId);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         console.error("Post call processing failed", err);
+        if (settledVoiceSessionId) {
+          notifyVoiceReady(settledVoiceSessionId);
+        }
         setPostCallError(err.message || "An unexpected error occurred.");
         setPostCallStage("error");
         setTimeout(() => setPostCallStage(null), 5000);

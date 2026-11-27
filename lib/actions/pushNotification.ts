@@ -1,56 +1,101 @@
 "use server";
-import { SINGLE_PUSH_NOTIFICATION_URL } from "@/constants";
 
-type NotificationPayload = {
-  to: string;
-  message: string;
-  link: string;
-  title: string;
-  imageUrl?: string;
-};
+import { getCurrentUser } from "@/lib/actions/auth";
+import {
+  checkWebPushUserRateLimit,
+  triggerMultiplePushNotifications,
+  triggerSinglePushNotification,
+  type MultiplePushPayload,
+  type PushDispatchResponse,
+  type SinglePushPayload,
+} from "@/lib/push-notifications";
 
-interface ResponseData {
-  success: boolean;
-  message: string;
+export type NotificationPayload = SinglePushPayload;
+export type MultipleNotificationPayload = MultiplePushPayload;
+
+function isAdminRole(role: string | undefined): boolean {
+  return role === "ADMIN" || role === "SUPER_ADMIN";
 }
 
-export const sendSingleNotification = async ({
-  to,
-  message,
-  link,
-  title,
-  imageUrl,
-}: NotificationPayload) => {
+/**
+ * Reusable Server Action for single-recipient push notifications.
+ * Non-admin callers may only notify themselves (`to === user.id`).
+ */
+export const sendSingleNotification = async (
+  payload: SinglePushPayload,
+): Promise<PushDispatchResponse> => {
   try {
-    const res = await fetch(SINGLE_PUSH_NOTIFICATION_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to,
-        message,
-        link,
-        title,
-        imageUrl,
-      }),
-    });
-    if (!res.ok) {
-      const errorBody = await res.text();
-      const errObj = {
-        status: res.status,
-        statusText: res.statusText,
-        body: errorBody,
-      };
-      const err = new Error("API Error");
-      err.message = JSON.stringify(errObj);
-      throw err;
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false, message: "Unauthorized", sent: 0, failed: 0 };
     }
-    const response = (await res.json()) as ResponseData;
-    console.log("Notification", response);
-    return response;
+
+    if (user.id !== payload.to && !isAdminRole(user.role)) {
+      return {
+        success: false,
+        message: "Forbidden: users may only notify themselves.",
+        sent: 0,
+        failed: 0,
+      };
+    }
+
+    if (!isAdminRole(user.role) && !checkWebPushUserRateLimit(user.id)) {
+      return {
+        success: false,
+        message: "Too many push requests. Please wait a moment.",
+        sent: 0,
+        failed: 0,
+      };
+    }
+
+    return await triggerSinglePushNotification(payload);
   } catch (error) {
-    console.log("Could not send notification single", error);
-    return error;
+    console.error("[Push] Could not send single notification:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to send notification.",
+      sent: 0,
+      failed: 0,
+    };
+  }
+};
+
+/**
+ * Reusable Server Action for multi-recipient push notifications.
+ * Restricted to ADMIN and SUPER_ADMIN callers.
+ */
+export const sendMultipleNotifications = async (
+  payload: MultiplePushPayload,
+): Promise<PushDispatchResponse> => {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false, message: "Unauthorized", sent: 0, failed: 0 };
+    }
+
+    if (!isAdminRole(user.role)) {
+      return {
+        success: false,
+        message: "Forbidden: admin privileges required.",
+        sent: 0,
+        failed: 0,
+      };
+    }
+
+    return await triggerMultiplePushNotifications(payload);
+  } catch (error) {
+    console.error("[Push] Could not send multiple notifications:", error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to send notifications.",
+      sent: 0,
+      failed: 0,
+    };
   }
 };

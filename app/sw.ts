@@ -5,6 +5,7 @@ import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist } from "serwist";
 import { initializeApp } from "firebase/app";
 import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
+import { resolveNotificationTargetUrl } from "@/lib/push-url";
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
@@ -26,7 +27,7 @@ declare const self: ServiceWorkerGlobalScope;
 let messaging: ReturnType<typeof getMessaging> | null = null;
 
 try {
-  const firebaseApp = initializeApp({
+  const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -34,56 +35,78 @@ try {
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-  });
+  };
 
-  messaging = getMessaging(firebaseApp);
+  if (
+    firebaseConfig.apiKey &&
+    firebaseConfig.projectId &&
+    firebaseConfig.messagingSenderId &&
+    firebaseConfig.appId
+  ) {
+    const firebaseApp = initializeApp(firebaseConfig);
+    messaging = getMessaging(firebaseApp);
+  } else {
+    console.warn("[FCM] Missing Firebase public config in service worker.");
+  }
 } catch (error) {
   console.warn("[FCM] Firebase Cloud Messaging is not supported or failed to initialize:", error);
 }
 
 /**
- * Background message handler — fires when the web app is NOT in focus.
- * FCM automatically creates a notification from the `notification` field;
- * we override the options here to provide consistent icon / badge branding.
+ * Background message handler — fires for data-only background messages when the
+ * web app is NOT in focus. When `payload.notification` is present, FCM's SW
+ * listener already renders the notification, so we only call `showNotification`
+ * here for data-only payloads to avoid duplicate banners.
  */
 if (messaging) {
   onBackgroundMessage(messaging, (payload) => {
-    console.log("[FCM] Background message received:", payload);
-    const { title, body, icon } = payload.notification ?? {};
-    const notificationTitle: string = title ?? "Legal Adviser";
+    if (payload.notification) {
+      return;
+    }
+    const title = payload.data?.title ?? "Legal Adviser";
+    const body = payload.data?.body ?? payload.data?.message ?? "";
+    const url = payload.data?.url ?? payload.data?.link ?? "/notifications";
+
     const notificationOptions: NotificationOptions & {
       vibrate?: number[];
       renotify?: boolean;
     } = {
-      body: body ?? "",
-      icon: icon ?? "/icons/apple-icon-180.png",
+      body,
+      icon: "/icons/manifest-icon-192.maskable.png",
       badge: "/icons/mstile-icon-128.png",
-      data: payload.data ?? {},
-      // Professional feel: vibrate the device and allow re-notification
+      data: { ...(payload.data ?? {}), url },
       vibrate: [200, 100, 200],
       renotify: true,
-      // Replace any previous notification from this app so the tray stays tidy
       tag: "legal-adviser-push",
     };
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    return self.registration.showNotification(title, notificationOptions);
   });
 }
 
 /** Navigate / focus the app tab when a notification is clicked. */
 self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
-  const url: string = (event.notification.data?.url as string) ?? "/";
+  const targetPath = resolveNotificationTargetUrl(
+    event.notification.data,
+    self.location.origin,
+  );
+  const targetUrl = new URL(targetPath, self.location.origin).href;
 
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
+      .then(async (clientList) => {
         for (const client of clientList) {
-          if (client.url.includes(url) && "focus" in client) {
-            return (client as WindowClient).focus();
+          const win = client as WindowClient;
+          if (win.url.startsWith(self.location.origin) && "focus" in win) {
+            await win.focus();
+            if ("navigate" in win) {
+              return win.navigate(targetUrl);
+            }
+            return win;
           }
         }
-        return self.clients.openWindow(url);
+        return self.clients.openWindow(targetUrl);
       }),
   );
 });
