@@ -44,6 +44,7 @@ vi.mock("@/firebase/admin", () => {
     filters: { field: string; op: string; val: unknown }[] = [],
     limitVal: number | null = null,
     offsetVal = 0,
+    cursorId?: string,
   ) => {
     const runFilter = () => {
       return storedDocs
@@ -61,7 +62,11 @@ vi.mock("@/firebase/admin", () => {
             return true;
           }),
         )
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        .sort(
+          (a, b) =>
+            b.createdAt.getTime() - a.createdAt.getTime() ||
+            b.id.localeCompare(a.id),
+        );
     };
 
     const toSnapshot = (docs: StoredDoc[]) => ({
@@ -76,16 +81,18 @@ vi.mock("@/firebase/admin", () => {
 
     return {
       where: (field: string, op: string, val: unknown) =>
-        buildQuery([...filters, { field, op, val }], limitVal, offsetVal),
-      orderBy: () => buildQuery(filters, limitVal, offsetVal),
+        buildQuery([...filters, { field, op, val }], limitVal, offsetVal, cursorId),
+      orderBy: () => buildQuery(filters, limitVal, offsetVal, cursorId),
       limit: (n: number) => {
         lastLimitCalled = n;
-        return buildQuery(filters, n, offsetVal);
+        return buildQuery(filters, n, offsetVal, cursorId);
       },
       offset: (n: number) => {
         lastOffsetCalled = n;
-        return buildQuery(filters, limitVal, n);
+        return buildQuery(filters, limitVal, n, cursorId);
       },
+      startAfter: (doc: { id: string }) =>
+        buildQuery(filters, limitVal, offsetVal, doc.id),
       count: () => ({
         get: async () => {
           countCalled = true;
@@ -94,10 +101,15 @@ vi.mock("@/firebase/admin", () => {
       }),
       get: async () => {
         const matched = runFilter();
+        const start =
+          offsetVal +
+          (cursorId === undefined
+            ? 0
+            : matched.findIndex((doc) => doc.id === cursorId) + 1);
         const sliced =
           limitVal === null
-            ? matched
-            : matched.slice(offsetVal, offsetVal + limitVal);
+            ? matched.slice(start)
+            : matched.slice(start, start + limitVal);
         return toSnapshot(sliced);
       },
     };
@@ -128,6 +140,9 @@ afterEach(() => {
 
 describe("GET /api/v1/voice/sessions", () => {
   it("treats whitespace-only q as empty so Firestore limit/offset pagination is used", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-15T12:00:00.000Z"));
+
     storedDocs = Array.from({ length: 5 }, (_, index) => ({
       id: `sess-${index + 1}`,
       userId: "user-1",
@@ -157,6 +172,9 @@ describe("GET /api/v1/voice/sessions", () => {
   });
 
   it("matches multi-term and diacritic-insensitive queries across title, summary, sessionId, and transcript content", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-15T12:00:00.000Z"));
+
     const now = new Date();
     storedDocs = [
       {
@@ -201,6 +219,34 @@ describe("GET /api/v1/voice/sessions", () => {
     const byIdBody = await byIdRes.json();
     expect(byIdBody.data.sessions.map((s: { id: string }) => s.id)).toEqual([
       "s-sessionid-match",
+    ]);
+  });
+
+  it("paginates matching sessions and counts matches beyond the first batch", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-15T12:00:00.000Z"));
+
+    storedDocs = Array.from({ length: 252 }, (_, index) => ({
+      id: `sess-${index}`,
+      userId: "user-1",
+      title: index === 0 || index >= 249 ? "Lease" : "Other",
+      // Two matches on opposite sides of the batch boundary share a timestamp.
+      createdAt: new Date(Date.now() - (index === 250 ? 249 : index) * 1_000),
+    }));
+
+    const res = await getSessions(
+      new Request(
+        "https://example.test/api/v1/voice/sessions?filter=month&q=lease&page=2&limit=2",
+      ),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.data.totalCount).toBe(4);
+    expect(body.data.totalPages).toBe(2);
+    expect(body.data.sessions.map((s: { id: string }) => s.id)).toEqual([
+      "sess-249",
+      "sess-251",
     ]);
   });
 

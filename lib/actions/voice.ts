@@ -4,7 +4,7 @@ import { db } from "@/firebase/admin";
 import { COLLECTIONS } from "@/constants";
 import { checkRootCollection } from "./utils";
 
-const MAX_SEARCH_SCAN = 250;
+const SEARCH_BATCH_SIZE = 250;
 
 /**
  * Gets paginated and filtered voice sessions for a user.
@@ -61,31 +61,43 @@ export const getVoiceSessions = async (params: {
       .where("createdAt", "<=", endTimestamp)
       .orderBy("createdAt", "desc");
 
-    // If no search query, we can use Firestore pagination efficiently
-    // But since we are doing in-memory search filtering, we need to fetch all matching dates
-    // ONLY if searchQuery is present. Otherwise, we limit here.
-
     let allSessions: VoiceSession[] = [];
     let totalCount = 0;
     const trimmedQuery = searchQuery.trim();
 
     if (trimmedQuery) {
-      const snapshot = await query.limit(MAX_SEARCH_SCAN).get();
-      allSessions = snapshot.docs.map((doc) => ({
-        ...doc.data(),
-        id: doc.id,
-        createdAt:
-          doc.data().createdAt?.toDate().toISOString() ||
-          new Date().toISOString(),
-      })) as VoiceSession[];
-
       const terms = normalizeSearchText(trimmedQuery)
         .split(/\s+/)
         .filter(Boolean);
-      allSessions = allSessions.filter((s) => matchesSearchTerms(s, terms));
+      const firstMatch = (page - 1) * limit;
+      const endMatch = page * limit;
+      const batch = query.limit(SEARCH_BATCH_SIZE);
+      let batchQuery = batch;
 
-      totalCount = allSessions.length;
-      allSessions = allSessions.slice((page - 1) * limit, page * limit);
+      // Scan the full date range for the count, keeping only the requested page.
+      while (true) {
+        const { docs } = await batchQuery.get();
+        for (const doc of docs) {
+          const data = doc.data();
+          const session = { ...data, id: doc.id } as Omit<
+            VoiceSession,
+            "createdAt"
+          >;
+          if (!matchesSearchTerms(session, terms)) continue;
+
+          if (totalCount >= firstMatch && totalCount < endMatch) {
+            allSessions.push({
+              ...session,
+              createdAt:
+                data.createdAt?.toDate().toISOString() ||
+                new Date().toISOString(),
+            });
+          }
+          totalCount++;
+        }
+        if (docs.length < SEARCH_BATCH_SIZE) break;
+        batchQuery = batch.startAfter(docs[docs.length - 1]);
+      }
     } else {
       // Get total count for pagination
       const countSnapshot = await query.count().get();
@@ -152,7 +164,10 @@ function normalizeSearchText(value: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function matchesSearchTerms(session: VoiceSession, terms: string[]): boolean {
+function matchesSearchTerms(
+  session: Omit<VoiceSession, "createdAt">,
+  terms: string[],
+): boolean {
   if (terms.length === 0) return true;
   const transcriptText = Array.isArray(session.transcripts)
     ? session.transcripts.map((entry) => entry?.content || "").join(" ")
