@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/api/read-bounded-json";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { transcribeDocument, getTranscriptions } from "@/services/transcribe";
 import { transcribePostSchema } from "@/lib/api/handlers/transcribe";
@@ -26,18 +27,13 @@ export async function POST(req: Request) {
   const gate = await requireMobileAuth(req);
   if (gate instanceof Response) return gate;
 
-  const contentLengthHeader = req.headers.get("content-length");
-  if (contentLengthHeader) {
-    const contentLength = parseInt(contentLengthHeader, 10);
-    if (!Number.isNaN(contentLength) && contentLength > MAX_BODY_BYTES) {
-      return badRequest("Payload too large. Request body must be 32 KB or less.");
-    }
-  }
-
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
+    body = await readBoundedJson(req, MAX_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return badRequest("Payload too large. Request body must be 32 KB or less.");
+    }
     return badRequest("Invalid JSON body");
   }
   const parsed = transcribePostSchema.safeParse(body);

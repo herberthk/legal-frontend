@@ -4,14 +4,16 @@ import {
   renameTranscriptionRecord,
 } from "@/services/transcribe";
 import { PATCH } from "@/app/api/v1/transcriptions/[id]/route";
-import { POST } from "@/app/api/v1/transcriptions/route";
+import { GET, POST } from "@/app/api/v1/transcriptions/route";
+
+import { handleTranscribeRequest } from "@/lib/api/handlers/transcribe";
+import { getTranscriptions as getTranscriptionsAction } from "@/lib/actions/transcribe";
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   update: vi.fn(),
   queryGet: vi.fn(),
   requireMobileAuth: vi.fn(),
-  transcribeDocument: vi.fn(),
 }));
 
 vi.mock("@/firebase/admin", () => {
@@ -39,6 +41,10 @@ vi.mock("@/firebase/admin", () => {
 
 vi.mock("@/lib/api/v1/guard", () => ({
   requireMobileAuth: mocks.requireMobileAuth,
+}));
+
+vi.mock("@/lib/actions/auth", () => ({
+  getAuthenticatedUserId: async () => "user-1",
 }));
 
 vi.mock("@/lib/actions/usage", () => ({
@@ -151,6 +157,82 @@ describe("POST /api/v1/transcriptions", () => {
   });
 });
 
+describe("streamed transcription request limits", () => {
+  it.each([
+    {
+      name: "mobile rename",
+      method: "PATCH",
+      limit: 8,
+      status: 400,
+      handle: (req: Request) => PATCH(req, { params: Promise.resolve({ id: "rec-1" }) }),
+      lengthHeader: {},
+    },
+    {
+      name: "mobile transcription",
+      method: "POST",
+      limit: 32,
+      status: 400,
+      handle: POST,
+      lengthHeader: { "content-length": "1" },
+    },
+    {
+      name: "web transcription",
+      method: "POST",
+      limit: 32,
+      status: 413,
+      handle: (req: Request) => handleTranscribeRequest(req, "user-1"),
+      lengthHeader: {},
+    },
+  ])("cancels an oversized $name stream without waiting for EOF", async ({
+    method, limit, status, handle, lengthHeader,
+  }) => {
+    const cancel = vi.fn();
+    const chunk = new TextEncoder().encode("é".repeat(limit * 256 + 1));
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(chunk);
+        controller.enqueue(chunk);
+      },
+      cancel,
+    });
+    const init = {
+      method,
+      headers: new Headers(lengthHeader as Record<string, string>),
+      body,
+      duplex: "half",
+    } as const;
+    const res = await handle(new Request("http://localhost/api/v1/transcriptions", init));
+    const message = `Payload too large. Request body must be ${limit} KB or less.`;
+
+    expect(res.status).toBe(status);
+    expect(await res.json()).toEqual(
+      status === 413 ? { error: message } : { error: { code: "BAD_REQUEST", message } },
+    );
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it("accepts an exact-limit rename with a UTF-8 character split across chunks", async () => {
+    const data = new TextEncoder().encode(JSON.stringify({ title: "Aé" }).padEnd(8191));
+    const split = data.indexOf(0xc3) + 1;
+    expect(data.byteLength).toBe(8192);
+
+    mocks.get.mockResolvedValueOnce({ exists: true, data: () => ({ userId: "user-1" }) });
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(data.subarray(0, split));
+        controller.enqueue(data.subarray(split));
+        controller.close();
+      },
+    });
+    const init = { method: "PATCH", body, duplex: "half" } as const;
+    const req = new Request("http://localhost/api/v1/transcriptions/rec-1", init);
+    const res = await PATCH(req, { params: Promise.resolve({ id: "rec-1" }) });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ data: { success: true, id: "rec-1", title: "Aé" } });
+  });
+});
+
 describe("getTranscriptions case-insensitive search", () => {
   it("matches title, fileName, and body case-insensitively", async () => {
     const makeDoc = (
@@ -192,7 +274,7 @@ describe("getTranscriptions case-insensitive search", () => {
         userId: "user-1",
         title: "Agreement",
         fileName: "doc.pdf",
-        transcribedText: "<p>O&#39;Connor &amp; Associates LLP</p>",
+        transcribedText: "<p>O&#39;Connor &#X26; Associat&#x65;s &amp; Co.</p>",
         formatMode: "professional",
         createdAt: { toDate: () => new Date("2026-10-01T10:00:00Z") },
         updatedAt: { toDate: () => new Date("2026-10-01T10:00:00Z") },
@@ -200,9 +282,23 @@ describe("getTranscriptions case-insensitive search", () => {
     };
     mocks.queryGet.mockResolvedValueOnce({ docs: [doc] });
 
-    const res = await getTranscriptions(10, undefined, "O'Connor & Associates", "all", "user-1");
+    const res = await getTranscriptions(10, undefined, "O'Connor & Associates & Co.", "all", "user-1");
     expect(res.success).toBe(true);
     expect(res.transcriptions.map((r) => r.id)).toEqual(["4"]);
+  });
+
+  it.each([
+    ['<p>Agree<strong title="a > b">ment</strong></p>', "Agreement", true],
+    ["<p>First</p><p>Second</p>", "FirstSecond", false],
+    ["<p>First</p><p>Second</p>", "First Second", true],
+    ["First<br/>Second", "First Second", true],
+    ["The amount is < 5 and > 2", "< 5 and > 2", true],
+  ])("searches visible text in %s for %s", async (transcribedText, query, matches) => {
+    mocks.queryGet.mockResolvedValueOnce({
+      docs: [{ id: "doc", data: () => ({ transcribedText }) }],
+    });
+    const result = await getTranscriptions(10, undefined, query, "all", "user-1");
+    expect(result.transcriptions.map(({ id }) => id)).toEqual(matches ? ["doc"] : []);
   });
 
   it("ignores out-of-range numeric HTML entities without throwing", async () => {
@@ -244,10 +340,10 @@ describe("getTranscriptions case-insensitive search", () => {
     expect(res.success).toBe(true);
     expect(res.transcriptions.map((r) => r.id)).toEqual(["match-0", "match-1"]);
     expect(res.hasMore).toBe(true);
-    expect((res as { nextCursorId?: string }).nextCursorId).toBe("match-1");
+    expect(res.nextCursorId).toBe("match-1");
   });
 
-  it("returns nextCursorId when bounded scan hits MAX_SCAN with more docs remaining", async () => {
+  it.each(["mobile API", "server action"])("returns the scan cursor on an empty page through the %s", async (surface) => {
     const batch = Array.from({ length: 100 }, (_, i) => ({
       id: `doc-${i}`,
       data: () => ({
@@ -265,11 +361,15 @@ describe("getTranscriptions case-insensitive search", () => {
       .mockResolvedValueOnce({ docs: batch })
       .mockResolvedValueOnce({ docs: batch });
 
-    const res = await getTranscriptions(10, undefined, "needle", "all", "user-1");
-    expect(res.success).toBe(true);
-    expect(res.transcriptions).toEqual([]);
-    expect(res.hasMore).toBe(true);
-    expect((res as { nextCursorId?: string }).nextCursorId).toBe("doc-99");
+    const res = surface === "server action"
+      ? await getTranscriptionsAction(10, undefined, "needle", "all")
+      : (await (await GET(new Request("http://localhost/api/v1/transcriptions?q=needle"))).json()).data;
+    expect(res).toEqual({
+      success: true,
+      transcriptions: [],
+      hasMore: true,
+      nextCursorId: "doc-99",
+    });
   });
 
   it("PATCH /api/v1/transcriptions/:id rejects oversized content-length > 8 KB", async () => {

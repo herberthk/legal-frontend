@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,7 +38,8 @@ export const TranscriptionHistory = ({
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
-  const [hasMore, setHasMore] = useState(false);
+  const [nextCursorId, setNextCursorId] = useState<string>();
+  const latestRequest = useRef({ id: 0 });
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recordToDelete, setRecordToDelete] = useState<TranscriptionRecord | null>(null);
@@ -54,18 +55,15 @@ export const TranscriptionHistory = ({
   }, [searchQuery]);
 
   const fetchTranscriptions = useCallback(
-    async (isLoadMore = false) => {
+    async (beforeId?: string) => {
+      const requestId = ++latestRequest.current.id;
       try {
-        if (isLoadMore) {
+        if (beforeId) {
           setIsLoadingMore(true);
         } else {
           setIsLoading(true);
+          setNextCursorId(undefined);
         }
-
-        const beforeId =
-          isLoadMore && transcriptions.length > 0
-            ? transcriptions[transcriptions.length - 1].id
-            : undefined;
 
         const res = await getTranscriptions(
           10,
@@ -74,8 +72,9 @@ export const TranscriptionHistory = ({
           timeRange,
         );
 
+        if (requestId !== latestRequest.current.id) return;
         if (res.success) {
-          if (isLoadMore) {
+          if (beforeId) {
             setTranscriptions((prev) => [
               ...prev,
               ...(res.transcriptions || []),
@@ -83,7 +82,10 @@ export const TranscriptionHistory = ({
           } else {
             setTranscriptions(res.transcriptions || []);
           }
-          setHasMore(res.hasMore || false);
+          const lastListedId = debouncedSearch.trim()
+            ? undefined
+            : res.transcriptions.at(-1)?.id;
+          setNextCursorId(res.hasMore ? res.nextCursorId ?? lastListedId : undefined);
         } else {
           toast.error("Failed to load transcriptions", {
             description: res.error,
@@ -91,21 +93,25 @@ export const TranscriptionHistory = ({
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
+        if (requestId !== latestRequest.current.id) return;
         toast.error("An error occurred while loading history.", {
           description: error.message,
         });
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (requestId === latestRequest.current.id) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     },
-    [debouncedSearch, timeRange, transcriptions],
+    [debouncedSearch, timeRange],
   );
 
   useEffect(() => {
-    fetchTranscriptions(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, timeRange]);
+    const request = latestRequest.current;
+    void fetchTranscriptions();
+    return () => { request.id++; };
+  }, [fetchTranscriptions]);
 
   const confirmDelete = useCallback((record: TranscriptionRecord, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -303,11 +309,15 @@ export const TranscriptionHistory = ({
 
       <div className="flex-1">
         {transcriptions.length === 0 ? (
-          <TranscriptionEmptyState
-            searchQuery={searchQuery}
-            timeRange={timeRange}
-            onNewTranscription={onNewTranscription}
-          />
+          nextCursorId ? (
+            <p className="text-center">No matches on this page. Load more to keep searching.</p>
+          ) : (
+            <TranscriptionEmptyState
+              searchQuery={searchQuery}
+              timeRange={timeRange}
+              onNewTranscription={onNewTranscription}
+            />
+          )
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence>
@@ -331,10 +341,10 @@ export const TranscriptionHistory = ({
           </div>
         )}
 
-        {hasMore && (
+        {nextCursorId && (
           <div className="mt-12 flex justify-center">
             <button
-              onClick={() => fetchTranscriptions(true)}
+              onClick={() => fetchTranscriptions(nextCursorId)}
               disabled={isLoadingMore}
               className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-bold rounded-xl border border-indigo-100 dark:border-indigo-900 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shadow-sm disabled:opacity-50"
             >

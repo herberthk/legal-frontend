@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/api/read-bounded-json";
 import { transcribeDocument } from "@/services/transcribe";
 import { STORAGE_PATHS } from "@/constants/buckets";
 
@@ -52,34 +53,27 @@ export async function handleTranscribeRequest(
   req: Request,
   userId: string,
 ): Promise<Response> {
-  // 1. Guard against unexpectedly large request bodies early.
-  const contentLengthHeader = req.headers.get("content-length");
-  if (contentLengthHeader) {
-    const contentLength = parseInt(contentLengthHeader, 10);
-    if (!Number.isNaN(contentLength) && contentLength > MAX_BODY_BYTES) {
+  let body: unknown;
+  try {
+    body = await readBoundedJson(req, MAX_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
       return Response.json(
         { error: "Payload too large. Request body must be 32 KB or less." },
         { status: 413 },
       );
     }
-  }
-
-  // 2. Parse JSON body
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
     return Response.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  // 3. Validate with Zod schema
+  // 2. Validate with Zod schema
   const parsed = transcribePostSchema.safeParse(body);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0]?.message || "Invalid request body.";
     return Response.json({ error: firstIssue }, { status: 400 });
   }
 
-  // 4. Security check: prevent path traversal and enforce user-specific temp-folder ownership (must reference a file, not a directory)
+  // 3. Security check: prevent path traversal and enforce user-specific temp-folder ownership (must reference a file, not a directory)
   const cleanPath = parsed.data.storagePath.trim();
   const expectedPrefix = `${STORAGE_PATHS.TRANSCRIPTIONS_TEMP}/${userId}/`;
   if (
@@ -98,7 +92,7 @@ export async function handleTranscribeRequest(
     );
   }
 
-  // 5. Delegate to the service (credit check, AI call, usage deduction)
+  // 4. Delegate to the service (credit check, AI call, usage deduction)
   const result = await transcribeDocument(parsed.data, userId);
 
   if (!result.success) {

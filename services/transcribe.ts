@@ -352,7 +352,7 @@ const HTML_ENTITY_MAP: Record<string, string> = {
 };
 
 function decodeSearchEntities(input: string): string {
-  return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (full, entity: string) => {
+  return input.replace(/&(#[xX]?[0-9a-fA-F]+|[a-zA-Z]+);/g, (full, entity: string) => {
     if (entity.startsWith("#x") || entity.startsWith("#X")) {
       const code = Number.parseInt(entity.slice(2), 16);
       return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
@@ -369,13 +369,30 @@ function decodeSearchEntities(input: string): string {
   });
 }
 
+const SEARCH_BLOCK_TAG = /^(address|article|aside|blockquote|br|caption|dd|details|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|table|tbody|td|tfoot|th|thead|tr|ul)$/i;
+
+function stripSearchTags(input: string): string {
+  return input.replace(
+    /<\/?([a-z][a-z0-9-]*)(?:\s(?:"[^"<]*"|'[^'<]*'|[^"'<>])*)?\/?>/gi,
+    (_, tag: string) => SEARCH_BLOCK_TAG.test(tag) ? " " : "",
+  );
+}
+
+export type TranscriptionHistoryPage = {
+  success: boolean;
+  transcriptions: TranscriptionRecord[];
+  hasMore: boolean;
+  nextCursorId?: string;
+  error?: string;
+};
+
 export async function getTranscriptions(
   limitCount = 10,
   beforeId: string | undefined,
   searchQuery: string | undefined,
   timeRange: "24h" | "7d" | "30d" | "all" | undefined,
   userId: string,
-) {
+): Promise<TranscriptionHistoryPage> {
   try {
     if (!userId) {
       throw new Error("Unauthorized");
@@ -445,6 +462,7 @@ export async function getTranscriptions(
     // Case-insensitive substring search across title, fileName, and plain text.
     // Scans bounded batches using only the (userId, createdAt) composite index.
     const needle = trimmedQuery.toLowerCase();
+    const bodyNeedle = needle.replace(/\s+/g, " ");
     const MAX_SCAN = 250;
     const batchSize = Math.min(Math.max(limitCount * 5, 50), 100);
     const matched: TranscriptionRecord[] = [];
@@ -469,15 +487,17 @@ export async function getTranscriptions(
       for (const doc of snapshot.docs) {
         const record = toRecord(doc);
         const plainBody = decodeSearchEntities(
-          (record.transcribedText ?? "").replace(/<[^>]*>/g, " "),
-        ).toLowerCase();
+          stripSearchTags(record.transcribedText ?? ""),
+        )
+          .toLowerCase()
+          .replace(/\s+/g, " ");
         const titleLower = (record.title ?? "").toLowerCase();
         const fileLower = (record.fileName ?? "").toLowerCase();
 
         if (
           titleLower.includes(needle) ||
           fileLower.includes(needle) ||
-          plainBody.includes(needle)
+          plainBody.includes(bodyNeedle)
         ) {
           matched.push(record);
           if (matched.length > limitCount) {
