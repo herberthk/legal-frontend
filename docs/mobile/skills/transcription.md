@@ -191,15 +191,19 @@ const { id } = await apiFetch<{ id: string }>("/transcriptions/records", {
 ## List / read / delete history
 
 ```
-GET /transcriptions?limit=10&beforeId=<lastId>&q=<search>&timeRange=24h|7d|30d|all
-→ 200 { "data": { "success": true, "transcriptions": TranscriptionRecord[], "hasMore": true } }
+GET /transcriptions?limit=10&beforeId=<cursorId>&q=<search>&timeRange=24h|7d|30d|all
+→ 200 { "data": { "success": true, "transcriptions": TranscriptionRecord[], "hasMore": true, "nextCursorId": "…" } }
 
 GET    /transcriptions/:id     → { "data": { "success": true, "record": TranscriptionRecord } }
 DELETE /transcriptions/:id     → { "data": { "success": true, "fileUrl": "https://…" } }
 ```
 
-- **Cursor pagination:** pass the last item's `id` as `beforeId` for the next page;
-  stop when `hasMore` is `false`. `limit` ≤ 50 (default 10).
+- **Cursor pagination:** for a nonblank `q`, pass `data.nextCursorId` as
+  `beforeId` whenever `data.hasMore` is `true`, even if `transcriptions` is
+  empty. A search cursor can point past the last displayed match. Without a
+  search, use the last item's `id` when `hasMore` is `true`. Keep `q` and
+  `timeRange` the same between pages. Stop when `hasMore` is `false`.
+  `limit` ≤ 50 (default 10).
 - `q` filters by text; `timeRange` windows by recency.
 - On delete, the returned `fileUrl` (if any) is the Storage object you may also
   want to delete client-side — the server only removes the Firestore record.

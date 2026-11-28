@@ -342,19 +342,63 @@ export async function saveTranscriptionRecord(
   }
 }
 
+const HTML_ENTITY_MAP: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+function decodeSearchEntities(input: string): string {
+  return input.replace(/&(#[xX]?[0-9a-fA-F]+|[a-zA-Z]+);/g, (full, entity: string) => {
+    if (entity.startsWith("#x") || entity.startsWith("#X")) {
+      const code = Number.parseInt(entity.slice(2), 16);
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : full;
+    }
+    if (entity.startsWith("#")) {
+      const code = Number.parseInt(entity.slice(1), 10);
+      return Number.isFinite(code) && code >= 0 && code <= 0x10ffff
+        ? String.fromCodePoint(code)
+        : full;
+    }
+    return HTML_ENTITY_MAP[entity.toLowerCase()] ?? full;
+  });
+}
+
+const SEARCH_BLOCK_TAG = /^(address|article|aside|blockquote|br|caption|dd|details|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|table|tbody|td|tfoot|th|thead|tr|ul)$/i;
+
+function stripSearchTags(input: string): string {
+  return input.replace(
+    /<\/?([a-z][a-z0-9-]*)(?:\s(?:"[^"<]*"|'[^'<]*'|[^"'<>])*)?\/?>/gi,
+    (_, tag: string) => SEARCH_BLOCK_TAG.test(tag) ? " " : "",
+  );
+}
+
+export type TranscriptionHistoryPage = {
+  success: boolean;
+  transcriptions: TranscriptionRecord[];
+  hasMore: boolean;
+  nextCursorId?: string;
+  error?: string;
+};
+
 export async function getTranscriptions(
   limitCount = 10,
   beforeId: string | undefined,
   searchQuery: string | undefined,
   timeRange: "24h" | "7d" | "30d" | "all" | undefined,
   userId: string,
-) {
+): Promise<TranscriptionHistoryPage> {
   try {
     if (!userId) {
       throw new Error("Unauthorized");
     }
 
-    let collectionRef: FirebaseFirestore.Query = db
+    let baseRef: FirebaseFirestore.Query = db
       .collection(COLLECTIONS.TRANSCRIPTIONS)
       .where("userId", "==", userId);
 
@@ -368,56 +412,119 @@ export async function getTranscriptions(
       } else {
         filterDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
-      collectionRef = collectionRef.where("createdAt", ">=", filterDate);
+      baseRef = baseRef.where("createdAt", ">=", filterDate);
     }
 
-    if (searchQuery) {
-      // Very basic prefix search since Firestore lacks full text search
-      // Using \uf8ff to get items that start with searchQuery
-      collectionRef = collectionRef
-        .where("title", ">=", searchQuery)
-        .where("title", "<=", searchQuery + "\uf8ff");
-    }
+    baseRef = baseRef.orderBy("createdAt", "desc");
 
-    // Always sort by createdAt desc unless restricted by inequality constraints.
-    // If searching by title, we need to order by title first, then createdAt
-    if (searchQuery) {
-      collectionRef = collectionRef
-        .orderBy("title")
-        .orderBy("createdAt", "desc");
-    } else {
-      collectionRef = collectionRef.orderBy("createdAt", "desc");
-    }
-
+    let cursorDoc: FirebaseFirestore.DocumentSnapshot | undefined;
     if (beforeId) {
-      const cursorDoc = await db
+      const candidate = await db
         .collection(COLLECTIONS.TRANSCRIPTIONS)
         .doc(beforeId)
         .get();
-      if (cursorDoc.exists && cursorDoc.data()?.userId === userId) {
-        if (!searchQuery || typeof cursorDoc.data()?.title === "string") {
-          collectionRef = collectionRef.startAfter(cursorDoc);
-        }
+      if (candidate.exists && candidate.data()?.userId === userId) {
+        cursorDoc = candidate;
       }
     }
 
-    const snapshot = await collectionRef.limit(limitCount + 1).get();
+    const toRecord = (
+      doc: FirebaseFirestore.QueryDocumentSnapshot,
+    ): TranscriptionRecord => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+        createdAt:
+          data.createdAt?.toDate().toISOString() || new Date().toISOString(),
+        updatedAt:
+          data.updatedAt?.toDate().toISOString() || new Date().toISOString(),
+      } as TranscriptionRecord;
+    };
 
-    const hasMore = snapshot.docs.length > limitCount;
-    const docs = hasMore ? snapshot.docs.slice(0, limitCount) : snapshot.docs;
+    const trimmedQuery = searchQuery?.trim() ?? "";
 
-    const transcriptions = docs.map((doc) => ({
-      ...doc.data(),
-      id: doc.id,
-      createdAt:
-        doc.data().createdAt?.toDate().toISOString() ||
-        new Date().toISOString(),
-      updatedAt:
-        doc.data().updatedAt?.toDate().toISOString() ||
-        new Date().toISOString(),
-    })) as TranscriptionRecord[];
+    if (!trimmedQuery) {
+      let queryRef = baseRef;
+      if (cursorDoc) {
+        queryRef = queryRef.startAfter(cursorDoc);
+      }
+      const snapshot = await queryRef.limit(limitCount + 1).get();
+      const hasMore = snapshot.docs.length > limitCount;
+      const docs = hasMore ? snapshot.docs.slice(0, limitCount) : snapshot.docs;
+      return {
+        success: true,
+        transcriptions: docs.map(toRecord),
+        hasMore,
+      };
+    }
 
-    return { success: true, transcriptions, hasMore };
+    // Case-insensitive substring search across title, fileName, and plain text.
+    // Scans bounded batches using only the (userId, createdAt) composite index.
+    const needle = trimmedQuery.toLowerCase();
+    const bodyNeedle = needle.replace(/\s+/g, " ");
+    const MAX_SCAN = 250;
+    const batchSize = Math.min(Math.max(limitCount * 5, 50), 100);
+    const matched: TranscriptionRecord[] = [];
+    let scanned = 0;
+    let lastDoc: FirebaseFirestore.DocumentSnapshot | undefined = cursorDoc;
+    let exhausted = false;
+
+    while (matched.length <= limitCount && scanned < MAX_SCAN) {
+      let queryRef = baseRef;
+      if (lastDoc) {
+        queryRef = queryRef.startAfter(lastDoc);
+      }
+      const snapshot = await queryRef.limit(batchSize).get();
+      if (snapshot.docs.length === 0) {
+        exhausted = true;
+        break;
+      }
+
+      scanned += snapshot.docs.length;
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+      for (const doc of snapshot.docs) {
+        const record = toRecord(doc);
+        const plainBody = decodeSearchEntities(
+          stripSearchTags(record.transcribedText ?? ""),
+        )
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+        const titleLower = (record.title ?? "").toLowerCase();
+        const fileLower = (record.fileName ?? "").toLowerCase();
+
+        if (
+          titleLower.includes(needle) ||
+          fileLower.includes(needle) ||
+          plainBody.includes(bodyNeedle)
+        ) {
+          matched.push(record);
+          if (matched.length > limitCount) {
+            break;
+          }
+        }
+      }
+
+      if (snapshot.docs.length < batchSize) {
+        exhausted = true;
+        break;
+      }
+    }
+
+    const hasMore =
+      matched.length > limitCount || (!exhausted && scanned >= MAX_SCAN);
+    const returned = matched.slice(0, limitCount);
+    const nextCursorId =
+      matched.length > limitCount
+        ? returned[returned.length - 1]?.id
+        : lastDoc?.id;
+    return {
+      success: true,
+      transcriptions: returned,
+      hasMore,
+      ...(hasMore && nextCursorId ? { nextCursorId } : {}),
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error("Error getting transcriptions:", error);
@@ -427,6 +534,46 @@ export async function getTranscriptions(
       hasMore: false,
       error: "Failed to retrieve transcriptions.",
     };
+  }
+}
+
+export async function renameTranscriptionRecord(
+  id: string,
+  title: string,
+  userId: string,
+): Promise<{
+  success: boolean;
+  id?: string;
+  title?: string;
+  notFound?: boolean;
+  error?: string;
+}> {
+  try {
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const docRef = db.collection(COLLECTIONS.TRANSCRIPTIONS).doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists || doc.data()?.userId !== userId) {
+      return {
+        success: false,
+        notFound: true,
+        error: "Transcription not found",
+      };
+    }
+
+    await docRef.update({
+      title,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, id, title };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error("Error renaming transcription:", error);
+    return { success: false, error: "Failed to rename transcription." };
   }
 }
 

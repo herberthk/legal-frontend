@@ -40,12 +40,7 @@ export async function getTranscriptions(
   beforeId?: string,
   searchQuery?: string,
   timeRange?: "24h" | "7d" | "30d" | "all",
-): Promise<{
-  success: boolean;
-  transcriptions: TranscriptionRecord[];
-  hasMore: boolean;
-  error?: string;
-}> {
+): Promise<transcribeService.TranscriptionHistoryPage> {
   try {
     const userId = await getAuthenticatedUserId();
     if (!userId) {

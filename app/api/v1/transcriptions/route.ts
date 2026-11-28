@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/api/read-bounded-json";
 import { requireMobileAuth } from "@/lib/api/v1/guard";
 import { transcribeDocument, getTranscriptions } from "@/services/transcribe";
 import { transcribePostSchema } from "@/lib/api/handlers/transcribe";
@@ -9,12 +10,14 @@ import {
   internalError,
 } from "@/lib/api/v1/response";
 
+const MAX_BODY_BYTES = 32 * 1024;
+
 /**
  * `POST /api/v1/transcriptions` — runs a metered Gemini transcription over a
- * base64-encoded document (the RN client reads the picked file as base64). This
+ * document uploaded to Firebase Storage (`temp/transcriptions/<uid>/...`). This
  * only transcribes + bills; persisting the result to history is a separate call
- * to `POST /api/v1/transcriptions/records` (mirrors the web, which uploads the
- * file to Storage first, then saves the record with its `fileUrl`).
+ * to `POST /api/v1/transcriptions/records` (which atomically promotes the temp
+ * file to permanent storage).
  *
  * `GET /api/v1/transcriptions` — paginated history for the caller.
  */
@@ -26,8 +29,11 @@ export async function POST(req: Request) {
 
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
+    body = await readBoundedJson(req, MAX_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return badRequest("Payload too large. Request body must be 32 KB or less.");
+    }
     return badRequest("Invalid JSON body");
   }
   const parsed = transcribePostSchema.safeParse(body);
