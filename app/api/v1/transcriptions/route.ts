@@ -9,12 +9,14 @@ import {
   internalError,
 } from "@/lib/api/v1/response";
 
+const MAX_BODY_BYTES = 32 * 1024;
+
 /**
  * `POST /api/v1/transcriptions` — runs a metered Gemini transcription over a
- * base64-encoded document (the RN client reads the picked file as base64). This
+ * document uploaded to Firebase Storage (`temp/transcriptions/<uid>/...`). This
  * only transcribes + bills; persisting the result to history is a separate call
- * to `POST /api/v1/transcriptions/records` (mirrors the web, which uploads the
- * file to Storage first, then saves the record with its `fileUrl`).
+ * to `POST /api/v1/transcriptions/records` (which atomically promotes the temp
+ * file to permanent storage).
  *
  * `GET /api/v1/transcriptions` — paginated history for the caller.
  */
@@ -23,6 +25,14 @@ export const maxDuration = 120;
 export async function POST(req: Request) {
   const gate = await requireMobileAuth(req);
   if (gate instanceof Response) return gate;
+
+  const contentLengthHeader = req.headers.get("content-length");
+  if (contentLengthHeader) {
+    const contentLength = parseInt(contentLengthHeader, 10);
+    if (!Number.isNaN(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return badRequest("Payload too large. Request body must be 32 KB or less.");
+    }
+  }
 
   let body: unknown;
   try {
